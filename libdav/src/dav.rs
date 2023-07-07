@@ -288,6 +288,7 @@ impl WebDavClient {
     /// # Errors
     ///
     /// If there are any network errors or the response could not be parsed.
+    // TODO: document whether the value needs to be escaped or not.
     pub async fn propupdate(
         &self,
         url: &Uri,

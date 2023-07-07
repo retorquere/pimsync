@@ -132,6 +132,7 @@ pub struct ItemDetails {
 }
 
 #[derive(Default, Debug, PartialEq, Eq)]
+// TODO: support unknown ones too...?
 pub struct ResourceType {
     pub is_collection: bool,
     pub is_calendar: bool,
