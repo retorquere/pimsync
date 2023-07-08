@@ -14,7 +14,6 @@ use http::{
 use hyper::{body::Bytes, client::HttpConnector, Body, Client};
 use hyper_rustls::{HttpsConnector, HttpsConnectorBuilder};
 use percent_encoding::percent_decode_str;
-use roxmltree::ExpandedName;
 
 use crate::{
     auth::AuthExt,
@@ -27,7 +26,7 @@ use crate::{
         check_multistatus, get_newline_corrected_text, get_unquoted_href, quote_href, render_xml,
         render_xml_with_text,
     },
-    Auth, AuthError, FetchedResource, FetchedResourceContent, ItemDetails, ResourceType,
+    Auth, AuthError, FetchedResource, FetchedResourceContent, ItemDetails, Property, ResourceType,
 };
 
 /// A generic error for WebDav operations.
@@ -212,7 +211,7 @@ impl WebDavClient {
     pub(crate) async fn find_href_prop_as_uri(
         &self,
         url: &Uri,
-        property: &ExpandedName<'_, '_>,
+        property: &Property<'_, '_>,
     ) -> Result<Option<Uri>, DavError> {
         let (head, body) = self.propfind(url, &[property], 0).await?;
         check_status(head.status)?;
@@ -230,7 +229,7 @@ impl WebDavClient {
     pub async fn propfind(
         &self,
         url: &Uri,
-        properties: &[&ExpandedName<'_, '_>],
+        properties: &[&Property<'_, '_>],
         depth: u8,
     ) -> Result<(Parts, Bytes), DavError> {
         let mut props = String::new();
@@ -292,7 +291,7 @@ impl WebDavClient {
     pub async fn propupdate(
         &self,
         url: &Uri,
-        property: &ExpandedName<'_, '_>,
+        property: &Property<'_, '_>,
         value: Option<&str>,
     ) -> Result<(), DavError> {
         let action = match value {
@@ -537,7 +536,7 @@ impl WebDavClient {
     pub async fn create_collection<Href: AsRef<str>>(
         &self,
         href: Href,
-        resourcetypes: &[&ExpandedName<'_, '_>],
+        resourcetypes: &[&Property<'_, '_>],
     ) -> Result<(), DavError> {
         let mut rendered_resource_types = String::new();
         for resource_type in resourcetypes {
@@ -635,7 +634,7 @@ impl WebDavClient {
         &self,
         collection_href: &str,
         body: String,
-        property: &ExpandedName<'_, '_>,
+        property: &Property<'_, '_>,
     ) -> Result<Vec<FetchedResource>, DavError> {
         let request = self
             .request_builder()?
@@ -692,7 +691,7 @@ pub struct FoundCollection {
 pub(crate) fn parse_prop_href<B: AsRef<[u8]>>(
     body: B,
     url: &Uri,
-    property: &ExpandedName<'_, '_>,
+    property: &Property<'_, '_>,
 ) -> Result<Option<Uri>, DavError> {
     let body = std::str::from_utf8(body.as_ref())?;
     let doc = roxmltree::Document::parse(body)?;
@@ -730,7 +729,7 @@ pub(crate) fn parse_prop_href<B: AsRef<[u8]>>(
 
 fn parse_prop<B: AsRef<[u8]>>(
     body: B,
-    property: &ExpandedName<'_, '_>,
+    property: &Property<'_, '_>,
 ) -> Result<Option<String>, DavError> {
     let body = std::str::from_utf8(body.as_ref())?;
     let doc = roxmltree::Document::parse(body)?;
@@ -811,7 +810,7 @@ fn list_resources_parse<B: AsRef<[u8]>>(
 
 fn multi_get_parse<B: AsRef<[u8]>>(
     body: B,
-    property: &ExpandedName<'_, '_>,
+    property: &Property<'_, '_>,
 ) -> Result<Vec<FetchedResource>, DavError> {
     let body = std::str::from_utf8(body.as_ref())?;
     let doc = roxmltree::Document::parse(body)?;

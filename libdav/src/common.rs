@@ -9,12 +9,11 @@ use crate::{
     dns::{find_context_path_via_txt_records, resolve_srv_record, DiscoverableService},
     names,
     xmlutils::get_unquoted_href,
-    BootstrapError,
+    BootstrapError, Property,
 };
 use domain::base::Dname;
 
 use hyper::Uri;
-use roxmltree::ExpandedName;
 
 /// A big chunk of the bootstrap logic that's shared between both types.
 ///
@@ -73,7 +72,7 @@ pub(crate) async fn common_bootstrap(
 
 pub(crate) fn parse_find_multiple_collections<B: AsRef<[u8]>>(
     body: B,
-    only: &ExpandedName<'_, '_>,
+    only: &Property<'_, '_>,
 ) -> Result<Vec<FoundCollection>, DavError> {
     let body = std::str::from_utf8(body.as_ref())?;
     let doc = roxmltree::Document::parse(body)?;

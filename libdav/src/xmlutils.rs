@@ -10,11 +10,11 @@ use http::status::InvalidStatusCode;
 use http::StatusCode;
 use percent_encoding::percent_encode;
 use percent_encoding::{percent_decode_str, AsciiSet, NON_ALPHANUMERIC};
-use roxmltree::ExpandedName;
 use roxmltree::Node;
 
 use crate::dav::{check_status, DavError};
 use crate::names::STATUS;
+use crate::Property;
 
 /// Characters that are escaped for hrefs.
 pub(crate) const DISALLOWED_FOR_HREF: &AsciiSet = &NON_ALPHANUMERIC.remove(b'/').remove(b'.');
@@ -62,7 +62,7 @@ pub fn parse_statusline<S: AsRef<str>>(status_line: S) -> Result<StatusCode, Inv
 }
 
 /// Render an empty XML node.
-pub(crate) fn render_xml(name: &ExpandedName) -> String {
+pub(crate) fn render_xml(name: &Property) -> String {
     if let Some(ns) = name.namespace() {
         format!("<{0} xmlns=\"{1}\"/>", name.name(), ns)
     } else {
@@ -71,7 +71,7 @@ pub(crate) fn render_xml(name: &ExpandedName) -> String {
 }
 
 /// Render an XML node with optional text.
-pub fn render_xml_with_text<S: AsRef<str>>(name: &ExpandedName, text: Option<S>) -> String {
+pub fn render_xml_with_text<S: AsRef<str>>(name: &Property, text: Option<S>) -> String {
     match (name.namespace(), text) {
         (None, None) => format!("<{}/>", name.name()),
         (None, Some(t)) => format!("<{0}>{1}</{0}>", name.name(), escape_text(t.as_ref())),
@@ -204,7 +204,7 @@ pub(crate) fn quote_href<'a>(href: &'a [u8]) -> Cow<'a, str> {
 #[inline]
 pub(crate) fn get_newline_corrected_text(
     node: &Node,
-    property: &ExpandedName<'_, '_>,
+    property: &Property<'_, '_>,
 ) -> Result<String, DavError> {
     let raw_data = node
         .descendants()

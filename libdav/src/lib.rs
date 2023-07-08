@@ -37,9 +37,10 @@ pub mod xmlutils;
 pub use caldav::CalDavClient;
 pub use carddav::CardDavClient;
 
-/// Re-export of `roxmltree::ExpandedName`.
+/// A WebDav property with a `namespace` and `name`.
 ///
-pub use roxmltree::ExpandedName;
+/// This is currently an alias of [`roxmltree::ExpandedName`].
+pub type Property<'ns, 'name> = roxmltree::ExpandedName<'ns, 'name>;
 
 /// An error automatically bootstrapping a new client.
 #[derive(thiserror::Error, Debug)]
