@@ -197,7 +197,7 @@ pub(crate) fn get_unquoted_href<'a>(node: &'a Node) -> Result<Cow<'a, str>, DavE
 // URL-encodes an href.
 //
 // Obviously the input parameter MUST NOT be url-encoded.
-pub(crate) fn quote_href<'a>(href: &'a [u8]) -> Cow<'a, str> {
+pub(crate) fn quote_href(href: &[u8]) -> Cow<'_, str> {
     Cow::from(percent_encode(href, DISALLOWED_FOR_HREF))
 }
 
