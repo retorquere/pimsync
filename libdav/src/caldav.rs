@@ -4,7 +4,7 @@
 
 use std::ops::Deref;
 
-use http::Method;
+use http::{Method, Request};
 use hyper::{Body, Uri};
 use log::debug;
 
@@ -216,7 +216,13 @@ impl CalDavClient {
     // TODO: DRY: the above methods are super repetitive.
     //       Maybe all these props impl a single trait, so the API could be `get_prop<T>(url)`?
 
+    // TODO: check link in doc:
+    // TODO: same note on carddav.
     /// Fetches existing icalendar resources.
+    ///
+    /// If the `getetag` property is missing for an item, it will be reported as
+    /// [`http::StatusCode::NOT_FOUND`]. This should not be an actual issue with in practice, since
+    /// support for `getetag` is mandatory for CalDav implementations.
     ///
     /// # Errors
     ///
@@ -265,8 +271,7 @@ impl CalDavClient {
     /// If there are any network issues or if the server does not explicitly advertise caldav
     /// support.
     pub async fn check_support(&self, url: &Uri) -> Result<(), CheckSupportError> {
-        let request = self
-            .request_builder()?
+        let request = Request::builder()
             .method(Method::OPTIONS)
             .uri(url)
             .body(Body::empty())?;

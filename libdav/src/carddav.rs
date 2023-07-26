@@ -4,7 +4,7 @@
 
 use std::ops::Deref;
 
-use http::Method;
+use http::{Method, Request};
 use hyper::{Body, Uri};
 use log::debug;
 
@@ -192,8 +192,7 @@ impl CardDavClient {
     /// If there are any network issues or if the server does not explicitly advertise carddav
     /// support.
     pub async fn check_support(&self, url: &Uri) -> Result<(), CheckSupportError> {
-        let request = self
-            .request_builder()?
+        let request = Request::builder()
             .method(Method::OPTIONS)
             .uri(url)
             .body(Body::empty())?;

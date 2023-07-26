@@ -16,7 +16,6 @@ use hyper_rustls::{HttpsConnector, HttpsConnectorBuilder};
 use percent_encoding::percent_decode_str;
 
 use crate::{
-    auth::AuthExt,
     dns::DiscoverableService,
     names::{
         ADDRESSBOOK, CALENDAR, COLLECTION, CURRENT_USER_PRINCIPAL, DISPLAY_NAME, GETCONTENTTYPE,
@@ -26,14 +25,23 @@ use crate::{
         check_multistatus, get_newline_corrected_text, get_unquoted_href, quote_href, render_xml,
         render_xml_with_text,
     },
-    Auth, AuthError, FetchedResource, FetchedResourceContent, ItemDetails, Property, ResourceType,
+    Auth, FetchedResource, FetchedResourceContent, ItemDetails, Property, ResourceType,
 };
+
+#[derive(thiserror::Error, Debug)]
+pub enum RequestError {
+    #[error("http error executing request")]
+    Network(#[from] hyper::Error),
+
+    #[error("error resolving authentication")]
+    BadAuth(#[from] std::io::Error),
+}
 
 /// A generic error for WebDav operations.
 #[derive(thiserror::Error, Debug)]
 pub enum DavError {
-    #[error("http error executing request")]
-    Network(#[from] hyper::Error),
+    #[error("error performing http request")]
+    Request(#[from] RequestError),
 
     #[error("missing field '{0}' in response XML")]
     MissingData(&'static str),
@@ -49,9 +57,6 @@ pub enum DavError {
 
     #[error("failed to build URL with the given input")]
     InvalidInput(#[from] http::Error),
-
-    #[error("internal error with specified authentication")]
-    Auth(#[from] crate::AuthError),
 
     #[error("the server returned an response with an invalid etag header")]
     InvalidEtag(#[from] FromUtf8Error),
@@ -77,8 +82,8 @@ pub enum ResolveContextPathError {
     #[error("bad scheme in url")]
     BadScheme,
 
-    #[error("network error handling http stream")]
-    Network(#[from] hyper::Error),
+    #[error("error performing http request")]
+    Request(#[from] RequestError),
 
     #[error("missing Location header in response")]
     MissingLocation,
@@ -88,9 +93,6 @@ pub enum ResolveContextPathError {
     BadRelativeLocation(#[from] std::str::Utf8Error),
     #[error("error building new Uri with Location from response")]
     BadAbsoluteLocation(#[from] http::uri::InvalidUri),
-
-    #[error("internal error with specified authentication")]
-    Auth(#[from] AuthError),
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -105,6 +107,10 @@ pub enum FindCurrentUserPrincipalError {
 }
 
 /// A generic webdav client.
+// TODO: split this into 'client' and 'server'.
+//       the client is configured with http/s
+//       the 'server' type has the auth and base uri.
+//       basically, splits behavioural interface from state
 #[derive(Debug, Clone)]
 pub struct WebDavClient {
     /// Base URL to be used for all requests.
@@ -143,11 +149,6 @@ impl WebDavClient {
             http_client: Client::builder().build(https),
             principal: None,
         }
-    }
-
-    /// Returns a request builder with the proper `Authorization` header set.
-    pub(crate) fn request_builder(&self) -> Result<http::request::Builder, AuthError> {
-        Request::builder().authenticate(&self.auth)
     }
 
     /// Returns a URL pointing to the server's context path.
@@ -236,8 +237,7 @@ impl WebDavClient {
         for prop in properties {
             props.push_str(&render_xml(prop));
         }
-        let request = self
-            .request_builder()?
+        let request = Request::builder()
             .method("PROPFIND")
             .uri(url)
             .header("Content-Type", "application/xml; charset=utf-8")
@@ -246,17 +246,21 @@ impl WebDavClient {
                 r#"<propfind xmlns="DAV:"><prop>{props}</prop></propfind>"#
             )))?;
 
-        self.request(request).await.map_err(DavError::Network)
+        self.request(request).await.map_err(DavError::Request)
     }
 
-    // Internal wrapper around `http_client.request` that logs all response bodies.
-    pub(crate) async fn request(
-        &self,
-        request: Request<Body>,
-    ) -> Result<(Parts, Bytes), hyper::Error> {
+    /// Send a request to the server.
+    ///
+    /// Sends a request, applying any necessary authentication and logging the response.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the underlying http request fails or if streaming the response fails.
+    pub async fn request(&self, request: Request<Body>) -> Result<(Parts, Bytes), RequestError> {
         // QUIRK: When trying to fetch a resource on a URL that is a collection, iCloud
-        // will terminate the connection at this point (unexpected end of file).
-        let response = self.http_client.request(request).await?;
+        // will terminate the connection (which returns "unexpected end of file").
+
+        let response = self.http_client.request(self.auth.apply(request)?).await?;
         let (head, body) = response.into_parts();
         let body = hyper::body::to_bytes(body).await?;
 
@@ -299,8 +303,7 @@ impl WebDavClient {
             None => "remove",
         };
         let inner = render_xml_with_text(property, value);
-        let request = self
-            .request_builder()?
+        let request = Request::builder()
             .method(Method::from_bytes(b"PROPPATCH").expect("ugh"))
             .uri(url)
             .header("Content-Type", "application/xml; charset=utf-8")
@@ -380,8 +383,7 @@ impl WebDavClient {
             .path_and_query(service.well_known_path())
             .build()?;
 
-        let request = self
-            .request_builder()?
+        let request = Request::builder()
             .method(Method::GET)
             .uri(uri)
             .body(Body::default())?;
@@ -389,8 +391,7 @@ impl WebDavClient {
         // From https://www.rfc-editor.org/rfc/rfc6764#section-5:
         // > [...] the server MAY require authentication when a client tries to
         // > access the ".well-known" URI
-        let response = self.http_client.request(request).await?;
-        let (head, _body) = response.into_parts();
+        let (head, _body) = self.request(request).await?;
         log::debug!("Response finding context path: {}", head.status);
 
         if !head.status.is_redirection() {
@@ -449,8 +450,7 @@ impl WebDavClient {
         Etag: AsRef<str>,
         MimeType: AsRef<[u8]>,
     {
-        let mut builder = self
-            .request_builder()?
+        let mut builder = Request::builder()
             .method(Method::PUT)
             .uri(self.relative_uri(href)?)
             .header("Content-Type", mime_type.as_ref());
@@ -557,8 +557,7 @@ impl WebDavClient {
             </mkcol>"#
         );
 
-        let request = self
-            .request_builder()?
+        let request = Request::builder()
             .method("MKCOL")
             .uri(self.relative_uri(href.as_ref())?)
             .header("Content-Type", "application/xml; charset=utf-8")
@@ -588,18 +587,16 @@ impl WebDavClient {
         Href: AsRef<str>,
         Etag: AsRef<str>,
     {
-        let request = self
-            .request_builder()?
+        let request = Request::builder()
             .method(Method::DELETE)
             .uri(self.relative_uri(href.as_ref())?)
             .header("Content-Type", "application/xml; charset=utf-8")
             .header("If-Match", etag.as_ref())
             .body(Body::empty())?;
 
-        let response = self.http_client.request(request).await?;
-        let status = response.status();
+        let (head, _body) = self.request(request).await?;
 
-        check_status(status).map_err(DavError::BadStatusCode)
+        check_status(head.status).map_err(DavError::BadStatusCode)
     }
 
     /// Force deletion of the resource at `href`.
@@ -617,17 +614,15 @@ impl WebDavClient {
     where
         Href: AsRef<str>,
     {
-        let request = self
-            .request_builder()?
+        let request = Request::builder()
             .method(Method::DELETE)
             .uri(self.relative_uri(href.as_ref())?)
             .header("Content-Type", "application/xml; charset=utf-8")
             .body(Body::empty())?;
 
-        let response = self.http_client.request(request).await?;
-        let status = response.status();
+        let (head, _body) = self.request(request).await?;
 
-        check_status(status).map_err(DavError::BadStatusCode)
+        check_status(head.status).map_err(DavError::BadStatusCode)
     }
 
     pub(crate) async fn multi_get(
@@ -636,8 +631,7 @@ impl WebDavClient {
         body: String,
         property: &Property<'_, '_>,
     ) -> Result<Vec<FetchedResource>, DavError> {
-        let request = self
-            .request_builder()?
+        let request = Request::builder()
             .method(Method::from_bytes(b"REPORT").expect("API for HTTP methods is dumb"))
             .uri(self.relative_uri(collection_href)?)
             .header("Content-Type", "application/xml; charset=utf-8")

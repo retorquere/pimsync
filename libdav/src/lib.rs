@@ -18,9 +18,10 @@
 //! All functions that take a parameter named `href` (or similar ones like `calendar_href`) expect
 //! their input to NOT be URL-encoded.
 
-use crate::auth::{Auth, AuthError};
+use crate::auth::Auth;
 use dav::DavError;
 use dav::FindCurrentUserPrincipalError;
+use dav::RequestError;
 use dns::{SrvError, TxtError};
 use http::StatusCode;
 
@@ -100,14 +101,11 @@ pub enum CheckSupportError {
     #[error("the DAV header is not a valid string")]
     HeaderNotAscii(#[from] http::header::ToStrError),
 
-    #[error("http error executing request")]
-    Network(#[from] hyper::Error),
+    #[error("error performing http request")]
+    Request(#[from] RequestError),
 
     #[error("invalid input URL")]
     InvalidInput(#[from] http::Error),
-
-    #[error("internal error with specified authentication")]
-    Auth(#[from] crate::AuthError),
 
     #[error("http request returned {0}")]
     BadStatusCode(http::StatusCode),

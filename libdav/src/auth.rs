@@ -6,8 +6,10 @@
 
 use base64::{prelude::BASE64_STANDARD, write::EncoderWriter};
 use core::fmt;
-use http::{request::Builder, HeaderValue};
+use http::{HeaderValue, Request};
 use std::io::Write;
+
+use crate::dav::RequestError;
 
 /// Wrapper around a [`String`] that is not printed when debugging.
 ///
@@ -76,24 +78,12 @@ pub enum Auth {
     },
 }
 
-/// Internal error resolving authentication.
-///
-/// This error is returned when there is an internal error handling authentication (e.g.: the input
-/// is invalid). It IS NOT returned when authentication was rejected by the server.
-#[derive(thiserror::Error, Debug)]
-#[error(transparent)]
-pub struct AuthError(#[from] std::io::Error);
-
-pub(crate) trait AuthExt: Sized {
-    /// Apply this authentication to an object.
-    fn authenticate(self, auth: &Auth) -> Result<Self, AuthError>;
-}
-
-impl AuthExt for Builder {
-    /// Apply this authentication to a request builder.
-    fn authenticate(self, auth: &Auth) -> Result<Builder, AuthError> {
-        match auth {
-            Auth::None => Ok(self),
+impl Auth {
+    /// Apply this authentication to a request.
+    pub(crate) fn apply<B>(&self, mut request: Request<B>) -> Result<Request<B>, RequestError> {
+        // TODO: this will need to be async for things like Digest auth or OAuth.
+        match self {
+            Auth::None => Ok(request),
             Auth::Basic { username, password } => {
                 let mut sequence = b"Basic ".to_vec();
                 let mut encoder = EncoderWriter::new(sequence, &BASE64_STANDARD);
@@ -107,7 +97,12 @@ impl AuthExt for Builder {
                 let mut header = HeaderValue::from_bytes(&sequence)
                     .expect("base64 string contains only ascii characters");
                 header.set_sensitive(true);
-                Ok(self.header(hyper::header::AUTHORIZATION, header.clone()))
+
+                request
+                    .headers_mut()
+                    .insert(hyper::header::AUTHORIZATION, header);
+
+                Ok(request)
             }
         }
     }
