@@ -13,7 +13,7 @@ use percent_encoding::{percent_decode_str, AsciiSet, NON_ALPHANUMERIC};
 use roxmltree::Node;
 
 use crate::dav::{check_status, DavError};
-use crate::names::STATUS;
+use crate::names;
 use crate::Property;
 
 /// Characters that are escaped for hrefs.
@@ -31,7 +31,9 @@ pub(crate) const DISALLOWED_FOR_HREF: &AsciiSet = &NON_ALPHANUMERIC.remove(b'/')
 ///
 /// - If any of the statuses are non-success, returns [`DavError::BadStatusCode`].
 pub fn check_multistatus(root: Node) -> Result<(), DavError> {
-    let statuses = root.descendants().filter(|node| node.tag_name() == STATUS);
+    let statuses = root
+        .descendants()
+        .filter(|node| node.tag_name() == names::STATUS);
     for status in statuses {
         let status = status.text().ok_or(DavError::InvalidResponse(
             "missing text inside 'DAV:status'".into(),

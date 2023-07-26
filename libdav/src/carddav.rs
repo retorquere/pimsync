@@ -12,10 +12,7 @@ use crate::builder::{ClientBuilder, NeedsUri};
 use crate::common::{common_bootstrap, parse_find_multiple_collections};
 use crate::dav::{check_status, DavError, FoundCollection};
 use crate::dns::DiscoverableService;
-use crate::names::{
-    self, ADDRESSBOOK, ADDRESSBOOK_HOME_SET, ADDRESS_DATA, GETETAG, RESOURCETYPE,
-    SUPPORTED_REPORT_SET,
-};
+use crate::names;
 use crate::xmlutils::quote_href;
 use crate::{dav::WebDavClient, BootstrapError, FindHomeSetError};
 use crate::{CheckSupportError, FetchedResource};
@@ -116,7 +113,7 @@ impl CardDavClient {
     }
 
     async fn find_addressbook_home_set(&self, url: &Uri) -> Result<Option<Uri>, FindHomeSetError> {
-        self.find_href_prop_as_uri(url, &ADDRESSBOOK_HOME_SET)
+        self.find_href_prop_as_uri(url, &names::ADDRESSBOOK_HOME_SET)
             .await
             .map_err(FindHomeSetError)
     }
@@ -138,11 +135,19 @@ impl CardDavClient {
         let url = url.unwrap_or(self.addressbook_home_set.as_ref().unwrap_or(&self.base_url));
         // FIXME: DRY: This is almost a copy-paste of the same method from CalDavClient
         let (head, body) = self
-            .propfind(url, &[&RESOURCETYPE, &GETETAG, &SUPPORTED_REPORT_SET], 1)
+            .propfind(
+                url,
+                &[
+                    &names::RESOURCETYPE,
+                    &names::GETETAG,
+                    &names::SUPPORTED_REPORT_SET,
+                ],
+                1,
+            )
             .await?;
         check_status(head.status)?;
 
-        parse_find_multiple_collections(body, &ADDRESSBOOK)
+        parse_find_multiple_collections(body, &names::ADDRESSBOOK)
     }
 
     // TODO: get_addressbook_description ("addressbook-description", "urn:ietf:params:xml:ns:carddav")
@@ -179,7 +184,7 @@ impl CardDavClient {
         }
         body.push_str("</C:addressbook-multiget>");
 
-        self.multi_get(addressbook_href.as_ref(), body, &ADDRESS_DATA)
+        self.multi_get(addressbook_href.as_ref(), body, &names::ADDRESS_DATA)
             .await
     }
 

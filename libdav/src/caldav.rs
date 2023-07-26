@@ -12,10 +12,7 @@ use crate::builder::{ClientBuilder, NeedsUri};
 use crate::common::{common_bootstrap, parse_find_multiple_collections};
 use crate::dav::{check_status, DavError, FoundCollection};
 use crate::dns::DiscoverableService;
-use crate::names::{
-    self, CALENDAR, CALENDAR_COLOUR, CALENDAR_DATA, CALENDAR_HOME_SET, GETETAG, RESOURCETYPE,
-    SUPPORTED_REPORT_SET,
-};
+use crate::names;
 use crate::xmlutils::{check_multistatus, quote_href};
 use crate::{dav::WebDavClient, BootstrapError, FindHomeSetError};
 use crate::{CheckSupportError, FetchedResource};
@@ -123,7 +120,7 @@ impl CalDavClient {
     ///
     /// If there are any network errors or the response could not be parsed.
     async fn find_calendar_home_set(&self, url: &Uri) -> Result<Option<Uri>, FindHomeSetError> {
-        self.find_href_prop_as_uri(url, &CALENDAR_HOME_SET)
+        self.find_href_prop_as_uri(url, &names::CALENDAR_HOME_SET)
             .await
             .map_err(FindHomeSetError)
     }
@@ -144,11 +141,19 @@ impl CalDavClient {
     ) -> Result<Vec<FoundCollection>, DavError> {
         let url = url.unwrap_or(self.calendar_home_set.as_ref().unwrap_or(&self.base_url));
         let (head, body) = self
-            .propfind(url, &[&RESOURCETYPE, &GETETAG, &SUPPORTED_REPORT_SET], 1)
+            .propfind(
+                url,
+                &[
+                    &names::RESOURCETYPE,
+                    &names::GETETAG,
+                    &names::SUPPORTED_REPORT_SET,
+                ],
+                1,
+            )
             .await?;
         check_status(head.status)?;
 
-        parse_find_multiple_collections(body, &CALENDAR)
+        parse_find_multiple_collections(body, &names::CALENDAR)
     }
 
     /// Returns the colour for the calendar at path `href`.
@@ -168,7 +173,7 @@ impl CalDavClient {
     pub async fn get_calendar_colour(&self, href: &str) -> Result<Option<String>, DavError> {
         let url = self.relative_uri(href)?;
 
-        let (head, body) = self.propfind(&url, &[&CALENDAR_COLOUR], 0).await?;
+        let (head, body) = self.propfind(&url, &[&names::CALENDAR_COLOUR], 0).await?;
         check_status(head.status)?;
 
         let body = std::str::from_utf8(body.as_ref())?;
@@ -208,7 +213,7 @@ impl CalDavClient {
         colour: Option<&str>,
     ) -> Result<(), DavError> {
         let url = self.relative_uri(href)?;
-        self.propupdate(&url, &CALENDAR_COLOUR, colour).await
+        self.propupdate(&url, &names::CALENDAR_COLOUR, colour).await
     }
 
     // TODO: get_calendar_description ("calendar-description", "urn:ietf:params:xml:ns:caldav")
@@ -252,7 +257,7 @@ impl CalDavClient {
         }
         body.push_str("</C:calendar-multiget>");
 
-        self.multi_get(calendar_href.as_ref(), body, &CALENDAR_DATA)
+        self.multi_get(calendar_href.as_ref(), body, &names::CALENDAR_DATA)
             .await
     }
 

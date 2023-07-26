@@ -17,10 +17,7 @@ use percent_encoding::percent_decode_str;
 
 use crate::{
     dns::DiscoverableService,
-    names::{
-        ADDRESSBOOK, CALENDAR, COLLECTION, CURRENT_USER_PRINCIPAL, DISPLAY_NAME, GETCONTENTTYPE,
-        GETETAG, HREF, PROPSTAT, RESOURCETYPE, RESPONSE,
-    },
+    names,
     xmlutils::{
         check_multistatus, get_newline_corrected_text, get_unquoted_href, quote_href, render_xml,
         render_xml_with_text,
@@ -187,7 +184,7 @@ impl WebDavClient {
     ) -> Result<Option<Uri>, FindCurrentUserPrincipalError> {
         // Try querying the provided base url...
         let maybe_principal = self
-            .find_href_prop_as_uri(&self.base_url, &CURRENT_USER_PRINCIPAL)
+            .find_href_prop_as_uri(&self.base_url, &names::CURRENT_USER_PRINCIPAL)
             .await;
 
         match maybe_principal {
@@ -198,7 +195,7 @@ impl WebDavClient {
 
         // ... Otherwise, try querying the root path.
         let root = self.relative_uri("/")?;
-        self.find_href_prop_as_uri(&root, &CURRENT_USER_PRINCIPAL)
+        self.find_href_prop_as_uri(&root, &names::CURRENT_USER_PRINCIPAL)
             .await
             .map_err(FindCurrentUserPrincipalError::RequestError)
 
@@ -280,10 +277,10 @@ impl WebDavClient {
     pub async fn get_collection_displayname(&self, href: &str) -> Result<Option<String>, DavError> {
         let url = self.relative_uri(href)?;
 
-        let (head, body) = self.propfind(&url, &[&DISPLAY_NAME], 0).await?;
+        let (head, body) = self.propfind(&url, &[&names::DISPLAY_NAME], 0).await?;
         check_status(head.status)?;
 
-        parse_prop(body, &DISPLAY_NAME)
+        parse_prop(body, &names::DISPLAY_NAME)
     }
 
     /// Sends a `PROPUPDATE` query to the server.
@@ -353,7 +350,8 @@ impl WebDavClient {
         displayname: Option<&str>,
     ) -> Result<(), DavError> {
         let url = self.relative_uri(href)?;
-        self.propupdate(&url, &DISPLAY_NAME, displayname).await
+        self.propupdate(&url, &names::DISPLAY_NAME, displayname)
+            .await
     }
 
     /// Resolve the default context path using a well-known path.
@@ -430,7 +428,15 @@ impl WebDavClient {
         let url = self.relative_uri(collection_href)?;
 
         let (head, body) = self
-            .propfind(&url, &[&RESOURCETYPE, &GETCONTENTTYPE, &GETETAG], 1)
+            .propfind(
+                &url,
+                &[
+                    &names::RESOURCETYPE,
+                    &names::GETCONTENTTYPE,
+                    &names::GETETAG,
+                ],
+                1,
+            )
             .await?;
         check_status(head.status)?;
 
@@ -697,7 +703,10 @@ pub(crate) fn parse_prop_href<B: AsRef<[u8]>>(
         .collect::<Vec<_>>();
 
     if props.len() == 1 {
-        if let Some(href_node) = props[0].children().find(|node| node.tag_name() == HREF) {
+        if let Some(href_node) = props[0]
+            .children()
+            .find(|node| node.tag_name() == names::HREF)
+        {
             let maybe_href = href_node
                 .text()
                 .map(|raw| percent_decode_str(raw).decode_utf8())
@@ -754,7 +763,7 @@ fn list_resources_parse<B: AsRef<[u8]>>(
     let root = doc.root_element();
     let responses = root
         .descendants()
-        .filter(|node| node.tag_name() == RESPONSE);
+        .filter(|node| node.tag_name() == names::RESPONSE);
 
     let mut items = Vec::new();
     for response in responses {
@@ -768,20 +777,20 @@ fn list_resources_parse<B: AsRef<[u8]>>(
 
         let etag = response
             .descendants()
-            .find(|node| node.tag_name() == GETETAG)
+            .find(|node| node.tag_name() == names::GETETAG)
             .and_then(|node| node.text().map(str::to_string));
         let content_type = response
             .descendants()
-            .find(|node| node.tag_name() == GETCONTENTTYPE)
+            .find(|node| node.tag_name() == names::GETCONTENTTYPE)
             .and_then(|node| node.text().map(str::to_string));
         let resource_type = if let Some(r) = response
             .descendants()
-            .find(|node| node.tag_name() == RESOURCETYPE)
+            .find(|node| node.tag_name() == names::RESOURCETYPE)
         {
             ResourceType {
-                is_calendar: r.descendants().any(|n| n.tag_name() == CALENDAR),
-                is_collection: r.descendants().any(|n| n.tag_name() == COLLECTION),
-                is_address_book: r.descendants().any(|n| n.tag_name() == ADDRESSBOOK),
+                is_calendar: r.descendants().any(|n| n.tag_name() == names::CALENDAR),
+                is_collection: r.descendants().any(|n| n.tag_name() == names::COLLECTION),
+                is_address_book: r.descendants().any(|n| n.tag_name() == names::ADDRESSBOOK),
             }
         } else {
             ResourceType::default()
@@ -811,13 +820,13 @@ fn multi_get_parse<B: AsRef<[u8]>>(
     let responses = doc
         .root_element()
         .descendants()
-        .filter(|node| node.tag_name() == RESPONSE);
+        .filter(|node| node.tag_name() == names::RESPONSE);
 
     let mut items = Vec::new();
     for response in responses {
         let single = response
             .descendants()
-            .any(|node| node.tag_name() == PROPSTAT);
+            .any(|node| node.tag_name() == names::PROPSTAT);
 
         let bad_status = match check_multistatus(response) {
             Ok(()) => None,
@@ -852,7 +861,7 @@ fn multi_get_parse<B: AsRef<[u8]>>(
         } else {
             let hrefs = response
                 .descendants()
-                .filter(|node| node.tag_name() == HREF);
+                .filter(|node| node.tag_name() == names::HREF);
 
             for href in hrefs {
                 let href = href
