@@ -55,6 +55,10 @@ impl<I: Item> Storage<I> for ReadOnlyStorage<I> {
         Err(ErrorKind::ReadOnly.into())
     }
 
+    async fn create_collection_with_id(&mut self, _name: &str) -> Result<Collection> {
+        Err(ErrorKind::ReadOnly.into())
+    }
+
     async fn destroy_collection(&mut self, _href: &str) -> Result<()> {
         Err(ErrorKind::ReadOnly.into())
     }

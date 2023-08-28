@@ -11,6 +11,7 @@ use libdav::dav::mime_types;
 use libdav::CardDavClient;
 
 use crate::base::{AddressBookProperty, Collection, Definition, Item, ItemRef, Storage, VcardItem};
+use crate::dav::path_for_collection_in_home_set;
 use crate::{Error, ErrorKind, Etag, Href, Result};
 
 #[derive(Debug)]
@@ -79,6 +80,31 @@ impl Storage<VcardItem> for CardDavStorage {
             .await
             .map_err(|e| Error::new(ErrorKind::Uncategorised, e))?;
         Ok(Collection::new(href.to_string()))
+    }
+
+    /// Create a new address book such that its `collection_id` matches the given input.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ErrorKind::PreconditionFailed`] if a home set was not found in the carddav
+    /// server.
+    async fn create_collection_with_id(&mut self, name: &str) -> Result<Collection> {
+        // TODO: validate input (no slashes).
+
+        let home_set = self.client.addressbook_home_set.as_ref().ok_or_else(|| {
+            Error::new(
+                ErrorKind::PreconditionFailed,
+                "address book home set not found in carddav server",
+            )
+        })?;
+
+        let path = path_for_collection_in_home_set(home_set, name);
+
+        self.client
+            .create_addressbook(path.clone())
+            .await
+            .map_err(|e| Error::new(ErrorKind::Uncategorised, e))?;
+        Ok(Collection::new(path))
     }
 
     /// Deletes a carddav collection.
@@ -309,7 +335,7 @@ impl Storage<VcardItem> for CardDavStorage {
         Ok(())
     }
 
-    /// The id of a carddav collection is the last component of the path.
+    /// The `collection_id` of a carddav collection is the last component of the path.
     fn collection_id(&self, collection: &Collection) -> Result<String> {
         // TODO: this will need to be different for Google's WebDav.
         Ok(collection

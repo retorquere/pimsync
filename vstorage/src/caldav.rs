@@ -11,6 +11,7 @@ use libdav::dav::mime_types;
 use libdav::CalDavClient;
 
 use crate::base::{CalendarProperty, Collection, Definition, IcsItem, Item, ItemRef, Storage};
+use crate::dav::path_for_collection_in_home_set;
 use crate::{Error, ErrorKind, Etag, Href, Result};
 
 #[derive(Debug)]
@@ -93,6 +94,31 @@ impl Storage<IcsItem> for CalDavStorage {
             .await
             .map_err(|e| Error::new(ErrorKind::Uncategorised, e))?;
         Ok(Collection::new(href.to_string()))
+    }
+
+    /// Create a new calendar such that its `collection_id` matches the given input.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ErrorKind::PreconditionFailed`] if a home set was not found in the carddav
+    /// server.
+    async fn create_collection_with_id(&mut self, name: &str) -> Result<Collection> {
+        // TODO: validate input (no slashes).
+
+        let home_set = self.client.calendar_home_set.as_ref().ok_or_else(|| {
+            Error::new(
+                ErrorKind::PreconditionFailed,
+                "calendar home set not found in caldav server",
+            )
+        })?;
+
+        let path = path_for_collection_in_home_set(home_set, name);
+
+        self.client
+            .create_calendar(path.clone())
+            .await
+            .map_err(|e| Error::new(ErrorKind::Uncategorised, e))?;
+        Ok(Collection::new(path))
     }
 
     /// Deletes a caldav collection.

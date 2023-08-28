@@ -38,6 +38,7 @@ use serde::{Deserialize, Serialize};
 pub mod base;
 pub mod caldav;
 pub mod carddav;
+mod dav;
 pub mod filesystem;
 pub mod readonly;
 mod simple_component;
@@ -59,6 +60,7 @@ pub enum ErrorKind {
     InvalidInput,
     ReadOnly,
     CollectionNotEmpty,
+    PreconditionFailed,
     /// This storage implementation does not support a required feature.
     Unsupported,
     // #[deprecated]
@@ -78,6 +80,7 @@ impl ErrorKind {
             ErrorKind::InvalidInput => "input data is invalid",
             ErrorKind::ReadOnly => "the resource is read-only",
             ErrorKind::CollectionNotEmpty => "the collection is not empty",
+            ErrorKind::PreconditionFailed => "a required condition was not met",
             ErrorKind::Unsupported => "the operation is not supported",
             ErrorKind::Uncategorised => "uncategorised error",
         }

@@ -31,6 +31,10 @@ use crate::{Error, ErrorKind, Etag, Href, Result};
 /// A filesystem directory containing zero or more directories.
 ///
 /// Each child directory is treated as [`Collection`]. Nested subdirectories are not supported.
+///
+/// # Hrefs
+///
+/// Internally, all `href`s are paths relative to the base directory.
 pub struct FilesystemStorage<I: Item> {
     definition: FilesystemDefinition<I>,
 }
@@ -77,6 +81,14 @@ where
         create_dir(&path).await?;
 
         self.open_collection(href)
+    }
+
+    async fn create_collection_with_id(&mut self, name: &str) -> Result<Collection> {
+        // TODO: validate that no `/` is in the input.
+        let path = self.join_collection_href(name)?;
+        create_dir(&path).await?;
+
+        self.open_collection(name)
     }
 
     async fn destroy_collection(&mut self, href: &str) -> Result<()> {
@@ -281,6 +293,7 @@ impl<I: Item> FilesystemStorage<I> {
     //
     // If the resulting path is not a child of the storage's directory.
     fn join_collection_href(&self, href: &str) -> Result<PathBuf> {
+        // TODO: validate that no `.` nor `..` components are in the input.
         let path = self.definition.path.join(href);
         if path.parent() != Some(&self.definition.path) {
             return Err(Error::new(

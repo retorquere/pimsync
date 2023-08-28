@@ -57,8 +57,17 @@ pub trait Storage<I: Item>: Sync + Send {
     /// Finds existing collections for this storage.
     async fn discover_collections(&self) -> Result<Vec<Collection>>;
 
-    /// Creates a new collection.
+    /// Creates a new collection with a specified `href`.
+    ///
+    /// Usage of this method is discouraged, given that is requires taking into account the nuances
+    /// of the specific storage implementation. Generally, [`Storage::create_collection_with_id`]
+    /// should be used instead.
     async fn create_collection(&mut self, href: &str) -> Result<Collection>;
+
+    /// Creates a new collection with a given name.
+    ///
+    /// Creates a new collection with an href such that its name matches the one provided.
+    async fn create_collection_with_id(&mut self, _name: &str) -> Result<Collection>;
 
     /// Deletes an existing collection.
     ///

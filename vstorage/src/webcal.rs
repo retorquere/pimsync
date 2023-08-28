@@ -107,6 +107,14 @@ impl Storage<IcsItem> for WebCalStorage {
     }
 
     /// Unsupported for this storage type.
+    async fn create_collection_with_id(&mut self, _name: &str) -> Result<Collection> {
+        Err(Error::new(
+            ErrorKind::Unsupported,
+            "creating collections via webcal is not supported",
+        ))
+    }
+
+    /// Unsupported for this storage type.
     async fn destroy_collection(&mut self, _: &str) -> Result<()> {
         Err(Error::new(
             ErrorKind::Unsupported,
