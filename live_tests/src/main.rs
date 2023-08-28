@@ -108,7 +108,7 @@ impl TestData {
 fn process_result(
     test_data: &TestData,
     test_name: &str,
-    result: anyhow::Result<()>,
+    result: &anyhow::Result<()>,
     total: &mut u32,
     passed: &mut u32,
 ) {
@@ -140,7 +140,7 @@ macro_rules! run_tests {
             $(
                 let name = stringify!($test);
                 let result = $test($test_data).await;
-                process_result($test_data, name, result, &mut total, &mut passed);
+                process_result($test_data, name, &result, &mut total, &mut passed);
             )*
             (total, passed)
         }
