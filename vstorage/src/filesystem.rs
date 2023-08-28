@@ -313,7 +313,7 @@ impl<I: Item> FilesystemDefinition<I> {
         Self {
             path,
             extension,
-            i: PhantomData::default(),
+            i: PhantomData,
         }
     }
 }
