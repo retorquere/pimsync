@@ -35,19 +35,23 @@ pub trait Definition<I: Item>: Sync + Send + std::fmt::Debug {
 ///
 /// The specific type of item that a storage can hold is defined by the `I` generic parameter.
 /// E.g.: a CalDav storage can hold icalendar items. Only items with the same kind of item can be
-/// synchronised (e.g.: it it nos possible to synchronise `Storage<VcardItem>` with
+/// synchronised with each other (e.g.: it it nos possible to synchronise `Storage<VcardItem>` with
 /// `Storage<IcsItem>`
 ///
 /// # Note for implementors
 ///
 /// The auto-generated documentation for this trait is rather hard to read due to the usage of
-/// `#[async_trait]`. You might want to consider clicking on the `source` link on the right and
-/// reading the documentation from the raw code for this trait.
+/// [`#[async_trait]`](mod@async_trait) macro. You might want to consider clicking on the
+/// `source` link and reading the documentation from the raw code for this trait.
 #[async_trait]
 pub trait Storage<I: Item>: Sync + Send {
     // TODO: Some calendar instances only allow a single item type (e.g.: events but not todos).
 
     /// Checks that the storage works. This includes validating credentials, and reachability.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the storage is not reachable and usable.
     async fn check(&self) -> Result<()>;
 
     /// Finds existing collections for this storage.
@@ -63,7 +67,7 @@ pub trait Storage<I: Item>: Sync + Send {
 
     /// Open an existing collection.
     ///
-    /// This method DOES NOT check the existence of the collection.
+    /// This method does not check the existence of the collection.
     fn open_collection(&self, href: &str) -> Result<Collection>;
 
     /// Returns the value of a property for a given collection.
@@ -84,13 +88,16 @@ pub trait Storage<I: Item>: Sync + Send {
     /// Enumerates items in a given collection.
     async fn list_items(&self, collection: &Collection) -> Result<Vec<ItemRef>>;
 
-    /// Fetch a single item from given collection.
+    /// Fetches a single item from given collection.
+    ///
+    /// Storages never cache data locally. For reading items in bulk, prefer
+    /// [`Storage::get_many_items`].
     async fn get_item(&self, collection: &Collection, href: &str) -> Result<(I, Etag)>;
 
-    /// Fetch multiple items.
+    /// Fetches multiple items.
     ///
     /// Similar to [`Storage::get_item`], but optimised to minimise the amount of IO required.
-    /// Duplicate `href`s will be ignored.
+    /// Duplicate `href`s are ignored.
     async fn get_many_items(
         &self,
         collection: &Collection,
@@ -133,9 +140,6 @@ pub trait Storage<I: Item>: Sync + Send {
 /// The type of items contained is restricted by the underlying implementation. Collections contain
 /// zero or more items (e.g.: an address book contains events). Each item is addressed by an
 /// [`Href`].
-///
-/// Collections never cache data locally. For reading items in bulk, prefer
-/// [`Storage::get_many_items`].
 pub struct Collection {
     href: String,
 }
@@ -167,17 +171,20 @@ pub struct ItemRef {
     pub etag: Etag,
 }
 
-/// Types of items that can be held in collections.
+/// A type of item that is contained in a [`Storage`].
 ///
-/// Storages can contain items of a concrete type implementing this trait. This trait defines how
-/// to extract the basic information that is requires to synchronise storages. Additional parsing
-/// is out of scope here and should be done by inspecting the raw data inside an item via
-/// [`Item::as_str`].
+/// A `Storage` can contain items of a concrete type described by implementations of this trait.
+/// This trait defines how to extract the basic information that is required to synchronise
+/// storages. Additional parsing is out of scope here and should be done by inspecting the raw data
+/// inside an item via [`Item::as_str`].
 pub trait Item: Sync + Send + std::fmt::Debug
 where
     Self: From<String>,
 {
     /// Property types supported by storages.
+    ///
+    /// Generally, this type should be an `enum` with each known property represented as a
+    /// different variant.
     ///
     /// These were known as "metadata" in the previous vdirsyncer implementation.
     ///
@@ -186,15 +193,18 @@ where
 
     /// Parse the item and return a unique identifier for it.
     ///
-    /// The UID does not change when the item is modified. The UID must remain the same when the
-    /// item is copied across storages and storage types.
+    /// The `uid` does not change when the item is modified. The `uid` MUST remain the same when
+    /// the item is copied across storages and storage types.
     #[must_use]
     fn uid(&self) -> Option<String>;
 
     /// Return the hash of this item.
     ///
-    /// Implementations may normalise content before hashing to ensure that two equivalent items
+    /// Implementations SHOULD normalise content before hashing to ensure that two equivalent items
     /// return the same hash.
+    ///
+    /// This value is used as a fallback when a storage backend doesn't provide [`Etag`] values, or
+    /// when an item's [`Item::uid`] returns `None`.
     #[must_use]
     fn hash(&self) -> String;
 
@@ -215,10 +225,9 @@ where
 ///
 /// Note that this is not a proper validating parser for icalendar or vcard; it's a very simple
 /// one with the sole purpose of extracing a UID. Proper parsing of components is out of scope,
-/// since we want to enable operating on potentially invalid items too.
+/// since supporting potentially invalid items is required.
 #[derive(Debug)]
 pub struct IcsItem {
-    // TODO: make this Vec<u8> instead?
     raw: String,
 }
 
@@ -240,12 +249,10 @@ pub enum CalendarProperty {
 }
 
 impl Item for IcsItem {
+    /// Calendar properties defined by `CalDav`.
     type CollectionProperty = CalendarProperty;
 
-    /// Returns a unique identifier for this item.
-    ///
-    /// The UID does not change when the item is modified. The UID must remain the same when the
-    /// item is copied across storages and storage types.
+    /// Returns the contents of the `UID` property, if defined.
     #[must_use]
     fn uid(&self) -> Option<String> {
         let mut lines = self.raw.split_terminator("\r\n");
@@ -268,9 +275,6 @@ impl Item for IcsItem {
     ///
     /// - Ignores the `PROPID` field. Two item where only this field varies are
     ///   considered equivalent.
-    ///
-    /// This is used as a fallback when a storage backend doesn't provide [`Etag`] values, or when
-    /// an item is missing its `UID`.
     ///
     /// [`util::hash`]: crate::util::hash
     /// [`Etag`]: crate::Etag

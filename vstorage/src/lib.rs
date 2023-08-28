@@ -14,15 +14,16 @@
 //!
 //! [`Storage`]: crate::base::Storage
 //!
-//! ## Collections
+//! ## Collections, Hrefs and Collections Ids
 //!
 //! Collections cannot be nested (although having an `INBOX` collection and an `INBOX/Feeds`
 //! collection is perfectly valid).
 //!
 //! A collection has an `href` and an `id`. The `href` attribute is storage dependant, meaning that
-//! when a collection is syncrhonised to another storage, it may have a different `href`. The `id`
-//! for a collection is not storage-specific. When synchronising two storages, items will be
-//! synchronised between collections with the same `id`.
+//! when a collection is synchronised to another storage, it may have a different `href`. The `id`
+//! for a collection is not storage-specific. When synchronising two storages, the default approach
+//! is to synchronise items across collections with the same `id`. The `id` of a collection is
+//! entirely dependant on its `href`, and should never change.
 //!
 //! The [`Href`] alias is used to refer to `href`s to avoid ambiguity. [`Href`] instances should be
 //! treated as an opaque value and not given any special meaning outside of this crate.
