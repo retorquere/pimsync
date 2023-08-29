@@ -565,6 +565,7 @@ impl WebDavClient {
 
         let request = Request::builder()
             .method("MKCOL")
+            // TODO: this URL is never escaped!
             .uri(self.relative_uri(href.as_ref())?)
             .header("Content-Type", "application/xml; charset=utf-8")
             .body(Body::from(body))?;
