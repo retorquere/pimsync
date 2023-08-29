@@ -147,7 +147,7 @@ pub trait Storage<I: Item>: Sync + Send {
 /// A collection may, for example, be an address book or a calendar.
 ///
 /// The type of items contained is restricted by the underlying implementation. Collections contain
-/// zero or more items (e.g.: an address book contains events). Each item is addressed by an
+/// zero or more items (e.g.: an address book contains events). Each item is addressed by its own
 /// [`Href`].
 ///
 /// This type wraps around the `href` for a collection on a given storage. Using the same
