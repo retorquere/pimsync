@@ -96,13 +96,13 @@ where
     }
 
     fn open_collection(&self, href: &str) -> Result<Collection> {
-        let href = self
-            .join_collection_href(href)?
-            .to_str()
-            .ok_or_else(|| Error::new(ErrorKind::InvalidData, "collection name is not utf8"))?
-            .to_string();
+        // let href = self
+        //     .join_collection_href(href)?
+        //     .to_str()
+        //     .ok_or_else(|| Error::new(ErrorKind::InvalidData, "collection name is not utf8"))?
+        //     .to_string();
 
-        Ok(Collection::new(href))
+        Ok(Collection::new(href.to_string()))
     }
 
     async fn list_items(&self, collection: &Collection) -> Result<Vec<ItemRef>> {
