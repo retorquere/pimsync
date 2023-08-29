@@ -36,7 +36,7 @@ async fn main() {
 
     let webcal = WebCalDefinition {
         url,
-        collection_name: String::from("holidays_nl"),
+        collection_name: "holidays_nl".parse().unwrap(),
     }
     .storage()
     .await

@@ -28,10 +28,14 @@
 //! The [`Href`] alias is used to refer to `href`s to avoid ambiguity. [`Href`] instances should be
 //! treated as an opaque value and not given any special meaning outside of this crate.
 //!
+//! See also: [`CollectionId`].
+//!
 //! ## Entity tags
 //!
 //! An `Etag` is a value that changes whenever an item has changed in a collection. It is inspired
 //! on the HTTP header with the same name (used extensively in WebDav). See [`Etag`].
+
+use std::str::FromStr;
 
 use serde::{Deserialize, Serialize};
 
@@ -188,3 +192,69 @@ impl std::fmt::Display for Etag {
 /// Whether an `href` is relative to a collection or absolute is storage dependant. As such, this
 /// should be treated as an opaque string by consumers of this library.
 pub type Href = String;
+
+/// An identifier for a collection.
+///
+/// Collection identifiers are a short string that uniquely identify a collection inside a storage.
+/// They are based on the `href` of a collection, which never changes. Likewise, the `CollectionId`
+/// for a `CollectionId` never changes. The `CollectionId` is intended as a more human-friendly
+/// substitute for collection `href`s.
+///
+/// The following limitations exist, given that such values would produce ambiguous results with
+/// the implementation of [`FilesystemStorage`], [`CalDavStorage`], and [`CardDavStorage`]:
+///
+/// - A `CollectionId` cannot contain a `/` (slash)
+/// - A `CollectionId` cannot be exactly `..` (double period).
+/// - A `CollectionId` cannot be exactly `.` (a single period).
+///
+/// [`FilesystemStorage`]: crate::filesystem::FilesystemStorage
+/// [`CalDavStorage`]: crate::caldav::CalDavStorage
+/// [`CardDavStorage`]: crate::carddav::CardDavStorage
+#[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
+pub struct CollectionId {
+    // INVARIANT: matches rules in documentation above.
+    inner: String,
+}
+
+impl AsRef<str> for CollectionId {
+    fn as_ref(&self) -> &str {
+        self.inner.as_ref()
+    }
+}
+
+impl From<CollectionId> for String {
+    fn from(value: CollectionId) -> String {
+        value.inner
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum CollectionIdError {
+    #[error("collection id must not contain a slash")]
+    Slash,
+    #[error("collection id must not be '..'")]
+    DoublePeriod,
+    #[error("collection id must not be '.'")]
+    SinglePeriod,
+}
+
+impl FromStr for CollectionId {
+    type Err = CollectionIdError;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        // TODO: validation should not iterate string thrice.
+        if s.chars().any(|c| c == '/') {
+            return Err(CollectionIdError::Slash);
+        }
+        if s == ".." {
+            return Err(CollectionIdError::DoublePeriod);
+        }
+        if s == "." {
+            return Err(CollectionIdError::SinglePeriod);
+        }
+
+        Ok(CollectionId {
+            inner: s.to_string(),
+        })
+    }
+}

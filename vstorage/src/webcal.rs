@@ -17,17 +17,22 @@ use hyper_rustls::{HttpsConnector, HttpsConnectorBuilder};
 use crate::{
     base::{CalendarProperty, Collection, Definition, IcsItem, Item, ItemRef, Storage},
     simple_component::Component,
-    Error, ErrorKind, Etag, Href, Result,
+    CollectionId, Error, ErrorKind, Etag, Href, Result,
 };
 
 /// A storage which exposes items in remote icalendar resource.
 ///
 /// A webcal storage contains exactly one collection, which contains all the entires found in the
-/// remote resource. The name of this single collection must be specified via the
+/// remote resource. The name of this single collection is specified via the
 /// [`WebCalDefinition::collection_name`] property.
 ///
 /// This storage is a bit of an odd one (since in reality, there's no concept of collections in
-/// webcal. The extra abstraction layer is here merely to match the format of other storages.
+/// webcal). The extra abstraction layer is here merely to match the format of other storages.
+///
+/// # Href
+///
+/// The `href` for this meaningless. A string matching the [`WebCalDefinition::collection_name`]
+/// property is used to describe the only available collection.
 pub struct WebCalStorage {
     definition: WebCalDefinition,
     http_client: Client<HttpsConnector<HttpConnector>>,
@@ -39,7 +44,7 @@ pub struct WebCalDefinition {
     /// The URL of the remote icalendar resource. Must be HTTP or HTTPS.
     pub url: Uri,
     /// The href and id to be given to the single collection available.
-    pub collection_name: String,
+    pub collection_name: CollectionId,
 }
 
 #[async_trait]
@@ -94,7 +99,7 @@ impl Storage<IcsItem> for WebCalStorage {
     /// Returns a single collection with the name specified in the definition.
     async fn discover_collections(&self) -> Result<Vec<Collection>> {
         Ok(vec![Collection::new(
-            self.definition.collection_name.clone(),
+            self.definition.collection_name.clone().into(),
         )])
     }
 
@@ -107,7 +112,7 @@ impl Storage<IcsItem> for WebCalStorage {
     }
 
     /// Unsupported for this storage type.
-    async fn create_collection_with_id(&mut self, _name: &str) -> Result<Collection> {
+    async fn create_collection_with_id(&mut self, _id: &CollectionId) -> Result<Collection> {
         Err(Error::new(
             ErrorKind::Unsupported,
             "creating collections via webcal is not supported",
@@ -125,13 +130,15 @@ impl Storage<IcsItem> for WebCalStorage {
     /// Usable only with the collection name specified in the definition. Any other name will
     /// return [`ErrorKind::DoesNotExist`]
     fn open_collection(&self, href: &str) -> Result<Collection> {
-        if href != self.definition.collection_name {
+        if href != self.definition.collection_name.as_ref() {
             return Err(Error::new(
                 ErrorKind::DoesNotExist,
                 format!("this storage only contains the '{href}' collection"),
             ));
         }
-        Ok(Collection::new(self.definition.collection_name.clone()))
+        Ok(Collection::new(
+            self.definition.collection_name.clone().into(),
+        ))
     }
 
     /// Enumerates items in this collection.
@@ -301,9 +308,9 @@ impl Storage<IcsItem> for WebCalStorage {
         ))
     }
 
-    fn collection_id(&self, collection: &Collection) -> Result<String> {
-        if collection.href() == self.definition.collection_name {
-            Ok(self.definition.collection_name.to_string())
+    fn collection_id(&self, collection: &Collection) -> Result<CollectionId> {
+        if collection.href() == self.definition.collection_name.as_ref() {
+            Ok(self.definition.collection_name.clone())
         } else {
             Err(ErrorKind::DoesNotExist.into())
         }
@@ -360,7 +367,7 @@ mod test {
 
         let metdata = WebCalDefinition {
             url: Uri::try_from("https://www.officeholidays.com/ics/netherlands").unwrap(),
-            collection_name: "holidays".to_string(),
+            collection_name: "holidays".parse().unwrap(),
         };
         let storage = metdata.storage().await.unwrap();
         storage.check().await.unwrap();

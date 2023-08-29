@@ -11,7 +11,7 @@
 
 use async_trait::async_trait;
 
-use crate::{Etag, Href, Result};
+use crate::{CollectionId, Etag, Href, Result};
 
 /// Implementation-specific storage definition.
 ///
@@ -67,7 +67,7 @@ pub trait Storage<I: Item>: Sync + Send {
     /// Creates a new collection with a given name.
     ///
     /// Creates a new collection with an href such that its name matches the one provided.
-    async fn create_collection_with_id(&mut self, _name: &str) -> Result<Collection>;
+    async fn create_collection_with_id(&mut self, id: &CollectionId) -> Result<Collection>;
 
     /// Deletes an existing collection.
     ///
@@ -137,11 +137,10 @@ pub trait Storage<I: Item>: Sync + Send {
     /// Usually this is based off the last component of the href, but may be different for storages
     /// where this does not make sense.
     ///
-    /// When synchronising, collections with the same name will be mapped to each other.
-    fn collection_id(&self, collection: &Collection) -> Result<String>;
-
-    // XXX: collections should have non-pub cache of UID->hrefs
-    // XXX: can this be implemented for Collection?
+    /// # Errors
+    ///
+    /// This functions returns an `Err` variant if the provided `collection` is invalid.
+    fn collection_id(&self, collection: &Collection) -> Result<CollectionId>;
 }
 
 /// A collection may, for example, be an address book or a calendar.
@@ -149,6 +148,10 @@ pub trait Storage<I: Item>: Sync + Send {
 /// The type of items contained is restricted by the underlying implementation. Collections contain
 /// zero or more items (e.g.: an address book contains events). Each item is addressed by an
 /// [`Href`].
+///
+/// This type wraps around the `href` for a collection on a given storage. Using the same
+/// `Collection` instance across different storages is disallowed.
+#[derive(Debug)]
 pub struct Collection {
     href: String,
 }

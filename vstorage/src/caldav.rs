@@ -12,7 +12,7 @@ use libdav::CalDavClient;
 
 use crate::base::{CalendarProperty, Collection, Definition, IcsItem, Item, ItemRef, Storage};
 use crate::dav::path_for_collection_in_home_set;
-use crate::{Error, ErrorKind, Etag, Href, Result};
+use crate::{CollectionId, Error, ErrorKind, Etag, Href, Result};
 
 #[derive(Debug)]
 pub struct CalDavDefinition {
@@ -102,9 +102,7 @@ impl Storage<IcsItem> for CalDavStorage {
     ///
     /// Returns [`ErrorKind::PreconditionFailed`] if a home set was not found in the carddav
     /// server.
-    async fn create_collection_with_id(&mut self, name: &str) -> Result<Collection> {
-        // TODO: validate input (no slashes).
-
+    async fn create_collection_with_id(&mut self, id: &CollectionId) -> Result<Collection> {
         let home_set = self.client.calendar_home_set.as_ref().ok_or_else(|| {
             Error::new(
                 ErrorKind::PreconditionFailed,
@@ -112,7 +110,7 @@ impl Storage<IcsItem> for CalDavStorage {
             )
         })?;
 
-        let path = path_for_collection_in_home_set(home_set, name);
+        let path = path_for_collection_in_home_set(home_set, id.as_ref());
 
         self.client
             .create_calendar(path.clone())
@@ -351,14 +349,15 @@ impl Storage<IcsItem> for CalDavStorage {
     }
 
     /// The id of a caldav collection is the last component of the path.
-    fn collection_id(&self, collection: &Collection) -> Result<String> {
+    fn collection_id(&self, collection: &Collection) -> Result<CollectionId> {
         // TODO: this will need to be different for Google's WebDav.
-        Ok(collection
+        collection
             .href()
             .rsplit('/')
             .next()
             .expect("rsplit always returns at least one item")
-            .to_string())
+            .parse()
+            .map_err(|e| Error::new(ErrorKind::InvalidInput, e))
     }
 }
 

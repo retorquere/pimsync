@@ -14,6 +14,7 @@ use async_trait::async_trait;
 use crate::base::Collection;
 use crate::base::Item;
 use crate::base::Storage;
+use crate::CollectionId;
 use crate::{ErrorKind, Etag, Href, Result};
 
 /// A wrapper around a [`Storage`] that disallows any write operations.
@@ -55,7 +56,7 @@ impl<I: Item> Storage<I> for ReadOnlyStorage<I> {
         Err(ErrorKind::ReadOnly.into())
     }
 
-    async fn create_collection_with_id(&mut self, _name: &str) -> Result<Collection> {
+    async fn create_collection_with_id(&mut self, _id: &CollectionId) -> Result<Collection> {
         Err(ErrorKind::ReadOnly.into())
     }
 
@@ -116,7 +117,7 @@ impl<I: Item> Storage<I> for ReadOnlyStorage<I> {
         Err(ErrorKind::ReadOnly.into())
     }
 
-    fn collection_id(&self, collection: &Collection) -> Result<String> {
+    fn collection_id(&self, collection: &Collection) -> Result<CollectionId> {
         self.inner.collection_id(collection)
     }
 }

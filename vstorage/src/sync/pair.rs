@@ -152,7 +152,7 @@ impl StorageState {
         for name in collection_names {
             let Some(collection) = collections.iter().find(|c| {
                 if let Ok(id) = storage.collection_id(c) {
-                    id == *name
+                    id.as_ref() == *name
                 } else {
                     false
                 }

@@ -24,7 +24,7 @@ use tokio_stream::StreamExt;
 use crate::base::{
     AddressBookProperty, CalendarProperty, Collection, Definition, Item, ItemRef, Storage,
 };
-use crate::{Error, ErrorKind, Etag, Href, Result};
+use crate::{CollectionId, Error, ErrorKind, Etag, Href, Result};
 
 // TODO: atomic writes
 
@@ -83,12 +83,11 @@ where
         self.open_collection(href)
     }
 
-    async fn create_collection_with_id(&mut self, name: &str) -> Result<Collection> {
-        // TODO: validate that no `/` is in the input.
-        let path = self.join_collection_href(name)?;
+    async fn create_collection_with_id(&mut self, id: &CollectionId) -> Result<Collection> {
+        let path = self.join_collection_href(id.as_ref())?;
         create_dir(&path).await?;
 
-        self.open_collection(name)
+        self.open_collection(id.as_ref())
     }
 
     async fn destroy_collection(&mut self, href: &str) -> Result<()> {
@@ -272,13 +271,14 @@ where
     }
 
     /// The id of a filesystem collection is the name of the directory.
-    fn collection_id(&self, collection: &Collection) -> Result<String> {
-        Ok(collection
+    fn collection_id(&self, collection: &Collection) -> Result<CollectionId> {
+        collection
             .href()
             .rsplit('/')
             .next()
             .expect("rsplit always returns at least one item")
-            .to_string())
+            .parse()
+            .map_err(|e| Error::new(ErrorKind::InvalidInput, e))
     }
 }
 

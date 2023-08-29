@@ -12,7 +12,7 @@ use libdav::CardDavClient;
 
 use crate::base::{AddressBookProperty, Collection, Definition, Item, ItemRef, Storage, VcardItem};
 use crate::dav::path_for_collection_in_home_set;
-use crate::{Error, ErrorKind, Etag, Href, Result};
+use crate::{CollectionId, Error, ErrorKind, Etag, Href, Result};
 
 #[derive(Debug)]
 pub struct CardDavDefinition {
@@ -88,9 +88,7 @@ impl Storage<VcardItem> for CardDavStorage {
     ///
     /// Returns [`ErrorKind::PreconditionFailed`] if a home set was not found in the carddav
     /// server.
-    async fn create_collection_with_id(&mut self, name: &str) -> Result<Collection> {
-        // TODO: validate input (no slashes).
-
+    async fn create_collection_with_id(&mut self, id: &CollectionId) -> Result<Collection> {
         let home_set = self.client.addressbook_home_set.as_ref().ok_or_else(|| {
             Error::new(
                 ErrorKind::PreconditionFailed,
@@ -98,7 +96,7 @@ impl Storage<VcardItem> for CardDavStorage {
             )
         })?;
 
-        let path = path_for_collection_in_home_set(home_set, name);
+        let path = path_for_collection_in_home_set(home_set, id.as_ref());
 
         self.client
             .create_addressbook(path.clone())
@@ -336,14 +334,15 @@ impl Storage<VcardItem> for CardDavStorage {
     }
 
     /// The `collection_id` of a carddav collection is the last component of the path.
-    fn collection_id(&self, collection: &Collection) -> Result<String> {
+    fn collection_id(&self, collection: &Collection) -> Result<CollectionId> {
         // TODO: this will need to be different for Google's WebDav.
-        Ok(collection
+        collection
             .href()
             .rsplit('/')
             .next()
             .expect("rsplit always returns at least one item")
-            .to_string())
+            .parse()
+            .map_err(|e| Error::new(ErrorKind::InvalidInput, e))
     }
 }
 
