@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: EUPL-1.2
 
-use anyhow::Context;
+use anyhow::{bail, Context};
 use clap::{Parser, Subcommand};
 use libdav::{auth::Auth, CalDavClient};
 use log::info;
@@ -32,6 +32,11 @@ pub(crate) enum CalDavCommand {
     /// Fetches a single calendar component.
     Get {
         resource_href: String,
+    },
+    Delete {
+        #[arg(long)]
+        force: bool,
+        href: String,
     },
 }
 
@@ -66,6 +71,12 @@ impl CalDavArgs {
             }
             CalDavCommand::Tree => tree(client).await?,
             CalDavCommand::Get { resource_href } => get(client, resource_href).await?,
+            CalDavCommand::Delete { force, href } => {
+                if !force {
+                    bail!("Must force deletion (no etag support in davcli)");
+                }
+                delete(&client, href).await?;
+            }
         };
 
         Ok(())
@@ -136,4 +147,11 @@ async fn list_resources(client: &CalDavClient, href: String) -> anyhow::Result<(
     }
 
     Ok(())
+}
+
+async fn delete(client: &CalDavClient, href: String) -> anyhow::Result<()> {
+    client
+        .force_delete(&href)
+        .await
+        .map_err(anyhow::Error::from)
 }
