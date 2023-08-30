@@ -173,6 +173,7 @@ impl<'pair, I: Item> Plan<'pair, I> {
                         resource: FailedResource::Collection {
                             collection: cp.mapping().clone(),
                         },
+                        /// FIXME: actually, meta can conflict.
                         error: "Invalid input: conflict between storages is senseless".into(),
                     });
                 }
