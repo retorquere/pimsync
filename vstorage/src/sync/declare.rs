@@ -1,3 +1,7 @@
+// Copyright 2023 Hugo Osvaldo Barrera
+//
+// SPDX-License-Identifier: EUPL-1.2
+
 //! Types for specifying rules for a synchronisation.
 use crate::{
     base::{Item, Storage},

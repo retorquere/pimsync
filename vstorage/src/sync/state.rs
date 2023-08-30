@@ -1,3 +1,7 @@
+// Copyright 2023 Hugo Osvaldo Barrera
+//
+// SPDX-License-Identifier: EUPL-1.2
+
 //! Models the state of a storage to track which side has mutated across runs.
 
 use serde::{Deserialize, Serialize};
