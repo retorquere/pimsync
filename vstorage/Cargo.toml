@@ -24,10 +24,8 @@ async-trait = "0.1.64"
 libdav = { version = "0.1.0", path = "../libdav" }
 http = "0.2.9"
 hyper = "0.14.24"
-hyper-rustls = "0.23.2"
-# Newer serde versions include a WONTFIX security issue:
-# See: https://github.com/serde-rs/serde/issues/2538
-serde = { version = ">= 1.0.162, <= 1.0.171", features = ["derive"] }
+hyper-rustls = "0.24.1"
+serde = { version = "1.0.184", features = ["derive"] }
 itertools = "0.10.5"
 
 [dev-dependencies]

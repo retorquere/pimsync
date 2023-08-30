@@ -20,7 +20,7 @@ domain = { version = "0.7.2", features = ["resolv"] }
 email_address = { version = "0.2.4", default-features = false }
 http = "0.2.9"
 hyper = { version = "0.14.24", features = ["http1", "client"] }
-hyper-rustls = "0.23.2"
+hyper-rustls = "0.24.1"
 log = "0.4.17"
 percent-encoding = "2.3.0"
 roxmltree = { version = "0.18.0", git = "https://github.com/RazrFalcon/roxmltree.git" }
