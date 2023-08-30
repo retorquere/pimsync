@@ -6,22 +6,22 @@
 //!
 //! The general gist behind synchronising is:
 //!
-//! - Create a [`StoragePair`] instance, which has the state saved from the previous sync and the
-//!   two storages that are to be synchronised.
-//! - Create a [`Plan`][plan::Plan] which contains a list of actions to be executed to sync both
-//!   storages. A dry-run should be able to print the plan, although right now the only way to
-//!   inspect it is via `dbg!()`.
-//! - Run [`Plan::execute`][plan::Plan::execute]. This returns two opaque states that should be
-//!   serialised and used as input for the next synchronisation (mostly, this helps understand when
-//!   an item has change on one side vs where there is a conflict).
+//! - A [`StoragePair`](declare::StoragePair) specified the details of storages and which
+//!   collections are to be synchronised. This type, optionally, takes the state of the last
+//!   synchronisation.
+//! - A [`Plan`](plan::Plan) contains a list of actions to be executed to synchronise both
+//!   storages. This instance can also be inspected before executing any actions (e.g.: as a from
+//!   of dry-run).
+//! - [`Plan::execute`](plan::Plan::execute) executes the plan itself and returns two opaque states
+//!   that should be serialised and used as input for the next synchronisation. This data is used
+//!   to understand which of both sides has changed when items diverge.
 //!
-//! The synchronization algorithm is based on [the algorithm from the original
-//! vdirsyncer][original-algo].
+//! The synchronization algorithm is based on [the algorithm from the original vdirsyncer][orig].
 //!
-//! [original-algo]: https://unterwaditzer.net/2016/sync-algorithm.html
-mod pair;
-pub mod plan;
+//! [orig]: https://unterwaditzer.net/2016/sync-algorithm.html
 
-pub use pair::CollectionMapping;
-pub use pair::StoragePair;
-pub use pair::StorageState;
+pub mod declare;
+pub mod execute;
+mod helpers;
+pub mod plan;
+pub mod state;

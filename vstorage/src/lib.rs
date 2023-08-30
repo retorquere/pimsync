@@ -228,6 +228,12 @@ impl From<CollectionId> for String {
     }
 }
 
+impl std::fmt::Display for CollectionId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.inner.fmt(f)
+    }
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum CollectionIdError {
     #[error("collection id must not contain a slash")]

@@ -5,12 +5,11 @@
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
 use std::boxed::Box;
 use std::{fmt::Write, path::PathBuf};
+use vstorage::sync::declare::{DeclaredMapping, StoragePair};
 use vstorage::sync::plan::Plan;
-use vstorage::sync::CollectionMapping;
 use vstorage::{
     base::{Definition, IcsItem, Storage},
     filesystem::FilesystemDefinition,
-    sync::{StoragePair, StorageState},
 };
 
 fn random_string(len: usize) -> String {
@@ -99,23 +98,20 @@ async fn test_sync_simple_case() {
     let mut populated = create_populated_storage(populated_path.clone()).await;
     let mut empty = create_empty_storage(empty_path.clone()).await;
 
-    let mappings = vec![
-        CollectionMapping::Direct("first-calendar".to_string()),
-        CollectionMapping::Direct("second-calendar".to_string()),
-    ];
-    let empty_state = StorageState::empty();
-    let mut pair = StoragePair::<IcsItem>::new(
-        &mut *populated,
-        &mut *empty,
-        &empty_state,
-        &empty_state,
-        mappings,
-    )
-    .await
-    .unwrap();
-    let plan = Plan::for_storage_pair(&pair);
-    let result = plan.execute(&mut pair).await;
-    assert_eq!(result.errors.len(), 0);
+    let first_mapping = DeclaredMapping::direct("first-calendar".parse().unwrap());
+    let second_mapping = DeclaredMapping::direct("second-calendar".parse().unwrap());
+    let mut pair = StoragePair::<IcsItem>::builder(&mut *populated, &mut *empty)
+        .with_mapping(first_mapping)
+        .with_mapping(second_mapping)
+        .build();
+    let mut plan = Plan::new(&mut pair).await.unwrap();
+    // dbg!(&plan);
+    // TODO: I'll need to trace! the point where each actions is decided.
+    let result = plan.execute().await;
+    for error in result.errors().iter() {
+        dbg!("Error during test sync: {}", error);
+    }
+    assert_eq!(result.errors().len(), 0);
 
     let first = std::fs::read_dir(empty_path.join("first-calendar"))
         .unwrap()

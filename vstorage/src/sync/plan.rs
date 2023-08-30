@@ -1,420 +1,355 @@
-// Copyright 2023 Hugo Osvaldo Barrera
-//
-// SPDX-License-Identifier: EUPL-1.2
+//! Plan for a synchronisation.
 
-//! Components to plan a synchronisation.
-
-use crate::base::{Item, Storage};
-use crate::sync::pair::{Change, CollectionState, StoragePair, StorageState};
-use itertools::Itertools;
-use log::trace;
 use std::collections::HashMap;
-use std::fmt::Display;
 
-use super::pair::{CollectionMapping, ItemState};
+use itertools::Itertools;
+use log::{error, trace};
 
-#[derive(Debug)]
-pub enum SyncResource {
-    Item { uid: String },
-    Collection { name: String },
-}
+use crate::base::{Collection, Storage};
+use crate::sync::state::StorageState;
+use crate::{base::Item, sync::declare::StoragePair, Result};
+use crate::{CollectionId, Error, ErrorKind};
 
-/// An error synchronising two items between storages.
-#[derive(Debug)]
-pub struct SynchronizationError {
-    action: Action,
-    resource: SyncResource,
-    error: Box<dyn std::error::Error + 'static>,
-}
-
-impl SynchronizationError {
-    /// The action that failed to execute.
-    #[must_use]
-    pub fn action(&self) -> &Action {
-        &self.action
-    }
-
-    /// The resource that failed to execute.
-    #[must_use]
-    pub fn resource(&self) -> &SyncResource {
-        &self.resource
-    }
-}
-
-impl Display for SynchronizationError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            // TODO: check formatting of resource.
-            "Error performing {:?} on {:?}: {}",
-            self.action, self.resource, self.error
-        )
-    }
-}
-
-impl std::error::Error for SynchronizationError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        Some(&*self.error)
-    }
-}
-
-/// An action to executing when synchronising.
-#[derive(PartialEq, Debug, Clone)]
-pub enum Action {
-    // TODO: keep href of items that need to be acted upon?
-    NoOp,
-    CopyToA,
-    CopyToB,
-    DeleteInA,
-    DeleteInB,
-    Conflict, // TODO: content might still match on both sides
-}
-
-impl Action {
-    /// Return the correct action given a pair of changes.
-    #[must_use]
-    fn from_changes(left: Change, right: Change) -> Action {
-        match (left, right) {
-            (Change::Changed, Change::Changed) => Action::Conflict,
-            (Change::NoChange, Change::Deleted) => Action::DeleteInA,
-            (Change::Deleted, Change::NoChange) => Action::DeleteInB,
-            (Change::Deleted | Change::NoChange | Change::Absent, Change::Changed)
-            | (Change::Absent, Change::NoChange) => Action::CopyToA,
-            (Change::Changed, Change::Deleted | Change::NoChange | Change::Absent)
-            | (Change::NoChange, Change::Absent) => Action::CopyToB,
-            (Change::Deleted | Change::Absent, Change::Deleted | Change::Absent)
-            | (Change::NoChange, Change::NoChange) => Action::NoOp,
-        }
-    }
-
-    #[inline]
-    async fn execute_on_item<I: Item>(
-        &self,
-        uid: &str,
-        storage_a: &mut dyn Storage<I>,
-        storage_b: &mut dyn Storage<I>,
-        state_a: Option<&mut CollectionState>,
-        state_b: Option<&mut CollectionState>,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        match self {
-            Action::NoOp => {}
-            Action::CopyToB => {
-                copy_item(
-                    state_a.ok_or("state a is missing")?,
-                    state_b.ok_or("state b is missing")?,
-                    storage_a,
-                    storage_b,
-                    uid,
-                )
-                .await?;
-            }
-            Action::CopyToA => {
-                copy_item(
-                    state_b.ok_or("state b is missing")?,
-                    state_a.ok_or("state a is missing")?,
-                    storage_b,
-                    storage_a,
-                    uid,
-                )
-                .await?;
-            }
-            Action::DeleteInA => {
-                delete_item(
-                    state_a.ok_or("collection is missing from state a")?,
-                    storage_a,
-                    uid,
-                )
-                .await?;
-            }
-            Action::DeleteInB => {
-                delete_item(
-                    state_b.ok_or("collection is missing from state b")?,
-                    storage_b,
-                    uid,
-                )
-                .await?;
-            }
-            Action::Conflict => todo!("conflict resolution"),
-        }
-
-        Ok(())
-    }
-}
-
-async fn copy_item<I: Item>(
-    src_state: &CollectionState,
-    dst_state: &mut CollectionState,
-    src_storage: &dyn Storage<I>,
-    dst_storage: &mut dyn Storage<I>,
-    uid: &str,
-) -> Result<(), Box<dyn std::error::Error>> {
-    let col_a = src_storage.open_collection(&src_state.collection_href)?;
-
-    let item_state = src_state.get_item_by_uid(uid).ok_or("item is missing")?;
-    let (item, _) = src_storage.get_item(&col_a, &item_state.href).await?;
-
-    let col = dst_storage.open_collection(&dst_state.collection_href)?;
-
-    if let Some(dst_item_state) = dst_state.get_item_by_uid_mut(uid) {
-        trace!("Updating {uid}");
-        let new_etag = dst_storage
-            .update_item(&col, &dst_item_state.href, &dst_item_state.etag, &item)
-            .await?;
-        dst_item_state.etag = new_etag;
-        dst_item_state.hash = item.hash();
-    } else {
-        trace!("Creating {uid}");
-        let new_ref = dst_storage.add_item(&col, &item).await?;
-        dst_state.items.push(ItemState {
-            href: new_ref.href,
-            uid: uid.to_string(),
-            etag: new_ref.etag,
-            hash: item.hash(),
-        });
-    };
-
-    Ok(())
-}
-
-async fn delete_item<I: Item>(
-    state: &mut CollectionState,
-    storage: &mut dyn Storage<I>,
-    uid: &str,
-) -> Result<(), Box<dyn std::error::Error>> {
-    let col = storage.open_collection(&state.collection_href)?;
-    let pos = state
-        .items
-        .iter()
-        .position(|i| i.uid == *uid)
-        .ok_or("item pending deletion is missing from state")?;
-    let item_state = &state.items[pos];
-
-    storage
-        .delete_item(&col, &item_state.href, &item_state.etag)
-        .await?;
-
-    state.items.swap_remove(pos);
-
-    Ok(())
-}
+use super::declare::{CollectionDescription, DeclaredMapping};
+use super::helpers::find_collection_by_id;
+use super::state::CollectionState;
 
 /// A series of actions that would synchronise a pair of storages.
-#[derive(Debug)]
-pub struct Plan {
-    collection_plans: Vec<CollectionPlan>,
+pub struct Plan<'pair, I: Item> {
+    pub(super) pair: &'pair mut StoragePair<'pair, I>,
+    pub(super) collection_plans: Vec<CollectionPlan>,
+    current_state_a: StorageState,
+    current_state_b: StorageState,
 }
 
-impl Plan {
-    /// Create a plan to synchronise both storages.
+impl<'pair, I: Item> Plan<'pair, I> {
+    /// Create a new plan for a given storage pair.
     ///
-    /// Compares the previous and current state of both storages and calculate all actions required
-    /// to bring them into a synchronised state.
-    #[must_use]
-    pub fn for_storage_pair<I>(pair: &'_ StoragePair<'_, I>) -> Plan {
+    /// The plan itself will hold a mutable reference to the pair. The pair can not be dropped, nor
+    /// used until the plan itself is itself dropped.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    ///
+    /// - There is an error discovering remote collections.
+    /// - A mapping is defined by collection id, but the id is invalid for the underlying storage.
+    /// - There is an error reading the state of existing items.
+    pub async fn new(pair: &'pair mut StoragePair<'pair, I>) -> Result<Plan<'pair, I>> {
+        let all_a = pair.info.storage_a.discover_collections().await?;
+        let all_b = pair.info.storage_b.discover_collections().await?;
+
+        let mut mappings = Vec::<ResolvedMapping>::with_capacity(pair.info.mappings.len());
+        for mapping in &pair.info.mappings {
+            mappings.push(ResolvedMapping::from_declared_mapping(
+                mapping.clone(),
+                pair.info.storage_a,
+                pair.info.storage_b,
+                &all_a,
+                &all_b,
+            )?);
+        }
+
+        if pair.info.all_from_a {
+            mappings.reserve(all_a.len());
+            for collection in &all_a {
+                let counterpart = resolve_mapping_counterpart(
+                    pair.info.storage_a,
+                    collection,
+                    pair.info.storage_b,
+                    &all_b,
+                )?;
+                mappings.push(ResolvedMapping {
+                    a: ResolvedCollection::Href {
+                        href: collection.href().to_string(),
+                    },
+                    b: counterpart,
+                });
+            }
+        }
+        if pair.info.all_from_b {
+            mappings.reserve(all_b.len());
+            for collection in &all_b {
+                let counterpart = resolve_mapping_counterpart(
+                    pair.info.storage_b,
+                    collection,
+                    pair.info.storage_a,
+                    &all_a,
+                )?;
+                mappings.push(ResolvedMapping {
+                    a: counterpart,
+                    b: ResolvedCollection::Href {
+                        href: collection.href().to_string(),
+                    },
+                });
+            }
+        }
+
+        // FIXME: TODO: deduplicate mappings??
+        // duplicating a mapping results in a plan that always fails (due to duplicate actions).
+        // Anyway: surely there's some way to avoid generating duplicates in the first place.
+
+        // IMPORTANT: id-only definitions need to be resolved at this point!
+        let hrefs_a = mappings
+            .iter()
+            .filter_map(ResolvedMapping::href_a)
+            .collect();
+        let hrefs_b = mappings
+            .iter()
+            .filter_map(ResolvedMapping::href_b)
+            .collect();
+
+        let current_state_a = StorageState::current_for_storage(
+            pair.info.previous_state_a,
+            pair.info.storage_a,
+            &hrefs_a,
+            &all_a,
+        )
+        .await?;
+        let current_state_b = StorageState::current_for_storage(
+            pair.info.previous_state_b,
+            pair.info.storage_b,
+            &hrefs_b,
+            &all_b,
+        )
+        .await?;
+
         // TODO: this method's implementation is not performant; it mostly "just works"
         //       Performance will be tweaked at a later date. In particular, we need a
-        //       fully functioning system to properly benchmark different approaches.
+        //       fully functioning system to properly benchmark different implementations.
 
         let mut collection_plans = Vec::new();
-        for collection in &pair.collections {
-            let cur_a = pair
-                .current_state_a
-                .find_collection_state(collection.name_a());
-            let cur_b = pair
-                .current_state_b
-                .find_collection_state(collection.name_b());
-            let prev_a = pair
-                .previous_state_a
-                .find_collection_state(collection.name_a());
-            let prev_b = pair
-                .previous_state_b
-                .find_collection_state(collection.name_b());
+        for collection in &mappings {
+            let mut prev_a = None;
+            let mut cur_a = None;
+            let mut prev_b = None;
+            let mut cur_b = None;
+
+            if let Some(href) = collection.href_a() {
+                cur_a = current_state_a.find_collection_state(href);
+                prev_a = pair
+                    .info
+                    .previous_state_a
+                    .and_then(|s| s.find_collection_state(href));
+            };
+            if let Some(href) = collection.href_b() {
+                cur_b = current_state_b.find_collection_state(href);
+                prev_b = pair
+                    .info
+                    .previous_state_b
+                    .and_then(|s| s.find_collection_state(href));
+            };
 
             let plan = CollectionPlan::new(collection.clone(), prev_a, cur_a, prev_b, cur_b);
             collection_plans.push(plan);
         }
 
-        Plan { collection_plans }
+        Ok(Plan {
+            pair,
+            collection_plans,
+            current_state_a,
+            current_state_b,
+        })
     }
 
-    /// Executes a synchronization plan.
-    ///
-    /// FIXME: These docs are out of date!
-    ///
-    /// Always returns a final state, regardless of what changes were applied.
-    /// The `FinalState` will include the error that forced aborting, if any. If
-    /// the error is not None, then both storages may still be out of sync.
-    pub async fn execute<I: Item>(&self, pair: &mut StoragePair<'_, I>) -> FinalState {
-        let mut final_state = FinalState {
-            state_a: pair.current_state_a.clone(),
-            state_b: pair.current_state_b.clone(),
-            errors: Vec::new(),
-        };
-        let storage_a = &mut pair.storage_a;
-        let storage_b = &mut pair.storage_b;
-
-        for cp in &self.collection_plans {
-            let mut delete_collection_in_a = false;
-            let mut delete_collection_in_b = false;
-            match cp.collection_action {
-                Action::NoOp => {}
-                Action::CopyToB => {
-                    create_collection(
-                        *storage_b,
-                        cp.mapping.name_b(),
-                        &mut final_state.state_b,
-                        &mut final_state.errors,
-                        &cp.collection_action,
-                    )
-                    .await;
-                }
-                Action::CopyToA => {
-                    create_collection(
-                        *storage_a,
-                        cp.mapping.name_a(),
-                        &mut final_state.state_a,
-                        &mut final_state.errors,
-                        &cp.collection_action,
-                    )
-                    .await;
-                }
-                Action::Conflict => {
-                    final_state.errors.push(SynchronizationError {
-                        action: cp.collection_action.clone(),
-                        resource: SyncResource::Collection {
-                            name: cp.mapping.name().to_string(),
-                        },
-                        error: "Invalid input: conflict between storages is senseless".into(),
-                    });
-                }
-                Action::DeleteInA => {
-                    delete_collection_in_a = true;
-                }
-                Action::DeleteInB => {
-                    delete_collection_in_b = true;
-                }
-            }
-
-            for (uid, action) in &cp.item_actions {
-                // FIXME: I need to somehow move these two calls outside of the "for" loop.
-                let state_a = final_state
-                    .state_a
-                    .find_collection_state_mut(cp.mapping.name_a());
-                let state_b = final_state
-                    .state_b
-                    .find_collection_state_mut(cp.mapping.name_b());
-
-                if let Err(err) = action
-                    .execute_on_item(uid, *storage_a, *storage_b, state_a, state_b)
-                    .await
-                {
-                    final_state.errors.push(SynchronizationError {
-                        action: action.clone(),
-                        resource: SyncResource::Item {
-                            uid: uid.to_string(),
-                        },
-                        error: err,
-                    });
-                };
-            }
-            if delete_collection_in_a {
-                delete_collection(
-                    *storage_a,
-                    cp.mapping.name_a(),
-                    &mut final_state.state_a,
-                    &mut final_state.errors,
-                    &cp.collection_action,
-                )
-                .await;
-            }
-            if delete_collection_in_b {
-                delete_collection(
-                    *storage_b,
-                    cp.mapping.name_b(),
-                    &mut final_state.state_b,
-                    &mut final_state.errors,
-                    &cp.collection_action,
-                )
-                .await;
-            }
-        }
-
-        final_state
-    }
-}
-
-async fn create_collection<I: Item>(
-    storage: &mut dyn Storage<I>,
-    name: &str,
-    state: &mut StorageState,
-    errors: &mut Vec<SynchronizationError>,
-    action: &Action,
-) {
-    match storage.create_collection(name).await {
-        Ok(c) => {
-            state.add_collection(name.to_string(), c.href().to_string());
-        }
-        Err(e) => {
-            errors.push(SynchronizationError {
-                action: action.clone(),
-                resource: SyncResource::Collection {
-                    name: name.to_string(),
-                },
-                error: Box::new(e),
-            });
-        }
-    };
-}
-
-async fn delete_collection<I: Item>(
-    storage: &mut dyn Storage<I>,
-    name: &str,
-    state: &mut StorageState,
-    errors: &mut Vec<SynchronizationError>,
-    action: &Action,
-) {
-    match storage.destroy_collection(name).await {
-        Ok(()) => {
-            state.remove_collection(name);
-        }
-        Err(e) => {
-            errors.push(SynchronizationError {
-                action: action.clone(),
-                resource: SyncResource::Collection {
-                    name: name.to_string(),
-                },
-                error: Box::new(e),
-            });
-        }
-    };
-}
-
-/// The state of a storage pair after synchronisation.
-///
-/// Storages may have been mutated before an error occurred, so the final state for both is always
-/// returned, even in case of an error.
-#[must_use]
-pub struct FinalState {
-    /// The state of `storage_a` after executing a plan.
-    pub state_a: StorageState,
-    /// The state of `storage_b` after executing a plan.
-    pub state_b: StorageState,
-    /// Any errors that may have occurred during synchronisation.
-    pub errors: Vec<SynchronizationError>,
-}
-
-impl FinalState {
-    /// Returns true if both storages are in sync.
+    /// Returns a reference to the underlying pair.
     #[must_use]
-    pub fn synchronised_ok(&self) -> bool {
-        self.errors.is_empty()
+    pub fn pair(&self) -> &'pair StoragePair<I> {
+        self.pair
     }
+
+    #[must_use]
+    pub fn current_state_a(&self) -> &StorageState {
+        &self.current_state_a
+    }
+
+    #[must_use]
+    pub fn current_state_b(&self) -> &StorageState {
+        &self.current_state_b
+    }
+}
+
+/// A mapping resolved based on the storage's current state.
+///
+/// A `ResolvedCollection::Id` variant implies that a collection does not exist on that side.
+#[derive(Debug, Clone)]
+pub struct ResolvedMapping {
+    // TODO: An alias attribute?
+    pub(super) a: ResolvedCollection,
+    pub(super) b: ResolvedCollection,
+}
+
+impl ResolvedMapping {
+    pub(super) fn collection_a(&self) -> &ResolvedCollection {
+        &self.a
+    }
+
+    pub(super) fn collection_b(&self) -> &ResolvedCollection {
+        &self.b
+    }
+
+    pub(super) fn href_a(&self) -> Option<&str> {
+        match &self.a {
+            ResolvedCollection::Id { .. } => None,
+            ResolvedCollection::Href { href } => Some(href),
+        }
+    }
+    pub(super) fn href_b(&self) -> Option<&str> {
+        match &self.b {
+            ResolvedCollection::Id { .. } => None,
+            ResolvedCollection::Href { href } => Some(href),
+        }
+    }
+
+    /// Returns `Err` if the collection is missing on the `From` side.
+    fn from_declared_mapping<I: Item>(
+        declared: DeclaredMapping,
+        storage_a: &dyn Storage<I>,
+        storage_b: &dyn Storage<I>,
+        collections_a: &[Collection],
+        collections_b: &[Collection],
+    ) -> Result<Self> {
+        match declared {
+            DeclaredMapping::Direct { description } => Ok(ResolvedMapping {
+                a: ResolvedCollection::from_declared_collection(
+                    description.clone(),
+                    storage_a,
+                    collections_a,
+                )?,
+                b: ResolvedCollection::from_declared_collection(
+                    description,
+                    storage_b,
+                    collections_b,
+                )?,
+            }),
+            DeclaredMapping::FromA { description } => {
+                resolve_from_x(
+                    description,
+                    collections_a,
+                    storage_a,
+                    collections_b,
+                    storage_b,
+                )
+                // Note the order of arguments here.
+                .map(|(a, b)| ResolvedMapping { a, b })
+            }
+            DeclaredMapping::FromB { description } => {
+                resolve_from_x(
+                    description,
+                    collections_b,
+                    storage_b,
+                    collections_a,
+                    storage_a,
+                )
+                // Note the order of arguments here.
+                .map(|(b, a)| ResolvedMapping { a, b })
+            }
+            DeclaredMapping::Mapped { a, b, .. } => Ok(ResolvedMapping {
+                a: ResolvedCollection::from_declared_collection(a, storage_a, collections_a)?,
+                b: ResolvedCollection::from_declared_collection(b, storage_b, collections_b)?,
+            }),
+        }
+    }
+}
+
+/// A collection as resolved based on existing data.
+#[derive(Debug, Clone)]
+pub(super) enum ResolvedCollection {
+    /// The collection does not exist; only its (expected) collection id is known.
+    Id { id: CollectionId },
+    /// The collection exists and its href is known.
+    Href { href: String },
+}
+
+impl ResolvedCollection {
+    pub(super) fn href(&self) -> Option<&str> {
+        match self {
+            ResolvedCollection::Id { .. } => None,
+            ResolvedCollection::Href { href } => Some(href),
+        }
+    }
+
+    /// Resolve the collection based on a storage and its collections.
+    fn from_declared_collection<I: Item>(
+        declared: CollectionDescription,
+        storage: &dyn Storage<I>,
+        collections: &[Collection],
+    ) -> Result<Self> {
+        Ok(match declared {
+            CollectionDescription::Id { id } => {
+                match find_collection_by_id(collections, storage, &id)? {
+                    Some(collection) => ResolvedCollection::Href {
+                        href: collection.href().to_string(),
+                    },
+                    None => ResolvedCollection::Id { id: id.clone() },
+                }
+            }
+            CollectionDescription::Href { href } => ResolvedCollection::Href { href },
+        })
+    }
+}
+
+/// Finds a counterpart for a collection matching by id.
+fn resolve_mapping_counterpart<I: Item>(
+    source_storage: &dyn Storage<I>,
+    source_collection: &Collection,
+    target_storage: &dyn Storage<I>,
+    target_collections: &[Collection],
+) -> Result<ResolvedCollection> {
+    let id = source_storage.collection_id(source_collection)?;
+    let counterpart = match find_collection_by_id(target_collections, target_storage, &id)? {
+        Some(c) => ResolvedCollection::Href {
+            href: c.href().to_string(),
+        },
+        None => ResolvedCollection::Id { id },
+    };
+    Ok(counterpart)
+}
+
+/// Resolve a `FromX` mapping (e.g.: `FromA` or `FromB`).
+///
+/// The counterpart will be a collection with the same `CollectionId` on the other storage.
+fn resolve_from_x<I: Item>(
+    description: CollectionDescription,
+    collections_x: &[Collection],
+    storage_x: &dyn Storage<I>,
+    collections_y: &[Collection],
+    storage_y: &dyn Storage<I>,
+) -> Result<(ResolvedCollection, ResolvedCollection)> {
+    let (id, href) = match description {
+        CollectionDescription::Id { id } => {
+            let collection =
+                find_collection_by_id(collections_x, storage_x, &id)?.ok_or(Error::new(
+                    ErrorKind::DoesNotExist,
+                    format!("No collection with id: {id}"),
+                ))?;
+            (id, collection.href().to_string())
+        }
+        CollectionDescription::Href { href } => {
+            let id = storage_x.collection_id(&Collection::new(href.clone()))?;
+            (id, href.to_string())
+        }
+    };
+
+    let counterpart = match find_collection_by_id(collections_y, storage_y, &id) {
+        Ok(Some(c)) => ResolvedCollection::Href {
+            href: c.href().to_string(),
+        },
+        Ok(None) => ResolvedCollection::Id { id },
+        Err(err) => {
+            // This really should never happen, let's add extra logging just in case.
+            error!("Error finding counterpart for id-based mapping: {:?}", err);
+            return Err(err);
+        }
+    };
+
+    Ok((ResolvedCollection::Href { href }, counterpart))
 }
 
 /// A set of actions required to sync a collection between two storages.
 #[derive(Debug)]
-pub(crate) struct CollectionPlan {
-    mapping: CollectionMapping,
+pub(super) struct CollectionPlan {
+    mapping: ResolvedMapping,
     collection_action: Action,
     item_actions: HashMap<String, Action>,
 }
@@ -422,11 +357,11 @@ pub(crate) struct CollectionPlan {
 impl CollectionPlan {
     /// Calculate actions to sync a collection between two storages.
     ///
-    /// If a previous state is `None` it means that the collection did not previously exist.
-    /// If a current state is None it means that the collection does not exist.
+    /// Each `previous_state` field shall be `None` if the collection did not previously exist.
+    /// Each `current_state` field shall be `None` if the collection does not exist.
     #[must_use]
     fn new<'a>(
-        mapping: CollectionMapping,
+        mapping: ResolvedMapping,
         previous_state_a: Option<&'a CollectionState>,
         current_state_a: Option<&'a CollectionState>,
         previous_state_b: Option<&'a CollectionState>,
@@ -473,6 +408,117 @@ impl CollectionPlan {
             mapping,
             collection_action,
             item_actions,
+        }
+    }
+
+    pub(super) fn mapping(&self) -> &ResolvedMapping {
+        &self.mapping
+    }
+
+    pub(super) fn collection_action(&self) -> &Action {
+        &self.collection_action
+    }
+
+    pub(super) fn item_actions(&self) -> &HashMap<String, Action> {
+        &self.item_actions
+    }
+}
+
+/// An action to executing when synchronising.
+#[derive(PartialEq, Debug, Clone)]
+pub enum Action {
+    // TODO: keep href of items that need to be acted upon?
+    NoOp,
+    CopyToA,
+    CopyToB,
+    DeleteInA,
+    DeleteInB,
+    Conflict, // TODO: content might still match on both sides
+}
+
+impl Action {
+    /// Return the correct action given a pair of changes.
+    #[must_use]
+    fn from_changes(left: Change, right: Change) -> Action {
+        match (left, right) {
+            (Change::Changed, Change::Changed) => Action::Conflict,
+            (Change::NoChange, Change::Deleted) => Action::DeleteInA,
+            (Change::Deleted, Change::NoChange) => Action::DeleteInB,
+            (Change::Deleted | Change::NoChange | Change::Absent, Change::Changed)
+            | (Change::Absent, Change::NoChange) => Action::CopyToA,
+            (Change::Changed, Change::Deleted | Change::NoChange | Change::Absent)
+            | (Change::NoChange, Change::Absent) => Action::CopyToB,
+            (Change::Deleted | Change::Absent, Change::Deleted | Change::Absent)
+            | (Change::NoChange, Change::NoChange) => Action::NoOp,
+        }
+    }
+}
+
+/// A transition that has occurred to a pair of items or collections.
+#[derive(Debug, Clone, Copy)]
+pub(super) enum Change {
+    /// Mutated or created.
+    Changed,
+    /// Deleted.
+    Deleted,
+    /// The item exists and has not changed.
+    NoChange,
+    /// The item does not exist and did not exist before.
+    ///
+    /// This might indicate that this item was previously excluded from synchronisation.
+    Absent,
+}
+
+impl Change {
+    #[must_use]
+    pub(super) fn for_item(
+        current: Option<&CollectionState>,
+        previous: Option<&CollectionState>,
+        uid: &str,
+    ) -> Change {
+        match (current, previous) {
+            (Some(c), Some(p)) => {
+                let c_item_state = c.items.iter().find(|i| i.uid == *uid);
+                let p_item_state = p.items.iter().find(|i| i.uid == *uid);
+
+                if let (Some(ci), Some(pi)) = (c_item_state, p_item_state) {
+                    if ci.uid == pi.uid && ci.etag == pi.etag && ci.hash == pi.hash {
+                        Change::NoChange
+                    } else {
+                        Change::Changed
+                    }
+                } else if c_item_state.is_some() {
+                    Change::Changed
+                } else if p_item_state.is_some() {
+                    Change::Deleted
+                } else {
+                    Change::Absent
+                }
+            }
+            (Some(c), None) => {
+                if c.items.iter().any(|i| i.uid == *uid) {
+                    Change::Changed
+                } else {
+                    Change::Absent
+                }
+            }
+            (None, Some(_)) => Change::Deleted,
+            (None, None) => Change::Absent,
+        }
+    }
+
+    #[must_use]
+    pub(super) fn for_collection(
+        current: Option<&CollectionState>,
+        previous: Option<&CollectionState>,
+    ) -> Change {
+        match (current, previous) {
+            (None, None) => Change::Absent,
+            (None, Some(_)) => Change::Deleted,
+            (Some(_), None) => Change::Changed,
+            // TODO: Ignores meta; considers collections immutable:
+            // they might change etag (or meta!?!?!)
+            (Some(_), Some(_)) => Change::NoChange,
         }
     }
 }
