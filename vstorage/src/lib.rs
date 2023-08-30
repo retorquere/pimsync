@@ -53,7 +53,7 @@ pub mod webcal;
 type Result<T> = std::result::Result<T, crate::Error>;
 
 /// Variants used to categorise [`Error`] instances.
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum ErrorKind {
     DoesNotExist,
     NotACollection,
