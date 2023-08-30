@@ -14,7 +14,7 @@ log = "0.4.17"
 libdav = { version = "0.1.0", path = "../libdav" }
 rand = "0.8.5"
 tokio = "1.25.0"
-simple_logger = { version = "2.3.0", default-features = false, features = ["colors"] }
+simple_logger = { version = "4.1.0", default-features = false, features = ["colors"] }
 anyhow = { version = "1.0.70", features = ["backtrace"] }
 # Newer serde versions include a WONTFIX security issue:
 # See: https://github.com/serde-rs/serde/issues/2538
