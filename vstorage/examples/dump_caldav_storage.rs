@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: EUPL-1.2
 
+use hyper_rustls::HttpsConnectorBuilder;
 use libdav::auth::Auth;
 use vstorage::{
     base::{Collection, Definition, IcsItem, Storage},
@@ -14,12 +15,18 @@ async fn create_caldav_from_env() -> Box<dyn Storage<IcsItem>> {
     let username = std::env::var("CALDAV_USERNAME").unwrap();
     let password = std::env::var("CALDAV_PASSWORD").unwrap().into();
 
+    let connector = HttpsConnectorBuilder::new()
+        .with_native_roots()
+        .https_or_http()
+        .enable_http1()
+        .build();
     CalDavDefinition {
         url: server.parse().unwrap(),
         auth: Auth::Basic {
             username,
             password: Some(password),
         },
+        connector,
     }
     .storage()
     .await

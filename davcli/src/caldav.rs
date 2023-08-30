@@ -4,10 +4,14 @@
 
 use anyhow::{bail, Context};
 use clap::{Parser, Subcommand};
+use hyper::client::HttpConnector;
+use hyper_rustls::{HttpsConnector, HttpsConnectorBuilder};
 use libdav::{auth::Auth, CalDavClient};
 use log::info;
 
 use crate::cli::Server;
+
+type Client = CalDavClient<HttpsConnector<HttpConnector>>;
 
 #[derive(Parser)]
 pub struct CalDavArgs {
@@ -41,17 +45,22 @@ pub(crate) enum CalDavCommand {
 }
 
 impl Server {
-    async fn caldav_client(&self) -> anyhow::Result<CalDavClient> {
+    async fn caldav_client(&self) -> anyhow::Result<Client> {
         let password = std::env::var("DAVCLI_PASSWORD")
             .context("failed to determine password")?
             .into();
+        let https = HttpsConnectorBuilder::new()
+            .with_native_roots()
+            .https_or_http()
+            .enable_http1()
+            .build();
         CalDavClient::builder()
             .with_uri(self.server_url.clone())
             .with_auth(Auth::Basic {
                 username: self.username.clone(),
                 password: Some(password),
             })
-            .build()
+            .build(https)
             .auto_bootstrap()
             .await
             .map_err(anyhow::Error::from)
@@ -83,7 +92,7 @@ impl CalDavArgs {
     }
 }
 
-fn discover(client: CalDavClient) {
+fn discover(client: Client) {
     println!("Discovery successful.");
     println!("- Context path: {}", &client.context_path());
     match client.calendar_home_set {
@@ -92,7 +101,7 @@ fn discover(client: CalDavClient) {
     }
 }
 
-async fn get(client: CalDavClient, href: String) -> anyhow::Result<()> {
+async fn get(client: Client, href: String) -> anyhow::Result<()> {
     let target_url = client
         .calendar_home_set
         .as_ref()
@@ -117,7 +126,7 @@ async fn get(client: CalDavClient, href: String) -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn tree(client: CalDavClient) -> anyhow::Result<()> {
+async fn tree(client: Client) -> anyhow::Result<()> {
     let response = client.find_calendars(None).await?;
     for collection in response {
         println!("{}", collection.href);
@@ -127,7 +136,7 @@ async fn tree(client: CalDavClient) -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn list_collections(client: CalDavClient) -> anyhow::Result<()> {
+async fn list_collections(client: Client) -> anyhow::Result<()> {
     let response = client.find_calendars(None).await?;
     for collection in response {
         println!("{}", collection.href);
@@ -136,7 +145,7 @@ async fn list_collections(client: CalDavClient) -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn list_resources(client: &CalDavClient, href: String) -> anyhow::Result<()> {
+async fn list_resources(client: &Client, href: String) -> anyhow::Result<()> {
     let resources = client.list_resources(&href).await?;
     if resources.is_empty() {
         info!("No items in collection");
@@ -149,7 +158,7 @@ async fn list_resources(client: &CalDavClient, href: String) -> anyhow::Result<(
     Ok(())
 }
 
-async fn delete(client: &CalDavClient, href: String) -> anyhow::Result<()> {
+async fn delete(client: &Client, href: String) -> anyhow::Result<()> {
     client
         .force_delete(&href)
         .await

@@ -6,6 +6,7 @@
 
 use async_trait::async_trait;
 use http::Uri;
+use hyper::client::connect::Connect;
 use libdav::auth::Auth;
 use libdav::dav::mime_types;
 use libdav::CardDavClient;
@@ -15,18 +16,22 @@ use crate::dav::path_for_collection_in_home_set;
 use crate::{CollectionId, Error, ErrorKind, Etag, Href, Result};
 
 #[derive(Debug)]
-pub struct CardDavDefinition {
+pub struct CardDavDefinition<C> {
     pub url: Uri,
     pub auth: Auth,
+    pub connector: C,
 }
 
 #[async_trait]
-impl Definition<VcardItem> for CardDavDefinition {
+impl<C> Definition<VcardItem> for CardDavDefinition<C>
+where
+    C: Connect + Send + Sync + Clone + 'static,
+{
     async fn storage(self) -> Result<Box<dyn Storage<VcardItem>>> {
         let client = CardDavClient::builder()
             .with_uri(self.url)
             .with_auth(self.auth)
-            .build()
+            .build(self.connector)
             .auto_bootstrap()
             .await?;
 
@@ -37,12 +42,15 @@ impl Definition<VcardItem> for CardDavDefinition {
 /// A storage backed by a carddav server.
 ///
 /// A single storage represents a single server with a specific set of credentials.
-pub struct CardDavStorage {
-    client: CardDavClient,
+pub struct CardDavStorage<C: Connect + Clone + Sync + Send + 'static> {
+    client: CardDavClient<C>,
 }
 
 #[async_trait]
-impl Storage<VcardItem> for CardDavStorage {
+impl<C> Storage<VcardItem> for CardDavStorage<C>
+where
+    C: Connect + Clone + Sync + Send,
+{
     async fn check(&self) -> Result<()> {
         let uri = &self
             .client

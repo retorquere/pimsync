@@ -263,6 +263,8 @@ dependencies = [
  "anyhow",
  "clap",
  "http",
+ "hyper",
+ "hyper-rustls",
  "libdav",
  "log",
  "simple_logger",
@@ -638,6 +640,8 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "http",
+ "hyper",
+ "hyper-rustls",
  "libdav",
  "log",
  "rand",

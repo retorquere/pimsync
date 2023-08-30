@@ -19,6 +19,7 @@
 //! - /dav/calendars/user/vdirsyncer@fastmail.com/cc396171-0227-4e1c-b5ee-d42b5e17d533/395b00a0-eebc-40fd-a98e-176a06367c82.ics, "e7577ff2b0924fe8e9a91d3fb2eb9072598bf9fb"
 //! ```
 use http::Uri;
+use hyper_rustls::HttpsConnectorBuilder;
 use libdav::auth::Auth;
 use libdav::CalDavClient;
 
@@ -36,13 +37,18 @@ async fn main() {
     let username = arguments.next().expect("$2 is a valid username");
     let password = arguments.next().expect("$3 is a valid password").into();
 
+    let https = HttpsConnectorBuilder::new()
+        .with_native_roots()
+        .https_or_http()
+        .enable_http1()
+        .build();
     let caldav_client = CalDavClient::builder()
         .with_uri(base_url)
         .with_auth(Auth::Basic {
             username,
             password: Some(password),
         })
-        .build()
+        .build(https)
         .auto_bootstrap()
         .await
         .unwrap();

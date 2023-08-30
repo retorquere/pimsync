@@ -20,6 +20,7 @@
 //! Href and Etag for components in addressbook:
 //! ```
 use http::Uri;
+use hyper_rustls::HttpsConnectorBuilder;
 use libdav::auth::Auth;
 use libdav::CardDavClient;
 
@@ -37,13 +38,18 @@ async fn main() {
     let username = arguments.next().expect("$2 is a valid username");
     let password = arguments.next().expect("$3 is a valid password").into();
 
+    let https = HttpsConnectorBuilder::new()
+        .with_native_roots()
+        .https_or_http()
+        .enable_http1()
+        .build();
     let carddav_client = CardDavClient::builder()
         .with_uri(base_url)
         .with_auth(Auth::Basic {
             username,
             password: Some(password),
         })
-        .build()
+        .build(https)
         .auto_bootstrap()
         .await
         .unwrap();

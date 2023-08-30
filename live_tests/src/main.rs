@@ -4,6 +4,8 @@
 
 use anyhow::Context;
 use http::Uri;
+use hyper::client::HttpConnector;
+use hyper_rustls::{HttpsConnector, HttpsConnectorBuilder};
 use libdav::{auth::Auth, CalDavClient, CardDavClient};
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
 use std::{fs::File, io::Read, path::Path};
@@ -38,8 +40,8 @@ impl Profile {
 }
 
 struct TestData {
-    caldav: CalDavClient,
-    carddav: CardDavClient,
+    caldav: CalDavClient<HttpsConnector<HttpConnector>>,
+    carddav: CardDavClient<HttpsConnector<HttpConnector>>,
     calendar_home_set: Uri,
     address_home_set: Uri,
     profile: Profile,
@@ -47,13 +49,18 @@ struct TestData {
 
 impl TestData {
     async fn from_profile(profile: Profile) -> anyhow::Result<Self> {
+        let https = HttpsConnectorBuilder::new()
+            .with_native_roots()
+            .https_or_http()
+            .enable_http1()
+            .build();
         let caldav = CalDavClient::builder()
             .with_uri(profile.host.parse()?)
             .with_auth(Auth::Basic {
                 username: profile.username.clone(),
                 password: Some(profile.password.clone().into()),
             })
-            .build()
+            .build(https.clone())
             .auto_bootstrap()
             .await
             .context("could not initialise test client")?;
@@ -69,7 +76,7 @@ impl TestData {
                 username: profile.username.clone(),
                 password: Some(profile.password.clone().into()),
             })
-            .build()
+            .build(https)
             .auto_bootstrap()
             .await
             .context("could not initialise test client")?;

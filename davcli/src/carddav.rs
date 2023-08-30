@@ -4,9 +4,13 @@
 
 use anyhow::Context;
 use clap::{Parser, Subcommand};
+use hyper::client::HttpConnector;
+use hyper_rustls::{HttpsConnector, HttpsConnectorBuilder};
 use libdav::{auth::Auth, CardDavClient};
 
 use crate::cli::Server;
+
+type Client = CardDavClient<HttpsConnector<HttpConnector>>;
 
 #[derive(Parser)]
 pub struct CardDavArgs {
@@ -24,17 +28,22 @@ pub(crate) enum CardDavCommand {
 }
 
 impl Server {
-    async fn carddav_client(&self) -> anyhow::Result<CardDavClient> {
+    async fn carddav_client(&self) -> anyhow::Result<Client> {
         let password = std::env::var("DAVCLI_PASSWORD")
             .context("failed to determine password")?
             .into();
+        let https = HttpsConnectorBuilder::new()
+            .with_native_roots()
+            .https_or_http()
+            .enable_http1()
+            .build();
         CardDavClient::builder()
             .with_uri(self.server_url.clone())
             .with_auth(Auth::Basic {
                 username: self.username.clone(),
                 password: Some(password),
             })
-            .build()
+            .build(https)
             .auto_bootstrap()
             .await
             .map_err(anyhow::Error::from)
@@ -54,7 +63,7 @@ impl CardDavArgs {
     }
 }
 
-fn discover(client: CardDavClient) {
+fn discover(client: Client) {
     println!("Discovery successful.");
     println!("- Context path: {}", &client.context_path());
     match client.addressbook_home_set {

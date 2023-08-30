@@ -11,8 +11,7 @@ use std::{str::FromStr, string::FromUtf8Error};
 use http::{
     response::Parts, status::InvalidStatusCode, uri::PathAndQuery, Method, Request, StatusCode, Uri,
 };
-use hyper::{body::Bytes, client::HttpConnector, Body, Client};
-use hyper_rustls::{HttpsConnector, HttpsConnectorBuilder};
+use hyper::{body::Bytes, client::connect::Connect, Body, Client};
 use percent_encoding::percent_decode_str;
 
 use crate::{
@@ -109,11 +108,14 @@ pub enum FindCurrentUserPrincipalError {
 //       the 'server' type has the auth and base uri.
 //       basically, splits behavioural interface from state
 #[derive(Debug, Clone)]
-pub struct WebDavClient {
+pub struct WebDavClient<C>
+where
+    C: Connect + Clone + Sync + Send + 'static,
+{
     /// Base URL to be used for all requests.
     pub(crate) base_url: Uri,
     auth: Auth,
-    http_client: Client<HttpsConnector<HttpConnector>>,
+    http_client: Client<C>,
     /// URL to a principal resource corresponding to the currently authenticated user.
     ///
     /// In order to determine the principal, see [`find_current_user_principal`].
@@ -126,24 +128,19 @@ pub struct WebDavClient {
     pub(crate) principal: Option<Uri>,
 }
 
-impl WebDavClient {
+impl<C> WebDavClient<C>
+where
+    C: Connect + Clone + Sync + Send,
+{
     /// Builds a new webdav client.
     ///
     /// Only `https` is enabled by default. Plain-text `http` is only enabled if the
     /// input uri has a scheme of `http` or `caldav`.
-    pub fn new(base_url: Uri, auth: Auth) -> WebDavClient {
-        let builder = HttpsConnectorBuilder::new().with_native_roots();
-        let builder = match base_url.scheme() {
-            Some(scheme) if scheme.as_str() == "http" => builder.https_or_http(),
-            Some(scheme) if scheme.as_str() == "caldav" => builder.https_or_http(),
-            _ => builder.https_only(),
-        };
-
-        let https = builder.enable_http1().build();
+    pub fn new(base_url: Uri, auth: Auth, connector: C) -> WebDavClient<C> {
         WebDavClient {
             base_url,
             auth,
-            http_client: Client::builder().build(https),
+            http_client: Client::builder().build(connector),
             principal: None,
         }
     }

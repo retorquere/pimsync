@@ -5,6 +5,7 @@
 use std::ops::Deref;
 
 use http::{Method, Request};
+use hyper::client::connect::Connect;
 use hyper::{Body, Uri};
 use log::debug;
 
@@ -25,6 +26,7 @@ use crate::{CheckSupportError, FetchedResource};
 /// # use libdav::CalDavClient;
 /// use http::Uri;
 /// use libdav::auth::{Auth, Password};
+/// use hyper_rustls::HttpsConnectorBuilder;
 ///
 /// # tokio::runtime::Builder::new_current_thread().build().unwrap().block_on(async {
 /// let uri = Uri::try_from("https://example.com").unwrap();
@@ -33,10 +35,15 @@ use crate::{CheckSupportError, FetchedResource};
 ///     password: Some(Password::from("secret")),
 /// };
 ///
+/// let https = HttpsConnectorBuilder::new()
+///     .with_native_roots()
+///     .https_or_http()
+///     .enable_http1()
+///     .build();
 /// let client = CalDavClient::builder()
 ///     .with_uri(uri)
 ///     .with_auth(auth)
-///     .build()
+///     .build(https)
 ///     .auto_bootstrap()
 ///     .await
 ///     .unwrap();
@@ -46,11 +53,14 @@ use crate::{CheckSupportError, FetchedResource};
 /// For common cases, [`auto_bootstrap`](Self::auto_bootstrap) should be called on the client to
 /// bootstrap it automatically.
 #[derive(Debug, Clone)]
-pub struct CalDavClient {
+pub struct CalDavClient<C>
+where
+    C: Connect + Clone + Sync + Send + 'static,
+{
     /// The `base_url` may be (due to bootstrapping discovery) different to the one provided as input.
     ///
     /// See: <https://www.rfc-editor.org/rfc/rfc6764#section-1>
-    dav_client: WebDavClient,
+    dav_client: WebDavClient<C>,
     /// URL of collections that are either calendar collections or ordinary collections
     /// that have child or descendant calendar collections owned by the principal.
     /// See: <https://www.rfc-editor.org/rfc/rfc4791#section-6.2.1>
@@ -59,25 +69,34 @@ pub struct CalDavClient {
     pub calendar_home_set: Option<Uri>, // TODO: timeouts
 }
 
-impl Deref for CalDavClient {
-    type Target = WebDavClient;
+impl<C> Deref for CalDavClient<C>
+where
+    C: Connect + Clone + Sync + Send,
+{
+    type Target = WebDavClient<C>;
 
     fn deref(&self) -> &Self::Target {
         &self.dav_client
     }
 }
 
-impl ClientBuilder<CalDavClient, crate::builder::Ready> {
+impl<C> ClientBuilder<CalDavClient<C>, crate::builder::Ready>
+where
+    C: Connect + Clone + Sync + Send,
+{
     /// Return a built client.
-    pub fn build(self) -> CalDavClient {
+    pub fn build(self, connector: C) -> CalDavClient<C> {
         CalDavClient {
-            dav_client: WebDavClient::new(self.state.uri, self.state.auth),
+            dav_client: WebDavClient::new(self.state.uri, self.state.auth, connector),
             calendar_home_set: None,
         }
     }
 }
 
-impl CalDavClient {
+impl<C> CalDavClient<C>
+where
+    C: Connect + Clone + Sync + Send,
+{
     /// Creates a new builder. See [`CalDavClient`] and [`ClientBuilder`] for details.
     #[must_use]
     pub fn builder() -> ClientBuilder<Self, NeedsUri> {

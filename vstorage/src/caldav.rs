@@ -6,6 +6,7 @@
 
 use async_trait::async_trait;
 use http::Uri;
+use hyper::client::connect::Connect;
 use libdav::auth::Auth;
 use libdav::dav::mime_types;
 use libdav::CalDavClient;
@@ -14,10 +15,13 @@ use crate::base::{CalendarProperty, Collection, Definition, IcsItem, Item, ItemR
 use crate::dav::path_for_collection_in_home_set;
 use crate::{CollectionId, Error, ErrorKind, Etag, Href, Result};
 
-#[derive(Debug)]
-pub struct CalDavDefinition {
+pub struct CalDavDefinition<C>
+where
+    C: Connect + Send + Sync + Clone + 'static,
+{
     pub url: Uri,
     pub auth: Auth,
+    pub connector: C,
 }
 
 impl From<libdav::BootstrapError> for Error {
@@ -35,12 +39,15 @@ impl From<libdav::dav::DavError> for Error {
 }
 
 #[async_trait]
-impl Definition<IcsItem> for CalDavDefinition {
+impl<C> Definition<IcsItem> for CalDavDefinition<C>
+where
+    C: Connect + Send + Sync + Clone,
+{
     async fn storage(self) -> Result<Box<dyn Storage<IcsItem>>> {
         let client = CalDavClient::builder()
             .with_uri(self.url)
             .with_auth(self.auth)
-            .build()
+            .build(self.connector)
             .auto_bootstrap()
             .await?;
 
@@ -51,12 +58,18 @@ impl Definition<IcsItem> for CalDavDefinition {
 /// A storage backed by a caldav server.
 ///
 /// A single storage represents a single server with a specific set of credentials.
-pub struct CalDavStorage {
-    client: CalDavClient,
+pub struct CalDavStorage<C>
+where
+    C: Connect + Sync + Send + Clone + 'static,
+{
+    client: CalDavClient<C>,
 }
 
 #[async_trait]
-impl Storage<IcsItem> for CalDavStorage {
+impl<C> Storage<IcsItem> for CalDavStorage<C>
+where
+    C: Connect + Sync + Send + Clone,
+{
     async fn check(&self) -> Result<()> {
         let uri = &self
             .client

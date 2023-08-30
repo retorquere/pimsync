@@ -13,16 +13,19 @@ use crate::{
 };
 use domain::base::Dname;
 
-use hyper::Uri;
+use hyper::{client::connect::Connect, Uri};
 
 /// A big chunk of the bootstrap logic that's shared between both types.
 ///
 /// Mutates the `base_url` for the client to the discovered one.
-pub(crate) async fn common_bootstrap(
-    client: &mut WebDavClient,
+pub(crate) async fn common_bootstrap<C>(
+    client: &mut WebDavClient<C>,
     port: u16,
     service: DiscoverableService,
-) -> Result<(), BootstrapError> {
+) -> Result<(), BootstrapError>
+where
+    C: Connect + Clone + Send + Sync,
+{
     let domain = client
         .base_url
         .host()
