@@ -110,7 +110,7 @@ where
     /// This constructor is recommended only for situations where DNS-based discovery is
     /// unavailable or undesirable.
     ///
-    /// If in doubt, use [`ClientBuilder<CalDavClient>::build`].
+    /// When in doubt, use [`ClientBuilder<CalDavClient>::build`].
     pub fn build_without_discovery(self, connector: C) -> CalDavClient<C> {
         CalDavClient {
             // TODO: it is not possible to override the user pricinpal

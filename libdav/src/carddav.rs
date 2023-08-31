@@ -110,7 +110,7 @@ where
     /// This constructor is recommended only for situations where DNS-based discovery is
     /// unavailable or undesirable.
     ///
-    /// If in doubt, use [`ClientBuilder<CardDavClient>::build`].
+    /// When in doubt, use [`ClientBuilder<CardDavClient>::build`].
     pub fn build_without_discovery(self, connector: C) -> CardDavClient<C> {
         CardDavClient {
             // TODO: it is not possible to override the user pricinpal
