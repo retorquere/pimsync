@@ -113,8 +113,9 @@ where
     /// If in doubt, use [`ClientBuilder<CardDavClient>::build`].
     pub fn build_without_discovery(self, connector: C) -> CardDavClient<C> {
         CardDavClient {
+            // TODO: it is not possible to override the user pricinpal
             dav_client: WebDavClient::new(self.state.uri, self.state.auth, connector),
-            // TODO: it is not possible to override this value. It should be.
+            // TODO: Allow specifying this value
             addressbook_home_set: None,
         }
     }
