@@ -113,6 +113,9 @@ where
     C: Connect + Clone + Sync + Send + 'static,
 {
     /// Base URL to be used for all requests.
+    ///
+    /// This is composed of the domain+port used for the server, plus the context path where Dav
+    /// requests are served.
     pub(crate) base_url: Uri,
     auth: Auth,
     http_client: Client<C>,
@@ -125,6 +128,7 @@ where
     /// # See also
     ///
     /// - <https://www.rfc-editor.org/rfc/rfc5397#section-3>
+    // TODO: read-only accessor; only configurable via the builder
     pub(crate) principal: Option<Uri>,
 }
 

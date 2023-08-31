@@ -48,7 +48,6 @@ where
             .with_uri(self.url)
             .with_auth(self.auth)
             .build(self.connector)
-            .auto_bootstrap()
             .await?;
 
         Ok(Box::from(CalDavStorage { client }))
@@ -73,8 +72,7 @@ where
     async fn check(&self) -> Result<()> {
         let uri = &self
             .client
-            .calendar_home_set
-            .as_ref()
+            .calendar_home_set()
             .unwrap_or(self.client.context_path());
         self.client
             .check_support(uri)
@@ -116,7 +114,7 @@ where
     /// Returns [`ErrorKind::PreconditionFailed`] if a home set was not found in the carddav
     /// server.
     async fn create_collection_with_id(&mut self, id: &CollectionId) -> Result<Collection> {
-        let home_set = self.client.calendar_home_set.as_ref().ok_or_else(|| {
+        let home_set = self.client.calendar_home_set().ok_or_else(|| {
             Error::new(
                 ErrorKind::PreconditionFailed,
                 "calendar home set not found in caldav server",

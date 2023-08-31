@@ -61,6 +61,15 @@ impl DiscoverableService {
             DiscoverableService::CardDavs | DiscoverableService::CardDav => "/.well-known/carddav",
         }
     }
+
+    /// Returns the default port to try and use.
+    #[must_use]
+    pub fn default_port(self) -> u16 {
+        match self {
+            DiscoverableService::CalDavs | DiscoverableService::CardDavs => 443,
+            DiscoverableService::CalDav | DiscoverableService::CardDav => 80,
+        }
+    }
 }
 
 #[derive(thiserror::Error, Debug)]

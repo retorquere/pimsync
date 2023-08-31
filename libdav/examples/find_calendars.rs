@@ -49,7 +49,6 @@ async fn main() {
             password: Some(password),
         })
         .build(https)
-        .auto_bootstrap()
         .await
         .unwrap();
 

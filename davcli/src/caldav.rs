@@ -61,7 +61,6 @@ impl Server {
                 password: Some(password),
             })
             .build(https)
-            .auto_bootstrap()
             .await
             .map_err(anyhow::Error::from)
     }
@@ -95,7 +94,7 @@ impl CalDavArgs {
 fn discover(client: Client) {
     println!("Discovery successful.");
     println!("- Context path: {}", &client.context_path());
-    match client.calendar_home_set {
+    match client.calendar_home_set() {
         Some(home_set) => println!("- Calendar home set: {home_set}"),
         None => println!("- Calendar home set not found."),
     }
@@ -103,8 +102,7 @@ fn discover(client: Client) {
 
 async fn get(client: Client, href: String) -> anyhow::Result<()> {
     let target_url = client
-        .calendar_home_set
-        .as_ref()
+        .calendar_home_set()
         .context("No calendar home set available")?
         .to_string();
 

@@ -10,17 +10,18 @@ use hyper::{Body, Uri};
 use log::debug;
 
 use crate::builder::{ClientBuilder, NeedsUri};
-use crate::common::{common_bootstrap, parse_find_multiple_collections};
+use crate::common::{bootstrap_client, find_home_set, parse_find_multiple_collections};
 use crate::dav::{check_status, DavError, FoundCollection};
 use crate::dns::DiscoverableService;
 use crate::names;
 use crate::xmlutils::quote_href;
-use crate::{dav::WebDavClient, BootstrapError, FindHomeSetError};
+use crate::{dav::WebDavClient, BootstrapError};
 use crate::{CheckSupportError, FetchedResource};
 
-/// A client to communicate with a carddav server.
+/// Client to communicate with a carddav server.
 ///
-/// Instances are created via a builder:
+/// Instances are usually created via a builder, which does discovery of the exact host and context
+/// path.
 ///
 /// ```rust,no_run
 /// # use libdav::CardDavClient;
@@ -44,14 +45,10 @@ use crate::{CheckSupportError, FetchedResource};
 ///     .with_uri(uri)
 ///     .with_auth(auth)
 ///     .build(https)
-///     .auto_bootstrap()
 ///     .await
 ///     .unwrap();
 /// # })
 /// ```
-///
-/// For common cases, [`auto_bootstrap`](Self::auto_bootstrap) should be called on the client to
-/// bootstrap it automatically.
 #[derive(Debug)]
 pub struct CardDavClient<C>
 where
@@ -64,9 +61,7 @@ where
     /// URL of collections that are either address book collections or ordinary collections
     /// that have child or descendant address book collections owned by the principal.
     /// See: <https://www.rfc-editor.org/rfc/rfc6352#section-7.1.1>
-    ///
-    /// This field is automatically populated by [`auto_bootstrap`][Self::auto_bootstrap].
-    pub addressbook_home_set: Option<Uri>, // TODO: timeouts
+    addressbook_home_set: Option<Uri>, // TODO: timeouts
 }
 
 impl<C> Deref for CardDavClient<C>
@@ -84,10 +79,42 @@ impl<C> ClientBuilder<CardDavClient<C>, crate::builder::Ready>
 where
     C: Connect + Clone + Sync + Send,
 {
-    /// Return a built client.
-    pub fn build(self, connector: C) -> CardDavClient<C> {
+    /// Builds a carddav client
+    ///
+    /// Determines the carddav server's real host and the context path of the resources for a
+    /// server, following the discovery mechanism described in [rfc6764].
+    ///
+    /// [rfc6764]: https://www.rfc-editor.org/rfc/rfc6764
+    ///
+    /// # Errors
+    ///
+    /// If any of the underlying DNS or HTTP requests fail, or if any of the responses fail to
+    /// parse.
+    ///
+    /// Does not return an error if DNS records as missing, only if they contain invalid data.
+    pub async fn build(self, connector: C) -> Result<CardDavClient<C>, BootstrapError> {
+        let service = CardDavClient::<C>::service(&self.state.uri)?;
+
+        let dav_client =
+            bootstrap_client(self.state.uri, self.state.auth, connector, service).await?;
+        let addressbook_home_set = find_home_set(&dav_client, &names::ADDRESSBOOK_HOME_SET).await?;
+
+        Ok(CardDavClient {
+            dav_client,
+            addressbook_home_set,
+        })
+    }
+
+    /// Create a client without any discovery.
+    ///
+    /// This constructor is recommended only for situations where DNS-based discovery is
+    /// unavailable or undesirable.
+    ///
+    /// If in doubt, use [`ClientBuilder<CardDavClient>::build`].
+    pub fn build_without_discovery(self, connector: C) -> CardDavClient<C> {
         CardDavClient {
             dav_client: WebDavClient::new(self.state.uri, self.state.auth, connector),
+            // TODO: it is not possible to override this value. It should be.
             addressbook_home_set: None,
         }
     }
@@ -103,39 +130,11 @@ where
         ClientBuilder::new()
     }
 
+    pub fn addressbook_home_set(&self) -> Option<&Uri> {
+        self.addressbook_home_set.as_ref()
+    }
+
     // TODO: methods to serialise and deserialise (mostly to cache all discovery data).
-
-    /// Auto-bootstrap a new client.
-    ///
-    /// Determines the carddav server's real host and the context path of the resources for a
-    /// server, following the discovery mechanism described in [rfc6764].
-    ///
-    /// [rfc6764]: https://www.rfc-editor.org/rfc/rfc6764
-    ///
-    /// # Errors
-    ///
-    /// If any of the underlying DNS or HTTP requests fail, or if any of the responses fail to
-    /// parse.
-    ///
-    /// Does not return an error if DNS records as missing, only if they contain invalid data.
-    pub async fn auto_bootstrap(mut self) -> Result<Self, BootstrapError> {
-        let port = self.default_port()?;
-        let service = self.service()?;
-        common_bootstrap(&mut self.dav_client, port, service).await?;
-
-        // If obtaining a principal fails, the specification says we should query the user. This
-        // tries to use the `base_url` first, since the user might have provided it for a reason.
-        let principal_url = self.principal.as_ref().unwrap_or(&self.base_url);
-        self.addressbook_home_set = self.find_addressbook_home_set(principal_url).await?;
-
-        Ok(self)
-    }
-
-    async fn find_addressbook_home_set(&self, url: &Uri) -> Result<Option<Uri>, FindHomeSetError> {
-        self.find_href_prop_as_uri(url, &names::ADDRESSBOOK_HOME_SET)
-            .await
-            .map_err(FindHomeSetError)
-    }
 
     /// Find address book collections under the given `url`.
     ///
@@ -241,29 +240,8 @@ where
         }
     }
 
-    /// Returns the default port to try and use.
-    ///
-    /// If the `base_url` has an explicit port, that value is returned. Otherwise,
-    /// returns `443` for https, `80` for http, and `443` as a fallback for
-    /// anything else.
-    fn default_port(&self) -> Result<u16, BootstrapError> {
-        // raise InvaidUrl?
-        if let Some(port) = self.base_url.port_u16() {
-            Ok(port)
-        } else {
-            match self.base_url.scheme() {
-                Some(scheme) if scheme == "https" => Ok(443),
-                Some(scheme) if scheme == "http" => Ok(80),
-                Some(scheme) if scheme == "carddavs" => Ok(443),
-                Some(scheme) if scheme == "carddav" => Ok(80),
-                _ => Err(BootstrapError::InvalidUrl("invalid scheme (and no port)")),
-            }
-        }
-    }
-
-    fn service(&self) -> Result<DiscoverableService, BootstrapError> {
-        let scheme = self
-            .base_url
+    fn service(uri: &Uri) -> Result<DiscoverableService, BootstrapError> {
+        let scheme = uri
             .scheme()
             .ok_or(BootstrapError::InvalidUrl("missing scheme"))?;
         match scheme.as_ref() {

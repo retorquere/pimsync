@@ -10,17 +10,18 @@ use hyper::{Body, Uri};
 use log::debug;
 
 use crate::builder::{ClientBuilder, NeedsUri};
-use crate::common::{common_bootstrap, parse_find_multiple_collections};
+use crate::common::{bootstrap_client, find_home_set, parse_find_multiple_collections};
 use crate::dav::{check_status, DavError, FoundCollection};
 use crate::dns::DiscoverableService;
 use crate::names;
 use crate::xmlutils::{check_multistatus, quote_href};
-use crate::{dav::WebDavClient, BootstrapError, FindHomeSetError};
+use crate::{dav::WebDavClient, BootstrapError};
 use crate::{CheckSupportError, FetchedResource};
 
-/// A client to communicate with a caldav server.
+/// Client to communicate with a caldav server.
 ///
-/// Instances are created via a builder:
+/// Instances are usually created via a builder, which does discovery of the exact host and context
+/// path.
 ///
 /// ```rust,no_run
 /// # use libdav::CalDavClient;
@@ -44,14 +45,10 @@ use crate::{CheckSupportError, FetchedResource};
 ///     .with_uri(uri)
 ///     .with_auth(auth)
 ///     .build(https)
-///     .auto_bootstrap()
 ///     .await
 ///     .unwrap();
 /// # })
 /// ```
-///
-/// For common cases, [`auto_bootstrap`](Self::auto_bootstrap) should be called on the client to
-/// bootstrap it automatically.
 #[derive(Debug, Clone)]
 pub struct CalDavClient<C>
 where
@@ -64,9 +61,7 @@ where
     /// URL of collections that are either calendar collections or ordinary collections
     /// that have child or descendant calendar collections owned by the principal.
     /// See: <https://www.rfc-editor.org/rfc/rfc4791#section-6.2.1>
-    ///
-    /// This field is automatically populated by [`auto_bootstrap`][Self::auto_bootstrap].
-    pub calendar_home_set: Option<Uri>, // TODO: timeouts
+    calendar_home_set: Option<Uri>, // TODO: timeouts
 }
 
 impl<C> Deref for CalDavClient<C>
@@ -84,28 +79,7 @@ impl<C> ClientBuilder<CalDavClient<C>, crate::builder::Ready>
 where
     C: Connect + Clone + Sync + Send,
 {
-    /// Return a built client.
-    pub fn build(self, connector: C) -> CalDavClient<C> {
-        CalDavClient {
-            dav_client: WebDavClient::new(self.state.uri, self.state.auth, connector),
-            calendar_home_set: None,
-        }
-    }
-}
-
-impl<C> CalDavClient<C>
-where
-    C: Connect + Clone + Sync + Send,
-{
-    /// Creates a new builder. See [`CalDavClient`] and [`ClientBuilder`] for details.
-    #[must_use]
-    pub fn builder() -> ClientBuilder<Self, NeedsUri> {
-        ClientBuilder::new()
-    }
-
-    // TODO: methods to serialise and deserialise (mostly to cache all discovery data).
-
-    /// Auto-bootstrap a new client.
+    /// Builds a caldav client.
     ///
     /// Determines the caldav server's real host and the context path of the resources for a
     /// server, following the discovery mechanism described in [rfc6764].
@@ -118,31 +92,49 @@ where
     /// parse.
     ///
     /// Does not return an error if DNS records as missing, only if they contain invalid data.
-    pub async fn auto_bootstrap(mut self) -> Result<Self, BootstrapError> {
-        let port = self.default_port()?;
-        let service = self.service()?;
-        common_bootstrap(&mut self.dav_client, port, service).await?;
+    pub async fn build(self, connector: C) -> Result<CalDavClient<C>, BootstrapError> {
+        let service = CalDavClient::<C>::service(&self.state.uri)?;
 
-        // If obtaining a principal fails, the specification says we should query the user. This
-        // tries to use the `base_url` first, since the user might have provided it for a reason.
-        let principal_url = self.principal.as_ref().unwrap_or(&self.base_url);
-        self.calendar_home_set = self.find_calendar_home_set(principal_url).await?;
+        let dav_client =
+            bootstrap_client(self.state.uri, self.state.auth, connector, service).await?;
+        let calendar_home_set = find_home_set(&dav_client, &names::CALENDAR_HOME_SET).await?;
 
-        Ok(self)
+        Ok(CalDavClient {
+            dav_client,
+            calendar_home_set,
+        })
     }
 
-    /// Queries a server for the calendar home set.
+    /// Create a client without any discovery.
     ///
-    /// See: <https://www.rfc-editor.org/rfc/rfc4791#section-6.2.1>
+    /// This constructor is recommended only for situations where DNS-based discovery is
+    /// unavailable or undesirable.
     ///
-    /// # Errors
-    ///
-    /// If there are any network errors or the response could not be parsed.
-    async fn find_calendar_home_set(&self, url: &Uri) -> Result<Option<Uri>, FindHomeSetError> {
-        self.find_href_prop_as_uri(url, &names::CALENDAR_HOME_SET)
-            .await
-            .map_err(FindHomeSetError)
+    /// If in doubt, use [`ClientBuilder<CalDavClient>::build`].
+    pub fn build_without_discovery(self, connector: C) -> CalDavClient<C> {
+        CalDavClient {
+            dav_client: WebDavClient::new(self.state.uri, self.state.auth, connector),
+            // TODO: it is not possible to override this value. It should be.
+            calendar_home_set: None,
+        }
     }
+}
+
+impl<C> CalDavClient<C>
+where
+    C: Connect + Clone + Sync + Send,
+{
+    /// Creates a new builder. See [`ClientBuilder`] for details.
+    #[must_use]
+    pub fn builder() -> ClientBuilder<Self, NeedsUri> {
+        ClientBuilder::new()
+    }
+
+    pub fn calendar_home_set(&self) -> Option<&Uri> {
+        self.calendar_home_set.as_ref()
+    }
+
+    // TODO: methods to serialise and deserialise (mostly to cache all discovery data).
 
     /// Find calendars collections under the given `url`.
     ///
@@ -320,29 +312,8 @@ where
         }
     }
 
-    /// Returns the default port to try and use.
-    ///
-    /// If the `base_url` has an explicit port, that value is returned. Otherwise,
-    /// returns `443` for https, `80` for http, and `443` as a fallback for
-    /// anything else.
-    #[inline]
-    fn default_port(&self) -> Result<u16, BootstrapError> {
-        if let Some(port) = self.base_url.port_u16() {
-            Ok(port)
-        } else {
-            match self.base_url.scheme() {
-                Some(scheme) if scheme == "https" => Ok(443),
-                Some(scheme) if scheme == "http" => Ok(80),
-                Some(scheme) if scheme == "caldavs" => Ok(443),
-                Some(scheme) if scheme == "caldav" => Ok(80),
-                _ => Err(BootstrapError::InvalidUrl("invalid scheme (and no port)")),
-            }
-        }
-    }
-
-    fn service(&self) -> Result<DiscoverableService, BootstrapError> {
-        let scheme = self
-            .base_url
+    fn service(uri: &Uri) -> Result<DiscoverableService, BootstrapError> {
+        let scheme = uri
             .scheme()
             .ok_or(BootstrapError::InvalidUrl("missing scheme"))?;
         match scheme.as_ref() {

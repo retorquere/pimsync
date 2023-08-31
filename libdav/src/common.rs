@@ -5,31 +5,31 @@
 //! Common bits shared between caldav and carddav clients.
 
 use crate::{
+    auth::Auth,
     dav::{DavError, FoundCollection, WebDavClient},
     dns::{find_context_path_via_txt_records, resolve_srv_record, DiscoverableService},
     names,
     xmlutils::get_unquoted_href,
-    BootstrapError, Property,
+    BootstrapError, FindHomeSetError, Property,
 };
 use domain::base::Dname;
 
 use hyper::{client::connect::Connect, Uri};
 
-/// A big chunk of the bootstrap logic that's shared between both types.
-///
-/// Mutates the `base_url` for the client to the discovered one.
-pub(crate) async fn common_bootstrap<C>(
-    client: &mut WebDavClient<C>,
-    port: u16,
+/// Crate a client bootstrapped with discovery data.
+pub(crate) async fn bootstrap_client<C>(
+    base_uri: Uri,
+    auth: Auth,
+    connector: C,
     service: DiscoverableService,
-) -> Result<(), BootstrapError>
+) -> Result<WebDavClient<C>, BootstrapError>
 where
     C: Connect + Clone + Send + Sync,
 {
-    let domain = client
-        .base_url
+    let domain = base_uri
         .host()
         .ok_or(BootstrapError::InvalidUrl("a host is required"))?;
+    let port = base_uri.port_u16().unwrap_or(service.default_port());
 
     let dname = Dname::bytes_from_str(domain)
         .map_err(|_| BootstrapError::InvalidUrl("invalid domain name"))?;
@@ -45,6 +45,8 @@ where
             candidates
         }
     };
+
+    let mut client = WebDavClient::new(base_uri, auth, connector);
 
     if let Some(path) = find_context_path_via_txt_records(service, &dname).await? {
         let candidate = &host_candidates[0];
@@ -70,7 +72,7 @@ where
 
     client.principal = client.find_current_user_principal().await?;
 
-    Ok(())
+    Ok(client)
 }
 
 pub(crate) fn parse_find_multiple_collections<B: AsRef<[u8]>>(
@@ -118,4 +120,27 @@ pub(crate) fn parse_find_multiple_collections<B: AsRef<[u8]>>(
     }
 
     Ok(items)
+}
+
+/// Queries a server for a calendar or address book home set.
+///
+/// See: <https://www.rfc-editor.org/rfc/rfc4791#section-6.2.1>
+///
+/// # Errors
+///
+/// If there are any network errors or the response could not be parsed.
+pub(crate) async fn find_home_set<C>(
+    client: &WebDavClient<C>,
+    property: &Property<'_, '_>,
+) -> Result<Option<Uri>, FindHomeSetError>
+where
+    C: Connect + Clone + Sync + Send,
+{
+    // If obtaining a principal fails, the specification says we should query the user. This
+    // tries to use the `base_url` first, since the user might have provided it for a reason.
+    let principal_url = client.principal.as_ref().unwrap_or(&client.base_url);
+    client
+        .find_href_prop_as_uri(principal_url, property)
+        .await
+        .map_err(FindHomeSetError)
 }

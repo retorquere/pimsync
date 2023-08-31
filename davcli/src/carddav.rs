@@ -44,7 +44,6 @@ impl Server {
                 password: Some(password),
             })
             .build(https)
-            .auto_bootstrap()
             .await
             .map_err(anyhow::Error::from)
     }
@@ -66,7 +65,7 @@ impl CardDavArgs {
 fn discover(client: Client) {
     println!("Discovery successful.");
     println!("- Context path: {}", &client.context_path());
-    match client.addressbook_home_set {
+    match client.addressbook_home_set() {
         Some(home_set) => println!("- Address book home set: {home_set}"),
         None => println!("- Address book home set not found."),
     }
