@@ -17,7 +17,7 @@ use crate::names;
 use crate::Property;
 
 /// Characters that are escaped for hrefs.
-pub(crate) const DISALLOWED_FOR_HREF: &AsciiSet = &NON_ALPHANUMERIC.remove(b'/').remove(b'.');
+pub const DISALLOWED_FOR_HREF: &AsciiSet = &NON_ALPHANUMERIC.remove(b'/').remove(b'.');
 
 /// Check all the statuses in a `multistatus` response.
 ///

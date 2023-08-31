@@ -15,13 +15,13 @@ use http::Uri;
 
 use crate::auth::{Auth, Password};
 
-pub struct NeedsUri(pub(crate) ());
+pub struct NeedsUri(());
 pub struct NeedsAuth {
-    pub(crate) uri: Uri,
+    uri: Uri,
 }
 pub struct NeedsPassword {
-    pub(crate) uri: Uri,
-    pub(crate) username: String,
+    uri: Uri,
+    username: String,
 }
 pub struct Ready {
     pub(crate) uri: Uri,
@@ -31,7 +31,7 @@ pub struct Ready {
 #[allow(clippy::module_name_repetitions)]
 pub struct ClientBuilder<ClientType, State> {
     pub(crate) state: State,
-    pub(crate) phantom: PhantomData<ClientType>,
+    phantom: PhantomData<ClientType>,
 }
 
 #[derive(thiserror::Error, Debug)]
