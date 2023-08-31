@@ -64,7 +64,7 @@ impl CardDavArgs {
 
 fn discover(client: Client) {
     println!("Discovery successful.");
-    println!("- Context path: {}", &client.context_path());
+    println!("- Context path: {}", &client.base_url());
     match client.addressbook_home_set() {
         Some(home_set) => println!("- Address book home set: {home_set}"),
         None => println!("- Address book home set not found."),

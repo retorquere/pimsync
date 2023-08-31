@@ -73,7 +73,7 @@ where
         let uri = &self
             .client
             .calendar_home_set()
-            .unwrap_or(self.client.context_path());
+            .unwrap_or(self.client.base_url());
         self.client
             .check_support(uri)
             .await

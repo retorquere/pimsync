@@ -150,7 +150,7 @@ where
     }
 
     /// Returns a URL pointing to the server's context path.
-    pub fn context_path(&self) -> &Uri {
+    pub fn base_url(&self) -> &Uri {
         &self.base_url
     }
 

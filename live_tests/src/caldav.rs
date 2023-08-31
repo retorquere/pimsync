@@ -448,7 +448,7 @@ pub(crate) async fn test_fetch_missing(test_data: &TestData) -> anyhow::Result<(
 pub(crate) async fn test_check_caldav_support(test_data: &TestData) -> anyhow::Result<()> {
     test_data
         .caldav
-        .check_support(test_data.caldav.context_path())
+        .check_support(test_data.caldav.base_url())
         .await?;
 
     Ok(())

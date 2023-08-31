@@ -52,7 +52,7 @@ async fn main() {
         .await
         .unwrap();
 
-    println!("Resolved server URL to: {}", caldav_client.context_path());
+    println!("Resolved server URL to: {}", caldav_client.base_url());
 
     let calendars = caldav_client.find_calendars(None).await.unwrap();
 

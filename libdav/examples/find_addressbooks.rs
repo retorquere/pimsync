@@ -53,7 +53,7 @@ async fn main() {
         .await
         .unwrap();
 
-    println!("Resolved server URL to: {}", carddav_client.context_path());
+    println!("Resolved server URL to: {}", carddav_client.base_url());
 
     let addressbooks = carddav_client.find_addresbooks(None).await.unwrap();
 

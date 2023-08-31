@@ -93,7 +93,7 @@ impl CalDavArgs {
 
 fn discover(client: Client) {
     println!("Discovery successful.");
-    println!("- Context path: {}", &client.context_path());
+    println!("- Context path: {}", &client.base_url());
     match client.calendar_home_set() {
         Some(home_set) => println!("- Calendar home set: {home_set}"),
         None => println!("- Calendar home set not found."),

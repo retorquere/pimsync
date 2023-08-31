@@ -54,7 +54,7 @@ where
         let uri = &self
             .client
             .addressbook_home_set()
-            .unwrap_or(self.client.context_path());
+            .unwrap_or(self.client.base_url());
         self.client
             .check_support(uri)
             .await

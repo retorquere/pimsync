@@ -221,7 +221,7 @@ pub(crate) async fn test_setting_and_getting_addressbook_displayname(
 pub(crate) async fn test_check_carddav_support(test_data: &TestData) -> anyhow::Result<()> {
     test_data
         .carddav
-        .check_support(test_data.carddav.context_path())
+        .check_support(test_data.carddav.base_url())
         .await?;
 
     Ok(())
