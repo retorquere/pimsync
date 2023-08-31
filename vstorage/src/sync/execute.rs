@@ -189,7 +189,7 @@ impl<'pair, I: Item> Plan<'pair, I> {
                 }
             }
 
-            for (uid, action) in cp.item_actions() {
+            for item_action in cp.items() {
                 // FIXME: I need to somehow move these two calls outside of the "for" loop.
                 let state_a = final_state
                     .state_a
@@ -198,6 +198,8 @@ impl<'pair, I: Item> Plan<'pair, I> {
                     .state_b
                     .find_collection_state_mut(&cp.mapping().b);
 
+                let uid = item_action.uid();
+                let action = item_action.action();
                 if let Err(err) = action
                     .execute_on_item(uid, *storage_a, *storage_b, state_a, state_b)
                     .await

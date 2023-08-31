@@ -4,8 +4,6 @@
 
 //! Plan for a synchronisation.
 
-use std::collections::HashMap;
-
 use itertools::Itertools;
 use log::{error, trace};
 
@@ -350,12 +348,28 @@ fn resolve_from_x<I: Item>(
     Ok((ResolvedCollection::Href { href }, counterpart))
 }
 
+#[derive(Debug)]
+pub(super) struct ItemAction {
+    uid: String,
+    action: Action,
+}
+
+impl ItemAction {
+    pub(super) fn uid(&self) -> &str {
+        &self.uid
+    }
+    pub(super) fn action(&self) -> Action {
+        // Action is smaller than a pointer
+        self.action.clone()
+    }
+}
+
 /// A set of actions required to sync a collection between two storages.
 #[derive(Debug)]
 pub(super) struct CollectionPlan {
     mapping: ResolvedMapping,
     collection_action: Action,
-    item_actions: HashMap<String, Action>,
+    items: Vec<ItemAction>,
 }
 
 impl CollectionPlan {
@@ -399,7 +413,10 @@ impl CollectionPlan {
 
                 let action = Action::from_changes(a_changed, b_changed);
                 trace!("For item {uid}, changes: {a_changed:?}, {b_changed:?}, action: {action:?}");
-                (uid.clone(), action)
+                ItemAction {
+                    uid: uid.clone(),
+                    action,
+                }
             })
             .collect();
 
@@ -411,7 +428,7 @@ impl CollectionPlan {
         CollectionPlan {
             mapping,
             collection_action,
-            item_actions,
+            items: item_actions,
         }
     }
 
@@ -423,8 +440,8 @@ impl CollectionPlan {
         &self.collection_action
     }
 
-    pub(super) fn item_actions(&self) -> &HashMap<String, Action> {
-        &self.item_actions
+    pub(super) fn items(&self) -> &Vec<ItemAction> {
+        &self.items
     }
 }
 
