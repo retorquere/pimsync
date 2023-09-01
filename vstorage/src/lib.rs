@@ -210,10 +210,31 @@ pub type Href = String;
 /// [`FilesystemStorage`]: crate::filesystem::FilesystemStorage
 /// [`CalDavStorage`]: crate::caldav::CalDavStorage
 /// [`CardDavStorage`]: crate::carddav::CardDavStorage
+///
+/// # Creating instances
+///
+/// See: [`CollectionId::try_from`] and [`CollectionId::from_str`].
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub struct CollectionId {
     // INVARIANT: matches rules in documentation above.
     inner: String,
+}
+
+impl CollectionId {
+    #[inline]
+    fn validate(value: &str) -> std::result::Result<(), CollectionIdError> {
+        if value.chars().any(|c| c == '/') {
+            return Err(CollectionIdError::Slash);
+        }
+        if value == ".." {
+            return Err(CollectionIdError::DoublePeriod);
+        }
+        if value == "." {
+            return Err(CollectionIdError::SinglePeriod);
+        }
+
+        Ok(())
+    }
 }
 
 impl AsRef<str> for CollectionId {
@@ -247,20 +268,37 @@ pub enum CollectionIdError {
 impl FromStr for CollectionId {
     type Err = CollectionIdError;
 
+    /// Creates a new `CollectionId` with the input data.
+    ///
+    /// When converting a `String`, use [`CollectionId::try_from`] instead to avoid re-allocating
+    /// the string data.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use vstorage::CollectionId;
+    /// let collection_id: CollectionId = "personal".parse().unwrap();
+    /// ```
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
         // TODO: validation should not iterate string thrice.
-        if s.chars().any(|c| c == '/') {
-            return Err(CollectionIdError::Slash);
-        }
-        if s == ".." {
-            return Err(CollectionIdError::DoublePeriod);
-        }
-        if s == "." {
-            return Err(CollectionIdError::SinglePeriod);
-        }
+        Self::validate(s)?;
 
         Ok(CollectionId {
             inner: s.to_string(),
         })
+    }
+}
+
+impl TryFrom<String> for CollectionId {
+    type Error = CollectionIdError;
+
+    /// Converts a `String` instance into a `CollectionId`.
+    ///
+    /// Note that manually allocating a `String` before calling this method is an anti-pattern; the
+    /// cost of the re-allocation is paid even if the validation fails. For converting [`&str`],
+    /// see [`CollectionId::from_str`].
+    fn try_from(value: String) -> std::result::Result<Self, Self::Error> {
+        Self::validate(&value)?;
+        Ok(CollectionId { inner: value })
     }
 }
