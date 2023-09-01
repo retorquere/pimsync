@@ -16,7 +16,10 @@ use crate::dav::path_for_collection_in_home_set;
 use crate::{CollectionId, Error, ErrorKind, Etag, Href, Result};
 
 #[derive(Debug)]
-pub struct CardDavDefinition<C> {
+pub struct CardDavDefinition<C>
+where
+    C: Connect + Send + Sync + Clone + 'static,
+{
     pub url: Uri,
     pub auth: Auth,
     pub connector: C,
