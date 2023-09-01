@@ -28,7 +28,7 @@ where
 #[async_trait]
 impl<C> Definition<VcardItem> for CardDavDefinition<C>
 where
-    C: Connect + Send + Sync + Clone + 'static,
+    C: Connect + Send + Sync + Clone + 'static + std::fmt::Debug,
 {
     async fn storage(self) -> Result<Box<dyn Storage<VcardItem>>> {
         let client = CardDavClient::builder()

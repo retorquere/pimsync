@@ -15,6 +15,7 @@ use crate::base::{CalendarProperty, Collection, Definition, IcsItem, Item, ItemR
 use crate::dav::path_for_collection_in_home_set;
 use crate::{CollectionId, Error, ErrorKind, Etag, Href, Result};
 
+#[derive(Debug)]
 pub struct CalDavDefinition<C>
 where
     C: Connect + Send + Sync + Clone + 'static,
@@ -41,7 +42,7 @@ impl From<libdav::dav::DavError> for Error {
 #[async_trait]
 impl<C> Definition<IcsItem> for CalDavDefinition<C>
 where
-    C: Connect + Send + Sync + Clone,
+    C: Connect + Send + Sync + Clone + std::fmt::Debug,
 {
     async fn storage(self) -> Result<Box<dyn Storage<IcsItem>>> {
         let client = CalDavClient::builder()

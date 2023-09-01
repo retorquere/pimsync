@@ -19,7 +19,7 @@ use crate::{CollectionId, Etag, Href, Result};
 /// this like URL or TLS for network-based storages, or path and file extensions for filesystem
 /// based storages.
 #[async_trait]
-pub trait Definition<I: Item>: Sync + Send {
+pub trait Definition<I: Item>: Sync + Send + std::fmt::Debug {
     /// Creates a new storage instance for this definition.
     ///
     /// # Errors
