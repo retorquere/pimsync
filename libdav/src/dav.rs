@@ -302,7 +302,7 @@ where
         };
         let inner = render_xml_with_text(property, value);
         let request = Request::builder()
-            .method(Method::from_bytes(b"PROPPATCH").expect("ugh"))
+            .method("PROPPATCH")
             .uri(url)
             .header("Content-Type", "application/xml; charset=utf-8")
             .body(Body::from(format!(
