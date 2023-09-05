@@ -94,6 +94,7 @@ pub fn render_xml_with_text<S: AsRef<str>>(name: &Property, text: Option<S>) -> 
 ///
 /// This IS NOT usable in other contexts of XML encoding.
 #[must_use]
+#[allow(clippy::missing_panics_doc)]
 pub fn escape_text(raw: &str) -> Cow<str> {
     // This function is strongly based on `escape_partial` from `quick-xml`:
     {

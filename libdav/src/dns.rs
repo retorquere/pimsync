@@ -34,6 +34,7 @@ pub enum DiscoverableService {
 impl DiscoverableService {
     /// Relative domain suitable for querying this service type.
     #[must_use]
+    #[allow(clippy::missing_panics_doc)]
     pub fn relative_domain(self) -> &'static RelativeDname<[u8]> {
         match self {
             DiscoverableService::CalDavs => RelativeDname::from_slice(b"\x08_caldavs\x04_tcp"),
@@ -195,6 +196,7 @@ impl From<TxtError> for io::Error {
 /// # See also
 ///
 /// <https://www.rfc-editor.org/rfc/rfc6764>
+#[allow(clippy::missing_panics_doc)]
 pub async fn find_context_path_via_txt_records<T: std::convert::AsRef<[u8]>>(
     service: DiscoverableService,
     domain: &Dname<T>,
