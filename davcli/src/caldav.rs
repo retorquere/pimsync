@@ -72,7 +72,7 @@ impl CalDavArgs {
         let client = self.server.caldav_client().await?;
 
         match self.command {
-            CalDavCommand::Discover => discover(client),
+            CalDavCommand::Discover => discover(&client),
             CalDavCommand::FindCalendars => list_collections(client).await?,
             CalDavCommand::ListCalendarComponents { collection_href } => {
                 list_resources(&client, collection_href).await?;
@@ -91,7 +91,7 @@ impl CalDavArgs {
     }
 }
 
-fn discover(client: Client) {
+fn discover(client: &Client) {
     println!("Discovery successful.");
     println!("- Context path: {}", &client.base_url());
     match client.calendar_home_set() {

@@ -55,14 +55,14 @@ impl CardDavArgs {
         let client = self.server.carddav_client().await?;
 
         match self.command {
-            CardDavCommand::Discover => discover(client),
+            CardDavCommand::Discover => discover(&client),
         };
 
         Ok(())
     }
 }
 
-fn discover(client: Client) {
+fn discover(client: &Client) {
     println!("Discovery successful.");
     println!("- Context path: {}", &client.base_url());
     match client.addressbook_home_set() {
