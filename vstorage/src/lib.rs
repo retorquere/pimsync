@@ -214,7 +214,7 @@ pub type Href = String;
 /// # Creating instances
 ///
 /// See: [`CollectionId::try_from`] and [`CollectionId::from_str`].
-#[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
+#[derive(PartialEq, Debug, Clone, Serialize, Deserialize, Eq, Hash)]
 pub struct CollectionId {
     // INVARIANT: matches rules in documentation above.
     inner: String,

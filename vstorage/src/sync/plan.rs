@@ -4,6 +4,8 @@
 
 //! Plan for a synchronisation.
 
+use std::collections::HashSet;
+
 use itertools::Itertools;
 use log::{error, trace};
 
@@ -37,6 +39,7 @@ impl<'pair, I: Item> Plan<'pair, I> {
     /// - There is an error discovering remote collections.
     /// - A mapping is defined by collection id, but the id is invalid for the underlying storage.
     /// - There is an error reading the state of existing items.
+    /// - The same collection is mapped more than once.
     pub async fn new(pair: &'pair mut StoragePair<'pair, I>) -> Result<Plan<'pair, I>> {
         let all_a = pair.info.storage_a.discover_collections().await?;
         let all_b = pair.info.storage_b.discover_collections().await?;
@@ -87,9 +90,35 @@ impl<'pair, I: Item> Plan<'pair, I> {
             }
         }
 
-        // FIXME: TODO: deduplicate mappings??
-        // duplicating a mapping results in a plan that always fails (due to duplicate actions).
-        // Anyway: surely there's some way to avoid generating duplicates in the first place.
+        // TODO: can I avoid generating duplicates in the first place?
+        {
+            let mut seen_a = HashSet::<&ResolvedCollection>::new();
+            let mut seen_b = HashSet::<&ResolvedCollection>::new();
+
+            for mapping in &mappings {
+                if seen_a.contains(&mapping.a) {
+                    return Err(Error::new(
+                        ErrorKind::InvalidInput,
+                        format!(
+                            "Collection for storage a was specified twice: {:?}",
+                            mapping.a
+                        ),
+                    ));
+                }
+                if seen_b.contains(&mapping.b) {
+                    return Err(Error::new(
+                        ErrorKind::InvalidInput,
+                        format!(
+                            "Collection for storage b was specified twice: {:?}",
+                            mapping.a
+                        ),
+                    ));
+                }
+
+                seen_a.insert(&mapping.a);
+                seen_b.insert(&mapping.a);
+            }
+        }
 
         // IMPORTANT: id-only definitions need to be resolved at this point!
         let hrefs_a = mappings
@@ -168,6 +197,63 @@ impl<'pair, I: Item> Plan<'pair, I> {
     #[must_use]
     pub fn current_state_b(&self) -> &StorageState {
         &self.current_state_b
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use std::str::FromStr;
+
+    use tempfile::Builder;
+
+    use crate::{
+        base::{Definition, IcsItem},
+        filesystem::FilesystemDefinition,
+        sync::{
+            declare::{DeclaredMapping, StoragePair},
+            plan::Plan,
+        },
+        CollectionId,
+    };
+
+    #[tokio::test]
+    async fn test_discovery_of_duplicate_mappings() {
+        let dir_a = Builder::new().prefix("vstorage").tempdir().unwrap();
+        let dir_b = Builder::new().prefix("vstorage").tempdir().unwrap();
+
+        let mut storage_a =
+            FilesystemDefinition::<IcsItem>::new(dir_a.path().to_path_buf(), "ics".to_string())
+                .storage()
+                .await
+                .unwrap();
+        let mut storage_b =
+            FilesystemDefinition::<IcsItem>::new(dir_b.path().to_path_buf(), "ics".to_string())
+                .storage()
+                .await
+                .unwrap();
+
+        {
+            // This sync would be a no-op, but it's not "wrong".
+            let mut pair = StoragePair::builder(&mut *storage_a, &mut *storage_b).build();
+            assert!(Plan::new(&mut pair).await.is_ok());
+        }
+        {
+            // This sync is okay.
+            let collection = CollectionId::from_str("test").unwrap();
+            let mut pair = StoragePair::builder(&mut *storage_a, &mut *storage_b)
+                .with_mapping(DeclaredMapping::direct(collection))
+                .build();
+            assert!(Plan::new(&mut pair).await.is_ok());
+        }
+        {
+            // This sync has duplicate items.
+            let collection = CollectionId::from_str("test").unwrap();
+            let mut pair = StoragePair::builder(&mut *storage_a, &mut *storage_b)
+                .with_mapping(DeclaredMapping::direct(collection.clone()))
+                .with_mapping(DeclaredMapping::direct(collection))
+                .build();
+            assert!(Plan::new(&mut pair).await.is_err());
+        }
     }
 }
 
@@ -255,7 +341,7 @@ impl ResolvedMapping {
 }
 
 /// A collection as resolved based on existing data.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(super) enum ResolvedCollection {
     /// The collection does not exist; only its (expected) collection id is known.
     Id { id: CollectionId },
