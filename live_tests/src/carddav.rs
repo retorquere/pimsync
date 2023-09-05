@@ -40,7 +40,9 @@ pub(crate) async fn test_create_and_delete_addressbook(test_data: &TestData) -> 
         .await
         .unwrap_err();
 
-    let Some(etag) = etag else { bail!("deletion is only supported on servers which provide etags") };
+    let Some(etag) = etag else {
+        bail!("deletion is only supported on servers which provide etags")
+    };
 
     // Delete the addressbook
     test_data.carddav.delete(new_collection, etag).await?;

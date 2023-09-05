@@ -713,7 +713,9 @@ pub(crate) fn parse_prop_href<B: AsRef<[u8]>>(
                 .text()
                 .map(|raw| percent_decode_str(raw).decode_utf8())
                 .transpose()?;
-            let Some(href) = maybe_href else { return Ok(None) };
+            let Some(href) = maybe_href else {
+                return Ok(None);
+            };
             let path = PathAndQuery::from_str(&href)
                 .map_err(|e| DavError::InvalidResponse(Box::from(e)))?;
 

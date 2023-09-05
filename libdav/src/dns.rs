@@ -204,8 +204,12 @@ pub async fn find_context_path_via_txt_records<T: std::convert::AsRef<[u8]>>(
     let question = Question::new_in(full_domain, Rtype::Txt);
 
     let response = resolver.query(question).await?;
-    let Some(record) = response.answer()?.next() else { return Ok(None)};
-    let Some(parsed_record) = record?.into_record::<Txt<_>>()? else { return Ok(None) };
+    let Some(record) = response.answer()?.next() else {
+        return Ok(None);
+    };
+    let Some(parsed_record) = record?.into_record::<Txt<_>>()? else {
+        return Ok(None);
+    };
 
     let bytes = parsed_record
         .data()

@@ -39,7 +39,9 @@ pub(crate) async fn test_create_and_delete_collection(test_data: &TestData) -> a
         .await
         .unwrap_err();
 
-    let Some(etag) = etag else { bail!("deletion is only supported on servers which provide etags") };
+    let Some(etag) = etag else {
+        bail!("deletion is only supported on servers which provide etags")
+    };
 
     // Delete the calendar
     test_data.caldav.delete(new_collection, etag).await?;

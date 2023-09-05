@@ -36,11 +36,9 @@ impl StorageState {
         let mut collections = Vec::with_capacity(collection_hrefs.len());
 
         for href in collection_hrefs {
-            let Some(collection) = discovered.iter().find(|c| {
-                c.href() == *href
-            }) else {
+            let Some(collection) = discovered.iter().find(|c| c.href() == *href) else {
                 // If a collection does not exist the there is no state for it.
-                continue
+                continue;
             };
 
             let previous = previous_state.and_then(|s| s.find_collection_state(href));
