@@ -28,7 +28,7 @@ async fn create_caldav_from_env() -> Box<dyn Storage<IcsItem>> {
         },
         connector,
     }
-    .storage()
+    .build_boxed()
     .await
     .unwrap()
 }
@@ -36,7 +36,7 @@ async fn create_caldav_from_env() -> Box<dyn Storage<IcsItem>> {
 async fn create_vdir_from_env() -> Box<dyn Storage<IcsItem>> {
     let path = std::env::var("VDIR_PATH").unwrap();
     FilesystemDefinition::new(path.try_into().unwrap(), "ics".to_string())
-        .storage()
+        .build_boxed()
         .await
         .unwrap()
 }

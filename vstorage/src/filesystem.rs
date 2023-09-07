@@ -323,6 +323,10 @@ impl<I: Item> FilesystemDefinition<I> {
             i: PhantomData,
         }
     }
+
+    pub fn build(self) -> FilesystemStorage<I> {
+        FilesystemStorage { definition: self }
+    }
 }
 
 #[async_trait]
@@ -330,8 +334,8 @@ impl<I: Item + 'static> Definition<I> for FilesystemDefinition<I>
 where
     I::CollectionProperty: PropertyWithFilename,
 {
-    async fn storage(self) -> Result<Box<dyn Storage<I>>> {
-        Ok(Box::from(FilesystemStorage { definition: self }))
+    async fn build_boxed(self) -> Result<Box<dyn Storage<I>>> {
+        Ok(Box::from(self.build()))
     }
 }
 
@@ -387,7 +391,7 @@ mod tests {
         let definition =
             FilesystemDefinition::<IcsItem>::new(dir.path().to_path_buf(), "ics".to_string());
 
-        let mut storage = definition.storage().await.unwrap();
+        let mut storage = definition.build_boxed().await.unwrap();
         let collection = storage.create_collection("test").await.unwrap();
         let displayname = storage
             .get_collection_property(&collection, crate::base::CalendarProperty::DisplayName)

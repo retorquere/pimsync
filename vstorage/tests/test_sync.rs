@@ -41,7 +41,7 @@ fn minimal_icalendar(summary: &str) -> anyhow::Result<String> {
 async fn create_populated_storage(path: PathBuf) -> Box<dyn Storage<IcsItem>> {
     std::fs::create_dir(&path).unwrap();
     let def = FilesystemDefinition::<IcsItem>::new(path, "ics".into());
-    let mut storage = def.storage().await.unwrap();
+    let mut storage = def.build_boxed().await.unwrap();
 
     let first = storage.create_collection("first-calendar").await.unwrap();
     let item = &minimal_icalendar("First calendar event one")
@@ -80,7 +80,7 @@ async fn create_populated_storage(path: PathBuf) -> Box<dyn Storage<IcsItem>> {
 async fn create_empty_storage(path: PathBuf) -> Box<dyn Storage<IcsItem>> {
     std::fs::create_dir(&path).unwrap();
     let def = FilesystemDefinition::<IcsItem>::new(path, "ics".into());
-    def.storage().await.unwrap()
+    def.build_boxed().await.unwrap()
 }
 
 #[tokio::test]

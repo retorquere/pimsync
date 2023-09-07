@@ -24,20 +24,28 @@ where
     pub auth: Auth,
     pub connector: C,
 }
-
-#[async_trait]
-impl<C> Definition<VcardItem> for CardDavDefinition<C>
+impl<C> CardDavDefinition<C>
 where
-    C: Connect + Send + Sync + Clone + 'static + std::fmt::Debug,
+    C: Connect + Send + Sync + Clone + std::fmt::Debug,
 {
-    async fn storage(self) -> Result<Box<dyn Storage<VcardItem>>> {
+    pub async fn build(self) -> Result<CardDavStorage<C>> {
         let client = CardDavClient::builder()
             .with_uri(self.url)
             .with_auth(self.auth)
             .build(self.connector)
             .await?;
 
-        Ok(Box::from(CardDavStorage { client }))
+        Ok(CardDavStorage { client })
+    }
+}
+
+#[async_trait]
+impl<C> Definition<VcardItem> for CardDavDefinition<C>
+where
+    C: Connect + Send + Sync + Clone + 'static + std::fmt::Debug,
+{
+    async fn build_boxed(self) -> Result<Box<dyn Storage<VcardItem>>> {
+        Ok(Box::from(self.build().await?))
     }
 }
 

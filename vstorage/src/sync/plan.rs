@@ -223,12 +223,12 @@ mod test {
 
         let mut storage_a =
             FilesystemDefinition::<IcsItem>::new(dir_a.path().to_path_buf(), "ics".to_string())
-                .storage()
+                .build_boxed()
                 .await
                 .unwrap();
         let mut storage_b =
             FilesystemDefinition::<IcsItem>::new(dir_b.path().to_path_buf(), "ics".to_string())
-                .storage()
+                .build_boxed()
                 .await
                 .unwrap();
 

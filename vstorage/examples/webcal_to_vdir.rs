@@ -38,11 +38,11 @@ async fn main() {
         url,
         collection_name: "holidays_nl".parse().unwrap(),
     }
-    .storage()
+    .build_boxed()
     .await
     .expect("can create webcal storage");
     let mut fs = FilesystemDefinition::new(path, String::from("ics"))
-        .storage()
+        .build_boxed()
         .await
         .expect("can create fs storage");
 

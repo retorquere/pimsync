@@ -47,12 +47,8 @@ pub struct WebCalDefinition {
     pub collection_name: CollectionId,
 }
 
-#[async_trait]
-impl Definition<IcsItem> for WebCalDefinition {
-    /// Create a new storage instance.
-    ///
-    /// Unlike other [`Storage`] implementations, this one allows only a single collection.
-    async fn storage(self) -> Result<Box<dyn Storage<IcsItem>>> {
+impl WebCalDefinition {
+    pub async fn build(self) -> Result<WebCalStorage> {
         let proto = match &self.url.scheme().map(Scheme::as_str) {
             Some("http") => HttpsConnectorBuilder::new()
                 .with_native_roots()
@@ -73,10 +69,20 @@ impl Definition<IcsItem> for WebCalDefinition {
             }
             None => todo!(),
         };
-        Ok(Box::from(WebCalStorage {
+        Ok(WebCalStorage {
             definition: self,
             http_client: Client::builder().build(proto),
-        }))
+        })
+    }
+}
+
+#[async_trait]
+impl Definition<IcsItem> for WebCalDefinition {
+    /// Create a new storage instance.
+    ///
+    /// Unlike other [`Storage`] implementations, this one allows only a single collection.
+    async fn build_boxed(self) -> Result<Box<dyn Storage<IcsItem>>> {
+        Ok(Box::new(self.build().await?))
     }
 }
 
@@ -365,11 +371,11 @@ mod test {
     async fn test_dummy() {
         use crate::webcal::WebCalDefinition;
 
-        let metdata = WebCalDefinition {
+        let definition = WebCalDefinition {
             url: Uri::try_from("https://www.officeholidays.com/ics/netherlands").unwrap(),
             collection_name: "holidays".parse().unwrap(),
         };
-        let storage = metdata.storage().await.unwrap();
+        let storage = definition.build_boxed().await.unwrap();
         storage.check().await.unwrap();
         let collection = &storage.open_collection("holidays").unwrap();
         let discovery = &storage.discover_collections().await.unwrap();

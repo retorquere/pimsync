@@ -20,12 +20,15 @@ use crate::{CollectionId, Etag, Href, Result};
 /// based storages.
 #[async_trait]
 pub trait Definition<I: Item>: Sync + Send + std::fmt::Debug {
-    /// Creates a new storage instance for this definition.
+    /// Returns a new storage instance wrapped in a box.
+    ///
+    /// When the specific `Storage` type is required the non-trait methods of the implementing type
+    /// should be used instead.
     ///
     /// # Errors
     ///
     /// Errors are implementation-dependant; see implementations for details.
-    async fn storage(self) -> Result<Box<dyn Storage<I>>>;
+    async fn build_boxed(self) -> Result<Box<dyn Storage<I>>>;
 }
 
 /// A storage is the highest level abstraction where items can be stored. It can be a remote CalDav

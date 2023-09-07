@@ -25,6 +25,21 @@ where
     pub connector: C,
 }
 
+impl<C> CalDavDefinition<C>
+where
+    C: Connect + Send + Sync + Clone + std::fmt::Debug,
+{
+    pub async fn build(self) -> Result<CalDavStorage<C>> {
+        let client = CalDavClient::builder()
+            .with_uri(self.url)
+            .with_auth(self.auth)
+            .build(self.connector)
+            .await?;
+
+        Ok(CalDavStorage { client })
+    }
+}
+
 impl From<libdav::BootstrapError> for Error {
     fn from(value: libdav::BootstrapError) -> Self {
         // TODO: not implemented
@@ -44,14 +59,8 @@ impl<C> Definition<IcsItem> for CalDavDefinition<C>
 where
     C: Connect + Send + Sync + Clone + std::fmt::Debug,
 {
-    async fn storage(self) -> Result<Box<dyn Storage<IcsItem>>> {
-        let client = CalDavClient::builder()
-            .with_uri(self.url)
-            .with_auth(self.auth)
-            .build(self.connector)
-            .await?;
-
-        Ok(Box::from(CalDavStorage { client }))
+    async fn build_boxed(self) -> Result<Box<dyn Storage<IcsItem>>> {
+        Ok(Box::from(self.build().await?))
     }
 }
 

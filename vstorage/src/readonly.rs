@@ -33,7 +33,7 @@ use crate::{ErrorKind, Etag, Href, Result};
 /// let orig = FilesystemDefinition::<IcsItem>::new(
 ///     PathBuf::from("/path/to/storage/"),
 ///     String::from("ics"),
-/// ).storage().await.unwrap();
+/// ).build_boxed().await.unwrap();
 ///
 /// let read_only = ReadOnlyStorage::from(orig);
 /// # })
