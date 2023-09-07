@@ -61,9 +61,9 @@ async fn main() {
 
 /// Copies from `source` to `target` and returns the amount of items copied.
 async fn copy_collection<I: Item>(
-    source_storage: &Box<dyn Storage<I>>,
+    source_storage: &dyn Storage<I>,
     source_collection: Collection,
-    target_storage: &mut Box<dyn Storage<I>>,
+    target_storage: &mut dyn Storage<I>,
     target_collection: Collection,
 ) -> usize {
     let mut count = 0;
