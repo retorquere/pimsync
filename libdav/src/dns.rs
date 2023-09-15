@@ -25,7 +25,7 @@ pub enum DiscoverableService {
     CalDavs,
     /// Caldav over plain-text HTTP.
     CalDav,
-    /// Carddav over plain-text HTTP.
+    /// Carddav over HTTPS.
     CardDavs,
     /// Carddav over plain-text HTTP.
     CardDav,
