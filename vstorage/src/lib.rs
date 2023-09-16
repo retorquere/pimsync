@@ -56,7 +56,7 @@ use std::str::FromStr;
 use serde::{Deserialize, Serialize};
 
 pub mod base;
-pub mod boxed;
+mod boxed;
 pub mod caldav;
 pub mod carddav;
 mod dav;
