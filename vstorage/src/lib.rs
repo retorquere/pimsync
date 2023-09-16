@@ -4,15 +4,31 @@
 
 //! This crate is part of the `vdirsyncer` project, and implements a common API for reading and
 //! writing to different underlying storage implementations. Storage implementations can contain
-//! `icalendar` or `vcard` entries (although generic items in planned in future).
+//! `icalendar` components, `vcard` entries, or any other content type.
 //!
-//! # Key concepts
+//! # Storage
 //!
-//! Each [`Storage`] instance may have one or more [`Collection`](crate::base::Collection)s. For
-//! CalDav, a collection is a single calendar. For an IMAP storage, a collection would be a single
-//! mailbox.
+//! A [`Storage`] contains a set of [`Collection`](crate::base::Collection)s, where each collection
+//! can contain many items. For example:
+//!
+//! - A [`CalDavStorage`] is a caldav server, where each collection is an individual calendar, and
+//! each item is an individual event or todo in a calendar.
+//! - A [`FilesystemStorage`] is a local directory, where each collection is a directory and each
+//! item is a file.
+//! - A potential `ImapStorage` instance is a single IMAP account, where each collection is a
+//! mailbox and each item is an individual email message.
+//!
+//! This crate is agnostic to the content type inside collections, and can synchronise collections
+//! with any type of content. However, some basic understanding of these is necessary; calendar
+//! components have a UID, and when synchronising two storages, components with the same UID on
+//! each side are to be treated as the same.
+//!
+//! Interpreting content to extract these UIDs is done via the generic `I` parameter, which
+//! describes the content type of a given storage instance.
 //!
 //! [`Storage`]: crate::base::Storage
+//! [`CalDavStorage`]: crate::caldav::CalDavStorage
+//! [`FilesystemStorage`]: crate::filesystem::FilesystemStorage
 //!
 //! ## Collections, Hrefs and Collections Ids
 //!
