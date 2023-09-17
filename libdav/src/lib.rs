@@ -66,6 +66,12 @@ pub enum BootstrapError {
 
     #[error(transparent)]
     DavError(#[from] DavError),
+
+    /// The service is decidedly not available.
+    ///
+    /// See <https://www.rfc-editor.org/rfc/rfc2782>, page 4
+    #[error("the service is decidedly not available")]
+    NotAvailable,
 }
 
 /// Error finding home set.

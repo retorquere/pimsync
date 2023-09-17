@@ -82,12 +82,6 @@ pub enum SrvError {
 
     #[error("error executing DNS query")]
     Query(io::Error),
-
-    /// The service is decidedly not available.
-    ///
-    /// See <https://www.rfc-editor.org/rfc/rfc2782>, page 4
-    #[error("the service is decidedly not available")]
-    NotAvailable,
 }
 
 // See: https://github.com/NLnetLabs/domain/pull/183
@@ -103,8 +97,10 @@ impl From<domain::resolv::lookup::srv::SrvError> for SrvError {
 
 /// Resolves SRV to locate the caldav server.
 ///
-/// Returns a `Vec` of host/ports, in the order in which they should be tried.
-/// Returns an empty list if no SRV records were found.
+/// If the query is successful and the service is available, returns `Ok(Some(_))` with a `Vec` of
+/// host/ports, in the order in which they should be tried.
+///
+/// If the query is successful but the service is decidedly not available, returns `Ok(None)`.
 ///
 /// # Errors
 ///
@@ -118,20 +114,21 @@ pub async fn resolve_srv_record<T: std::convert::AsRef<[u8]>>(
     service: DiscoverableService,
     domain: &Dname<T>,
     port: u16,
-) -> Result<Vec<(String, u16)>, SrvError> {
+) -> Result<Option<Vec<(String, u16)>>, SrvError> {
     let response = StubResolver::new()
         .lookup_srv(service.relative_domain(), domain, port)
         .await?;
 
     let srvs: Vec<_> = match response {
         Some(s) => s.into_srvs().collect(),
-        None => return Err(SrvError::NotAvailable),
+        None => return Ok(None),
     };
 
-    Ok(srvs
-        .iter()
-        .map(|s| (s.target().to_string(), s.port()))
-        .collect())
+    Ok(Some(
+        srvs.iter()
+            .map(|s| (s.target().to_string(), s.port()))
+            .collect(),
+    ))
 }
 
 /// Error returned by [`find_context_path_via_txt_records`].

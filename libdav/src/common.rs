@@ -33,18 +33,10 @@ where
 
     let dname = Dname::bytes_from_str(domain)
         .map_err(|_| BootstrapError::InvalidUrl("invalid domain name"))?;
-    let host_candidates = {
-        let candidates = resolve_srv_record(service, &dname, port)
-            .await
-            .map_err(BootstrapError::DnsError)?;
-
-        // If there are no SRV records, try the domain/port in the provided URI.
-        if candidates.is_empty() {
-            vec![(domain.to_string(), port)]
-        } else {
-            candidates
-        }
-    };
+    let host_candidates = resolve_srv_record(service, &dname, port)
+        .await
+        .map_err(BootstrapError::DnsError)?
+        .ok_or(BootstrapError::NotAvailable)?;
 
     let mut client = WebDavClient::new(base_uri, auth, connector);
 
