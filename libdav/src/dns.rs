@@ -115,20 +115,15 @@ pub async fn resolve_srv_record<T: std::convert::AsRef<[u8]>>(
     domain: &Dname<T>,
     port: u16,
 ) -> Result<Option<Vec<(String, u16)>>, SrvError> {
-    let response = StubResolver::new()
+    Ok(StubResolver::new()
         .lookup_srv(service.relative_domain(), domain, port)
-        .await?;
-
-    let srvs: Vec<_> = match response {
-        Some(s) => s.into_srvs().collect(),
-        None => return Ok(None),
-    };
-
-    Ok(Some(
-        srvs.iter()
-            .map(|s| (s.target().to_string(), s.port()))
-            .collect(),
-    ))
+        .await?
+        .map(|found| {
+            found
+                .into_srvs()
+                .map(|entry| (entry.target().to_string(), entry.port()))
+                .collect()
+        }))
 }
 
 /// Error returned by [`find_context_path_via_txt_records`].
