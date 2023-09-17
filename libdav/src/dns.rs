@@ -126,14 +126,8 @@ pub async fn resolve_srv_record<T: std::convert::AsRef<[u8]>>(
 
     let mut srvs: Vec<_> = match response {
         Some(s) => s.into_srvs().collect(),
-        None => return Ok(vec![]),
+        None => return Err(SrvError::NotAvailable),
     };
-
-    if let Some(srv) = srvs.first() {
-        if srv.target().as_ref() == b"." {
-            return Err(SrvError::NotAvailable);
-        }
-    }
 
     // A client MUST attempt to contact the target host with the lowest-numbered priority it can reach[...]
     // [...] Larger weights SHOULD be given a proportionately higher probability of being selected. [...]
