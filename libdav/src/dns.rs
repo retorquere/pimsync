@@ -4,7 +4,6 @@
 
 //! Helpers for DNS-based discovery.
 
-use std::cmp::Ordering;
 use std::io;
 use std::string::FromUtf8Error;
 
@@ -124,20 +123,10 @@ pub async fn resolve_srv_record<T: std::convert::AsRef<[u8]>>(
         .lookup_srv(service.relative_domain(), domain, port)
         .await?;
 
-    let mut srvs: Vec<_> = match response {
+    let srvs: Vec<_> = match response {
         Some(s) => s.into_srvs().collect(),
         None => return Err(SrvError::NotAvailable),
     };
-
-    // A client MUST attempt to contact the target host with the lowest-numbered priority it can reach[...]
-    // [...] Larger weights SHOULD be given a proportionately higher probability of being selected. [...]
-    srvs.sort_unstable_by(|s1, s2| {
-        match s1.priority().cmp(&s2.priority()) {
-            Ordering::Less => Ordering::Less,
-            Ordering::Equal => s2.weight().cmp(&s1.weight()), // Hint: in reverse order!
-            Ordering::Greater => Ordering::Greater,
-        }
-    });
 
     Ok(srvs
         .iter()
