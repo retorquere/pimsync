@@ -8,7 +8,7 @@ use std::io;
 use std::string::FromUtf8Error;
 
 use domain::base::name::LongChainError;
-use domain::base::octets::ParseError;
+use domain::base::wire::ParseError;
 use domain::base::ToRelativeDname;
 use domain::{
     base::{Dname, Question, RelativeDname, Rtype},
@@ -171,7 +171,6 @@ impl From<TxtError> for io::Error {
 /// # See also
 ///
 /// <https://www.rfc-editor.org/rfc/rfc6764>
-#[allow(clippy::missing_panics_doc)]
 pub async fn find_context_path_via_txt_records<T: std::convert::AsRef<[u8]>>(
     service: DiscoverableService,
     domain: &Dname<T>,
@@ -188,10 +187,7 @@ pub async fn find_context_path_via_txt_records<T: std::convert::AsRef<[u8]>>(
         return Ok(None);
     };
 
-    let bytes = parsed_record
-        .data()
-        .text::<Vec<u8>>()
-        .expect("record fits in newly created buffer");
+    let bytes = parsed_record.data().text::<Vec<u8>>();
 
     let path_result = String::from_utf8(bytes)?
         .strip_prefix("path=")

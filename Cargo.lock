@@ -272,6 +272,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "deranged"
+version = "0.3.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f2696e8a945f658fd14dc3b87242e6b80cd0f36ff04ea560fa39082368847946"
+
+[[package]]
 name = "digest"
 version = "0.10.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -283,15 +289,17 @@ dependencies = [
 
 [[package]]
 name = "domain"
-version = "0.7.2"
+version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "415f70b855528e589c4d787338d22ad4e9e6d012167ba3c5279f4e9805e50ceb"
+checksum = "c2fbe77a63bf2445649b4ec41ba5300d30dc8358fef4503da03bf2313e31bef3"
 dependencies = [
  "bytes",
  "futures",
  "libc",
+ "octseq",
  "rand",
  "smallvec",
+ "time",
  "tokio",
 ]
 
@@ -711,6 +719,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "77ac5bbd07aea88c60a577a1ce218075ffd59208b2d7ca97adf9bfc5aeb21ebe"
 dependencies = [
  "memchr",
+]
+
+[[package]]
+name = "octseq"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5190e3482f38446ee3f3ab50b049a16b072b6111cba008381b816598478ba65d"
+dependencies = [
+ "bytes",
+ "smallvec",
 ]
 
 [[package]]
@@ -1140,6 +1158,23 @@ dependencies = [
  "quote",
  "syn",
 ]
+
+[[package]]
+name = "time"
+version = "0.3.28"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "17f6bb557fd245c28e6411aa56b6403c689ad95061f50e4be16c274e70a17e48"
+dependencies = [
+ "deranged",
+ "serde",
+ "time-core",
+]
+
+[[package]]
+name = "time-core"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7300fbefb4dadc1af235a9cef3737cea692a9d97e1b9cbcd4ebdae6f8868e6fb"
 
 [[package]]
 name = "tokio"
