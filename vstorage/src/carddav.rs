@@ -28,6 +28,11 @@ impl<C> CardDavDefinition<C>
 where
     C: Connect + Send + Sync + Clone + std::fmt::Debug,
 {
+    /// Build a new `Storage` instance.
+    ///
+    /// # Errors
+    ///
+    /// If there are errors discovering the CardDav server.
     pub async fn build(self) -> Result<CardDavStorage<C>> {
         let client = CardDavClient::builder()
             .with_uri(self.url)

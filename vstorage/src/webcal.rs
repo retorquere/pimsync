@@ -48,7 +48,12 @@ pub struct WebCalDefinition {
 }
 
 impl WebCalDefinition {
-    pub async fn build(self) -> Result<WebCalStorage> {
+    /// Build a new `Storage` instance.
+    ///
+    /// # Errors
+    ///
+    /// If there are errors discovering the CardDav server.
+    pub fn build(self) -> Result<WebCalStorage> {
         let proto = match &self.url.scheme().map(Scheme::as_str) {
             Some("http") => HttpsConnectorBuilder::new()
                 .with_native_roots()
@@ -82,7 +87,7 @@ impl Definition<IcsItem> for WebCalDefinition {
     ///
     /// Unlike other [`Storage`] implementations, this one allows only a single collection.
     async fn build_boxed(self) -> Result<Box<dyn Storage<IcsItem>>> {
-        Ok(Box::new(self.build().await?))
+        Ok(Box::new(self.build()?))
     }
 }
 

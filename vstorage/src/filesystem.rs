@@ -319,6 +319,8 @@ impl<I: Item> FilesystemDefinition<I> {
         }
     }
 
+    /// Build a new `Storage` instance.
+    #[must_use]
     pub fn build(self) -> FilesystemStorage<I> {
         FilesystemStorage { definition: self }
     }
