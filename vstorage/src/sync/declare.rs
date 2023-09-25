@@ -54,8 +54,8 @@ impl DeclaredMapping {
 }
 
 pub(super) struct PairInfo<'a, I: Item> {
-    pub(super) storage_a: &'a mut dyn Storage<I>,
-    pub(super) storage_b: &'a mut dyn Storage<I>,
+    pub(super) storage_a: &'a dyn Storage<I>,
+    pub(super) storage_b: &'a dyn Storage<I>,
     pub(super) previous_state_a: Option<&'a StorageState>,
     pub(super) previous_state_b: Option<&'a StorageState>,
     pub(super) mappings: Vec<DeclaredMapping>,
@@ -123,8 +123,8 @@ pub struct StoragePair<'a, I: Item> {
 impl<I: Item> StoragePair<'_, I> {
     /// Build a pair defining how to synchronise two storages.
     pub fn builder<'a>(
-        storage_a: &'a mut dyn Storage<I>,
-        storage_b: &'a mut dyn Storage<I>,
+        storage_a: &'a dyn Storage<I>,
+        storage_b: &'a dyn Storage<I>,
     ) -> StoragePairBuilder<'a, I> {
         StoragePairBuilder {
             info: PairInfo {

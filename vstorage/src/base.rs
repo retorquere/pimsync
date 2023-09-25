@@ -66,17 +66,17 @@ pub trait Storage<I: Item>: Sync + Send {
     /// Usage of this method is discouraged, given that is requires taking into account the nuances
     /// of the specific storage implementation. Generally, [`Storage::create_collection_with_id`]
     /// should be used instead.
-    async fn create_collection(&mut self, href: &str) -> Result<Collection>;
+    async fn create_collection(&self, href: &str) -> Result<Collection>;
 
     /// Creates a new collection with a given name.
     ///
     /// Creates a new collection with an href such that its name matches the one provided.
-    async fn create_collection_with_id(&mut self, id: &CollectionId) -> Result<Collection>;
+    async fn create_collection_with_id(&self, id: &CollectionId) -> Result<Collection>;
 
     /// Deletes an existing collection.
     ///
     /// A collection must be empty for deletion to succeed.
-    async fn destroy_collection(&mut self, href: &str) -> Result<()>;
+    async fn destroy_collection(&self, href: &str) -> Result<()>;
 
     /// Open an existing collection.
     ///
@@ -92,7 +92,7 @@ pub trait Storage<I: Item>: Sync + Send {
 
     /// Sets the value of a property for a given collection.
     async fn set_collection_property(
-        &mut self,
+        &self,
         collection: &Collection,
         property: I::CollectionProperty,
         value: &str,
@@ -122,19 +122,18 @@ pub trait Storage<I: Item>: Sync + Send {
     async fn get_all_items(&self, collection: &Collection) -> Result<Vec<(Href, I, Etag)>>;
 
     /// Saves a new item into a given collection
-    async fn add_item(&mut self, collection: &Collection, item: &I) -> Result<ItemRef>;
+    async fn add_item(&self, collection: &Collection, item: &I) -> Result<ItemRef>;
 
     /// Updates an existing item in a given collection.
     async fn update_item(
-        &mut self,
+        &self,
         collection: &Collection,
         href: &str,
         etag: &Etag,
         item: &I,
     ) -> Result<Etag>;
 
-    async fn delete_item(&mut self, collection: &Collection, href: &str, etag: &Etag)
-        -> Result<()>;
+    async fn delete_item(&self, collection: &Collection, href: &str, etag: &Etag) -> Result<()>;
 
     /// A name that does not change for this collection.
     ///

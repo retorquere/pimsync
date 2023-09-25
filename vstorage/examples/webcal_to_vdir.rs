@@ -41,7 +41,7 @@ async fn main() {
     .build_boxed()
     .await
     .expect("can create webcal storage");
-    let mut fs = FilesystemDefinition::new(path, String::from("ics"))
+    let fs = FilesystemDefinition::new(path, String::from("ics"))
         .build_boxed()
         .await
         .expect("can create fs storage");
@@ -54,7 +54,7 @@ async fn main() {
         .await
         .expect("can create fs collection");
 
-    let copied = copy_collection(&webcal, webcal_collection, &mut fs, fs_collection).await;
+    let copied = copy_collection(&webcal, webcal_collection, &fs, fs_collection).await;
 
     println!("Copied {copied} items");
 }
@@ -63,7 +63,7 @@ async fn main() {
 async fn copy_collection<I: Item>(
     source_storage: &dyn Storage<I>,
     source_collection: Collection,
-    target_storage: &mut dyn Storage<I>,
+    target_storage: &dyn Storage<I>,
     target_collection: Collection,
 ) -> usize {
     let mut count = 0;

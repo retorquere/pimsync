@@ -21,8 +21,8 @@ impl Action {
     async fn execute_on_item<I: Item>(
         &self,
         uid: &str,
-        storage_a: &mut dyn Storage<I>,
-        storage_b: &mut dyn Storage<I>,
+        storage_a: &dyn Storage<I>,
+        storage_b: &dyn Storage<I>,
         // XXX: These should not be optional. Fail earlier if so.
         state_a: Option<&mut CollectionState>,
         state_b: Option<&mut CollectionState>,
@@ -76,7 +76,7 @@ async fn copy_item<I: Item>(
     src_state: &CollectionState,
     dst_state: &mut CollectionState,
     src_storage: &dyn Storage<I>,
-    dst_storage: &mut dyn Storage<I>,
+    dst_storage: &dyn Storage<I>,
     uid: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let col_a = src_storage.open_collection(&src_state.href)?;
@@ -109,7 +109,7 @@ async fn copy_item<I: Item>(
 
 async fn delete_item<I: Item>(
     state: &mut CollectionState,
-    storage: &mut dyn Storage<I>,
+    storage: &dyn Storage<I>,
     uid: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let col = storage.open_collection(&state.href)?;
@@ -135,14 +135,14 @@ impl<'pair, I: Item> Plan<'pair, I> {
     /// Always returns a final state, regardless of what changes were applied. The returned value
     /// will include any errors that occurred during synchronisation. If any errors exist, then
     /// both storage may still be  out of sync.
-    pub async fn execute(&mut self) -> FinalState {
+    pub async fn execute(&self) -> FinalState {
         let mut final_state = FinalState {
             state_a: self.current_state_a().clone(),
             state_b: self.current_state_b().clone(),
             errors: Vec::new(),
         };
-        let storage_a = &mut self.pair.info.storage_a;
-        let storage_b = &mut self.pair.info.storage_b;
+        let storage_a = &self.pair.info.storage_a;
+        let storage_b = &self.pair.info.storage_b;
 
         for cp in &self.collection_plans {
             let mut delete_collection_in_a = false;
@@ -289,7 +289,7 @@ impl FinalState {
 
 /// Creates a collection and updates the state and error list accordingly.
 async fn create_collection<I: Item>(
-    storage: &mut dyn Storage<I>,
+    storage: &dyn Storage<I>,
     collection: &ResolvedCollection,
     state: &mut StorageState,
     errors: &mut Vec<SynchronizationError>,
@@ -323,7 +323,7 @@ async fn create_collection<I: Item>(
 }
 
 async fn delete_collection<I: Item>(
-    storage: &mut dyn Storage<I>,
+    storage: &dyn Storage<I>,
     collection: &ResolvedCollection,
     state: &mut StorageState,
     errors: &mut Vec<SynchronizationError>,

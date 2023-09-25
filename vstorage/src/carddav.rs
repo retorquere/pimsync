@@ -91,7 +91,7 @@ where
         Ok(x)
     }
 
-    async fn create_collection(&mut self, href: &str) -> Result<Collection> {
+    async fn create_collection(&self, href: &str) -> Result<Collection> {
         self.client
             .create_addressbook(href)
             .await
@@ -105,7 +105,7 @@ where
     ///
     /// Returns [`ErrorKind::PreconditionFailed`] if a home set was not found in the carddav
     /// server.
-    async fn create_collection_with_id(&mut self, id: &CollectionId) -> Result<Collection> {
+    async fn create_collection_with_id(&self, id: &CollectionId) -> Result<Collection> {
         let home_set = self.client.addressbook_home_set().ok_or_else(|| {
             Error::new(
                 ErrorKind::PreconditionFailed,
@@ -131,7 +131,7 @@ where
     /// If the server is not compliant and does not support Etags, possible race conditions could
     /// occur and if address book components are added to the collection at the same time, they may
     /// be deleted.
-    async fn destroy_collection(&mut self, href: &str) -> Result<()> {
+    async fn destroy_collection(&self, href: &str) -> Result<()> {
         let mut results = self
             .client
             .get_resources(href, &[href])
@@ -243,7 +243,7 @@ where
         self.get_many_items(collection, &hrefs).await
     }
 
-    async fn add_item(&mut self, collection: &Collection, item: &VcardItem) -> Result<ItemRef> {
+    async fn add_item(&self, collection: &Collection, item: &VcardItem) -> Result<ItemRef> {
         let href = join_hrefs(collection.href(), &item.ident());
         // TODO: ident: .chars().filter(char::is_ascii_alphanumeric)
 
@@ -264,7 +264,7 @@ where
     }
 
     async fn update_item(
-        &mut self,
+        &self,
         _collection: &Collection,
         href: &str,
         etag: &Etag,
@@ -288,7 +288,7 @@ where
     ///
     /// Only `DisplayName` is implemented.
     async fn set_collection_property(
-        &mut self,
+        &self,
         collection: &Collection,
         meta: AddressBookProperty,
         value: &str,
@@ -338,12 +338,7 @@ where
         result.map_err(Error::from)
     }
 
-    async fn delete_item(
-        &mut self,
-        _collection: &Collection,
-        href: &str,
-        etag: &Etag,
-    ) -> Result<()> {
+    async fn delete_item(&self, _collection: &Collection, href: &str, etag: &Etag) -> Result<()> {
         // TODO: check that href is a sub-path of collection.href?
         self.client.delete(href, etag).await?;
 

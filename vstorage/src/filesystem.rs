@@ -76,21 +76,21 @@ where
         Ok(collections)
     }
 
-    async fn create_collection(&mut self, href: &str) -> Result<Collection> {
+    async fn create_collection(&self, href: &str) -> Result<Collection> {
         let path = self.join_collection_href(href)?;
         create_dir(&path).await?;
 
         self.open_collection(href)
     }
 
-    async fn create_collection_with_id(&mut self, id: &CollectionId) -> Result<Collection> {
+    async fn create_collection_with_id(&self, id: &CollectionId) -> Result<Collection> {
         let path = self.join_collection_href(id.as_ref())?;
         create_dir(&path).await?;
 
         self.open_collection(id.as_ref())
     }
 
-    async fn destroy_collection(&mut self, href: &str) -> Result<()> {
+    async fn destroy_collection(&self, href: &str) -> Result<()> {
         let path = self.join_collection_href(href)?;
         remove_dir(path).await.map_err(Error::from)
     }
@@ -162,7 +162,7 @@ where
     }
 
     async fn set_collection_property(
-        &mut self,
+        &self,
         collection: &Collection,
         meta: I::CollectionProperty,
         value: &str,
@@ -193,7 +193,7 @@ where
         Ok(Some(value))
     }
 
-    async fn add_item(&mut self, collection: &Collection, item: &I) -> Result<ItemRef> {
+    async fn add_item(&self, collection: &Collection, item: &I) -> Result<ItemRef> {
         // TODO: We only need to remove a few "illegal" characters, so this is a bit too strict.
         let basename = item
             .ident()
@@ -218,7 +218,7 @@ where
     }
 
     async fn update_item(
-        &mut self,
+        &self,
         collection: &Collection,
         href: &str,
         etag: &Etag,
@@ -245,12 +245,7 @@ where
         Ok(etag)
     }
 
-    async fn delete_item(
-        &mut self,
-        collection: &Collection,
-        href: &str,
-        etag: &Etag,
-    ) -> Result<()> {
+    async fn delete_item(&self, collection: &Collection, href: &str, etag: &Etag) -> Result<()> {
         let filename = self.collection_path(collection).join(href);
 
         let actual_etag = etag_for_path(&filename).await?;
@@ -391,7 +386,7 @@ mod tests {
         let definition =
             FilesystemDefinition::<IcsItem>::new(dir.path().to_path_buf(), "ics".to_string());
 
-        let mut storage = definition.build_boxed().await.unwrap();
+        let storage = definition.build_boxed().await.unwrap();
         let collection = storage.create_collection("test").await.unwrap();
         let displayname = storage
             .get_collection_property(&collection, crate::base::CalendarProperty::DisplayName)

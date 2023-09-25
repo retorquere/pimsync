@@ -52,15 +52,15 @@ impl<I: Item> Storage<I> for ReadOnlyStorage<I> {
         self.inner.discover_collections().await
     }
 
-    async fn create_collection(&mut self, _href: &str) -> Result<Collection> {
+    async fn create_collection(&self, _href: &str) -> Result<Collection> {
         Err(ErrorKind::ReadOnly.into())
     }
 
-    async fn create_collection_with_id(&mut self, _id: &CollectionId) -> Result<Collection> {
+    async fn create_collection_with_id(&self, _id: &CollectionId) -> Result<Collection> {
         Err(ErrorKind::ReadOnly.into())
     }
 
-    async fn destroy_collection(&mut self, _href: &str) -> Result<()> {
+    async fn destroy_collection(&self, _href: &str) -> Result<()> {
         Err(ErrorKind::ReadOnly.into())
     }
 
@@ -88,16 +88,16 @@ impl<I: Item> Storage<I> for ReadOnlyStorage<I> {
         self.inner.get_all_items(collection).await
     }
 
-    async fn add_item(&mut self, _: &Collection, _: &I) -> Result<crate::base::ItemRef> {
+    async fn add_item(&self, _: &Collection, _: &I) -> Result<crate::base::ItemRef> {
         Err(ErrorKind::ReadOnly.into())
     }
 
-    async fn update_item(&mut self, _: &Collection, _: &str, _: &Etag, _: &I) -> Result<Etag> {
+    async fn update_item(&self, _: &Collection, _: &str, _: &Etag, _: &I) -> Result<Etag> {
         Err(ErrorKind::ReadOnly.into())
     }
 
     async fn set_collection_property(
-        &mut self,
+        &self,
         _: &Collection,
         _: I::CollectionProperty,
         _: &str,
@@ -113,7 +113,7 @@ impl<I: Item> Storage<I> for ReadOnlyStorage<I> {
         self.inner.get_collection_property(collection, meta).await
     }
 
-    async fn delete_item(&mut self, _: &Collection, _: &str, _: &Etag) -> Result<()> {
+    async fn delete_item(&self, _: &Collection, _: &str, _: &Etag) -> Result<()> {
         Err(ErrorKind::ReadOnly.into())
     }
 

@@ -41,7 +41,7 @@ fn minimal_icalendar(summary: &str) -> anyhow::Result<String> {
 async fn create_populated_storage(path: PathBuf) -> Box<dyn Storage<IcsItem>> {
     std::fs::create_dir(&path).unwrap();
     let def = FilesystemDefinition::<IcsItem>::new(path, "ics".into());
-    let mut storage = def.build_boxed().await.unwrap();
+    let storage = def.build_boxed().await.unwrap();
 
     let first = storage.create_collection("first-calendar").await.unwrap();
     let item = &minimal_icalendar("First calendar event one")
@@ -104,7 +104,7 @@ async fn test_sync_simple_case() {
         .with_mapping(first_mapping)
         .with_mapping(second_mapping)
         .build();
-    let mut plan = Plan::new(&mut pair).await.unwrap();
+    let plan = Plan::new(&mut pair).await.unwrap();
     // dbg!(&plan);
     // TODO: I'll need to trace! the point where each actions is decided.
     let result = plan.execute().await;

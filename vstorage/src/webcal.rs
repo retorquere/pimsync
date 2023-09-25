@@ -110,7 +110,7 @@ impl Storage<IcsItem> for WebCalStorage {
     }
 
     /// Unsupported for this storage type.
-    async fn create_collection(&mut self, _: &str) -> Result<Collection> {
+    async fn create_collection(&self, _: &str) -> Result<Collection> {
         Err(Error::new(
             ErrorKind::Unsupported,
             "creating collections via webcal is not supported",
@@ -118,7 +118,7 @@ impl Storage<IcsItem> for WebCalStorage {
     }
 
     /// Unsupported for this storage type.
-    async fn create_collection_with_id(&mut self, _id: &CollectionId) -> Result<Collection> {
+    async fn create_collection_with_id(&self, _id: &CollectionId) -> Result<Collection> {
         Err(Error::new(
             ErrorKind::Unsupported,
             "creating collections via webcal is not supported",
@@ -126,7 +126,7 @@ impl Storage<IcsItem> for WebCalStorage {
     }
 
     /// Unsupported for this storage type.
-    async fn destroy_collection(&mut self, _: &str) -> Result<()> {
+    async fn destroy_collection(&self, _: &str) -> Result<()> {
         Err(Error::new(
             ErrorKind::Unsupported,
             "creating collections via webcal is not supported",
@@ -260,7 +260,7 @@ impl Storage<IcsItem> for WebCalStorage {
     }
 
     /// Unsupported for this storage type.
-    async fn add_item(&mut self, _collection: &Collection, _: &IcsItem) -> Result<ItemRef> {
+    async fn add_item(&self, _collection: &Collection, _: &IcsItem) -> Result<ItemRef> {
         Err(Error::new(
             ErrorKind::Unsupported,
             "creating collections via webcal is not supported",
@@ -269,7 +269,7 @@ impl Storage<IcsItem> for WebCalStorage {
 
     /// Unsupported for this storage type.
     async fn update_item(
-        &mut self,
+        &self,
         _collection: &Collection,
         _: &str,
         _: &Etag,
@@ -283,7 +283,7 @@ impl Storage<IcsItem> for WebCalStorage {
 
     /// Unsupported for this storage type.
     async fn set_collection_property(
-        &mut self,
+        &self,
         _collection: &Collection,
         _: CalendarProperty,
         _: &str,
@@ -307,7 +307,7 @@ impl Storage<IcsItem> for WebCalStorage {
         ))
     }
 
-    async fn delete_item(&mut self, _: &Collection, _: &str, _: &Etag) -> Result<()> {
+    async fn delete_item(&self, _: &Collection, _: &str, _: &Etag) -> Result<()> {
         Err(Error::new(
             ErrorKind::Unsupported,
             "deleting items via webcal is not supported",

@@ -43,7 +43,7 @@ async fn create_vdir_from_env() -> Box<dyn Storage<IcsItem>> {
 #[tokio::main]
 async fn main() {
     let caldav_storage = create_caldav_from_env().await;
-    let mut vdir_storage = create_vdir_from_env().await;
+    let vdir_storage = create_vdir_from_env().await;
 
     let collections = caldav_storage.discover_collections().await.unwrap();
 
@@ -61,13 +61,7 @@ async fn main() {
             .await
             .unwrap();
 
-        copy_collection(
-            &caldav_storage,
-            collection,
-            &mut vdir_storage,
-            new_collection,
-        )
-        .await;
+        copy_collection(&caldav_storage, collection, &vdir_storage, new_collection).await;
     }
 }
 
@@ -75,7 +69,7 @@ async fn main() {
 async fn copy_collection(
     source_storage: &dyn Storage<IcsItem>,
     source_collection: Collection,
-    target_storage: &mut dyn Storage<IcsItem>,
+    target_storage: &dyn Storage<IcsItem>,
     target_collection: Collection,
 ) -> usize {
     let mut count = 0;

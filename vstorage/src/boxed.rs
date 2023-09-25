@@ -18,20 +18,20 @@ impl<I: Item> Storage<I> for Box<dyn Storage<I>> {
             .await
     }
 
-    async fn create_collection(&mut self, href: &str) -> Result<Collection> {
-        AsMut::<dyn Storage<I>>::as_mut(self)
+    async fn create_collection(&self, href: &str) -> Result<Collection> {
+        AsRef::<dyn Storage<I>>::as_ref(self)
             .create_collection(href)
             .await
     }
 
-    async fn create_collection_with_id(&mut self, id: &CollectionId) -> Result<Collection> {
-        AsMut::<dyn Storage<I>>::as_mut(self)
+    async fn create_collection_with_id(&self, id: &CollectionId) -> Result<Collection> {
+        AsRef::<dyn Storage<I>>::as_ref(self)
             .create_collection_with_id(id)
             .await
     }
 
-    async fn destroy_collection(&mut self, href: &str) -> Result<()> {
-        AsMut::<dyn Storage<I>>::as_mut(self)
+    async fn destroy_collection(&self, href: &str) -> Result<()> {
+        AsRef::<dyn Storage<I>>::as_ref(self)
             .destroy_collection(href)
             .await
     }
@@ -51,12 +51,12 @@ impl<I: Item> Storage<I> for Box<dyn Storage<I>> {
     }
 
     async fn set_collection_property(
-        &mut self,
+        &self,
         collection: &Collection,
         property: I::CollectionProperty,
         value: &str,
     ) -> Result<()> {
-        AsMut::<dyn Storage<I>>::as_mut(self)
+        AsRef::<dyn Storage<I>>::as_ref(self)
             .set_collection_property(collection, property, value)
             .await
     }
@@ -89,31 +89,26 @@ impl<I: Item> Storage<I> for Box<dyn Storage<I>> {
             .await
     }
 
-    async fn add_item(&mut self, collection: &Collection, item: &I) -> Result<ItemRef> {
-        AsMut::<dyn Storage<I>>::as_mut(self)
+    async fn add_item(&self, collection: &Collection, item: &I) -> Result<ItemRef> {
+        AsRef::<dyn Storage<I>>::as_ref(self)
             .add_item(collection, item)
             .await
     }
 
     async fn update_item(
-        &mut self,
+        &self,
         collection: &Collection,
         href: &str,
         etag: &Etag,
         item: &I,
     ) -> Result<Etag> {
-        AsMut::<dyn Storage<I>>::as_mut(self)
+        AsRef::<dyn Storage<I>>::as_ref(self)
             .update_item(collection, href, etag, item)
             .await
     }
 
-    async fn delete_item(
-        &mut self,
-        collection: &Collection,
-        href: &str,
-        etag: &Etag,
-    ) -> Result<()> {
-        AsMut::<dyn Storage<I>>::as_mut(self)
+    async fn delete_item(&self, collection: &Collection, href: &str, etag: &Etag) -> Result<()> {
+        AsRef::<dyn Storage<I>>::as_ref(self)
             .delete_item(collection, href, etag)
             .await
     }
