@@ -640,7 +640,7 @@ where
         property: &Property<'_, '_>,
     ) -> Result<Vec<FetchedResource>, DavError> {
         let request = Request::builder()
-            .method(Method::from_bytes(b"REPORT").expect("API for HTTP methods is dumb"))
+            .method("REPORT")
             .uri(self.relative_uri(collection_href)?)
             .header("Content-Type", "application/xml; charset=utf-8")
             .body(Body::from(body))?;
