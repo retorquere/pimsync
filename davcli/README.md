@@ -20,7 +20,7 @@ in shell scripts) and all logging is printed to `stderr`.
 
 The output of `--help` should be sufficient to find the basic subcommands, and
 appending `--help` to any of these should provide enough information to
-understand their usage. If anything is not clear, that is considered a bug.
+understand their usage. If anything is not clear, please open a ticket.
 
 # Discovery
 
