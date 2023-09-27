@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: EUPL-1.2
 
+use std::io::Read;
+
 use anyhow::{bail, Context};
 use clap::{Parser, Subcommand};
 use hyper::client::HttpConnector;
@@ -35,6 +37,12 @@ pub(crate) enum CalDavCommand {
     Tree,
     /// Fetches a single calendar component.
     Get {
+        resource_href: String,
+    },
+    /// Create a new calendar component.
+    ///
+    /// Data is read from stdin.
+    Create {
         resource_href: String,
     },
     Delete {
@@ -79,6 +87,7 @@ impl CalDavArgs {
             }
             CalDavCommand::Tree => tree(client).await?,
             CalDavCommand::Get { resource_href } => get(client, resource_href).await?,
+            CalDavCommand::Create { resource_href } => create(client, resource_href).await?,
             CalDavCommand::Delete { force, href } => {
                 if !force {
                     bail!("Must force deletion (no etag support in davcli)");
@@ -121,6 +130,25 @@ async fn get(client: Client, href: String) -> anyhow::Result<()> {
         .data;
 
     println!("{raw}");
+
+    Ok(())
+}
+
+async fn create(client: Client, href: String) -> anyhow::Result<()> {
+    let mut data = Vec::new();
+    let mut stdin = std::io::stdin().lock();
+    stdin.read_to_end(&mut data).context("reading from stdin")?;
+
+    let response = client
+        .create_resource(&href, data, b"text/calendar")
+        .await
+        .context("sending request to create resource")?;
+
+    if let Some(etag) = response {
+        println!("Etag: {etag}");
+    } else {
+        println!("No etag");
+    }
 
     Ok(())
 }
