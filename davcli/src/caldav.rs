@@ -101,13 +101,14 @@ fn discover(client: &Client) {
 }
 
 async fn get(client: Client, href: String) -> anyhow::Result<()> {
-    let target_url = client
-        .calendar_home_set()
-        .context("No calendar home set available")?
+    let collection = href
+        .rsplitn(1, "/")
+        .next()
+        .expect("rsplit must yield at least one element")
         .to_string();
 
     let response = client
-        .get_resources(target_url, &[href])
+        .get_resources(collection, &[href])
         .await?
         .into_iter()
         .next()
