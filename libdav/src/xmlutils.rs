@@ -218,7 +218,7 @@ pub(crate) fn get_newline_corrected_text(
         .text()
         .ok_or(DavError::InvalidResponse("missing text in property".into()))?;
 
-    // "\r\n" is converted into "\n" during XML parsing. This needs to be undone.
+    // "\r\n" is usually converted into "\n" during. This needs to be undone.
     //
     // See: https://github.com/RazrFalcon/roxmltree/issues/102
     // See: https://www.w3.org/TR/xml/#sec-line-ends
@@ -227,24 +227,11 @@ pub(crate) fn get_newline_corrected_text(
     let mut result = String::new();
     let mut last_end = 0;
     for (start, part) in raw_data.match_indices('\n') {
-        // If the following character is `\n`, then no data has been lost (it might
-        // have been in a CDATA or escaped).
-        if raw_data.get(start - 1..start) == Some("\r") {
-            continue;
-        }
-        result.push_str(
-            raw_data
-                .get(last_end..start)
-                .expect("data between last match and the current one must exist"),
-        );
+        result.push_str(&raw_data[last_end..start]);
         result.push_str("\r\n");
         last_end = start + part.len();
     }
-    result.push_str(
-        raw_data
-            .get(last_end..raw_data.len())
-            .expect("data for the remainder of the input must exist"),
-    );
+    result.push_str(&raw_data[last_end..raw_data.len()]);
     Ok(result)
 }
 

@@ -22,7 +22,7 @@ http = "0.2.9"
 hyper = { version = "0.14.24", features = ["http1", "client"] }
 log = "0.4.17"
 percent-encoding = "2.3.0"
-roxmltree = { version = "0.18.0", git = "https://github.com/RazrFalcon/roxmltree.git" }
+roxmltree = { version = "0.18.1", git = "https://github.com/RazrFalcon/roxmltree.git" }
 thiserror = "1.0.38"
 
 [dev-dependencies]

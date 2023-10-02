@@ -864,8 +864,8 @@ dependencies = [
 
 [[package]]
 name = "roxmltree"
-version = "0.18.0"
-source = "git+https://github.com/RazrFalcon/roxmltree.git#adec50c7361cf1dfbbea03bc928d1d20728f230d"
+version = "0.18.1"
+source = "git+https://github.com/RazrFalcon/roxmltree.git#c3007c0849e4cd1053992d50eabf6587e89037ca"
 dependencies = [
  "xmlparser",
 ]
@@ -1583,6 +1583,6 @@ dependencies = [
 
 [[package]]
 name = "xmlparser"
-version = "0.13.5"
+version = "0.13.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4d25c75bf9ea12c4040a97f829154768bbbce366287e2dc044af160cd79a13fd"
+checksum = "66fee0b777b0f5ac1c69bb06d361268faafa61cd4682ae064a171c16c433e9e4"
