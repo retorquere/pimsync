@@ -34,8 +34,15 @@ tasks:
   - doc: |
       cd vdirsyncer-rs
       cargo doc  # fails on broken links
+  - main-or-tag: |
+      cd vdirsyncer-rs
+      git diff --no-patch --exit-code origin/main || git describe --tag --exact-match || complete-build
   - publish-doc: |
       cd vdirsyncer-rs
-      git diff --no-patch --exit-code origin/main || complete-build
       echo "anchor.whynothugo.nl ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE2WacYpYEP5vvevx4NXQn3Ktd53pBkZR/bpPoS3Wkyg" > $HOME/.ssh/known_hosts
-      rsync -r target/doc/ rsync@anchor.whynothugo.nl:./
+      if [ git diff --no-patch --exit-code origin/main ]; then
+        rsync -r target/doc/main rsync@anchor.whynothugo.nl:./
+      else
+        TAG=$(git describe --tag --exact-match)
+        rsync -r target/doc/$TAG rsync@anchor.whynothugo.nl:./
+      fi
