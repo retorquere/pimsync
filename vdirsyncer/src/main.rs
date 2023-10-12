@@ -2,6 +2,11 @@
 //
 // SPDX-License-Identifier: EUPL-1.2
 
-fn main() {
+mod config;
+
+fn main() -> anyhow::Result<()> {
+    let config = config::parse_from_file("/home/hugo/.config/vdirsyncer/config.toml")?;
+
+    dbg!(config);
     todo!();
 }
