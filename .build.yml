@@ -40,7 +40,7 @@ tasks:
   - publish-doc: |
       cd vdirsyncer-rs
       echo "anchor.whynothugo.nl ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE2WacYpYEP5vvevx4NXQn3Ktd53pBkZR/bpPoS3Wkyg" > $HOME/.ssh/known_hosts
-      if [ git diff --no-patch --exit-code origin/main ]; then
+      if git diff --no-patch --exit-code origin/main; then
         rsync -r target/doc/main rsync@anchor.whynothugo.nl:./
       else
         TAG=$(git describe --tag --exact-match)
