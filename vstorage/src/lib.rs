@@ -231,7 +231,7 @@ pub type Href = String;
 /// # Creating instances
 ///
 /// See: [`CollectionId::try_from`] and [`CollectionId::from_str`].
-#[derive(PartialEq, Debug, Clone, Serialize, Deserialize, Eq, Hash)]
+#[derive(PartialEq, Debug, Clone, Eq, Hash)]
 pub struct CollectionId {
     // INVARIANT: matches rules in documentation above.
     inner: String,
@@ -269,6 +269,27 @@ impl From<CollectionId> for String {
 impl std::fmt::Display for CollectionId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.inner.fmt(f)
+    }
+}
+
+impl Serialize for CollectionId {
+    /// Serialise a `CollectionId` into a simple string.
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(&self.inner)
+    }
+}
+
+impl<'de> Deserialize<'de> for CollectionId {
+    /// Deserialise a `CollectionId` from a simple string.
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s: String = Deserialize::deserialize(deserializer)?;
+        CollectionId::try_from(s).map_err(serde::de::Error::custom)
     }
 }
 
