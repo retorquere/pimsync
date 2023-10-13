@@ -147,6 +147,8 @@ struct CalDav {
 #[derive(Deserialize, Debug)]
 pub struct Http {
     url: StringOrFetch,
+    /// A name for the single collection inside this storage.
+    collection: String,
     #[serde(flatten)]
     network_opts: NetworkOptions,
 }
