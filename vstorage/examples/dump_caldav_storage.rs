@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: EUPL-1.2
 
+use std::sync::Arc;
+
 use hyper_rustls::HttpsConnectorBuilder;
 use libdav::auth::Auth;
 use vstorage::{
@@ -10,7 +12,7 @@ use vstorage::{
     filesystem::FilesystemDefinition,
 };
 
-async fn create_caldav_from_env() -> Box<dyn Storage<IcsItem>> {
+async fn create_caldav_from_env() -> Arc<dyn Storage<IcsItem>> {
     let server = std::env::var("CALDAV_SERVER").unwrap();
     let username = std::env::var("CALDAV_USERNAME").unwrap();
     let password = std::env::var("CALDAV_PASSWORD").unwrap().into();
@@ -28,15 +30,15 @@ async fn create_caldav_from_env() -> Box<dyn Storage<IcsItem>> {
         },
         connector,
     }
-    .build_boxed()
+    .into_storage()
     .await
     .unwrap()
 }
 
-async fn create_vdir_from_env() -> Box<dyn Storage<IcsItem>> {
+async fn create_vdir_from_env() -> Arc<dyn Storage<IcsItem>> {
     let path = std::env::var("VDIR_PATH").unwrap();
     FilesystemDefinition::new(path.try_into().unwrap(), "ics".to_string())
-        .build_boxed()
+        .into_storage()
         .await
         .unwrap()
 }
@@ -67,9 +69,9 @@ async fn main() {
 
 /// Copies from `source` to `target` and returns the amount of items copied.
 async fn copy_collection(
-    source_storage: &dyn Storage<IcsItem>,
+    source_storage: &Arc<dyn Storage<IcsItem>>,
     source_collection: Collection,
-    target_storage: &dyn Storage<IcsItem>,
+    target_storage: &Arc<dyn Storage<IcsItem>>,
     target_collection: Collection,
 ) -> usize {
     let mut count = 0;

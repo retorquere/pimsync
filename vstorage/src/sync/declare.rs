@@ -3,6 +3,8 @@
 // SPDX-License-Identifier: EUPL-1.2
 
 //! Types for specifying rules for a synchronisation.
+use std::sync::Arc;
+
 use crate::{
     base::{Item, Storage},
     sync::state::StorageState,
@@ -54,8 +56,8 @@ impl DeclaredMapping {
 }
 
 pub(super) struct PairInfo<'a, I: Item> {
-    pub(super) storage_a: &'a dyn Storage<I>,
-    pub(super) storage_b: &'a dyn Storage<I>,
+    pub(super) storage_a: Arc<dyn Storage<I>>,
+    pub(super) storage_b: Arc<dyn Storage<I>>,
     pub(super) previous_state_a: Option<&'a StorageState>,
     pub(super) previous_state_b: Option<&'a StorageState>,
     pub(super) mappings: Vec<DeclaredMapping>,
@@ -123,8 +125,8 @@ pub struct StoragePair<'a, I: Item> {
 impl<I: Item> StoragePair<'_, I> {
     /// Build a pair defining how to synchronise two storages.
     pub fn builder<'a>(
-        storage_a: &'a dyn Storage<I>,
-        storage_b: &'a dyn Storage<I>,
+        storage_a: Arc<dyn Storage<I>>,
+        storage_b: Arc<dyn Storage<I>>,
     ) -> StoragePairBuilder<'a, I> {
         StoragePairBuilder {
             info: PairInfo {

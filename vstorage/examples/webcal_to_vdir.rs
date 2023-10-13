@@ -15,6 +15,7 @@
 
 use http::Uri;
 use std::path::PathBuf;
+use std::sync::Arc;
 use vstorage::base::Collection;
 use vstorage::base::Definition;
 use vstorage::base::Item;
@@ -38,11 +39,11 @@ async fn main() {
         url,
         collection_name: "holidays_nl".parse().unwrap(),
     }
-    .build_boxed()
+    .into_storage()
     .await
     .expect("can create webcal storage");
     let fs = FilesystemDefinition::new(path, String::from("ics"))
-        .build_boxed()
+        .into_storage()
         .await
         .expect("can create fs storage");
 
@@ -54,16 +55,16 @@ async fn main() {
         .await
         .expect("can create fs collection");
 
-    let copied = copy_collection(&webcal, webcal_collection, &fs, fs_collection).await;
+    let copied = copy_collection(webcal, webcal_collection, fs, fs_collection).await;
 
     println!("Copied {copied} items");
 }
 
 /// Copies from `source` to `target` and returns the amount of items copied.
 async fn copy_collection<I: Item>(
-    source_storage: &dyn Storage<I>,
+    source_storage: Arc<dyn Storage<I>>,
     source_collection: Collection,
-    target_storage: &dyn Storage<I>,
+    target_storage: Arc<dyn Storage<I>>,
     target_collection: Collection,
 ) -> usize {
     let mut count = 0;

@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: EUPL-1.2
 
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
-use std::boxed::Box;
+use std::sync::Arc;
 use std::{fmt::Write, path::PathBuf};
 use vstorage::sync::declare::{DeclaredMapping, StoragePair};
 use vstorage::sync::plan::Plan;
@@ -38,10 +38,10 @@ fn minimal_icalendar(summary: &str) -> anyhow::Result<String> {
     Ok(entry.into())
 }
 
-async fn create_populated_storage(path: PathBuf) -> Box<dyn Storage<IcsItem>> {
+async fn create_populated_storage(path: PathBuf) -> Arc<dyn Storage<IcsItem>> {
     std::fs::create_dir(&path).unwrap();
     let def = FilesystemDefinition::<IcsItem>::new(path, "ics".into());
-    let storage = def.build_boxed().await.unwrap();
+    let storage = def.into_storage().await.unwrap();
 
     let first = storage.create_collection("first-calendar").await.unwrap();
     let item = &minimal_icalendar("First calendar event one")
@@ -74,13 +74,13 @@ async fn create_populated_storage(path: PathBuf) -> Box<dyn Storage<IcsItem>> {
     storage.add_item(&third, item).await.unwrap();
     drop(third);
 
-    storage
+    storage.into()
 }
 
-async fn create_empty_storage(path: PathBuf) -> Box<dyn Storage<IcsItem>> {
+async fn create_empty_storage(path: PathBuf) -> Arc<dyn Storage<IcsItem>> {
     std::fs::create_dir(&path).unwrap();
     let def = FilesystemDefinition::<IcsItem>::new(path, "ics".into());
-    def.build_boxed().await.unwrap()
+    Arc::from(def.into_storage().await.unwrap())
 }
 
 #[tokio::test]
@@ -95,12 +95,12 @@ async fn test_sync_simple_case() {
         p.push(random_string(12));
         p
     };
-    let mut populated = create_populated_storage(populated_path.clone()).await;
-    let mut empty = create_empty_storage(empty_path.clone()).await;
+    let populated = create_populated_storage(populated_path.clone()).await;
+    let empty = create_empty_storage(empty_path.clone()).await;
 
     let first_mapping = DeclaredMapping::direct("first-calendar".parse().unwrap());
     let second_mapping = DeclaredMapping::direct("second-calendar".parse().unwrap());
-    let mut pair = StoragePair::<IcsItem>::builder(&mut *populated, &mut *empty)
+    let mut pair = StoragePair::<IcsItem>::builder(populated, empty)
         .with_mapping(first_mapping)
         .with_mapping(second_mapping)
         .build();

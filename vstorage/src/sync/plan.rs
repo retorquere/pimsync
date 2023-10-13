@@ -5,6 +5,7 @@
 //! Plan for a synchronisation.
 
 use std::collections::HashSet;
+use std::sync::Arc;
 
 use itertools::Itertools;
 use log::{error, trace};
@@ -48,8 +49,8 @@ impl<'pair, I: Item> Plan<'pair, I> {
         for mapping in &pair.info.mappings {
             mappings.push(ResolvedMapping::from_declared_mapping(
                 mapping.clone(),
-                pair.info.storage_a,
-                pair.info.storage_b,
+                &pair.info.storage_a,
+                &pair.info.storage_b,
                 &all_a,
                 &all_b,
             )?);
@@ -59,9 +60,9 @@ impl<'pair, I: Item> Plan<'pair, I> {
             mappings.reserve(all_a.len());
             for collection in &all_a {
                 let counterpart = resolve_mapping_counterpart(
-                    pair.info.storage_a,
+                    &pair.info.storage_a,
                     collection,
-                    pair.info.storage_b,
+                    &pair.info.storage_b,
                     &all_b,
                 )?;
                 mappings.push(ResolvedMapping {
@@ -76,9 +77,9 @@ impl<'pair, I: Item> Plan<'pair, I> {
             mappings.reserve(all_b.len());
             for collection in &all_b {
                 let counterpart = resolve_mapping_counterpart(
-                    pair.info.storage_b,
+                    &pair.info.storage_b,
                     collection,
-                    pair.info.storage_a,
+                    &pair.info.storage_a,
                     &all_a,
                 )?;
                 mappings.push(ResolvedMapping {
@@ -132,14 +133,14 @@ impl<'pair, I: Item> Plan<'pair, I> {
 
         let current_state_a = StorageState::current_for_storage(
             pair.info.previous_state_a,
-            pair.info.storage_a,
+            &pair.info.storage_a,
             &hrefs_a,
             &all_a,
         )
         .await?;
         let current_state_b = StorageState::current_for_storage(
             pair.info.previous_state_b,
-            pair.info.storage_b,
+            &pair.info.storage_b,
             &hrefs_b,
             &all_b,
         )
@@ -202,12 +203,12 @@ impl<'pair, I: Item> Plan<'pair, I> {
 
 #[cfg(test)]
 mod test {
-    use std::str::FromStr;
+    use std::{str::FromStr, sync::Arc};
 
     use tempfile::Builder;
 
     use crate::{
-        base::{Definition, IcsItem},
+        base::{Definition, IcsItem, Storage},
         filesystem::FilesystemDefinition,
         sync::{
             declare::{DeclaredMapping, StoragePair},
@@ -221,26 +222,28 @@ mod test {
         let dir_a = Builder::new().prefix("vstorage").tempdir().unwrap();
         let dir_b = Builder::new().prefix("vstorage").tempdir().unwrap();
 
-        let mut storage_a =
+        let storage_a = Arc::<dyn Storage<_>>::from(
             FilesystemDefinition::<IcsItem>::new(dir_a.path().to_path_buf(), "ics".to_string())
-                .build_boxed()
+                .into_storage()
                 .await
-                .unwrap();
-        let mut storage_b =
+                .unwrap(),
+        );
+        let storage_b = Arc::<dyn Storage<_>>::from(
             FilesystemDefinition::<IcsItem>::new(dir_b.path().to_path_buf(), "ics".to_string())
-                .build_boxed()
+                .into_storage()
                 .await
-                .unwrap();
+                .unwrap(),
+        );
 
         {
             // This sync would be a no-op, but it's not "wrong".
-            let mut pair = StoragePair::builder(&mut *storage_a, &mut *storage_b).build();
+            let mut pair = StoragePair::builder(storage_a.clone(), storage_b.clone()).build();
             assert!(Plan::new(&mut pair).await.is_ok());
         }
         {
             // This sync is okay.
             let collection = CollectionId::from_str("test").unwrap();
-            let mut pair = StoragePair::builder(&mut *storage_a, &mut *storage_b)
+            let mut pair = StoragePair::builder(storage_a.clone(), storage_b.clone())
                 .with_mapping(DeclaredMapping::direct(collection))
                 .build();
             assert!(Plan::new(&mut pair).await.is_ok());
@@ -248,7 +251,7 @@ mod test {
         {
             // This sync has duplicate items.
             let collection = CollectionId::from_str("test").unwrap();
-            let mut pair = StoragePair::builder(&mut *storage_a, &mut *storage_b)
+            let mut pair = StoragePair::builder(storage_a, storage_b)
                 .with_mapping(DeclaredMapping::direct(collection.clone()))
                 .with_mapping(DeclaredMapping::direct(collection))
                 .build();
@@ -292,8 +295,8 @@ impl ResolvedMapping {
     /// Returns `Err` if the collection is missing on the `From` side.
     fn from_declared_mapping<I: Item>(
         declared: DeclaredMapping,
-        storage_a: &dyn Storage<I>,
-        storage_b: &dyn Storage<I>,
+        storage_a: &Arc<dyn Storage<I>>,
+        storage_b: &Arc<dyn Storage<I>>,
         collections_a: &[Collection],
         collections_b: &[Collection],
     ) -> Result<Self> {
@@ -360,7 +363,7 @@ impl ResolvedCollection {
     /// Resolve the collection based on a storage and its collections.
     fn from_declared_collection<I: Item>(
         declared: CollectionDescription,
-        storage: &dyn Storage<I>,
+        storage: &Arc<dyn Storage<I>>,
         collections: &[Collection],
     ) -> Result<Self> {
         Ok(match declared {
@@ -379,9 +382,9 @@ impl ResolvedCollection {
 
 /// Finds a counterpart for a collection matching by id.
 fn resolve_mapping_counterpart<I: Item>(
-    source_storage: &dyn Storage<I>,
+    source_storage: &Arc<dyn Storage<I>>,
     source_collection: &Collection,
-    target_storage: &dyn Storage<I>,
+    target_storage: &Arc<dyn Storage<I>>,
     target_collections: &[Collection],
 ) -> Result<ResolvedCollection> {
     let id = source_storage.collection_id(source_collection)?;
@@ -400,9 +403,9 @@ fn resolve_mapping_counterpart<I: Item>(
 fn resolve_from_x<I: Item>(
     description: CollectionDescription,
     collections_x: &[Collection],
-    storage_x: &dyn Storage<I>,
+    storage_x: &Arc<dyn Storage<I>>,
     collections_y: &[Collection],
-    storage_y: &dyn Storage<I>,
+    storage_y: &Arc<dyn Storage<I>>,
 ) -> Result<(ResolvedCollection, ResolvedCollection)> {
     let (id, href) = match description {
         CollectionDescription::Id { id } => {

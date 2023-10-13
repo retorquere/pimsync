@@ -13,6 +13,7 @@
 use async_trait::async_trait;
 use std::marker::PhantomData;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::{fs::Metadata, os::unix::prelude::MetadataExt};
 use tokio::fs::{
     create_dir, metadata, read_dir, read_to_string, remove_dir, remove_file, File, OpenOptions,
@@ -331,8 +332,8 @@ impl<I: Item + 'static> Definition<I> for FilesystemDefinition<I>
 where
     I::CollectionProperty: PropertyWithFilename,
 {
-    async fn build_boxed(self) -> Result<Box<dyn Storage<I>>> {
-        Ok(Box::from(self.build()))
+    async fn into_storage(self) -> Result<Arc<dyn Storage<I>>> {
+        Ok(Arc::from(self.build()))
     }
 }
 
@@ -388,7 +389,7 @@ mod tests {
         let definition =
             FilesystemDefinition::<IcsItem>::new(dir.path().to_path_buf(), "ics".to_string());
 
-        let storage = definition.build_boxed().await.unwrap();
+        let storage = definition.into_storage().await.unwrap();
         let collection = storage.create_collection("test").await.unwrap();
         let displayname = storage
             .get_collection_property(&collection, crate::base::CalendarProperty::DisplayName)

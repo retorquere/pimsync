@@ -9,6 +9,8 @@
 //!
 //! See [`Storage`] as an entry point to this module.
 
+use std::sync::Arc;
+
 use async_trait::async_trait;
 
 use crate::{CollectionId, Etag, Href, Result};
@@ -28,7 +30,7 @@ pub trait Definition<I: Item>: Sync + Send + std::fmt::Debug {
     /// # Errors
     ///
     /// Errors are implementation-dependant; see implementations for details.
-    async fn build_boxed(self) -> Result<Box<dyn Storage<I>>>;
+    async fn into_storage(self) -> Result<Arc<dyn Storage<I>>>;
 }
 
 /// A storage is the highest level abstraction where items can be stored. It can be a remote CalDav

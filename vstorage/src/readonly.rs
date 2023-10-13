@@ -9,6 +9,8 @@
 //!
 //! [`ReadOnly`]: ErrorKind::ReadOnly
 
+use std::sync::Arc;
+
 use async_trait::async_trait;
 
 use crate::base::Collection;
@@ -33,13 +35,14 @@ use crate::{ErrorKind, Etag, Href, Result};
 /// let orig = FilesystemDefinition::<IcsItem>::new(
 ///     PathBuf::from("/path/to/storage/"),
 ///     String::from("ics"),
-/// ).build_boxed().await.unwrap();
+/// ).into_storage().await.unwrap();
 ///
 /// let read_only = ReadOnlyStorage::from(orig);
 /// # })
 /// ```
 pub struct ReadOnlyStorage<I: Item> {
-    inner: Box<dyn Storage<I>>,
+    // FIXME: This ends up being an Arc containing another Arc. That sounds like an anti pattern.
+    inner: Arc<dyn Storage<I>>,
 }
 
 #[async_trait]
@@ -122,8 +125,8 @@ impl<I: Item> Storage<I> for ReadOnlyStorage<I> {
     }
 }
 
-impl<I: Item> From<Box<dyn Storage<I>>> for ReadOnlyStorage<I> {
-    fn from(value: Box<dyn Storage<I>>) -> Self {
+impl<I: Item> From<Arc<dyn Storage<I>>> for ReadOnlyStorage<I> {
+    fn from(value: Arc<dyn Storage<I>>) -> Self {
         Self { inner: value }
     }
 }

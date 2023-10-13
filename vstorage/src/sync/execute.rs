@@ -4,6 +4,8 @@
 
 //! See [`Plan::execute`](Plan::execute).
 
+use std::sync::Arc;
+
 use log::trace;
 
 use crate::{
@@ -21,8 +23,8 @@ impl Action {
     async fn execute_on_item<I: Item>(
         &self,
         uid: &str,
-        storage_a: &dyn Storage<I>,
-        storage_b: &dyn Storage<I>,
+        storage_a: &Arc<dyn Storage<I>>,
+        storage_b: &Arc<dyn Storage<I>>,
         // XXX: These should not be optional. Fail earlier if so.
         state_a: Option<&mut CollectionState>,
         state_b: Option<&mut CollectionState>,
@@ -75,8 +77,8 @@ impl Action {
 async fn copy_item<I: Item>(
     src_state: &CollectionState,
     dst_state: &mut CollectionState,
-    src_storage: &dyn Storage<I>,
-    dst_storage: &dyn Storage<I>,
+    src_storage: &Arc<dyn Storage<I>>,
+    dst_storage: &Arc<dyn Storage<I>>,
     uid: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let col_a = src_storage.open_collection(&src_state.href)?;
@@ -109,7 +111,7 @@ async fn copy_item<I: Item>(
 
 async fn delete_item<I: Item>(
     state: &mut CollectionState,
-    storage: &dyn Storage<I>,
+    storage: &Arc<dyn Storage<I>>,
     uid: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let col = storage.open_collection(&state.href)?;
@@ -151,7 +153,7 @@ impl<'pair, I: Item> Plan<'pair, I> {
                 Action::NoOp => {}
                 Action::CopyToB => {
                     create_collection(
-                        *storage_b,
+                        storage_b,
                         cp.mapping().collection_b(),
                         &mut final_state.state_b,
                         &mut final_state.errors,
@@ -162,7 +164,7 @@ impl<'pair, I: Item> Plan<'pair, I> {
                 }
                 Action::CopyToA => {
                     create_collection(
-                        *storage_a,
+                        storage_a,
                         cp.mapping().collection_a(),
                         &mut final_state.state_a,
                         &mut final_state.errors,
@@ -201,7 +203,7 @@ impl<'pair, I: Item> Plan<'pair, I> {
                 let uid = item_action.uid();
                 let action = item_action.action();
                 if let Err(err) = action
-                    .execute_on_item(uid, *storage_a, *storage_b, state_a, state_b)
+                    .execute_on_item(uid, storage_a, storage_b, state_a, state_b)
                     .await
                 {
                     final_state.errors.push(SynchronizationError {
@@ -215,7 +217,7 @@ impl<'pair, I: Item> Plan<'pair, I> {
             }
             if delete_collection_in_a {
                 delete_collection(
-                    *storage_a,
+                    storage_a,
                     cp.mapping().collection_a(),
                     &mut final_state.state_a,
                     &mut final_state.errors,
@@ -226,7 +228,7 @@ impl<'pair, I: Item> Plan<'pair, I> {
             }
             if delete_collection_in_b {
                 delete_collection(
-                    *storage_b,
+                    storage_b,
                     cp.mapping().collection_b(),
                     &mut final_state.state_b,
                     &mut final_state.errors,
@@ -289,7 +291,7 @@ impl FinalState {
 
 /// Creates a collection and updates the state and error list accordingly.
 async fn create_collection<I: Item>(
-    storage: &dyn Storage<I>,
+    storage: &Arc<dyn Storage<I>>,
     collection: &ResolvedCollection,
     state: &mut StorageState,
     errors: &mut Vec<SynchronizationError>,
@@ -323,7 +325,7 @@ async fn create_collection<I: Item>(
 }
 
 async fn delete_collection<I: Item>(
-    storage: &dyn Storage<I>,
+    storage: &Arc<dyn Storage<I>>,
     collection: &ResolvedCollection,
     state: &mut StorageState,
     errors: &mut Vec<SynchronizationError>,

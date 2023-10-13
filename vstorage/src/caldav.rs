@@ -4,6 +4,8 @@
 
 //! A [`CalDavStorage`] is a single caldav repository, as specified in rfc4791.
 
+use std::sync::Arc;
+
 use async_trait::async_trait;
 use http::Uri;
 use hyper::client::connect::Connect;
@@ -64,8 +66,8 @@ impl<C> Definition<IcsItem> for CalDavDefinition<C>
 where
     C: Connect + Send + Sync + Clone + std::fmt::Debug,
 {
-    async fn build_boxed(self) -> Result<Box<dyn Storage<IcsItem>>> {
-        Ok(Box::from(self.build().await?))
+    async fn into_storage(self) -> Result<Arc<dyn Storage<IcsItem>>> {
+        Ok(Arc::from(self.build().await?))
     }
 }
 

@@ -4,6 +4,8 @@
 
 //! A [`CardDavStorage`] is a single carddav repository, as specified in rfc6352.
 
+use std::sync::Arc;
+
 use async_trait::async_trait;
 use http::Uri;
 use hyper::client::connect::Connect;
@@ -49,8 +51,8 @@ impl<C> Definition<VcardItem> for CardDavDefinition<C>
 where
     C: Connect + Send + Sync + Clone + 'static + std::fmt::Debug,
 {
-    async fn build_boxed(self) -> Result<Box<dyn Storage<VcardItem>>> {
-        Ok(Box::from(self.build().await?))
+    async fn into_storage(self) -> Result<Arc<dyn Storage<VcardItem>>> {
+        Ok(Arc::from(self.build().await?))
     }
 }
 

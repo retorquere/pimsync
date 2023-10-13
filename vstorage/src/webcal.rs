@@ -9,6 +9,8 @@
 //! See the [Webcal wikipedia page](https://en.wikipedia.org/wiki/Webcal).
 #![allow(clippy::module_name_repetitions)]
 
+use std::sync::Arc;
+
 use async_trait::async_trait;
 use http::{uri::Scheme, StatusCode, Uri};
 use hyper::{client::HttpConnector, Client};
@@ -86,8 +88,8 @@ impl Definition<IcsItem> for WebCalDefinition {
     /// Create a new storage instance.
     ///
     /// Unlike other [`Storage`] implementations, this one allows only a single collection.
-    async fn build_boxed(self) -> Result<Box<dyn Storage<IcsItem>>> {
-        Ok(Box::new(self.build()?))
+    async fn into_storage(self) -> Result<Arc<dyn Storage<IcsItem>>> {
+        Ok(Arc::new(self.build()?))
     }
 }
 
@@ -380,7 +382,7 @@ mod test {
             url: Uri::try_from("https://www.officeholidays.com/ics/netherlands").unwrap(),
             collection_name: "holidays".parse().unwrap(),
         };
-        let storage = definition.build_boxed().await.unwrap();
+        let storage = definition.into_storage().await.unwrap();
         storage.check().await.unwrap();
         let collection = &storage.open_collection("holidays").unwrap();
         let discovery = &storage.discover_collections().await.unwrap();

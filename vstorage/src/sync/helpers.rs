@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: EUPL-1.2
 
+use std::sync::Arc;
+
 use crate::{
     base::{Collection, Item, Storage},
     CollectionId, Result,
@@ -14,7 +16,7 @@ use crate::{
 /// - Returns `Err(_)` if resolving the id of a collection failed.
 pub(super) fn find_collection_by_id<'c, I: Item>(
     collections: &'c [Collection],
-    storage: &dyn Storage<I>,
+    storage: &Arc<dyn Storage<I>>,
     id: &CollectionId,
 ) -> Result<Option<&'c Collection>> {
     collections
