@@ -895,7 +895,7 @@ mod more_tests {
 
     use crate::{
         dav::{list_resources_parse, multi_get_parse, parse_prop, parse_prop_href, ListedResource},
-        names::{CALENDAR_COLOUR, CALENDAR_DATA, CURRENT_USER_PRINCIPAL, DISPLAY_NAME},
+        names::{CALENDAR_COLOUR, CALENDAR_DATA, CURRENT_USER_PRINCIPAL, DISPLAY_NAME, self},
         FetchedResource, FetchedResourceContent, ItemDetails, ResourceType,
     };
 
@@ -1025,6 +1025,45 @@ mod more_tests {
                 content: Err(StatusCode::NOT_FOUND)
             }]
         );
+    }
+
+    #[test]
+    fn test_multi_get_parse_encoding() {
+        let b = r#"<?xml version="1.0" encoding="utf-8"?>
+<multistatus xmlns="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">
+  <response>
+    <href>/dav/calendars/user/hugo@whynothugo.nl/2100F960-2655-4E75-870F-CAA793466105/0F276A13-FBF3-49A1-8369-65EEA9C6F891.ics</href>
+    <propstat>
+      <prop>
+        <getetag>"4219b87012f42ce7c4db55599aa3b579c70d8795"</getetag>
+        <C:calendar-data><![CDATA[BEGIN:VCALENDAR
+CALSCALE:GREGORIAN
+PRODID:-//Apple Inc.//iOS 17.0//EN
+VERSION:2.0
+BEGIN:VTODO
+COMPLETED:20230425T155913Z
+CREATED:20210622T182718Z
+DTSTAMP:20230915T132714Z
+LAST-MODIFIED:20230425T155913Z
+PERCENT-COMPLETE:100
+SEQUENCE:1
+STATUS:COMPLETED
+SUMMARY:Comidas: ñoquis, 西红柿
+UID:0F276A13-FBF3-49A1-8369-65EEA9C6F891
+X-APPLE-SORT-ORDER:28
+END:VTODO
+END:VCALENDAR
+]]></C:calendar-data>
+      </prop>
+      <status>HTTP/1.1 200 OK</status>
+    </propstat>
+  </response>
+</multistatus>"#;
+
+        let resources = multi_get_parse(b, &names::CALENDAR_DATA).unwrap();
+        let content = resources.into_iter().next().unwrap().content.unwrap();
+        assert!(content.data.contains("ñoquis"));
+        assert!(content.data.contains("西红柿"));
     }
 
     #[test]
