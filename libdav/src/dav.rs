@@ -828,17 +828,17 @@ fn multi_get_parse<B: AsRef<[u8]>>(
 
     let mut items = Vec::new();
     for response in responses {
-        let single = response
-            .descendants()
-            .any(|node| node.tag_name() == names::PROPSTAT);
-
         let bad_status = match check_multistatus(response) {
             Ok(()) => None,
             Err(DavError::BadStatusCode(status)) => Some(status),
             Err(e) => return Err(e),
         };
 
-        if single {
+        let has_propstat = response // There MUST be zero or one propstat.
+            .descendants()
+            .any(|node| node.tag_name() == names::PROPSTAT);
+
+        if has_propstat {
             let href = get_unquoted_href(&response)?.to_string();
 
             if let Some(status) = bad_status {
