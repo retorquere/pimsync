@@ -8,7 +8,7 @@ use std::collections::HashSet;
 use std::sync::Arc;
 
 use itertools::Itertools;
-use log::{error, trace};
+use log::error;
 
 use crate::base::{Collection, Storage};
 use crate::sync::state::StorageState;
@@ -506,8 +506,11 @@ impl CollectionPlan {
                 let a_changed = Change::for_item(cur_a, prev_a);
                 let b_changed = Change::for_item(cur_b, prev_b);
 
-                let action = Action::from_changes(a_changed, b_changed);
-                trace!("For item {uid}, changes: {a_changed:?}, {b_changed:?}, action: {action:?}");
+                let action = if cur_a.is_some_and(|a| cur_b.is_some_and(|b| a.hash == b.hash)) {
+                    Action::NoOp // Always the same if content is no-op.
+                } else {
+                    Action::from_changes(a_changed, b_changed)
+                };
                 ItemAction {
                     uid: uid.clone(),
                     action,
