@@ -465,7 +465,12 @@ impl CollectionPlan {
     /// Calculate actions to sync a collection between two storages.
     ///
     /// Each `previous_state` field shall be `None` if the collection did not previously exist.
-    /// Each `current_state` field shall be `None` if the collection does not exist.
+    /// Each `current_state` field shall be `None` if the collection currently does not exist.
+    ///
+    /// # Performance
+    ///
+    /// This methods is still quite inefficient. While the external API is not expected to change
+    /// much, the internal implementation is not yet final.
     #[must_use]
     fn new<'a>(
         mapping: ResolvedMapping,
@@ -474,23 +479,11 @@ impl CollectionPlan {
         previous_state_b: Option<&'a CollectionState>,
         current_state_b: Option<&'a CollectionState>,
     ) -> CollectionPlan {
-        // TODO: this method is very inefficient and needs to be improved.
-        //       this is deliberately left for a later date when we already have a
-        //       working system which we can properly benchmark.
-
         let mut all_items = Vec::new();
-        if let Some(s) = current_state_a {
-            all_items.extend(&s.items);
-        }
-        if let Some(s) = current_state_b {
-            all_items.extend(&s.items);
-        }
-        if let Some(s) = previous_state_a {
-            all_items.extend(&s.items);
-        }
-        if let Some(s) = previous_state_b {
-            all_items.extend(&s.items);
-        }
+        all_items.extend(current_state_a.map(|s| &s.items).into_iter().flatten());
+        all_items.extend(current_state_b.map(|s| &s.items).into_iter().flatten());
+        all_items.extend(previous_state_a.map(|s| &s.items).into_iter().flatten());
+        all_items.extend(previous_state_b.map(|s| &s.items).into_iter().flatten());
 
         let item_actions = all_items
             .iter()
@@ -501,7 +494,7 @@ impl CollectionPlan {
                 let cur_b = current_state_b.and_then(|s| s.get_item_by_uid(uid));
 
                 let action = if cur_a.is_some_and(|a| cur_b.is_some_and(|b| a.hash == b.hash)) {
-                    Action::NoOp // Always the same if content is no-op.
+                    Action::NoOp // Nothing to do if content matches.
                 } else {
                     let prev_a = previous_state_a.and_then(|s| s.get_item_by_uid(uid));
                     let prev_b = previous_state_b.and_then(|s| s.get_item_by_uid(uid));
