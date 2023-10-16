@@ -521,10 +521,13 @@ impl CollectionPlan {
             })
             .collect();
 
-        let collection_action = Action::from_changes(
+        let collection_action = match Action::from_changes(
             Change::for_collection(current_state_a, previous_state_a),
             Change::for_collection(current_state_b, previous_state_b),
-        );
+        ) {
+            Some(Action::Conflict) => None,
+            other => other,
+        };
 
         CollectionPlan {
             mapping,
