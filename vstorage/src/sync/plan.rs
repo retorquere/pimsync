@@ -8,7 +8,7 @@ use std::collections::HashSet;
 use std::sync::Arc;
 
 use itertools::Itertools;
-use log::error;
+use log::{debug, error};
 
 use crate::base::{Collection, Storage};
 use crate::sync::state::StorageState;
@@ -499,24 +499,25 @@ impl CollectionPlan {
         let item_actions = all_items
             .map(|i| &i.uid)
             .unique()
-            .map(|uid| {
+            .filter_map(|uid| {
                 let item_a = current_state_a.and_then(|s| s.get_item_by_uid(uid));
                 let item_b = current_state_b.and_then(|s| s.get_item_by_uid(uid));
 
-                let action = if item_a.is_some_and(|a| item_b.is_some_and(|b| a.hash == b.hash)) {
-                    Action::NoOp // Nothing to do if content matches.
-                } else {
-                    let prev_item_a = previous_state_a.and_then(|s| s.get_item_by_uid(uid));
-                    let prev_item_b = previous_state_b.and_then(|s| s.get_item_by_uid(uid));
-
-                    let a_changed = Change::for_item(item_a, prev_item_a);
-                    let b_changed = Change::for_item(item_b, prev_item_b);
-                    Action::from_changes(a_changed, b_changed)
-                };
-                ItemAction {
-                    uid: uid.clone(),
-                    action,
+                if item_a.is_some_and(|a| item_b.is_some_and(|b| a.hash == b.hash)) {
+                    debug!("Item uid={} is unchanged; will take no action.", uid);
+                    return None;
                 }
+
+                let prev_item_a = previous_state_a.and_then(|s| s.get_item_by_uid(uid));
+                let prev_item_b = previous_state_b.and_then(|s| s.get_item_by_uid(uid));
+
+                let a_changed = Change::for_item(item_a, prev_item_a);
+                let b_changed = Change::for_item(item_b, prev_item_b);
+
+                Some(ItemAction {
+                    uid: uid.clone(),
+                    action: Action::from_changes(a_changed, b_changed),
+                })
             })
             .collect();
 
