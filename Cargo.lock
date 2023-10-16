@@ -865,7 +865,7 @@ dependencies = [
 [[package]]
 name = "roxmltree"
 version = "0.18.1"
-source = "git+https://github.com/RazrFalcon/roxmltree.git#c3007c0849e4cd1053992d50eabf6587e89037ca"
+source = "git+https://github.com/RazrFalcon/roxmltree.git?rev=7b1e74813fdd57149b7d134ed1f4d232f11eb02a#7b1e74813fdd57149b7d134ed1f4d232f11eb02a"
 dependencies = [
  "xmlparser",
 ]
