@@ -357,6 +357,7 @@ where
         // TODO: this will need to be different for Google's WebDav.
         collection
             .href()
+            .trim_matches('/') // Remove any trailing slashes.
             .rsplit('/')
             .next()
             .expect("rsplit always returns at least one item")

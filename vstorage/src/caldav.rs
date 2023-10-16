@@ -376,11 +376,52 @@ where
         // TODO: this will need to be different for Google's WebDav.
         collection
             .href()
+            .trim_matches('/') // Remove any trailing slashes.
             .rsplit('/')
             .next()
             .expect("rsplit always returns at least one item")
             .parse()
             .map_err(|e| Error::new(ErrorKind::InvalidInput, e))
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use hyper_rustls::HttpsConnectorBuilder;
+    use libdav::{auth::Auth, CalDavClient};
+
+    use crate::{base::Storage, caldav::CalDavStorage};
+
+    #[test]
+    fn test_collection_id() {
+        let test_client = {
+            let https = HttpsConnectorBuilder::new()
+                .with_native_roots()
+                .https_or_http()
+                .enable_http1()
+                .build();
+            let client = CalDavClient::builder()
+                .with_uri("https://example.com".parse().unwrap())
+                .with_auth(Auth::None)
+                .build_without_discovery(https);
+
+            CalDavStorage { client }
+        };
+
+        let samples = &[
+            ("/path/to/collection/", "collection"),
+            ("/path/to/collection", "collection"),
+            ("/path/to//collection/", "collection"),
+            ("/path/to/collection//", "collection"),
+            ("path/to/collection", "collection"),
+            ("/", ""),
+        ];
+        for (input, output) in samples {
+            let collection = test_client.open_collection(input).unwrap();
+            let collection_id = test_client.collection_id(&collection).unwrap();
+
+            assert_eq!(collection_id, output.parse().unwrap());
+        }
     }
 }
 
