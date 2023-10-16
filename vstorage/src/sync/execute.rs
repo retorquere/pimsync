@@ -30,7 +30,6 @@ impl Action {
         state_b: Option<&mut CollectionState>,
     ) -> std::result::Result<(), Box<dyn std::error::Error>> {
         match self {
-            Action::NoOp => {}
             Action::CopyToB => {
                 copy_item(
                     state_a.ok_or("state a is missing")?,
@@ -150,32 +149,32 @@ impl<'pair, I: Item> Plan<'pair, I> {
             let mut delete_collection_in_a = false;
             let mut delete_collection_in_b = false;
             match cp.collection_action() {
-                Action::NoOp => {}
-                Action::CopyToB => {
+                None => {}
+                Some(Action::CopyToB) => {
                     create_collection(
                         storage_b,
                         cp.mapping().collection_b(),
                         &mut final_state.state_b,
                         &mut final_state.errors,
-                        cp.collection_action(),
+                        &Action::CopyToB,
                         cp.mapping(),
                     )
                     .await;
                 }
-                Action::CopyToA => {
+                Some(Action::CopyToA) => {
                     create_collection(
                         storage_a,
                         cp.mapping().collection_a(),
                         &mut final_state.state_a,
                         &mut final_state.errors,
-                        cp.collection_action(),
+                        &Action::CopyToA,
                         cp.mapping(),
                     )
                     .await;
                 }
-                Action::Conflict => {
+                Some(Action::Conflict) => {
                     final_state.errors.push(SynchronizationError {
-                        action: cp.collection_action().clone(),
+                        action: Action::Conflict,
                         resource: FailedResource::Collection {
                             collection: cp.mapping().clone(),
                         },
@@ -183,10 +182,10 @@ impl<'pair, I: Item> Plan<'pair, I> {
                         error: "Invalid input: conflict between storages is senseless".into(),
                     });
                 }
-                Action::DeleteInA => {
+                Some(Action::DeleteInA) => {
                     delete_collection_in_a = true;
                 }
-                Action::DeleteInB => {
+                Some(Action::DeleteInB) => {
                     delete_collection_in_b = true;
                 }
             }
@@ -221,7 +220,7 @@ impl<'pair, I: Item> Plan<'pair, I> {
                     cp.mapping().collection_a(),
                     &mut final_state.state_a,
                     &mut final_state.errors,
-                    cp.collection_action(),
+                    &Action::DeleteInA,
                     cp.mapping(),
                 )
                 .await;
@@ -232,7 +231,7 @@ impl<'pair, I: Item> Plan<'pair, I> {
                     cp.mapping().collection_b(),
                     &mut final_state.state_b,
                     &mut final_state.errors,
-                    cp.collection_action(),
+                    &Action::DeleteInA,
                     cp.mapping(),
                 )
                 .await;

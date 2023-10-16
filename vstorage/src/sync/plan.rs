@@ -466,7 +466,7 @@ impl ItemAction {
 #[derive(Debug)]
 pub(super) struct CollectionPlan {
     mapping: ResolvedMapping,
-    collection_action: Action,
+    collection_action: Option<Action>,
     items: Vec<ItemAction>,
 }
 
@@ -514,9 +514,9 @@ impl CollectionPlan {
                 let a_changed = Change::for_item(item_a, prev_item_a);
                 let b_changed = Change::for_item(item_b, prev_item_b);
 
-                Some(ItemAction {
+                Action::from_changes(a_changed, b_changed).map(|action| ItemAction {
                     uid: uid.clone(),
-                    action: Action::from_changes(a_changed, b_changed),
+                    action,
                 })
             })
             .collect();
@@ -537,8 +537,8 @@ impl CollectionPlan {
         &self.mapping
     }
 
-    pub(super) fn collection_action(&self) -> &Action {
-        &self.collection_action
+    pub(super) fn collection_action(&self) -> Option<&Action> {
+        self.collection_action.as_ref()
     }
 
     pub(super) fn items(&self) -> &Vec<ItemAction> {
@@ -550,7 +550,6 @@ impl CollectionPlan {
 #[derive(PartialEq, Debug, Clone)]
 pub enum Action {
     // TODO: keep href of items that need to be acted upon?
-    NoOp,
     CopyToA,
     CopyToB,
     DeleteInA,
@@ -560,18 +559,20 @@ pub enum Action {
 
 impl Action {
     /// Return the correct action given a pair of changes.
+    ///
+    /// `None` implies that no action needs to be taken.
     #[must_use]
-    fn from_changes(left: Change, right: Change) -> Action {
+    fn from_changes(left: Change, right: Change) -> Option<Action> {
         match (left, right) {
-            (Change::Changed, Change::Changed) => Action::Conflict,
-            (Change::NoChange, Change::Deleted) => Action::DeleteInA,
-            (Change::Deleted, Change::NoChange) => Action::DeleteInB,
+            (Change::Changed, Change::Changed) => Some(Action::Conflict),
+            (Change::NoChange, Change::Deleted) => Some(Action::DeleteInA),
+            (Change::Deleted, Change::NoChange) => Some(Action::DeleteInB),
             (Change::Deleted | Change::NoChange | Change::Absent, Change::Changed)
-            | (Change::Absent, Change::NoChange) => Action::CopyToA,
+            | (Change::Absent, Change::NoChange) => Some(Action::CopyToA),
             (Change::Changed, Change::Deleted | Change::NoChange | Change::Absent)
-            | (Change::NoChange, Change::Absent) => Action::CopyToB,
+            | (Change::NoChange, Change::Absent) => Some(Action::CopyToB),
             (Change::Deleted | Change::Absent, Change::Deleted | Change::Absent)
-            | (Change::NoChange, Change::NoChange) => Action::NoOp,
+            | (Change::NoChange, Change::NoChange) => None,
         }
     }
 }
