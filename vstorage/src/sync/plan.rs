@@ -27,6 +27,15 @@ pub struct Plan<'pair, I: Item> {
     current_state_b: StorageState,
 }
 
+/// Show only details of the plan itself; ignore other data.
+///
+/// This is partially necessary because storages might not implement `Debug`.
+impl<'pair, I: Item> std::fmt::Debug for Plan<'pair, I> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Debug::fmt(&self.collection_plans, f)
+    }
+}
+
 impl<'pair, I: Item> Plan<'pair, I> {
     /// Create a new plan for a given storage pair.
     ///
