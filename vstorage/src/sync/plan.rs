@@ -491,17 +491,17 @@ impl CollectionPlan {
             .map(|i| &i.uid)
             .unique()
             .map(|uid| {
-                let cur_a = current_state_a.and_then(|s| s.get_item_by_uid(uid));
-                let cur_b = current_state_b.and_then(|s| s.get_item_by_uid(uid));
+                let item_a = current_state_a.and_then(|s| s.get_item_by_uid(uid));
+                let item_b = current_state_b.and_then(|s| s.get_item_by_uid(uid));
 
-                let action = if cur_a.is_some_and(|a| cur_b.is_some_and(|b| a.hash == b.hash)) {
+                let action = if item_a.is_some_and(|a| item_b.is_some_and(|b| a.hash == b.hash)) {
                     Action::NoOp // Nothing to do if content matches.
                 } else {
-                    let prev_a = previous_state_a.and_then(|s| s.get_item_by_uid(uid));
-                    let prev_b = previous_state_b.and_then(|s| s.get_item_by_uid(uid));
+                    let prev_item_a = previous_state_a.and_then(|s| s.get_item_by_uid(uid));
+                    let prev_item_b = previous_state_b.and_then(|s| s.get_item_by_uid(uid));
 
-                    let a_changed = Change::for_item(cur_a, prev_a);
-                    let b_changed = Change::for_item(cur_b, prev_b);
+                    let a_changed = Change::for_item(item_a, prev_item_a);
+                    let b_changed = Change::for_item(item_b, prev_item_b);
                     Action::from_changes(a_changed, b_changed)
                 };
                 ItemAction {
