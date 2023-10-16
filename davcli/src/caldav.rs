@@ -110,11 +110,11 @@ fn discover(client: &Client) {
 }
 
 async fn get(client: Client, href: String) -> anyhow::Result<()> {
-    let collection = href
-        .rsplit('/')
-        .next()
-        .expect("rsplit must yield at least one element")
-        .to_string();
+    let collection = match href.rfind('/') {
+        Some(i) => &href[0..i],
+        None => "/",
+    }
+    .to_string();
 
     let response = client
         .get_resources(collection, &[href])
