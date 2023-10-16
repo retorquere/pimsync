@@ -107,11 +107,14 @@ where
         let mut items = Vec::new();
         while let Some(entry) = read_dir.next().await {
             let entry = entry?;
-            let href = entry
+            let href: String = entry
                 .file_name()
                 .to_str()
                 .ok_or_else(|| Error::new(ErrorKind::InvalidData, "Filename is not valid UTF-8"))?
                 .into();
+            if !href.ends_with(&self.definition.extension) {
+                continue;
+            }
             let etag = etag_for_path(&entry.path()).await?;
             let item = ItemRef { href, etag };
             items.push(item);
@@ -154,6 +157,9 @@ where
                 .to_str()
                 .ok_or_else(|| Error::new(ErrorKind::InvalidData, "Filename is not valid UTF-8"))?
                 .into();
+            if !href.ends_with(&self.definition.extension) {
+                continue;
+            }
             let etag = etag_for_path(&entry.path()).await?;
             let item = I::from(read_to_string(&href).await?);
             items.push((href, item, etag));
