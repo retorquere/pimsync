@@ -500,15 +500,14 @@ impl CollectionPlan {
                 let cur_a = current_state_a.and_then(|s| s.get_item_by_uid(uid));
                 let cur_b = current_state_b.and_then(|s| s.get_item_by_uid(uid));
 
-                let prev_a = previous_state_a.and_then(|s| s.get_item_by_uid(uid));
-                let prev_b = previous_state_b.and_then(|s| s.get_item_by_uid(uid));
-
-                let a_changed = Change::for_item(cur_a, prev_a);
-                let b_changed = Change::for_item(cur_b, prev_b);
-
                 let action = if cur_a.is_some_and(|a| cur_b.is_some_and(|b| a.hash == b.hash)) {
                     Action::NoOp // Always the same if content is no-op.
                 } else {
+                    let prev_a = previous_state_a.and_then(|s| s.get_item_by_uid(uid));
+                    let prev_b = previous_state_b.and_then(|s| s.get_item_by_uid(uid));
+
+                    let a_changed = Change::for_item(cur_a, prev_a);
+                    let b_changed = Change::for_item(cur_b, prev_b);
                     Action::from_changes(a_changed, b_changed)
                 };
                 ItemAction {
