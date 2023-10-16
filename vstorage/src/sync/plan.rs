@@ -479,14 +479,15 @@ impl CollectionPlan {
         previous_state_b: Option<&'a CollectionState>,
         current_state_b: Option<&'a CollectionState>,
     ) -> CollectionPlan {
-        let mut all_items = Vec::new();
-        all_items.extend(current_state_a.map(|s| &s.items).into_iter().flatten());
-        all_items.extend(current_state_b.map(|s| &s.items).into_iter().flatten());
-        all_items.extend(previous_state_a.map(|s| &s.items).into_iter().flatten());
-        all_items.extend(previous_state_b.map(|s| &s.items).into_iter().flatten());
+        let all_items = current_state_a
+            .map(|s| &s.items)
+            .into_iter()
+            .flatten()
+            .chain(current_state_b.map(|s| &s.items).into_iter().flatten())
+            .chain(previous_state_a.map(|s| &s.items).into_iter().flatten())
+            .chain(previous_state_b.map(|s| &s.items).into_iter().flatten());
 
         let item_actions = all_items
-            .iter()
             .map(|i| &i.uid)
             .unique()
             .map(|uid| {
