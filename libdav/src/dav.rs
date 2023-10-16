@@ -895,7 +895,7 @@ mod more_tests {
 
     use crate::{
         dav::{list_resources_parse, multi_get_parse, parse_prop, parse_prop_href, ListedResource},
-        names::{CALENDAR_COLOUR, CALENDAR_DATA, CURRENT_USER_PRINCIPAL, DISPLAY_NAME, self},
+        names::{self, CALENDAR_COLOUR, CALENDAR_DATA, CURRENT_USER_PRINCIPAL, DISPLAY_NAME},
         FetchedResource, FetchedResourceContent, ItemDetails, ResourceType,
     };
 
