@@ -332,8 +332,15 @@ impl Item for IcsItem {
 }
 
 impl From<String> for IcsItem {
+    /// Create a new `IcsItem`, normalising newlines into `\r\n`.
     fn from(value: String) -> Self {
-        IcsItem { raw: value }
+        let lines = value
+            .split_terminator('\n')
+            .map(|line| line.trim_end_matches('\r'));
+
+        IcsItem {
+            raw: itertools::join(lines, "\r\n"),
+        }
     }
 }
 
