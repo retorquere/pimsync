@@ -497,11 +497,11 @@ impl CollectionPlan {
             .map(|i| &i.uid)
             .unique()
             .map(|uid| {
-                let cur_a = current_state_a.and_then(|s| s.items.iter().find(|i| i.uid == *uid));
-                let cur_b = current_state_b.and_then(|s| s.items.iter().find(|i| i.uid == *uid));
+                let cur_a = current_state_a.and_then(|s| s.get_item_by_uid(uid));
+                let cur_b = current_state_b.and_then(|s| s.get_item_by_uid(uid));
 
-                let prev_a = previous_state_a.and_then(|s| s.items.iter().find(|i| i.uid == *uid));
-                let prev_b = previous_state_b.and_then(|s| s.items.iter().find(|i| i.uid == *uid));
+                let prev_a = previous_state_a.and_then(|s| s.get_item_by_uid(uid));
+                let prev_b = previous_state_b.and_then(|s| s.get_item_by_uid(uid));
 
                 let a_changed = Change::for_item(cur_a, prev_a);
                 let b_changed = Change::for_item(cur_b, prev_b);
