@@ -21,7 +21,7 @@ use super::state::CollectionState;
 
 /// A series of actions that would synchronise a pair of storages.
 pub struct Plan<'pair, I: Item> {
-    pub(super) pair: &'pair mut StoragePair<'pair, I>,
+    pub(super) pair: &'pair StoragePair<'pair, I>,
     pub(super) collection_plans: Vec<CollectionPlan>,
     current_state_a: StorageState,
     current_state_b: StorageState,
@@ -41,7 +41,7 @@ impl<'pair, I: Item> Plan<'pair, I> {
     /// - A mapping is defined by collection id, but the id is invalid for the underlying storage.
     /// - There is an error reading the state of existing items.
     /// - The same collection is mapped more than once.
-    pub async fn new(pair: &'pair mut StoragePair<'pair, I>) -> Result<Plan<'pair, I>> {
+    pub async fn new(pair: &'pair StoragePair<'pair, I>) -> Result<Plan<'pair, I>> {
         let all_a = pair.info.storage_a.discover_collections().await?;
         let all_b = pair.info.storage_b.discover_collections().await?;
 
