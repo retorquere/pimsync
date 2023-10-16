@@ -17,7 +17,7 @@ use crate::{CollectionId, Error, ErrorKind};
 
 use super::declare::{CollectionDescription, DeclaredMapping};
 use super::helpers::find_collection_by_id;
-use super::state::CollectionState;
+use super::state::{CollectionState, ItemState};
 
 /// A series of actions that would synchronise a pair of storages.
 pub struct Plan<'pair, I: Item> {
@@ -497,8 +497,14 @@ impl CollectionPlan {
             .map(|i| &i.uid)
             .unique()
             .map(|uid| {
-                let a_changed = Change::for_item(current_state_a, previous_state_a, uid);
-                let b_changed = Change::for_item(current_state_b, previous_state_b, uid);
+                let cur_a = current_state_a.and_then(|s| s.items.iter().find(|i| i.uid == *uid));
+                let cur_b = current_state_b.and_then(|s| s.items.iter().find(|i| i.uid == *uid));
+
+                let prev_a = previous_state_a.and_then(|s| s.items.iter().find(|i| i.uid == *uid));
+                let prev_b = previous_state_b.and_then(|s| s.items.iter().find(|i| i.uid == *uid));
+
+                let a_changed = Change::for_item(cur_a, prev_a);
+                let b_changed = Change::for_item(cur_b, prev_b);
 
                 let action = Action::from_changes(a_changed, b_changed);
                 trace!("For item {uid}, changes: {a_changed:?}, {b_changed:?}, action: {action:?}");
@@ -581,37 +587,16 @@ pub(super) enum Change {
 
 impl Change {
     #[must_use]
-    pub(super) fn for_item(
-        current: Option<&CollectionState>,
-        previous: Option<&CollectionState>,
-        uid: &str,
-    ) -> Change {
+    pub(super) fn for_item(current: Option<&ItemState>, previous: Option<&ItemState>) -> Change {
         match (current, previous) {
             (Some(c), Some(p)) => {
-                let c_item_state = c.items.iter().find(|i| i.uid == *uid);
-                let p_item_state = p.items.iter().find(|i| i.uid == *uid);
-
-                if let (Some(ci), Some(pi)) = (c_item_state, p_item_state) {
-                    if ci.uid == pi.uid && ci.etag == pi.etag && ci.hash == pi.hash {
-                        Change::NoChange
-                    } else {
-                        Change::Changed
-                    }
-                } else if c_item_state.is_some() {
-                    Change::Changed
-                } else if p_item_state.is_some() {
-                    Change::Deleted
+                if c.uid == p.uid && c.etag == p.etag && c.hash == p.hash {
+                    Change::NoChange
                 } else {
-                    Change::Absent
+                    Change::Changed
                 }
             }
-            (Some(c), None) => {
-                if c.items.iter().any(|i| i.uid == *uid) {
-                    Change::Changed
-                } else {
-                    Change::Absent
-                }
-            }
+            (Some(_), None) => Change::Changed,
             (None, Some(_)) => Change::Deleted,
             (None, None) => Change::Absent,
         }
