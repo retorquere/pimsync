@@ -272,18 +272,7 @@ impl Item for IcsItem {
     /// Returns the contents of the `UID` property, if defined.
     #[must_use]
     fn uid(&self) -> Option<String> {
-        let mut lines = self.raw.split_terminator("\r\n");
-        let mut uid = lines
-            .find_map(|line| line.strip_prefix("UID:"))
-            .map(String::from)?;
-
-        // If the following lines start with a space or tab, they're a continuation of the UID.
-        // See: https://www.rfc-editor.org/rfc/rfc5545#section-3.1
-        lines
-            .map_while(|line| line.strip_prefix(' ').or_else(|| line.strip_prefix('\t')))
-            .for_each(|part| uid.push_str(part));
-
-        Some(uid)
+        uid(&self.raw)
     }
 
     /// Returns the hash of the raw content.
@@ -342,6 +331,21 @@ impl From<String> for IcsItem {
             raw: itertools::join(lines, "\r\n"),
         }
     }
+}
+
+fn uid(raw: &str) -> Option<String> {
+    let mut lines = raw.split_terminator("\r\n");
+    let mut uid = lines
+        .find_map(|line| line.strip_prefix("UID:"))
+        .map(String::from)?;
+
+    // If the following lines start with a space or tab, they're a continuation of the UID.
+    // See: https://www.rfc-editor.org/rfc/rfc5545#section-3.1
+    lines
+        .map_while(|line| line.strip_prefix(' ').or_else(|| line.strip_prefix('\t')))
+        .for_each(|part| uid.push_str(part));
+
+    Some(uid)
 }
 
 #[cfg(test)]
@@ -454,18 +458,7 @@ impl Item for VcardItem {
     /// item is copied across storages and storage types.
     #[must_use]
     fn uid(&self) -> Option<String> {
-        let mut lines = self.raw.split_terminator("\r\n");
-        let mut uid = lines
-            .find_map(|line| line.strip_prefix("UID:"))
-            .map(String::from)?;
-
-        // If the following lines start with a space or tab, they're a continuation of the UID.
-        // See: https://www.rfc-editor.org/rfc/rfc6350#section-3.2
-        lines
-            .map_while(|line| line.strip_prefix(' ').or_else(|| line.strip_prefix('\t')))
-            .for_each(|part| uid.push_str(part));
-
-        Some(uid)
+        uid(&self.raw)
     }
 
     /// Returns the hash of the raw content.
