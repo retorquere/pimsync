@@ -356,19 +356,15 @@ mod tests {
 
     use crate::base::{IcsItem, Item, Storage};
 
-    fn item_from_raw(raw: String) -> IcsItem {
-        IcsItem { raw }
-    }
-
     #[test]
     fn test_single_line_uid() {
         let raw = ["BEGIN:VCARD", "UID:hello", "END:VCARD"].join("\r\n");
-        let item = item_from_raw(raw);
+        let item = IcsItem::from(raw);
         assert_eq!(item.uid(), Some(String::from("hello")));
         assert_eq!(item.ident(), String::from("hello"));
 
         let raw = ["BEGIN:VCARD", "UID:hel", "lo", "END:VCARD"].join("\r\n");
-        let item = item_from_raw(raw);
+        let item = IcsItem::from(raw);
         assert_eq!(item.uid(), Some(String::from("hel")));
         assert_eq!(item.ident(), String::from("hel"));
 
@@ -379,7 +375,32 @@ mod tests {
             "END:VCARD",
         ]
         .join("\r\n");
-        let item = item_from_raw(raw);
+        let item = IcsItem::from(raw);
+        assert_eq!(item.uid(), Some(String::from("hello")));
+        assert_eq!(item.ident(), String::from("hello"));
+    }
+
+    #[test]
+    fn test_missing_carrige_return() {
+        // Same as above, but missing \r.
+        let raw = ["BEGIN:VCARD", "UID:hello", "END:VCARD"].join("\n");
+        let item = IcsItem::from(raw);
+        assert_eq!(item.uid(), Some(String::from("hello")));
+        assert_eq!(item.ident(), String::from("hello"));
+
+        let raw = ["BEGIN:VCARD", "UID:hel", "lo", "END:VCARD"].join("\n");
+        let item = IcsItem::from(raw);
+        assert_eq!(item.uid(), Some(String::from("hel")));
+        assert_eq!(item.ident(), String::from("hel"));
+
+        let raw = [
+            "BEGIN:VCARD",
+            "UID:hello",
+            "REV:20210307T195614Z\tthere",
+            "END:VCARD",
+        ]
+        .join("\r\n");
+        let item = IcsItem::from(raw);
         assert_eq!(item.uid(), Some(String::from("hello")));
         assert_eq!(item.ident(), String::from("hello"));
     }
@@ -387,7 +408,7 @@ mod tests {
     #[test]
     fn test_multi_line_uid() {
         let raw = ["BEGIN:VCARD", "UID:hello", "\tthere", "END:VCARD"].join("\r\n");
-        let item = item_from_raw(raw);
+        let item = IcsItem::from(raw);
         assert_eq!(item.uid(), Some(String::from("hellothere")));
         assert_eq!(item.ident(), String::from("hellothere"));
 
@@ -400,7 +421,7 @@ mod tests {
             "END:VCARD",
         ]
         .join("\r\n");
-        let item = item_from_raw(raw);
+        let item = IcsItem::from(raw);
         assert_eq!(item.uid(), Some(String::from("hellothere")));
         assert_eq!(item.ident(), String::from("hellothere"));
     }
@@ -414,7 +435,7 @@ mod tests {
             "END:VCARD",
         ]
         .join("\r\n");
-        let item = item_from_raw(raw);
+        let item = IcsItem::from(raw);
         assert_eq!(item.uid(), None);
         assert_eq!(
             item.ident(),
