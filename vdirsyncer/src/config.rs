@@ -89,10 +89,7 @@ impl Config {
         calendars: &'storages HashMap<String, Arc<dyn Storage<IcsItem>>>,
         contacts: &'storages HashMap<String, Arc<dyn Storage<VcardItem>>>,
         // TODO: the "previous state" is required here.
-    ) -> anyhow::Result<(
-        Vec<StoragePair<'storages, IcsItem>>,
-        Vec<StoragePair<'storages, VcardItem>>,
-    )> {
+    ) -> anyhow::Result<(Vec<StoragePair<IcsItem>>, Vec<StoragePair<VcardItem>>)> {
         let mut calendar_pairs = Vec::new(); // TODO: with_capacity?
         let mut contact_pairs = Vec::new(); // TODO: with_capacity?
 
@@ -134,7 +131,7 @@ fn create_pair<'a, I: Item>(
     source: &PairSection,
     a: &Arc<dyn Storage<I>>,
     b: &Arc<dyn Storage<I>>,
-) -> StoragePair<'a, I> {
+) -> StoragePair<I> {
     let mut pair = StoragePair::builder(a.clone(), b.clone());
     for cv in &source.collections {
         pair = match cv {

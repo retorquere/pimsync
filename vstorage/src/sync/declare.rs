@@ -55,17 +55,20 @@ impl DeclaredMapping {
     }
 }
 
-pub struct StoragePairBuilder<'a, I: Item> {
+/// A builder for the [`StoragePair`] type.
+///
+/// Use [`StoragePair::builder`] as a starting point.
+pub struct StoragePairBuilder<I: Item> {
     storage_a: Arc<dyn Storage<I>>,
     storage_b: Arc<dyn Storage<I>>,
-    previous_state_a: Option<&'a StorageState>,
-    previous_state_b: Option<&'a StorageState>,
+    previous_state_a: Option<Arc<StorageState>>,
+    previous_state_b: Option<Arc<StorageState>>,
     mappings: Vec<DeclaredMapping>,
     all_from_a: bool,
     all_from_b: bool,
 }
 
-impl<'a, I: Item> StoragePairBuilder<'a, I> {
+impl<'a, I: Item> StoragePairBuilder<I> {
     /// Include the specified mapping when synchronising.
     #[must_use]
     pub fn with_mapping(mut self, mapping: DeclaredMapping) -> Self {
@@ -74,6 +77,8 @@ impl<'a, I: Item> StoragePairBuilder<'a, I> {
     }
 
     /// Include all collections from storage A when synchronising.
+    ///
+    /// By default, only explicitly included collections are synchronised.
     #[must_use]
     pub fn with_all_from_a(mut self) -> Self {
         self.all_from_a = true;
@@ -81,6 +86,8 @@ impl<'a, I: Item> StoragePairBuilder<'a, I> {
     }
 
     /// Include all collections from storage B when synchronising.
+    ///
+    /// By default, only explicitly included collections are synchronised.
     #[must_use]
     pub fn with_all_from_b(mut self) -> Self {
         self.all_from_b = true;
@@ -89,21 +96,21 @@ impl<'a, I: Item> StoragePairBuilder<'a, I> {
 
     /// Provide a previous state for storage A.
     #[must_use]
-    pub fn with_previous_state_for_a(mut self, state: &'a StorageState) -> Self {
-        self.previous_state_a = Some(state);
+    pub fn with_previous_state_for_a(mut self, state: impl Into<Arc<StorageState>>) -> Self {
+        self.previous_state_a = Some(state.into());
         self
     }
 
     /// Provide a previous state for storage B.
     #[must_use]
-    pub fn with_previous_state_for_b(mut self, state: &'a StorageState) -> Self {
-        self.previous_state_b = Some(state);
+    pub fn with_previous_state_for_b(mut self, state: impl Into<Arc<StorageState>>) -> Self {
+        self.previous_state_b = Some(state.into());
         self
     }
 
     /// Build the `StoragePair` instance, which can no longer be mutated.
     #[must_use]
-    pub fn build(self) -> StoragePair<'a, I> {
+    pub fn build(self) -> StoragePair<I> {
         StoragePair {
             storage_a: self.storage_a,
             storage_b: self.storage_b,
@@ -121,23 +128,25 @@ impl<'a, I: Item> StoragePairBuilder<'a, I> {
 /// This type merely wraps around the declaration of what shall be synchronised. It can be
 /// constructed offline and is the entry point to create a [`Plan`] and then execute it.
 ///
+/// For details on creating a new instance, see [`StoragePairBuilder`].
+///
 /// [`Plan`]: crate::sync::plan::Plan
-pub struct StoragePair<'a, I: Item> {
+pub struct StoragePair<I: Item> {
     pub(super) storage_a: Arc<dyn Storage<I>>,
     pub(super) storage_b: Arc<dyn Storage<I>>,
-    pub(super) previous_state_a: Option<&'a StorageState>,
-    pub(super) previous_state_b: Option<&'a StorageState>,
+    pub(super) previous_state_a: Option<Arc<StorageState>>,
+    pub(super) previous_state_b: Option<Arc<StorageState>>,
     pub(super) mappings: Vec<DeclaredMapping>,
     pub(super) all_from_a: bool,
     pub(super) all_from_b: bool,
 }
 
-impl<I: Item> StoragePair<'_, I> {
+impl<I: Item> StoragePair<I> {
     /// Build a pair defining how to synchronise two storages.
     pub fn builder<'a>(
         storage_a: Arc<dyn Storage<I>>,
         storage_b: Arc<dyn Storage<I>>,
-    ) -> StoragePairBuilder<'a, I> {
+    ) -> StoragePairBuilder<I> {
         StoragePairBuilder {
             storage_a,
             storage_b,

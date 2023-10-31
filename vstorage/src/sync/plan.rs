@@ -21,7 +21,7 @@ use super::state::{CollectionState, ItemState};
 
 /// A series of actions that would synchronise a pair of storages.
 pub struct Plan<'pair, I: Item> {
-    pub(super) pair: &'pair StoragePair<'pair, I>,
+    pub(super) pair: &'pair StoragePair<I>,
     pub(super) collection_plans: Vec<CollectionPlan>,
     current_state_a: StorageState,
     current_state_b: StorageState,
@@ -39,9 +39,6 @@ impl<'pair, I: Item> std::fmt::Debug for Plan<'pair, I> {
 impl<'pair, I: Item> Plan<'pair, I> {
     /// Create a new plan for a given storage pair.
     ///
-    /// The plan itself will hold a mutable reference to the pair. The pair can not be dropped, nor
-    /// used until the plan itself is itself dropped.
-    ///
     /// # Errors
     ///
     /// Returns an error if:
@@ -50,7 +47,7 @@ impl<'pair, I: Item> Plan<'pair, I> {
     /// - A mapping is defined by collection id, but the id is invalid for the underlying storage.
     /// - There is an error reading the state of existing items.
     /// - The same collection is mapped more than once.
-    pub async fn new(pair: &'pair StoragePair<'pair, I>) -> Result<Plan<'pair, I>> {
+    pub async fn new(pair: &'pair StoragePair<I>) -> Result<Plan<'pair, I>> {
         let all_a = pair.storage_a.discover_collections().await?;
         let all_b = pair.storage_b.discover_collections().await?;
 
@@ -141,14 +138,14 @@ impl<'pair, I: Item> Plan<'pair, I> {
             .collect();
 
         let current_state_a = StorageState::current_for_storage(
-            pair.previous_state_a,
+            &pair.previous_state_a,
             &pair.storage_a,
             &hrefs_a,
             &all_a,
         )
         .await?;
         let current_state_b = StorageState::current_for_storage(
-            pair.previous_state_b,
+            &pair.previous_state_b,
             &pair.storage_b,
             &hrefs_b,
             &all_b,
@@ -170,12 +167,14 @@ impl<'pair, I: Item> Plan<'pair, I> {
                 cur_a = current_state_a.find_collection_state(href);
                 prev_a = pair
                     .previous_state_a
+                    .as_ref()
                     .and_then(|s| s.find_collection_state(href));
             };
             if let Some(href) = collection.href_b() {
                 cur_b = current_state_b.find_collection_state(href);
                 prev_b = pair
                     .previous_state_b
+                    .as_ref()
                     .and_then(|s| s.find_collection_state(href));
             };
 
@@ -197,11 +196,13 @@ impl<'pair, I: Item> Plan<'pair, I> {
         self.pair
     }
 
+    /// The state of storage a, as resolved when creating this plan.
     #[must_use]
     pub fn current_state_a(&self) -> &StorageState {
         &self.current_state_a
     }
 
+    /// The state of storage a, as resolved when creating this plan.
     #[must_use]
     pub fn current_state_b(&self) -> &StorageState {
         &self.current_state_b

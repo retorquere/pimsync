@@ -137,6 +137,7 @@ impl<'pair, I: Item> Plan<'pair, I> {
     /// will include any errors that occurred during synchronisation. If any errors exist, then
     /// both storage may still be  out of sync.
     pub async fn execute(&self) -> FinalState {
+        // TODO: this should consume the Plan; executing the same plan twice is disallowed.
         let mut final_state = FinalState {
             state_a: self.current_state_a().clone(),
             state_b: self.current_state_b().clone(),
@@ -265,7 +266,7 @@ impl FinalState {
 
     /// The state of `storage_a` after synchronisation.
     ///
-    /// This value should be stored and supplied as a `previous_state` the next time this storage
+    /// This value should be persisted and supplied as a `previous_state` the next time this storage
     /// is synchronised.
     #[must_use]
     pub fn final_state_a(&self) -> &StorageState {
@@ -274,7 +275,7 @@ impl FinalState {
 
     /// The state of `storage_b` after synchronisation.
     ///
-    /// This value should be stored and supplied as a `previous_state` the next time this storage
+    /// This value should be persisted and supplied as a `previous_state` the next time this storage
     /// is synchronised.
     #[must_use]
     pub fn final_state_b(&self) -> &StorageState {

@@ -28,7 +28,7 @@ pub struct StorageState {
 
 impl StorageState {
     pub(super) async fn current_for_storage<I: crate::base::Item>(
-        previous_state: Option<&StorageState>,
+        previous_state: &Option<Arc<StorageState>>,
         storage: &Arc<dyn Storage<I>>,
         // The hrefs that we care about:
         collection_hrefs: &Vec<&str>,
@@ -43,7 +43,9 @@ impl StorageState {
                 continue;
             };
 
-            let previous = previous_state.and_then(|s| s.find_collection_state(href));
+            let previous = previous_state
+                .as_ref()
+                .and_then(|s| s.find_collection_state(href));
             let state = CollectionState::generate_current(previous, storage, collection).await;
             collections.push(state?);
         }
