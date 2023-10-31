@@ -39,8 +39,8 @@ use vstorage::{
 };
 
 use crate::tls::{
-    cert_and_key_from_pemfile, certs_from_pemfile, key_from_pemfile, FingerPrintAndWebPkiVerifier,
-    FingerPrintVerifier,
+    cert_and_key_from_pemfile, certs_from_pemfile, key_from_pemfile, FingerprintAndWebPkiVerifier,
+    FingerprintVerifier,
 };
 
 /// A deserialised configuration file.
@@ -430,7 +430,7 @@ impl HttpsConfig {
                 .with_native_roots()
                 .with_certificate_transparency_logs(&[], SystemTime::now()),
             (None, Some(fingerprint)) => {
-                let verifier = Arc::from(FingerPrintVerifier::new(&fingerprint)?);
+                let verifier = Arc::from(FingerprintVerifier::new(&fingerprint)?);
                 tls_config.with_custom_certificate_verifier(verifier)
             }
             (Some(path), None) => {
@@ -448,7 +448,7 @@ impl HttpsConfig {
                     root_store.add(&cert)?;
                 }
                 let verifier =
-                    Arc::from(FingerPrintAndWebPkiVerifier::new(&fingerprint, root_store)?);
+                    Arc::from(FingerprintAndWebPkiVerifier::new(&fingerprint, root_store)?);
                 tls_config.with_custom_certificate_verifier(verifier)
             }
         };

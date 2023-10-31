@@ -13,11 +13,11 @@ use rustls::{
 use sha2::{Digest, Sha256};
 
 /// Verifies that the fingerprint of a certificate matches.
-pub(crate) struct FingerPrintVerifier {
+pub(crate) struct FingerprintVerifier {
     fingerprint: Vec<u8>,
 }
 
-impl FingerPrintVerifier {
+impl FingerprintVerifier {
     // Create a new verifier from a hexadecimal fingerprint representation.
     pub(crate) fn new(hex_fingerprint: &str) -> anyhow::Result<Self> {
         let fingerprint = (0..hex_fingerprint.len())
@@ -25,11 +25,11 @@ impl FingerPrintVerifier {
             .map(|i| u8::from_str_radix(&hex_fingerprint[i..=i + 1], 16))
             .collect::<Result<Vec<u8>, ParseIntError>>()?;
 
-        Ok(FingerPrintVerifier { fingerprint })
+        Ok(FingerprintVerifier { fingerprint })
     }
 }
 
-impl ServerCertVerifier for FingerPrintVerifier {
+impl ServerCertVerifier for FingerprintVerifier {
     fn verify_server_cert(
         &self,
         end_entity: &Certificate,
@@ -63,21 +63,21 @@ impl std::fmt::Display for FingerprintError {
 impl std::error::Error for FingerprintError {}
 
 /// Verifies the fingerprint and CA for a certificate.
-pub(crate) struct FingerPrintAndWebPkiVerifier(FingerPrintVerifier, WebPkiVerifier);
+pub(crate) struct FingerprintAndWebPkiVerifier(FingerprintVerifier, WebPkiVerifier);
 
-impl FingerPrintAndWebPkiVerifier {
+impl FingerprintAndWebPkiVerifier {
     pub(crate) fn new(
         hex_fingerprint: &str,
         roots: impl Into<Arc<RootCertStore>>,
     ) -> anyhow::Result<Self> {
         Ok(Self(
-            FingerPrintVerifier::new(hex_fingerprint)?,
+            FingerprintVerifier::new(hex_fingerprint)?,
             WebPkiVerifier::new(roots, None),
         ))
     }
 }
 
-impl ServerCertVerifier for FingerPrintAndWebPkiVerifier {
+impl ServerCertVerifier for FingerprintAndWebPkiVerifier {
     fn verify_server_cert(
         &self,
         end_entity: &Certificate,
