@@ -142,8 +142,8 @@ impl<'pair, I: Item> Plan<'pair, I> {
             state_b: self.current_state_b().clone(),
             errors: Vec::new(),
         };
-        let storage_a = &self.pair.info.storage_a;
-        let storage_b = &self.pair.info.storage_b;
+        let storage_a = &self.pair.storage_a;
+        let storage_b = &self.pair.storage_b;
 
         for cp in &self.collection_plans {
             let mut delete_collection_in_a = false;

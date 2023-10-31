@@ -51,27 +51,27 @@ impl<'pair, I: Item> Plan<'pair, I> {
     /// - There is an error reading the state of existing items.
     /// - The same collection is mapped more than once.
     pub async fn new(pair: &'pair StoragePair<'pair, I>) -> Result<Plan<'pair, I>> {
-        let all_a = pair.info.storage_a.discover_collections().await?;
-        let all_b = pair.info.storage_b.discover_collections().await?;
+        let all_a = pair.storage_a.discover_collections().await?;
+        let all_b = pair.storage_b.discover_collections().await?;
 
-        let mut mappings = Vec::<ResolvedMapping>::with_capacity(pair.info.mappings.len());
-        for mapping in &pair.info.mappings {
+        let mut mappings = Vec::<ResolvedMapping>::with_capacity(pair.mappings.len());
+        for mapping in &pair.mappings {
             mappings.push(ResolvedMapping::from_declared_mapping(
                 mapping.clone(),
-                &pair.info.storage_a,
-                &pair.info.storage_b,
+                &pair.storage_a,
+                &pair.storage_b,
                 &all_a,
                 &all_b,
             )?);
         }
 
-        if pair.info.all_from_a {
+        if pair.all_from_a {
             mappings.reserve(all_a.len());
             for collection in &all_a {
                 let counterpart = resolve_mapping_counterpart(
-                    &pair.info.storage_a,
+                    &pair.storage_a,
                     collection,
-                    &pair.info.storage_b,
+                    &pair.storage_b,
                     &all_b,
                 )?;
                 mappings.push(ResolvedMapping {
@@ -82,13 +82,13 @@ impl<'pair, I: Item> Plan<'pair, I> {
                 });
             }
         }
-        if pair.info.all_from_b {
+        if pair.all_from_b {
             mappings.reserve(all_b.len());
             for collection in &all_b {
                 let counterpart = resolve_mapping_counterpart(
-                    &pair.info.storage_b,
+                    &pair.storage_b,
                     collection,
-                    &pair.info.storage_a,
+                    &pair.storage_a,
                     &all_a,
                 )?;
                 mappings.push(ResolvedMapping {
@@ -141,15 +141,15 @@ impl<'pair, I: Item> Plan<'pair, I> {
             .collect();
 
         let current_state_a = StorageState::current_for_storage(
-            pair.info.previous_state_a,
-            &pair.info.storage_a,
+            pair.previous_state_a,
+            &pair.storage_a,
             &hrefs_a,
             &all_a,
         )
         .await?;
         let current_state_b = StorageState::current_for_storage(
-            pair.info.previous_state_b,
-            &pair.info.storage_b,
+            pair.previous_state_b,
+            &pair.storage_b,
             &hrefs_b,
             &all_b,
         )
@@ -169,14 +169,12 @@ impl<'pair, I: Item> Plan<'pair, I> {
             if let Some(href) = collection.href_a() {
                 cur_a = current_state_a.find_collection_state(href);
                 prev_a = pair
-                    .info
                     .previous_state_a
                     .and_then(|s| s.find_collection_state(href));
             };
             if let Some(href) = collection.href_b() {
                 cur_b = current_state_b.find_collection_state(href);
                 prev_b = pair
-                    .info
                     .previous_state_b
                     .and_then(|s| s.find_collection_state(href));
             };

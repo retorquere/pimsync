@@ -55,60 +55,64 @@ impl DeclaredMapping {
     }
 }
 
-pub(super) struct PairInfo<'a, I: Item> {
-    pub(super) storage_a: Arc<dyn Storage<I>>,
-    pub(super) storage_b: Arc<dyn Storage<I>>,
-    pub(super) previous_state_a: Option<&'a StorageState>,
-    pub(super) previous_state_b: Option<&'a StorageState>,
-    pub(super) mappings: Vec<DeclaredMapping>,
-    pub(super) all_from_a: bool,
-    pub(super) all_from_b: bool,
-}
-
 pub struct StoragePairBuilder<'a, I: Item> {
-    info: PairInfo<'a, I>,
+    storage_a: Arc<dyn Storage<I>>,
+    storage_b: Arc<dyn Storage<I>>,
+    previous_state_a: Option<&'a StorageState>,
+    previous_state_b: Option<&'a StorageState>,
+    mappings: Vec<DeclaredMapping>,
+    all_from_a: bool,
+    all_from_b: bool,
 }
 
 impl<'a, I: Item> StoragePairBuilder<'a, I> {
     /// Include the specified mapping when synchronising.
     #[must_use]
     pub fn with_mapping(mut self, mapping: DeclaredMapping) -> Self {
-        self.info.mappings.push(mapping);
+        self.mappings.push(mapping);
         self
     }
 
     /// Include all collections from storage A when synchronising.
     #[must_use]
     pub fn with_all_from_a(mut self) -> Self {
-        self.info.all_from_a = true;
+        self.all_from_a = true;
         self
     }
 
     /// Include all collections from storage B when synchronising.
     #[must_use]
     pub fn with_all_from_b(mut self) -> Self {
-        self.info.all_from_b = true;
+        self.all_from_b = true;
         self
     }
 
     /// Provide a previous state for storage A.
     #[must_use]
     pub fn with_previous_state_for_a(mut self, state: &'a StorageState) -> Self {
-        self.info.previous_state_a = Some(state);
+        self.previous_state_a = Some(state);
         self
     }
 
     /// Provide a previous state for storage B.
     #[must_use]
     pub fn with_previous_state_for_b(mut self, state: &'a StorageState) -> Self {
-        self.info.previous_state_b = Some(state);
+        self.previous_state_b = Some(state);
         self
     }
 
     /// Build the `StoragePair` instance, which can no longer be mutated.
     #[must_use]
     pub fn build(self) -> StoragePair<'a, I> {
-        StoragePair { info: self.info }
+        StoragePair {
+            storage_a: self.storage_a,
+            storage_b: self.storage_b,
+            previous_state_a: self.previous_state_a,
+            previous_state_b: self.previous_state_b,
+            mappings: self.mappings,
+            all_from_a: self.all_from_a,
+            all_from_b: self.all_from_b,
+        }
     }
 }
 
@@ -119,7 +123,13 @@ impl<'a, I: Item> StoragePairBuilder<'a, I> {
 ///
 /// [`Plan`]: crate::sync::plan::Plan
 pub struct StoragePair<'a, I: Item> {
-    pub(super) info: PairInfo<'a, I>,
+    pub(super) storage_a: Arc<dyn Storage<I>>,
+    pub(super) storage_b: Arc<dyn Storage<I>>,
+    pub(super) previous_state_a: Option<&'a StorageState>,
+    pub(super) previous_state_b: Option<&'a StorageState>,
+    pub(super) mappings: Vec<DeclaredMapping>,
+    pub(super) all_from_a: bool,
+    pub(super) all_from_b: bool,
 }
 
 impl<I: Item> StoragePair<'_, I> {
@@ -129,15 +139,13 @@ impl<I: Item> StoragePair<'_, I> {
         storage_b: Arc<dyn Storage<I>>,
     ) -> StoragePairBuilder<'a, I> {
         StoragePairBuilder {
-            info: PairInfo {
-                storage_a,
-                storage_b,
-                previous_state_a: None,
-                previous_state_b: None,
-                mappings: Vec::new(),
-                all_from_a: false,
-                all_from_b: false,
-            },
+            storage_a,
+            storage_b,
+            previous_state_a: None,
+            previous_state_b: None,
+            mappings: Vec::new(),
+            all_from_a: false,
+            all_from_b: false,
         }
     }
 }
