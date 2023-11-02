@@ -70,7 +70,7 @@ impl Config {
         let mut calendars = HashMap::new();
         let mut address_books = HashMap::new();
 
-        for (name, source) in self.storages.iter() {
+        for (name, source) in &self.storages {
             match source.storage().await? {
                 EitherStorage::Calendar(c) => {
                     calendars.insert(name.clone(), c);
@@ -93,7 +93,7 @@ impl Config {
         let mut calendar_pairs = Vec::new(); // TODO: with_capacity?
         let mut contact_pairs = Vec::new(); // TODO: with_capacity?
 
-        for (name, source) in self.pairs.iter() {
+        for (name, source) in &self.pairs {
             match (calendars.get(&source.a), calendars.get(&source.b)) {
                 (None, None) => {
                     match (contacts.get(&source.a), contacts.get(&source.b)) {
@@ -126,7 +126,7 @@ impl Config {
     }
 }
 
-fn create_pair<'a, I: Item>(
+fn create_pair<I: Item>(
     name: &str,
     source: &PairSection,
     a: &Arc<dyn Storage<I>>,
@@ -164,7 +164,7 @@ fn expand_tilde(orig: &PathBuf) -> Cow<Path> {
             return Cow::Owned(PathBuf::from(os_string));
         }
     }
-    Cow::Borrowed(&orig)
+    Cow::Borrowed(orig)
 }
 
 #[derive(Deserialize, Debug)]
@@ -294,10 +294,9 @@ impl StorageSection {
     ) -> anyhow::Result<Option<Arc<dyn Storage<IcsItem>>>> {
         Ok(match self {
             StorageSection::FilesystemIcalendar(def) => Some(Arc::new(def.to_storage())),
-            StorageSection::FilesystemVcard(_) => None,
-            StorageSection::CardDav(_) => None,
             StorageSection::CalDav(caldav) => Some(Arc::new(caldav.to_storage().await?)),
             StorageSection::Http(http) => Some(Arc::new(http.to_storage()?)),
+            StorageSection::FilesystemVcard(_) | StorageSection::CardDav(_) => None,
         })
     }
 
@@ -306,11 +305,11 @@ impl StorageSection {
         &self,
     ) -> anyhow::Result<Option<Arc<dyn Storage<VcardItem>>>> {
         Ok(match self {
-            StorageSection::FilesystemIcalendar(_) => None,
             StorageSection::FilesystemVcard(def) => Some(Arc::new(def.to_storage())),
             StorageSection::CardDav(carddav) => Some(Arc::new(carddav.to_storage().await?)),
-            StorageSection::CalDav(_) => None,
-            StorageSection::Http(_) => None,
+            StorageSection::FilesystemIcalendar(_)
+            | StorageSection::CalDav(_)
+            | StorageSection::Http(_) => None,
         })
     }
 }
@@ -330,7 +329,7 @@ struct Filesystem<I: Item> {
 impl<I: Item> Filesystem<I> {
     fn to_storage(&self) -> FilesystemStorage<I> {
         let path = expand_tilde(&self.path);
-        FilesystemDefinition::new(path.to_owned().to_path_buf(), self.fileext.clone()).build()
+        FilesystemDefinition::new(path.to_path_buf(), self.fileext.clone()).build()
     }
 }
 
@@ -427,12 +426,12 @@ impl HttpsConfig {
                 .with_native_roots()
                 .with_certificate_transparency_logs(&[], SystemTime::now()),
             (None, Some(fingerprint)) => {
-                let verifier = Arc::from(FingerprintVerifier::new(&fingerprint)?);
+                let verifier = Arc::from(FingerprintVerifier::new(fingerprint)?);
                 tls_config.with_custom_certificate_verifier(verifier)
             }
             (Some(path), None) => {
                 let mut root_store = RootCertStore::empty();
-                for cert in certs_from_pemfile(&path)? {
+                for cert in certs_from_pemfile(path)? {
                     root_store.add(&cert)?;
                 }
                 tls_config
@@ -441,11 +440,11 @@ impl HttpsConfig {
             }
             (Some(path), Some(fingerprint)) => {
                 let mut root_store = RootCertStore::empty();
-                for cert in certs_from_pemfile(&path)? {
+                for cert in certs_from_pemfile(path)? {
                     root_store.add(&cert)?;
                 }
                 let verifier =
-                    Arc::from(FingerprintAndWebPkiVerifier::new(&fingerprint, root_store)?);
+                    Arc::from(FingerprintAndWebPkiVerifier::new(fingerprint, root_store)?);
                 tls_config.with_custom_certificate_verifier(verifier)
             }
         };

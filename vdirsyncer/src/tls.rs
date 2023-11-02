@@ -160,7 +160,7 @@ pub(crate) fn cert_and_key_from_pemfile(
     }
 
     let key = raw_key
-        .map(|k| PrivateKey(k))
+        .map(PrivateKey)
         .with_context(|| format!("no key found in {}", path.to_string_lossy()))?;
     Ok((certs, key))
 }

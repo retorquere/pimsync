@@ -68,7 +68,7 @@ pub struct StoragePairBuilder<I: Item> {
     all_from_b: bool,
 }
 
-impl<'a, I: Item> StoragePairBuilder<I> {
+impl<I: Item> StoragePairBuilder<I> {
     /// Include the specified mapping when synchronising.
     #[must_use]
     pub fn with_mapping(mut self, mapping: DeclaredMapping) -> Self {
@@ -143,7 +143,7 @@ pub struct StoragePair<I: Item> {
 
 impl<I: Item> StoragePair<I> {
     /// Build a pair defining how to synchronise two storages.
-    pub fn builder<'a>(
+    pub fn builder(
         storage_a: Arc<dyn Storage<I>>,
         storage_b: Arc<dyn Storage<I>>,
     ) -> StoragePairBuilder<I> {
