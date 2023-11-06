@@ -14,62 +14,65 @@ use crate::{
 };
 
 use super::{
-    plan::{Plan, ResolvedCollection, ResolvedMapping},
+    plan::{ItemAction, Plan, ResolvedCollection, ResolvedMapping},
     state::{CollectionState, StorageState},
 };
 
-impl Action {
+impl ItemAction {
+    /// Execution the action on the item.
+    ///
+    /// The `state_a` or `state_b` variables should only be `None` if the collection does not exist
+    /// in that storage. That should only really happen if the storage has been deleted.
     #[inline]
-    async fn execute_on_item<I: Item>(
+    async fn execute<I: Item>(
         &self,
-        uid: &str,
         storage_a: &Arc<dyn Storage<I>>,
         storage_b: &Arc<dyn Storage<I>>,
-        // XXX: These should not be optional. Fail earlier if so.
         state_a: Option<&mut CollectionState>,
         state_b: Option<&mut CollectionState>,
     ) -> std::result::Result<(), Box<dyn std::error::Error>> {
-        match self {
-            Action::CopyToB => {
-                copy_item(
-                    state_a.ok_or("state a is missing")?,
-                    state_b.ok_or("state b is missing")?,
-                    storage_a,
-                    storage_b,
-                    uid,
-                )
-                .await?;
-            }
-            Action::CopyToA => {
-                copy_item(
-                    state_b.ok_or("state b is missing")?,
-                    state_a.ok_or("state a is missing")?,
-                    storage_b,
-                    storage_a,
-                    uid,
-                )
-                .await?;
-            }
-            Action::DeleteInA => {
-                delete_item(
-                    state_a.ok_or("collection is missing from state a")?,
-                    storage_a,
-                    uid,
-                )
-                .await?;
-            }
-            Action::DeleteInB => {
-                delete_item(
-                    state_b.ok_or("collection is missing from state b")?,
-                    storage_b,
-                    uid,
-                )
-                .await?;
-            }
-            Action::Conflict => todo!("conflict resolution"),
+        {
+            match self.action() {
+                Action::CopyToB => {
+                    copy_item(
+                        state_a.ok_or("collection missing from state a")?,
+                        state_b.ok_or("collection missing from state b")?,
+                        storage_a,
+                        storage_b,
+                        self.uid(),
+                    )
+                    .await?;
+                }
+                Action::CopyToA => {
+                    copy_item(
+                        state_b.ok_or("collection missing from state b")?,
+                        state_a.ok_or("collection missing from state a")?,
+                        storage_b,
+                        storage_a,
+                        self.uid(),
+                    )
+                    .await?;
+                }
+                Action::DeleteInA => {
+                    delete_item(
+                        state_a.ok_or("collection is missing from state a")?,
+                        storage_a,
+                        self.uid(),
+                    )
+                    .await?;
+                }
+                Action::DeleteInB => {
+                    delete_item(
+                        state_b.ok_or("collection is missing from state b")?,
+                        storage_b,
+                        self.uid(),
+                    )
+                    .await?;
+                }
+                Action::Conflict => todo!("conflict resolution"),
+            };
+            Ok(())
         }
-
-        Ok(())
     }
 }
 
@@ -200,16 +203,14 @@ impl<'pair, I: Item> Plan<'pair, I> {
                     .state_b
                     .find_collection_state_mut(&cp.mapping().b);
 
-                let uid = item_action.uid();
-                let action = item_action.action();
-                if let Err(err) = action
-                    .execute_on_item(uid, storage_a, storage_b, state_a, state_b)
+                if let Err(err) = item_action
+                    .execute(storage_a, storage_b, state_a, state_b)
                     .await
                 {
                     final_state.errors.push(SynchronizationError {
-                        action: action.clone(),
+                        action: item_action.action(),
                         resource: FailedResource::Item {
-                            uid: uid.to_string(),
+                            uid: item_action.uid().to_string(),
                         },
                         error: err,
                     });
