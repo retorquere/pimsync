@@ -437,10 +437,7 @@ mod tests {
         .join("\r\n");
         let item = IcsItem::from(raw);
         assert_eq!(item.uid(), None);
-        assert_eq!(
-            item.ident(),
-            "23A1B4246052E5BBB7AED65EDD759EBB03EF314DB055C109716D0301F9AC8E19"
-        );
+        assert_eq!(item.ident(), item.hash());
     }
 
     #[test]
