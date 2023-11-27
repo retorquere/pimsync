@@ -234,6 +234,8 @@ impl ToString for Component<'_> {
 
 #[cfg(test)]
 mod test {
+    use std::borrow::Cow;
+
     use crate::simple_component::ComponentError;
 
     #[test]
@@ -279,175 +281,77 @@ mod test {
         .join("\r\n");
 
         let component = Component::parse(&calendar).unwrap();
+        assert_eq!(component.kind, Cow::Borrowed("VCALENDAR"));
 
-        assert_eq!(
-            component,
-            Component {
-                kind: "VCALENDAR",
-                lines: [].to_vec(),
-                subcomponents: vec!(
-                    Component {
-                        kind: "VTIMEZONE",
-                        lines: vec!("TZID:Europe/Rome", "X-LIC-LOCATION:Europe/Rome",),
-                        subcomponents: vec!(
-                            Component {
-                                kind: "DAYLIGHT",
-                                lines: vec!(
-                                    "TZOFFSETFROM:+0100",
-                                    "TZOFFSETTO:+0200",
-                                    "TZNAME:CEST",
-                                    "DTSTART:19700329T020000",
-                                    "RRULE:FREQ=YEARLY;BYDAY=-1SU;BYMONTH=3",
-                                ),
-                                subcomponents: vec!(),
-                                uid: None,
-                            },
-                            Component {
-                                kind: "STANDARD",
-                                lines: vec!(
-                                    "TZOFFSETFROM:+0200",
-                                    "TZOFFSETTO:+0100",
-                                    "TZNAME:CET",
-                                    "DTSTART:19701025T030000",
-                                    "RRULE:FREQ=YEARLY;BYDAY=-1SU;BYMONTH=10",
-                                ),
-                                subcomponents: vec!(),
-                                uid: None,
-                            },
-                        ),
-                        uid: None,
-                    },
-                    Component {
-                        kind: "VEVENT",
-                        lines: vec!(
-                            "DTSTART:19970714T170000Z",
-                            "DTEND:19970715T035959Z",
-                            "SUMMARY:Bastille Day Party",
-                            "X-SOMETHING:r",
-                            "UID:11bb6bed-c29b-4999-a627-12dee35f8395",
-                        ),
-                        subcomponents: vec!(),
-                        uid: Some("11bb6bed-c29b-4999-a627-12dee35f8395".into()),
-                    },
-                    Component {
-                        kind: "VEVENT",
-                        lines: vec!(
-                            "DTSTART:19970714T170000Z",
-                            "DTEND:19970715T035959Z",
-                            "SUMMARY:Bastille Day Party (copy)",
-                            "X-SOMETHING:s",
-                            "UID:b8d52b8b-dd6b-4ef9-9249-0ad7c28f9e5a",
-                        ),
-                        subcomponents: vec!(),
-                        uid: Some("b8d52b8b-dd6b-4ef9-9249-0ad7c28f9e5a".into()),
-                    },
-                ),
-                uid: None,
-            }
-        ); // end assert
+        let serialised_split = Component::into_split_collection(component)
+            .unwrap()
+            .iter()
+            .map(|c| c.to_string())
+            .collect::<Vec<_>>();
 
-        let mut actual_split = Component::into_split_collection(component).unwrap();
-        let mut expected_split = vec![
-            Component {
-                kind: "VCALENDAR",
-                lines: vec![],
-                subcomponents: vec![Component {
-                    kind: "VEVENT",
-                    lines: vec![
-                        "DTSTART:19970714T170000Z",
-                        "DTEND:19970715T035959Z",
-                        "SUMMARY:Bastille Day Party",
-                        "X-SOMETHING:r",
-                        "UID:11bb6bed-c29b-4999-a627-12dee35f8395",
-                    ],
-                    subcomponents: vec![Component {
-                        kind: "VTIMEZONE",
-                        lines: vec!["TZID:Europe/Rome", "X-LIC-LOCATION:Europe/Rome"],
-                        subcomponents: vec![
-                            Component {
-                                kind: "DAYLIGHT",
-                                lines: vec![
-                                    "TZOFFSETFROM:+0100",
-                                    "TZOFFSETTO:+0200",
-                                    "TZNAME:CEST",
-                                    "DTSTART:19700329T020000",
-                                    "RRULE:FREQ=YEARLY;BYDAY=-1SU;BYMONTH=3",
-                                ],
-                                subcomponents: vec![],
-                                uid: None,
-                            },
-                            Component {
-                                kind: "STANDARD",
-                                lines: vec![
-                                    "TZOFFSETFROM:+0200",
-                                    "TZOFFSETTO:+0100",
-                                    "TZNAME:CET",
-                                    "DTSTART:19701025T030000",
-                                    "RRULE:FREQ=YEARLY;BYDAY=-1SU;BYMONTH=10",
-                                ],
-                                subcomponents: vec![],
-                                uid: None,
-                            },
-                        ],
-                        uid: None,
-                    }],
-                    uid: Some("11bb6bed-c29b-4999-a627-12dee35f8395".into()),
-                }],
-                uid: None,
-            },
-            Component {
-                kind: "VCALENDAR",
-                lines: vec![],
-                subcomponents: vec![Component {
-                    kind: "VEVENT",
-                    lines: vec![
-                        "DTSTART:19970714T170000Z",
-                        "DTEND:19970715T035959Z",
-                        "SUMMARY:Bastille Day Party (copy)",
-                        "X-SOMETHING:s",
-                        "UID:b8d52b8b-dd6b-4ef9-9249-0ad7c28f9e5a",
-                    ],
-                    subcomponents: vec![Component {
-                        kind: "VTIMEZONE",
-                        lines: vec!["TZID:Europe/Rome", "X-LIC-LOCATION:Europe/Rome"],
-                        subcomponents: vec![
-                            Component {
-                                kind: "DAYLIGHT",
-                                lines: vec![
-                                    "TZOFFSETFROM:+0100",
-                                    "TZOFFSETTO:+0200",
-                                    "TZNAME:CEST",
-                                    "DTSTART:19700329T020000",
-                                    "RRULE:FREQ=YEARLY;BYDAY=-1SU;BYMONTH=3",
-                                ],
-                                subcomponents: vec![],
-                                uid: None,
-                            },
-                            Component {
-                                kind: "STANDARD",
-                                lines: vec![
-                                    "TZOFFSETFROM:+0200",
-                                    "TZOFFSETTO:+0100",
-                                    "TZNAME:CET",
-                                    "DTSTART:19701025T030000",
-                                    "RRULE:FREQ=YEARLY;BYDAY=-1SU;BYMONTH=10",
-                                ],
-                                subcomponents: vec![],
-                                uid: None,
-                            },
-                        ],
-                        uid: None,
-                    }],
-                    uid: Some("b8d52b8b-dd6b-4ef9-9249-0ad7c28f9e5a".into()),
-                }],
-                uid: None,
-            },
-        ];
-
-        // Order is not deterministic.
-        actual_split.sort();
-        expected_split.sort();
-        assert_eq!(actual_split, expected_split); // end assert
+        let expected_first = vec![
+            "BEGIN:VCALENDAR",
+            "BEGIN:VEVENT",
+            "DTSTART:19970714T170000Z",
+            "DTEND:19970715T035959Z",
+            "SUMMARY:Bastille Day Party (copy)",
+            "X-SOMETHING:s",
+            "UID:b8d52b8b-dd6b-4ef9-9249-0ad7c28f9e5a",
+            "BEGIN:VTIMEZONE",
+            "TZID:Europe/Rome",
+            "X-LIC-LOCATION:Europe/Rome",
+            "BEGIN:DAYLIGHT",
+            "TZOFFSETFROM:+0100",
+            "TZOFFSETTO:+0200",
+            "TZNAME:CEST",
+            "DTSTART:19700329T020000",
+            "RRULE:FREQ=YEARLY;BYDAY=-1SU;BYMONTH=3",
+            "END:DAYLIGHT",
+            "BEGIN:STANDARD",
+            "TZOFFSETFROM:+0200",
+            "TZOFFSETTO:+0100",
+            "TZNAME:CET",
+            "DTSTART:19701025T030000",
+            "RRULE:FREQ=YEARLY;BYDAY=-1SU;BYMONTH=10",
+            "END:STANDARD",
+            "END:VTIMEZONE",
+            "END:VEVENT",
+            "END:VCALENDAR",
+            "",
+        ]
+        .join("\r\n");
+        let expected_second = vec![
+            "BEGIN:VCALENDAR",
+            "BEGIN:VEVENT",
+            "DTSTART:19970714T170000Z",
+            "DTEND:19970715T035959Z",
+            "SUMMARY:Bastille Day Party",
+            "X-SOMETHING:r",
+            "UID:11bb6bed-c29b-4999-a627-12dee35f8395",
+            "BEGIN:VTIMEZONE",
+            "TZID:Europe/Rome",
+            "X-LIC-LOCATION:Europe/Rome",
+            "BEGIN:DAYLIGHT",
+            "TZOFFSETFROM:+0100",
+            "TZOFFSETTO:+0200",
+            "TZNAME:CEST",
+            "DTSTART:19700329T020000",
+            "RRULE:FREQ=YEARLY;BYDAY=-1SU;BYMONTH=3",
+            "END:DAYLIGHT",
+            "BEGIN:STANDARD",
+            "TZOFFSETFROM:+0200",
+            "TZOFFSETTO:+0100",
+            "TZNAME:CET",
+            "DTSTART:19701025T030000",
+            "RRULE:FREQ=YEARLY;BYDAY=-1SU;BYMONTH=10",
+            "END:STANDARD",
+            "END:VTIMEZONE",
+            "END:VEVENT",
+            "END:VCALENDAR",
+            "",
+        ]
+        .join("\r\n");
+        assert_eq!(serialised_split, vec![expected_first, expected_second]);
     }
 
     #[test]
