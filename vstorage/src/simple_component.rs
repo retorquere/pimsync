@@ -351,7 +351,10 @@ mod test {
             "",
         ]
         .join("\r\n");
-        assert_eq!(serialised_split, vec![expected_first, expected_second]);
+
+        // Comparing like this since the order is not deterministic.
+        assert!(serialised_split.iter().any(|c| **c == expected_first));
+        assert!(serialised_split.iter().any(|c| **c == expected_second));
     }
 
     #[test]
