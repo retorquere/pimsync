@@ -158,6 +158,10 @@ impl<'a> Component<'a> {
     /// inside its own `VCALENDAR`.
     ///
     /// [`Collection`]: crate::base::Collection
+    ///
+    /// # Panics
+    ///
+    /// Panics if multiple VCARD entries have the same UID.
     fn split_inner(
         self: Component<'a>,
         inline: &mut Vec<Component<'a>>,
