@@ -136,8 +136,7 @@ impl<'pair, I: Item> Plan<'pair, I> {
     /// Always returns a final state, regardless of what changes were applied. The returned value
     /// will include any errors that occurred during synchronisation. If any errors exist, then
     /// both storage may still be  out of sync.
-    pub async fn execute(&self) -> FinalState {
-        // TODO: this should consume the Plan; executing the same plan twice is disallowed.
+    pub async fn execute(self) -> FinalState {
         let mut final_state = FinalState {
             state_a: self.current_state_a().clone(),
             state_b: self.current_state_b().clone(),
@@ -146,7 +145,7 @@ impl<'pair, I: Item> Plan<'pair, I> {
         let storage_a = &self.pair.storage_a;
         let storage_b = &self.pair.storage_b;
 
-        for cp in &self.collection_plans {
+        for cp in self.collection_plans {
             let mut delete_collection_in_a = false;
             let mut delete_collection_in_b = false;
             match cp.collection_action() {
