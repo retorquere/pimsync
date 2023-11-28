@@ -115,11 +115,43 @@ pub trait Storage<I: Item>: Sync + Send {
     /// Duplicate `href`s are ignored.
     ///
     /// All requested items MUST belong to the same collection.
-    async fn get_many_items(&self, hrefs: &[&str]) -> Result<Vec<FetchedItem<I>>>;
+    ///
+    /// # Note for implementors
+    ///
+    /// The default implementation is usually not optimal, and implementations of this trait should
+    /// override it.
+    async fn get_many_items(&self, hrefs: &[&str]) -> Result<Vec<FetchedItem<I>>> {
+        let mut items = Vec::with_capacity(hrefs.len());
+        for href in hrefs {
+            let item = self.get_item(href).await?;
+            items.push(FetchedItem {
+                href: (*href).to_owned(),
+                item: item.0,
+                etag: item.1,
+            });
+        }
+        Ok(items)
+    }
 
     /// Fetch all items from a given collection.
-    // TODO: provide a generic implementation.
-    async fn get_all_items(&self, collection: &Collection) -> Result<Vec<FetchedItem<I>>>;
+    ///
+    /// # Note for implementors
+    ///
+    /// The default implementation is usually not optimal, and implementations of this trait should
+    /// override it.
+    async fn get_all_items(&self, collection: &Collection) -> Result<Vec<FetchedItem<I>>> {
+        let item_refs = self.list_items(collection).await?;
+        let mut items = Vec::with_capacity(item_refs.len());
+        for item_ref in item_refs {
+            let item = self.get_item(&item_ref.href).await?;
+            items.push(FetchedItem {
+                href: item_ref.href,
+                item: item.0,
+                etag: item.1,
+            });
+        }
+        Ok(items)
+    }
 
     /// Saves a new item into a given collection
     async fn add_item(&self, collection: &Collection, item: &I) -> Result<ItemRef>;
