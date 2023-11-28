@@ -336,7 +336,7 @@ where
     }
 }
 
-async fn etag_for_path<P: AsRef<Path>>(path: P) -> Result<Etag> {
+async fn etag_for_path(path: impl AsRef<Path>) -> Result<Etag> {
     let metadata = metadata(path).await?;
     Ok(etag_for_metadata(&metadata))
 }

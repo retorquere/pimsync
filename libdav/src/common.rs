@@ -67,8 +67,8 @@ where
     Ok(client)
 }
 
-pub(crate) fn parse_find_multiple_collections<B: AsRef<[u8]>>(
-    body: B,
+pub(crate) fn parse_find_multiple_collections(
+    body: impl AsRef<[u8]>,
     only: &Property<'_, '_>,
 ) -> Result<Vec<FoundCollection>, DavError> {
     let body = std::str::from_utf8(body.as_ref())?;

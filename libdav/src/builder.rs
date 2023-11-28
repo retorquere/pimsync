@@ -85,7 +85,7 @@ impl<ClientType> ClientBuilder<ClientType, NeedsUri> {
     /// # Errors
     ///
     /// If building the `base_uri` fails with the host extracted from the email address.
-    pub fn with_email<S: AsRef<str>>(
+    pub fn with_email(
         self,
         email: &EmailAddress,
     ) -> Result<ClientBuilder<ClientType, NeedsPassword>, WithEmailError> {

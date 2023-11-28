@@ -528,7 +528,7 @@ impl StringOrFetch {
 }
 
 /// Parse a configuration file at `path`.
-pub(crate) fn parse_from_file<P: AsRef<Path>>(path: P) -> anyhow::Result<Config> {
+pub(crate) fn parse_from_file(path: impl AsRef<Path>) -> anyhow::Result<Config> {
     let raw = std::fs::read_to_string(path)?;
     let config: Config = toml::from_str(&raw)?;
 

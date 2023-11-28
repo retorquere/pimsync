@@ -7,7 +7,7 @@ use sha2::{Digest, Sha256};
 use vparser::Parser;
 
 /// Return the SHA256 hash of an icalendar or vcard.
-pub(crate) fn hash<S: AsRef<str>>(input: S) -> String {
+pub(crate) fn hash(input: impl AsRef<str>) -> String {
     // TODO: See (in vdirsyncer-py) IGNORE_PROPS for more props that might make sense to ignore.
     let mut hasher = Sha256::new();
     let parser = Parser::new(input.as_ref());

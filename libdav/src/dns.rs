@@ -110,9 +110,9 @@ impl From<domain::resolv::lookup::srv::SrvError> for SrvError {
 ///
 /// - <https://www.rfc-editor.org/rfc/rfc2782>
 /// - <https://www.rfc-editor.org/rfc/rfc6764>
-pub async fn resolve_srv_record<T: std::convert::AsRef<[u8]>>(
+pub async fn resolve_srv_record(
     service: DiscoverableService,
-    domain: &Dname<T>,
+    domain: &Dname<impl AsRef<[u8]>>,
     port: u16,
 ) -> Result<Option<Vec<(String, u16)>>, SrvError> {
     Ok(StubResolver::new()
@@ -171,9 +171,9 @@ impl From<TxtError> for io::Error {
 /// # See also
 ///
 /// <https://www.rfc-editor.org/rfc/rfc6764>
-pub async fn find_context_path_via_txt_records<T: std::convert::AsRef<[u8]>>(
+pub async fn find_context_path_via_txt_records(
     service: DiscoverableService,
-    domain: &Dname<T>,
+    domain: &Dname<impl AsRef<[u8]>>,
 ) -> Result<Option<String>, TxtError> {
     let resolver = StubResolver::new();
     let full_domain = service.relative_domain().chain(domain)?;

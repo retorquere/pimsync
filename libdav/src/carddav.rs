@@ -178,15 +178,11 @@ where
     /// # Errors
     ///
     /// If there are any network errors or the response could not be parsed.
-    pub async fn get_resources<S1, S2>(
+    pub async fn get_resources(
         &self,
-        addressbook_href: S1,
-        hrefs: &[S2],
-    ) -> Result<Vec<FetchedResource>, DavError>
-    where
-        S1: AsRef<str>,
-        S2: AsRef<str>,
-    {
+        addressbook_href: impl AsRef<str>,
+        hrefs: impl IntoIterator<Item = impl AsRef<str>>,
+    ) -> Result<Vec<FetchedResource>, DavError> {
         let mut body = String::from(
             r#"
             <C:addressbook-multiget xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:carddav">
@@ -257,7 +253,7 @@ where
     /// # Errors
     ///
     /// Returns an error in case of network errors or if the server returns a failure status code.
-    pub async fn create_addressbook<Href: AsRef<str>>(&self, href: Href) -> Result<(), DavError> {
+    pub async fn create_addressbook(&self, href: impl AsRef<str>) -> Result<(), DavError> {
         // TODO: Can I somehow delegate to this async method without introducing a new await point?
         self.dav_client
             .create_collection(href, &[&names::ADDRESSBOOK])

@@ -56,7 +56,7 @@ pub fn check_multistatus(root: Node) -> Result<(), DavError> {
 /// # Errors
 ///
 /// If the input string does not match a status line.
-pub fn parse_statusline<S: AsRef<str>>(status_line: S) -> Result<StatusCode, InvalidStatusCode> {
+pub fn parse_statusline(status_line: impl AsRef<str>) -> Result<StatusCode, InvalidStatusCode> {
     let mut iter = status_line.as_ref().splitn(3, ' ');
     iter.next();
     let code = iter.next().unwrap_or("");
@@ -73,7 +73,7 @@ pub(crate) fn render_xml(name: &Property) -> String {
 }
 
 /// Render an XML node with optional text.
-pub fn render_xml_with_text<S: AsRef<str>>(name: &Property, text: Option<S>) -> String {
+pub fn render_xml_with_text(name: &Property, text: Option<impl AsRef<str>>) -> String {
     match (name.namespace(), text) {
         (None, None) => format!("<{}/>", name.name()),
         (None, Some(t)) => format!("<{0}>{1}</{0}>", name.name(), escape_text(t.as_ref())),

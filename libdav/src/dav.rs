@@ -159,7 +159,7 @@ where
     /// # Errors
     ///
     /// If this client's `base_url` is invalid or the provided `path` is not an acceptable path.
-    pub fn relative_uri<S: AsRef<str>>(&self, path: S) -> Result<Uri, http::Error> {
+    pub fn relative_uri(&self, path: impl AsRef<str>) -> Result<Uri, http::Error> {
         let href = quote_href(path.as_ref().as_bytes());
         let mut parts = self.base_url.clone().into_parts();
         parts.path_and_query = Some(PathAndQuery::try_from(href.as_ref())?);
@@ -445,18 +445,13 @@ where
     }
 
     /// Inner helper with common logic between `create` and `update`.
-    async fn put<Href, Etag, MimeType>(
+    async fn put(
         &self,
-        href: Href,
+        href: impl AsRef<str>,
         data: Vec<u8>,
-        etag: Option<Etag>,
-        mime_type: MimeType,
-    ) -> Result<Option<String>, DavError>
-    where
-        Href: AsRef<str>,
-        Etag: AsRef<str>,
-        MimeType: AsRef<[u8]>,
-    {
+        etag: Option<impl AsRef<str>>,
+        mime_type: impl AsRef<[u8]>,
+    ) -> Result<Option<String>, DavError> {
         let mut builder = Request::builder()
             .method(Method::PUT)
             .uri(self.relative_uri(href)?)
@@ -489,18 +484,13 @@ where
     /// # Errors
     ///
     /// If there are any network errors or the response could not be parsed.
-    pub async fn create_resource<Href, MimeType>(
+    pub async fn create_resource(
         &self,
-        href: Href,
+        href: impl AsRef<str>,
         data: Vec<u8>,
-        mime_type: MimeType,
-    ) -> Result<Option<String>, DavError>
-    where
-        Href: AsRef<str>,
-        MimeType: AsRef<[u8]>,
-    {
-        self.put(href, data, Option::<String>::None, mime_type)
-            .await
+        mime_type: impl AsRef<[u8]>,
+    ) -> Result<Option<String>, DavError> {
+        self.put(href, data, Option::<&str>::None, mime_type).await
     }
 
     /// Updates an existing resource
@@ -510,19 +500,14 @@ where
     /// # Errors
     ///
     /// If there are any network errors or the response could not be parsed.
-    pub async fn update_resource<Href, Etag, MimeType>(
+    pub async fn update_resource(
         &self,
-        href: Href,
+        href: impl AsRef<str>,
         data: Vec<u8>,
-        etag: Etag,
-        mime_type: MimeType,
-    ) -> Result<Option<String>, DavError>
-    where
-        Href: AsRef<str>,
-        Etag: AsRef<str>,
-        MimeType: AsRef<[u8]>,
-    {
-        self.put(href, data, Some(etag), mime_type).await
+        etag: impl AsRef<str>,
+        mime_type: impl AsRef<[u8]>,
+    ) -> Result<Option<String>, DavError> {
+        self.put(href, data, Some(etag.as_ref()), mime_type).await
     }
 
     /// Creates a collection under path `href`.
@@ -540,9 +525,9 @@ where
     /// # Errors
     ///
     /// If there are any network errors or the response could not be parsed.
-    pub async fn create_collection<Href: AsRef<str>>(
+    pub async fn create_collection(
         &self,
-        href: Href,
+        href: impl AsRef<str>,
         resourcetypes: &[&Property<'_, '_>],
     ) -> Result<(), DavError> {
         let mut rendered_resource_types = String::new();
@@ -590,11 +575,11 @@ where
     ///
     /// If there are any network errors or the response could not be parsed.
     // TODO: document WHICH error is returned on Etag mismatch.
-    pub async fn delete<Href, Etag>(&self, href: Href, etag: Etag) -> Result<(), DavError>
-    where
-        Href: AsRef<str>,
-        Etag: AsRef<str>,
-    {
+    pub async fn delete(
+        &self,
+        href: impl AsRef<str>,
+        etag: impl AsRef<str>,
+    ) -> Result<(), DavError> {
         let request = Request::builder()
             .method(Method::DELETE)
             .uri(self.relative_uri(href.as_ref())?)
@@ -618,10 +603,7 @@ where
     /// # Errors
     ///
     /// If there are any network errors or the response could not be parsed.
-    pub async fn force_delete<Href>(&self, href: Href) -> Result<(), DavError>
-    where
-        Href: AsRef<str>,
-    {
+    pub async fn force_delete(&self, href: impl AsRef<str>) -> Result<(), DavError> {
         let request = Request::builder()
             .method(Method::DELETE)
             .uri(self.relative_uri(href.as_ref())?)
@@ -690,8 +672,8 @@ pub struct FoundCollection {
     // TODO: query displayname by default too.
 }
 
-pub(crate) fn parse_prop_href<B: AsRef<[u8]>>(
-    body: B,
+pub(crate) fn parse_prop_href(
+    body: impl AsRef<[u8]>,
     url: &Uri,
     property: &Property<'_, '_>,
 ) -> Result<Option<Uri>, DavError> {
@@ -734,8 +716,8 @@ pub(crate) fn parse_prop_href<B: AsRef<[u8]>>(
     ))
 }
 
-fn parse_prop<B: AsRef<[u8]>>(
-    body: B,
+fn parse_prop(
+    body: impl AsRef<[u8]>,
     property: &Property<'_, '_>,
 ) -> Result<Option<String>, DavError> {
     let body = std::str::from_utf8(body.as_ref())?;
@@ -758,8 +740,8 @@ fn parse_prop<B: AsRef<[u8]>>(
     ))
 }
 
-fn list_resources_parse<B: AsRef<[u8]>>(
-    body: B,
+fn list_resources_parse(
+    body: impl AsRef<[u8]>,
     collection_href: &str,
 ) -> Result<Vec<ListedResource>, DavError> {
     let body = std::str::from_utf8(body.as_ref())?;
@@ -815,8 +797,8 @@ fn list_resources_parse<B: AsRef<[u8]>>(
     Ok(items)
 }
 
-fn multi_get_parse<B: AsRef<[u8]>>(
-    body: B,
+fn multi_get_parse(
+    body: impl AsRef<[u8]>,
     property: &Property<'_, '_>,
 ) -> Result<Vec<FetchedResource>, DavError> {
     let body = std::str::from_utf8(body.as_ref())?;
