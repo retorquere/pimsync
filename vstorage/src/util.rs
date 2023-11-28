@@ -4,21 +4,25 @@
 
 //! Miscellaneous helpers.
 use sha2::{Digest, Sha256};
+use vparser::Parser;
 
-/// Return the SHA256 hash of a string.
-///
-/// This string is expected to be an icalendar or vcard component.
+/// Return the SHA256 hash of an icalendar or vcard.
 pub(crate) fn hash<S: AsRef<str>>(input: S) -> String {
-    // TODO: See (in vdirsyncer-py): hash_item and normalize_item
+    // TODO: See (in vdirsyncer-py) IGNORE_PROPS for more props that might make sense to ignore.
     let mut hasher = Sha256::new();
-    for line in input.as_ref().split_inclusive("\r\n") {
-        // Hint: continuation lines always start with a space.
-        if line.starts_with("PRODID") {
-            // These get continuously mutated and result in noise when determining if two
-            // components are equivalent.
+    let parser = Parser::new(input.as_ref());
+    for line in parser {
+        if line.name() == "PRODID" {
+            continue; // Frequently mutated and only adds noise when comparing.
+        }
+        // TODO: strip/normalize timezones (tip: they are sometimes renamed)?
+        // TODO: normalise order?
+        let raw = line.raw();
+        if raw.is_empty() {
             continue;
         }
-        hasher.update(line);
+        hasher.update(raw);
+        hasher.update("\r\n"); // Included even for the last line.
     }
     format!("{:X}", hasher.finalize())
 }

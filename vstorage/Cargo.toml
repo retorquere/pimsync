@@ -26,6 +26,7 @@ http = "0.2.9"
 hyper = "0.14.24"
 hyper-rustls = "0.24.1"
 serde = { version = "1.0.184", features = ["derive"] }
+vparser = "0.1.3"
 itertools = "0.10.5"
 
 [dev-dependencies]

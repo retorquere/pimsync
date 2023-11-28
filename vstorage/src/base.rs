@@ -215,10 +215,10 @@ where
     #[must_use]
     fn uid(&self) -> Option<String>;
 
-    /// Return the hash of this item.
+    /// Return the hash of this item, usually normalised.
     ///
-    /// Implementations SHOULD normalise content before hashing to ensure that two equivalent items
-    /// return the same hash.
+    /// Implementations SHOULD normalise content before hashing to ensure that two semantically
+    /// equivalent items return the same hash.
     ///
     /// This value is used as a fallback when a storage backend doesn't provide [`Etag`] values, or
     /// when an item's [`Item::uid`] returns `None`.
@@ -275,22 +275,9 @@ impl Item for IcsItem {
         uid(&self.raw)
     }
 
-    /// Returns the hash of the raw content.
-    ///
-    /// This does some minimal normalisations of the items before hashing:
-    ///
-    /// - Ignores the `PROPID` field. Two item where only this field varies are
-    ///   considered equivalent.
-    ///
-    /// [`util::hash`]: crate::util::hash
-    /// [`Etag`]: crate::Etag
+    /// Returns the hash of the normalised content.
     #[must_use]
     fn hash(&self) -> String {
-        // TODO: Need to keep in mind that:
-        //  - Timezones may be renamed and that has no meaning.
-        //  - Some props may be re-sorted, but the Item is still the same.
-        //
-        //  See vdirsyncer's vobject.py for details on this.
         crate::util::hash(&self.raw)
     }
 
@@ -479,13 +466,7 @@ impl Item for VcardItem {
         uid(&self.raw)
     }
 
-    /// Returns the hash of the raw content.
-    ///
-    /// This is used as a fallback when a storage backend doesn't provide [`Etag`] values, or when
-    /// an item is missing its `UID`.
-    ///
-    /// [`util::hash`]: crate::util::hash
-    /// [`Etag`]: crate::Etag
+    /// Returns the hash of the normalised content.
     #[must_use]
     fn hash(&self) -> String {
         crate::util::hash(&self.raw)

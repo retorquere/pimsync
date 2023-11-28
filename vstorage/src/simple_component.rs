@@ -4,6 +4,8 @@
 
 use std::{borrow::Cow, collections::HashMap};
 
+use vparser::{ContentLine, Parser};
+
 /// A simple component model that only cares about the basic structure.
 ///
 /// This is used to split components and other simple operations. However, this
@@ -15,40 +17,32 @@ use std::{borrow::Cow, collections::HashMap};
 /// # Known Issues
 ///
 /// Works only with iCalendar, but not with vCard.
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Debug, PartialEq)]
 pub(crate) struct Component<'a> {
-    kind: &'a str,
-    lines: Vec<&'a str>,
+    kind: Cow<'a, str>,
+    lines: Vec<ContentLine<'a>>,
     subcomponents: Vec<Component<'a>>,
     uid: Option<Cow<'a, str>>,
 }
 
 #[derive(Debug, thiserror::Error, PartialEq)]
 pub(crate) enum ComponentError {
-    /// An unknown (or not implemented) kind of component was found. E.g.: `BEGIN:VUNSUPPORTED`.
-    #[error("unknown (or unimplemented) kind of component: {0}")]
-    UnknownKind(String),
-    /// There are multiple root components, but the content was passed to a function that can only
-    /// handle a single root.
-    #[error("found multiple root components")]
-    MultipleRootComponents,
-    /// No components in the input string.
-    #[error("no components found")]
-    EmptyInput,
-    /// A component is not properly terminated (e.g.: it's missing an `END:` tag).
-    #[error("component is not properly terminated")]
-    UnterminatedComponent,
-    /// The `BEGIN:` lines don't balance with the `END:`. This is the equivalent of an unclosed
-    /// parenthesis.
+    #[error("unknown (or unimplemented) component: {0}")]
+    UnknownComponent(String),
+    #[error("found data after END of root component")]
+    DataAfterEnd,
+    #[error("reached end of file while parsing data")]
+    UnexpectedEof,
     #[error("unbalanced BEGIN and END lines")]
-    UnbalancedInput,
-    /// Lines not delimited by `BEGIN:` and `END:` were found.
+    WrongEnd,
+    #[error("END line had no matching BEGIN line")]
+    EndWithoutBegin,
     #[error("found data after last END: line")]
     DataOutsideBeginEnd,
 }
 
 impl<'a> Component<'a> {
-    fn new(kind: &'a str) -> Self {
+    fn new(kind: Cow<'a, str>) -> Self {
         Component {
             kind,
             lines: Vec::new(),
@@ -59,61 +53,45 @@ impl<'a> Component<'a> {
 
     /// Parse a component from a raw string input.
     pub(crate) fn parse(input: &str) -> Result<Component, ComponentError> {
-        let mut root: Option<Component> = None;
         let mut stack = Vec::new();
-        let mut uid = Option::<Cow<'_, str>>::None;
-        // Indicates whether we're reading a multiline UID.
-        // I.e.: true if and only if the last line was part of the UID.
-        let mut reading_uid = false;
+        let mut current: Option<Component> = None;
 
-        for line in input.lines() {
-            if let Some(u) = line.strip_prefix("UID:") {
-                uid = Some(Cow::from(u));
-                reading_uid = true;
-            } else if reading_uid {
-                if let Some(cont_uid) = line.strip_prefix(' ').or_else(|| line.strip_prefix('\t')) {
-                    uid = uid.map(|u| {
-                        let mut u = u.into_owned();
-                        u.push_str(cont_uid);
-                        Cow::from(u)
-                    });
-                } else {
-                    reading_uid = false;
+        let mut parser = Parser::new(input);
+        while let Some(line) = parser.next() {
+            if line.name() == "BEGIN" {
+                let new = Component::new(line.value());
+                if let Some(previous) = current.replace(new) {
+                    stack.push(previous);
                 }
-            }
-
-            if let Some(kind) = line.strip_prefix("BEGIN:") {
-                stack.push(Component::new(kind));
-            } else if let Some(kind) = line.strip_prefix("END:") {
-                let mut component = stack.pop().ok_or(ComponentError::UnbalancedInput)?;
-                if kind != component.kind {
-                    return Err(ComponentError::UnbalancedInput);
+            } else if line.name() == "END" {
+                let ending = current.take().ok_or(ComponentError::EndWithoutBegin)?;
+                if line.value() != ending.kind {
+                    return Err(ComponentError::WrongEnd);
                 }
-
-                component.uid = uid.take();
-
-                if let Some(top) = stack.last_mut() {
-                    top.subcomponents.push(component);
-                } else if root.replace(component).is_some() {
-                    return Err(ComponentError::MultipleRootComponents);
+                match stack.pop() {
+                    Some(mut previous) => {
+                        previous.subcomponents.push(ending);
+                        current = Some(previous);
+                    }
+                    None => {
+                        return if parser.next().is_some_and(|line| !line.raw().is_empty()) {
+                            Err(ComponentError::DataAfterEnd)
+                        } else {
+                            Ok(ending)
+                        };
+                    }
                 }
+            } else if let Some(ref mut current) = current {
+                if line.name() == "UID" {
+                    current.uid = Some(line.value());
+                }
+                current.lines.push(line);
             } else {
-                // Hint: Lines starting with `UID:` also get pushed here.
-                stack
-                    .last_mut()
-                    .ok_or(ComponentError::DataOutsideBeginEnd)?
-                    .lines
-                    .push(line);
-            }
+                return Err(ComponentError::DataOutsideBeginEnd);
+            };
         }
 
-        if let Some(root) = root {
-            Ok(root)
-        } else if stack.is_empty() {
-            Err(ComponentError::EmptyInput)
-        } else {
-            Err(ComponentError::UnterminatedComponent)
-        }
+        Err(ComponentError::UnexpectedEof)
     }
 
     // Breaks up a component collection into individual components.
@@ -168,7 +146,7 @@ impl<'a> Component<'a> {
         items: &mut HashMap<Cow<'a, str>, Component<'a>>,
         without_uid: &mut Vec<Component<'a>>,
     ) -> Result<(), ComponentError> {
-        match self.kind {
+        match self.kind.as_ref() {
             "VTIMEZONE" => {
                 inline.push(self);
             }
@@ -179,7 +157,7 @@ impl<'a> Component<'a> {
                         items
                             .entry(uid.clone())
                             .or_insert(Component {
-                                kind: "VCALENDAR",
+                                kind: Cow::Borrowed("VCALENDAR"),
                                 lines: Vec::new(),
                                 subcomponents: Vec::new(),
                                 uid: None,
@@ -207,7 +185,7 @@ impl<'a> Component<'a> {
                     Self::split_inner(component, inline, items, without_uid)?;
                 }
             }
-            kind => return Err(ComponentError::UnknownKind(kind.to_string())),
+            kind => return Err(ComponentError::UnknownComponent(kind.to_string())),
         }
 
         Ok(())
@@ -219,17 +197,17 @@ impl ToString for Component<'_> {
     fn to_string(&self) -> String {
         let mut raw = String::new();
         raw.push_str("BEGIN:");
-        raw.push_str(self.kind);
+        raw.push_str(self.kind.as_ref());
         raw.push_str("\r\n");
         for line in &self.lines {
-            raw.push_str(line);
+            raw.push_str(line.raw());
             raw.push_str("\r\n");
         }
         for component in &self.subcomponents {
             raw.push_str(&component.to_string());
         }
         raw.push_str("END:");
-        raw.push_str(self.kind);
+        raw.push_str(self.kind.as_ref());
         raw.push_str("\r\n");
 
         raw
@@ -379,7 +357,7 @@ mod test {
 
         assert_eq!(
             Component::parse(&calendar),
-            Err(ComponentError::UnterminatedComponent)
+            Err(ComponentError::UnexpectedEof)
         );
     }
 
@@ -404,7 +382,7 @@ mod test {
 
         assert_eq!(
             Component::parse(&calendar).unwrap().into_split_collection(),
-            Err(ComponentError::UnknownKind("VAUTOMOBILE".to_string()))
+            Err(ComponentError::UnknownComponent("VAUTOMOBILE".to_string()))
         );
     }
 
