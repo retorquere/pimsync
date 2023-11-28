@@ -83,17 +83,15 @@ async fn copy_item<I: Item>(
     dst_storage: &Arc<dyn Storage<I>>,
     uid: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let col_a = src_storage.open_collection(&src_state.href)?;
-
     let item_state = src_state.get_item_by_uid(uid).ok_or("item is missing")?;
-    let (item, _) = src_storage.get_item(&col_a, &item_state.href).await?;
+    let (item, _) = src_storage.get_item(&item_state.href).await?;
 
     let col = dst_storage.open_collection(&dst_state.href)?;
 
     if let Some(dst_item_state) = dst_state.get_item_by_uid_mut(uid) {
         trace!("Updating {uid}");
         let new_etag = dst_storage
-            .update_item(&col, &dst_item_state.href, &dst_item_state.etag, &item)
+            .update_item(&dst_item_state.href, &dst_item_state.etag, &item)
             .await?;
         dst_item_state.etag = new_etag;
         dst_item_state.hash = item.hash();
@@ -116,7 +114,6 @@ async fn delete_item<I: Item>(
     storage: &Arc<dyn Storage<I>>,
     uid: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let col = storage.open_collection(&state.href)?;
     let pos = state
         .items
         .iter()
@@ -125,7 +122,7 @@ async fn delete_item<I: Item>(
     let item_state = &state.items[pos];
 
     storage
-        .delete_item(&col, &item_state.href, &item_state.etag)
+        .delete_item(&item_state.href, &item_state.etag)
         .await?;
 
     state.items.swap_remove(pos);

@@ -19,7 +19,6 @@ sha2 = "0.10.2"
 log = "0.4.17"
 tokio = { version = "1.21.2", features = ["full"] }
 thiserror = "1.0.37"
-tokio-stream = { version = "0.1.11", default-features = false, features = ["fs"] }
 async-trait = "0.1.64"
 libdav = { version = "0.1.0", path = "../libdav" }
 http = "0.2.9"

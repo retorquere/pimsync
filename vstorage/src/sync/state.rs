@@ -134,16 +134,17 @@ impl CollectionState {
             to_prefetch.push(item_ref.href);
         }
         let to_prefetch = to_prefetch.iter().map(String::as_str).collect::<Vec<_>>();
-        let prefetched = storage
-            .get_many_items(collection, &to_prefetch)
-            .await?
-            .into_iter()
-            .map(|(href, item, etag)| ItemState {
-                href,
-                uid: item.ident(),
-                etag,
-                hash: item.hash(),
-            });
+        let prefetched =
+            storage
+                .get_many_items(&to_prefetch)
+                .await?
+                .into_iter()
+                .map(|(href, item, etag)| ItemState {
+                    href,
+                    uid: item.ident(),
+                    etag,
+                    hash: item.hash(),
+                });
         state.items.extend(prefetched);
 
         Ok(state)

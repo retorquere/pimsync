@@ -187,7 +187,7 @@ impl Storage<IcsItem> for WebCalStorage {
     ///
     /// Note that, due to the nature of webcal, the whole collection needs to be retrieved. It is
     /// strongly recommended to use [`WebCalStorage::get_all_items`] instead.
-    async fn get_item(&self, _collection: &Collection, href: &str) -> Result<(IcsItem, Etag)> {
+    async fn get_item(&self, href: &str) -> Result<(IcsItem, Etag)> {
         let raw = fetch_raw(&self.http_client, &self.definition.url).await?;
 
         // TODO: it would be best if the parser could operate on a stream, although that might
@@ -215,11 +215,7 @@ impl Storage<IcsItem> for WebCalStorage {
     ///
     /// Note that, due to the nature of webcal, the whole collection needs to be retrieved. It is
     /// generally best to use [`WebCalStorage::get_all_items`] instead.
-    async fn get_many_items(
-        &self,
-        _collection: &Collection,
-        hrefs: &[&str],
-    ) -> Result<Vec<(Href, IcsItem, Etag)>> {
+    async fn get_many_items(&self, hrefs: &[&str]) -> Result<Vec<(Href, IcsItem, Etag)>> {
         let raw = fetch_raw(&self.http_client, &self.definition.url).await?;
 
         // TODO: it would be best if the parser could operate on a stream, although that might
@@ -275,13 +271,7 @@ impl Storage<IcsItem> for WebCalStorage {
     }
 
     /// Unsupported for this storage type.
-    async fn update_item(
-        &self,
-        _collection: &Collection,
-        _: &str,
-        _: &Etag,
-        _: &IcsItem,
-    ) -> Result<Etag> {
+    async fn update_item(&self, _: &str, _: &Etag, _: &IcsItem) -> Result<Etag> {
         Err(Error::new(
             ErrorKind::Unsupported,
             "updating items via webcal is not supported",
@@ -314,7 +304,7 @@ impl Storage<IcsItem> for WebCalStorage {
         ))
     }
 
-    async fn delete_item(&self, _: &Collection, _: &str, _: &Etag) -> Result<()> {
+    async fn delete_item(&self, _: &str, _: &Etag) -> Result<()> {
         Err(Error::new(
             ErrorKind::Unsupported,
             "deleting items via webcal is not supported",
@@ -393,16 +383,13 @@ mod test {
         let item_refs = storage.list_items(collection).await.unwrap();
 
         for item_ref in &item_refs {
-            let (_item, etag) = storage.get_item(collection, &item_ref.href).await.unwrap();
+            let (_item, etag) = storage.get_item(&item_ref.href).await.unwrap();
             // Might file if upstream file mutates between requests.
             assert_eq!(etag, item_ref.etag);
         }
 
         let hrefs: Vec<&str> = item_refs.iter().map(|r| r.href.as_ref()).collect();
-        let many = storage
-            .get_many_items(collection, &hrefs.clone())
-            .await
-            .unwrap();
+        let many = storage.get_many_items(&hrefs.clone()).await.unwrap();
 
         assert_eq!(many.len(), hrefs.len());
         assert_eq!(many.len(), item_refs.len());

@@ -14,7 +14,7 @@ use libdav::dav::mime_types;
 use libdav::CardDavClient;
 
 use crate::base::{AddressBookProperty, Collection, Definition, Item, ItemRef, Storage, VcardItem};
-use crate::dav::path_for_collection_in_home_set;
+use crate::dav::{collection_href_for_item, path_for_collection_in_home_set};
 use crate::{CollectionId, Error, ErrorKind, Etag, Href, Result};
 
 #[derive(Debug)]
@@ -200,10 +200,11 @@ where
         Ok(items)
     }
 
-    async fn get_item(&self, collection: &Collection, href: &str) -> Result<(VcardItem, Etag)> {
+    async fn get_item(&self, href: &str) -> Result<(VcardItem, Etag)> {
+        let collection_href = collection_href_for_item(href)?;
         let mut results = self
             .client
-            .get_resources(&collection.href(), &[href])
+            .get_resources(collection_href, &[href])
             .await
             .map_err(|e| Error::new(ErrorKind::Uncategorised, e))?;
 
@@ -226,14 +227,14 @@ where
         Ok((VcardItem::from(content.data), content.etag.into()))
     }
 
-    async fn get_many_items(
-        &self,
-        collection: &Collection,
-        hrefs: &[&str],
-    ) -> Result<Vec<(Href, VcardItem, Etag)>> {
+    async fn get_many_items(&self, hrefs: &[&str]) -> Result<Vec<(Href, VcardItem, Etag)>> {
+        if hrefs.is_empty() {
+            return Ok(Vec::new());
+        }
+        let collection_href = collection_href_for_item(hrefs[0])?;
         Ok(self
             .client
-            .get_resources(&collection.href(), hrefs)
+            .get_resources(collection_href, hrefs)
             .await
             .map_err(|e| Error::new(ErrorKind::Uncategorised, e))?
             .into_iter()
@@ -247,7 +248,7 @@ where
     async fn get_all_items(&self, collection: &Collection) -> Result<Vec<(Href, VcardItem, Etag)>> {
         let list = self.list_items(collection).await?;
         let hrefs = list.iter().map(|i| i.href.as_str()).collect::<Vec<_>>();
-        self.get_many_items(collection, &hrefs).await
+        self.get_many_items(&hrefs).await
     }
 
     async fn add_item(&self, collection: &Collection, item: &VcardItem) -> Result<ItemRef> {
@@ -270,13 +271,7 @@ where
             })
     }
 
-    async fn update_item(
-        &self,
-        _collection: &Collection,
-        href: &str,
-        etag: &Etag,
-        item: &VcardItem,
-    ) -> Result<Etag> {
+    async fn update_item(&self, href: &str, etag: &Etag, item: &VcardItem) -> Result<Etag> {
         // TODO: check that href is a sub-path of collection.href?
         self.client
             .update_resource(
@@ -345,8 +340,8 @@ where
         result.map_err(Error::from)
     }
 
-    async fn delete_item(&self, _collection: &Collection, href: &str, etag: &Etag) -> Result<()> {
-        // TODO: check that href is a sub-path of collection.href?
+    async fn delete_item(&self, href: &str, etag: &Etag) -> Result<()> {
+        // TODO: check that href is a sub-path of this storage?
         self.client.delete(href, etag).await?;
 
         Ok(())

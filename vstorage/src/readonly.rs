@@ -75,16 +75,12 @@ impl<I: Item> Storage<I> for ReadOnlyStorage<I> {
         self.inner.list_items(collection).await
     }
 
-    async fn get_item(&self, collection: &Collection, href: &str) -> Result<(I, Etag)> {
-        self.inner.get_item(collection, href).await
+    async fn get_item(&self, href: &str) -> Result<(I, Etag)> {
+        self.inner.get_item(href).await
     }
 
-    async fn get_many_items(
-        &self,
-        collection: &Collection,
-        hrefs: &[&str],
-    ) -> Result<Vec<(crate::Href, I, crate::Etag)>> {
-        self.inner.get_many_items(collection, hrefs).await
+    async fn get_many_items(&self, hrefs: &[&str]) -> Result<Vec<(crate::Href, I, crate::Etag)>> {
+        self.inner.get_many_items(hrefs).await
     }
 
     async fn get_all_items(&self, collection: &Collection) -> Result<Vec<(Href, I, Etag)>> {
@@ -95,7 +91,7 @@ impl<I: Item> Storage<I> for ReadOnlyStorage<I> {
         Err(ErrorKind::ReadOnly.into())
     }
 
-    async fn update_item(&self, _: &Collection, _: &str, _: &Etag, _: &I) -> Result<Etag> {
+    async fn update_item(&self, _: &str, _: &Etag, _: &I) -> Result<Etag> {
         Err(ErrorKind::ReadOnly.into())
     }
 
@@ -116,7 +112,7 @@ impl<I: Item> Storage<I> for ReadOnlyStorage<I> {
         self.inner.get_collection_property(collection, meta).await
     }
 
-    async fn delete_item(&self, _: &Collection, _: &str, _: &Etag) -> Result<()> {
+    async fn delete_item(&self, _: &str, _: &Etag) -> Result<()> {
         Err(ErrorKind::ReadOnly.into())
     }
 

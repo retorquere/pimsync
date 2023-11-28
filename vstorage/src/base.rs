@@ -107,17 +107,15 @@ pub trait Storage<I: Item>: Sync + Send {
     ///
     /// Storages never cache data locally. For reading items in bulk, prefer
     /// [`Storage::get_many_items`].
-    async fn get_item(&self, collection: &Collection, href: &str) -> Result<(I, Etag)>;
+    async fn get_item(&self, href: &str) -> Result<(I, Etag)>;
 
     /// Fetches multiple items.
     ///
     /// Similar to [`Storage::get_item`], but optimised to minimise the amount of IO required.
     /// Duplicate `href`s are ignored.
-    async fn get_many_items(
-        &self,
-        collection: &Collection,
-        hrefs: &[&str],
-    ) -> Result<Vec<(Href, I, Etag)>>;
+    ///
+    /// All requested items MUST belong to the same collection.
+    async fn get_many_items(&self, hrefs: &[&str]) -> Result<Vec<(Href, I, Etag)>>;
 
     /// Fetch all items from a given collection.
     // TODO: provide a generic implementation.
@@ -126,21 +124,16 @@ pub trait Storage<I: Item>: Sync + Send {
     /// Saves a new item into a given collection
     async fn add_item(&self, collection: &Collection, item: &I) -> Result<ItemRef>;
 
-    /// Updates an existing item in a given collection.
-    async fn update_item(
-        &self,
-        collection: &Collection,
-        href: &str,
-        etag: &Etag,
-        item: &I,
-    ) -> Result<Etag>;
+    /// Updates the contents of an existing item.
+    async fn update_item(&self, href: &str, etag: &Etag, item: &I) -> Result<Etag>;
 
-    async fn delete_item(&self, collection: &Collection, href: &str, etag: &Etag) -> Result<()>;
+    /// Deletes an existing item.
+    async fn delete_item(&self, href: &str, etag: &Etag) -> Result<()>;
 
-    /// A name that does not change for this collection.
+    /// Return the id for a given collection.
     ///
-    /// Usually this is based off the last component of the href, but may be different for storages
-    /// where this does not make sense.
+    /// The id for a given Collection must never change. Usually this is based off the last
+    /// component of the href, but may be different for storages where this does not make sense.
     ///
     /// # Errors
     ///

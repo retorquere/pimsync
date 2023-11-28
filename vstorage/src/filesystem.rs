@@ -11,6 +11,7 @@
 #![allow(clippy::module_name_repetitions)]
 
 use async_trait::async_trait;
+use std::ffi::OsStr;
 use std::marker::PhantomData;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -19,8 +20,6 @@ use tokio::fs::{
     create_dir, metadata, read_dir, read_to_string, remove_dir, remove_file, File, OpenOptions,
 };
 use tokio::io::AsyncWriteExt;
-use tokio_stream::wrappers::ReadDirStream;
-use tokio_stream::StreamExt;
 
 use crate::base::{
     AddressBookProperty, CalendarProperty, Collection, Definition, Item, ItemRef, Storage,
@@ -101,47 +100,38 @@ where
     }
 
     async fn list_items(&self, collection: &Collection) -> Result<Vec<ItemRef>> {
-        let path = self.collection_path(collection);
-        let mut read_dir = ReadDirStream::new(read_dir(path).await?);
+        let mut read_dir = read_dir(self.collection_path(collection)).await?;
 
         let mut items = Vec::new();
-        while let Some(entry) = read_dir.next().await {
-            let entry = entry?;
-            let href: String = entry
-                .file_name()
-                .to_str()
-                .ok_or_else(|| Error::new(ErrorKind::InvalidData, "Filename is not valid UTF-8"))?
-                .into();
-            if !href.ends_with(&self.definition.extension) {
+        let extension = OsStr::new(self.definition.extension.as_str());
+        while let Some(entry) = read_dir.next_entry().await? {
+            let path = entry.path();
+            if !path.extension().is_some_and(|e| e == extension) {
                 continue;
             }
-            let etag = etag_for_path(&entry.path()).await?;
-            let item = ItemRef { href, etag };
-            items.push(item);
+            let href = self.href_for_path(&path)?;
+            let etag = etag_for_path(path).await?;
+
+            items.push(ItemRef { href, etag });
         }
 
         Ok(items)
     }
 
-    async fn get_item(&self, collection: &Collection, href: &str) -> Result<(I, Etag)> {
-        let path = self.collection_path(collection).join(href);
-        let meta = metadata(&path).await?;
+    async fn get_item(&self, href: &str) -> Result<(I, Etag)> {
+        let path = self.definition.path.join(href);
 
         let item = I::from(read_to_string(&path).await?);
-        let etag = etag_for_metadata(&meta);
+        let etag = etag_for_path(&path).await?;
 
         Ok((item, etag))
     }
 
-    async fn get_many_items(
-        &self,
-        collection: &Collection,
-        hrefs: &[&str],
-    ) -> Result<Vec<(Href, I, Etag)>> {
+    async fn get_many_items(&self, hrefs: &[&str]) -> Result<Vec<(Href, I, Etag)>> {
         // No specialisation for this type; it's fast enough for now.
         let mut items = Vec::with_capacity(hrefs.len());
         for href in hrefs {
-            let (item, etag) = self.get_item(collection, href).await?;
+            let (item, etag) = self.get_item(href).await?;
             items.push((String::from(*href), item, etag));
         }
         Ok(items)
@@ -151,17 +141,16 @@ where
         let mut read_dir = read_dir(self.collection_path(collection)).await?;
 
         let mut items = Vec::new();
+        let extension = OsStr::new(self.definition.extension.as_str());
         while let Some(entry) = read_dir.next_entry().await? {
-            let href: String = entry
-                .file_name()
-                .to_str()
-                .ok_or_else(|| Error::new(ErrorKind::InvalidData, "Filename is not valid UTF-8"))?
-                .into();
-            if !href.ends_with(&self.definition.extension) {
+            let path = entry.path();
+            if !path.extension().is_some_and(|e| e == extension) {
                 continue;
             }
+            let href = self.href_for_path(&path)?;
             let etag = etag_for_path(&entry.path()).await?;
-            let item = I::from(read_to_string(&href).await?);
+
+            let item = I::from(read_to_string(path).await?);
             items.push((href, item, etag));
         }
 
@@ -224,16 +213,8 @@ where
         Ok(item_ref)
     }
 
-    async fn update_item(
-        &self,
-        collection: &Collection,
-        href: &str,
-        etag: &Etag,
-        item: &I,
-    ) -> Result<Etag> {
-        let filename = self.collection_path(collection).join(href);
-
-        let actual_etag = etag_for_path(&filename).await?;
+    async fn update_item(&self, href: &str, etag: &Etag, item: &I) -> Result<Etag> {
+        let actual_etag = etag_for_path(&href).await?;
         if *etag != actual_etag {
             return Err(Error::new(ErrorKind::InvalidData, "wrong etag"));
         }
@@ -244,24 +225,22 @@ where
             .write(true)
             .truncate(true)
             .create(false)
-            .open(&filename)
+            .open(&href)
             .await?;
         file.write_all(item.as_str().as_bytes()).await?;
 
-        let etag = etag_for_path(&filename).await?;
+        let etag = etag_for_path(&href).await?;
         Ok(etag)
     }
 
-    async fn delete_item(&self, collection: &Collection, href: &str, etag: &Etag) -> Result<()> {
-        let filename = self.collection_path(collection).join(href);
-
-        let actual_etag = etag_for_path(&filename).await?;
+    async fn delete_item(&self, href: &str, etag: &Etag) -> Result<()> {
+        let actual_etag = etag_for_path(&href).await?;
         if *etag != actual_etag {
             return Err(Error::new(ErrorKind::InvalidData, "wrong etag"));
         }
 
         // FIXME: this is racey and the etag can change after checking.
-        remove_file(filename).await?;
+        remove_file(href).await?;
 
         Ok(())
     }
@@ -299,6 +278,20 @@ impl<I: Item> FilesystemStorage<I> {
         };
 
         Ok(path)
+    }
+
+    /// Returns the href for a path.
+    ///
+    /// # Panics
+    ///
+    /// If `path` is not a grandchild of the storage's path.
+    fn href_for_path(&self, path: &Path) -> Result<String> {
+        path.strip_prefix(&self.definition.path)
+            // This never takes external input. If this panics, we have a bug.
+            .expect("path of item must include storage path as prefix")
+            .to_str()
+            .ok_or_else(|| Error::new(ErrorKind::InvalidData, "Filename is not valid UTF-8"))
+            .map(str::to_string)
     }
 }
 
@@ -385,8 +378,13 @@ impl PropertyWithFilename for AddressBookProperty {
 
 #[cfg(test)]
 mod tests {
+    use std::fs::{create_dir_all, write};
+
     use super::FilesystemDefinition;
-    use crate::base::{Definition, IcsItem};
+    use crate::{
+        base::{Collection, Definition, IcsItem, Storage},
+        ErrorKind,
+    };
     use tempfile::tempdir;
 
     #[tokio::test]
@@ -403,6 +401,56 @@ mod tests {
             .unwrap();
 
         assert!(displayname.is_none())
+    }
+
+    #[tokio::test]
+    async fn test_path_handling() {
+        let dir = tempdir().unwrap();
+        let definition =
+            FilesystemDefinition::<IcsItem>::new(dir.path().to_path_buf(), "ics".to_string());
+        let storage = definition.build();
+
+        let collection_path = dir.path().join("one");
+        create_dir_all(&collection_path).unwrap();
+
+        let without_prodid = vec![
+            "BEGIN:VCALENDAR",
+            "BEGIN:VEVENT",
+            "DTSTART:19970714T170000Z",
+            "DTEND:19970715T035959Z",
+            "SUMMARY:Bastille Day Party",
+            "UID:11bb6bed-c29b-4999-a627-12dee35f8395",
+            "END:VEVENT",
+            "END:VCALENDAR",
+        ]
+        .join("\r\n");
+
+        write(collection_path.join("item.ics"), without_prodid).unwrap();
+        let collection = Collection::new("one".to_string());
+
+        let listed_items = storage.list_items(&collection).await.unwrap();
+        assert_eq!(listed_items.len(), 1);
+        assert_eq!(listed_items[0].href, "one/item.ics");
+
+        let all_items = storage.get_all_items(&collection).await.unwrap();
+        assert_eq!(all_items.len(), 1);
+        assert_eq!(all_items[0].0, "one/item.ics");
+
+        let _item = storage.get_item("one/item.ics").await.unwrap();
+        // Nothing to assert here.
+
+        let many_items = storage.get_many_items(&["one/item.ics"]).await.unwrap();
+        assert_eq!(many_items.len(), 1);
+        assert_eq!(many_items[0].0, "one/item.ics");
+
+        let missing_collection = Collection::new("two".to_string());
+        let err = match storage.list_items(&missing_collection).await {
+            Ok(items) => panic!("expected error, got {} result.", items.len()),
+            Err(e) => e,
+        };
+        assert_eq!(err.kind, ErrorKind::DoesNotExist);
+
+        // TODO: more tests on the missing collection
     }
 
     // #[test]

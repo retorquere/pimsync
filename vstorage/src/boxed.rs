@@ -67,19 +67,13 @@ impl<I: Item> Storage<I> for Box<dyn Storage<I>> {
             .await
     }
 
-    async fn get_item(&self, collection: &Collection, href: &str) -> Result<(I, Etag)> {
-        AsRef::<dyn Storage<I>>::as_ref(self)
-            .get_item(collection, href)
-            .await
+    async fn get_item(&self, href: &str) -> Result<(I, Etag)> {
+        AsRef::<dyn Storage<I>>::as_ref(self).get_item(href).await
     }
 
-    async fn get_many_items(
-        &self,
-        collection: &Collection,
-        hrefs: &[&str],
-    ) -> Result<Vec<(Href, I, Etag)>> {
+    async fn get_many_items(&self, hrefs: &[&str]) -> Result<Vec<(Href, I, Etag)>> {
         AsRef::<dyn Storage<I>>::as_ref(self)
-            .get_many_items(collection, hrefs)
+            .get_many_items(hrefs)
             .await
     }
 
@@ -95,21 +89,15 @@ impl<I: Item> Storage<I> for Box<dyn Storage<I>> {
             .await
     }
 
-    async fn update_item(
-        &self,
-        collection: &Collection,
-        href: &str,
-        etag: &Etag,
-        item: &I,
-    ) -> Result<Etag> {
+    async fn update_item(&self, href: &str, etag: &Etag, item: &I) -> Result<Etag> {
         AsRef::<dyn Storage<I>>::as_ref(self)
-            .update_item(collection, href, etag, item)
+            .update_item(href, etag, item)
             .await
     }
 
-    async fn delete_item(&self, collection: &Collection, href: &str, etag: &Etag) -> Result<()> {
+    async fn delete_item(&self, href: &str, etag: &Etag) -> Result<()> {
         AsRef::<dyn Storage<I>>::as_ref(self)
-            .delete_item(collection, href, etag)
+            .delete_item(href, etag)
             .await
     }
 
