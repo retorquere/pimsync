@@ -17,9 +17,11 @@ use hyper::{client::HttpConnector, Client};
 use hyper_rustls::{HttpsConnector, HttpsConnectorBuilder};
 
 use crate::{
-    base::{CalendarProperty, Collection, Definition, IcsItem, Item, ItemRef, Storage},
+    base::{
+        CalendarProperty, Collection, Definition, FetchedItem, IcsItem, Item, ItemRef, Storage,
+    },
     simple_component::Component,
-    CollectionId, Error, ErrorKind, Etag, Href, Result,
+    CollectionId, Error, ErrorKind, Etag, Result,
 };
 
 /// A storage which exposes items in remote icalendar resource.
@@ -215,7 +217,7 @@ impl Storage<IcsItem> for WebCalStorage {
     ///
     /// Note that, due to the nature of webcal, the whole collection needs to be retrieved. It is
     /// generally best to use [`WebCalStorage::get_all_items`] instead.
-    async fn get_many_items(&self, hrefs: &[&str]) -> Result<Vec<(Href, IcsItem, Etag)>> {
+    async fn get_many_items(&self, hrefs: &[&str]) -> Result<Vec<FetchedItem<IcsItem>>> {
         let raw = fetch_raw(&self.http_client, &self.definition.url).await?;
 
         // TODO: it would be best if the parser could operate on a stream, although that might
@@ -229,8 +231,11 @@ impl Storage<IcsItem> for WebCalStorage {
             .filter_map(|c| {
                 let item = IcsItem::from(c.to_string());
                 if hrefs.contains(&(item.ident().as_ref())) {
-                    let hash = item.hash();
-                    Some(Ok((item.ident(), item, hash.into())))
+                    Some(Ok(FetchedItem {
+                        href: item.ident(),
+                        etag: item.hash().into(),
+                        item,
+                    }))
                 } else {
                     None
                 }
@@ -241,7 +246,7 @@ impl Storage<IcsItem> for WebCalStorage {
     /// Fetch all items in the collection.
     ///
     /// Performs a single HTTP(s) request to fetch all items.
-    async fn get_all_items(&self, _collection: &Collection) -> Result<Vec<(Href, IcsItem, Etag)>> {
+    async fn get_all_items(&self, _collection: &Collection) -> Result<Vec<FetchedItem<IcsItem>>> {
         let raw = fetch_raw(&self.http_client, &self.definition.url).await?;
 
         // TODO: it would be best if the parser could operate on a stream, although that might
@@ -255,9 +260,11 @@ impl Storage<IcsItem> for WebCalStorage {
             .iter()
             .map(|c| {
                 let item = IcsItem::from(c.to_string());
-                let hash = item.hash();
-
-                Ok((item.ident(), item, hash.into()))
+                Ok(FetchedItem {
+                    href: item.ident(),
+                    etag: item.hash().into(),
+                    item,
+                })
             })
             .collect()
     }

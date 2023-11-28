@@ -13,9 +13,11 @@ use libdav::auth::Auth;
 use libdav::dav::mime_types;
 use libdav::CalDavClient;
 
-use crate::base::{CalendarProperty, Collection, Definition, IcsItem, Item, ItemRef, Storage};
+use crate::base::{
+    CalendarProperty, Collection, Definition, FetchedItem, IcsItem, Item, ItemRef, Storage,
+};
 use crate::dav::{collection_href_for_item, path_for_collection_in_home_set};
-use crate::{CollectionId, Error, ErrorKind, Etag, Href, Result};
+use crate::{CollectionId, Error, ErrorKind, Etag, Result};
 
 #[derive(Debug)]
 pub struct CalDavDefinition<C>
@@ -245,7 +247,7 @@ where
         Ok((IcsItem::from(content.data), content.etag.into()))
     }
 
-    async fn get_many_items(&self, hrefs: &[&str]) -> Result<Vec<(Href, IcsItem, Etag)>> {
+    async fn get_many_items(&self, hrefs: &[&str]) -> Result<Vec<FetchedItem<IcsItem>>> {
         if hrefs.is_empty() {
             return Ok(Vec::new());
         }
@@ -258,12 +260,16 @@ where
             .into_iter()
             .map(|r| {
                 let content = r.content.unwrap();
-                (r.href, IcsItem::from(content.data), content.etag.into())
+                FetchedItem {
+                    href: r.href,
+                    item: IcsItem::from(content.data),
+                    etag: content.etag.into(),
+                }
             })
             .collect())
     }
 
-    async fn get_all_items(&self, collection: &Collection) -> Result<Vec<(Href, IcsItem, Etag)>> {
+    async fn get_all_items(&self, collection: &Collection) -> Result<Vec<FetchedItem<IcsItem>>> {
         let list = self.list_items(collection).await?;
         let hrefs = list.iter().map(|i| i.href.as_str()).collect::<Vec<_>>();
         self.get_many_items(&hrefs).await

@@ -1,7 +1,8 @@
 use crate::base::Collection;
+use crate::base::FetchedItem;
 use crate::base::ItemRef;
 use crate::base::{Item, Storage};
-use crate::{CollectionId, Etag, Href, Result};
+use crate::{CollectionId, Etag, Result};
 
 use async_trait::async_trait;
 
@@ -71,13 +72,13 @@ impl<I: Item> Storage<I> for Box<dyn Storage<I>> {
         AsRef::<dyn Storage<I>>::as_ref(self).get_item(href).await
     }
 
-    async fn get_many_items(&self, hrefs: &[&str]) -> Result<Vec<(Href, I, Etag)>> {
+    async fn get_many_items(&self, hrefs: &[&str]) -> Result<Vec<FetchedItem<I>>> {
         AsRef::<dyn Storage<I>>::as_ref(self)
             .get_many_items(hrefs)
             .await
     }
 
-    async fn get_all_items(&self, collection: &Collection) -> Result<Vec<(Href, I, Etag)>> {
+    async fn get_all_items(&self, collection: &Collection) -> Result<Vec<FetchedItem<I>>> {
         AsRef::<dyn Storage<I>>::as_ref(self)
             .get_all_items(collection)
             .await

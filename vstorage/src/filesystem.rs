@@ -22,9 +22,10 @@ use tokio::fs::{
 use tokio::io::AsyncWriteExt;
 
 use crate::base::{
-    AddressBookProperty, CalendarProperty, Collection, Definition, Item, ItemRef, Storage,
+    AddressBookProperty, CalendarProperty, Collection, Definition, FetchedItem, Item, ItemRef,
+    Storage,
 };
-use crate::{CollectionId, Error, ErrorKind, Etag, Href, Result};
+use crate::{CollectionId, Error, ErrorKind, Etag, Result};
 
 // TODO: atomic writes
 
@@ -127,17 +128,21 @@ where
         Ok((item, etag))
     }
 
-    async fn get_many_items(&self, hrefs: &[&str]) -> Result<Vec<(Href, I, Etag)>> {
+    async fn get_many_items(&self, hrefs: &[&str]) -> Result<Vec<FetchedItem<I>>> {
         // No specialisation for this type; it's fast enough for now.
         let mut items = Vec::with_capacity(hrefs.len());
         for href in hrefs {
             let (item, etag) = self.get_item(href).await?;
-            items.push((String::from(*href), item, etag));
+            items.push(FetchedItem {
+                href: String::from(*href),
+                item,
+                etag,
+            });
         }
         Ok(items)
     }
 
-    async fn get_all_items(&self, collection: &Collection) -> Result<Vec<(Href, I, Etag)>> {
+    async fn get_all_items(&self, collection: &Collection) -> Result<Vec<FetchedItem<I>>> {
         let mut read_dir = read_dir(self.collection_path(collection)).await?;
 
         let mut items = Vec::new();
@@ -147,11 +152,12 @@ where
             if !path.extension().is_some_and(|e| e == extension) {
                 continue;
             }
-            let href = self.href_for_path(&path)?;
-            let etag = etag_for_path(&entry.path()).await?;
 
-            let item = I::from(read_to_string(path).await?);
-            items.push((href, item, etag));
+            items.push(FetchedItem {
+                href: self.href_for_path(&path)?,
+                item: I::from(read_to_string(&path).await?),
+                etag: etag_for_path(&path).await?,
+            });
         }
 
         Ok(items)
@@ -434,14 +440,14 @@ mod tests {
 
         let all_items = storage.get_all_items(&collection).await.unwrap();
         assert_eq!(all_items.len(), 1);
-        assert_eq!(all_items[0].0, "one/item.ics");
+        assert_eq!(all_items[0].href, "one/item.ics");
 
         let _item = storage.get_item("one/item.ics").await.unwrap();
         // Nothing to assert here.
 
         let many_items = storage.get_many_items(&["one/item.ics"]).await.unwrap();
         assert_eq!(many_items.len(), 1);
-        assert_eq!(many_items[0].0, "one/item.ics");
+        assert_eq!(many_items[0].href, "one/item.ics");
 
         let missing_collection = Collection::new("two".to_string());
         let err = match storage.list_items(&missing_collection).await {

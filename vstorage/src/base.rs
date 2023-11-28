@@ -115,11 +115,11 @@ pub trait Storage<I: Item>: Sync + Send {
     /// Duplicate `href`s are ignored.
     ///
     /// All requested items MUST belong to the same collection.
-    async fn get_many_items(&self, hrefs: &[&str]) -> Result<Vec<(Href, I, Etag)>>;
+    async fn get_many_items(&self, hrefs: &[&str]) -> Result<Vec<FetchedItem<I>>>;
 
     /// Fetch all items from a given collection.
     // TODO: provide a generic implementation.
-    async fn get_all_items(&self, collection: &Collection) -> Result<Vec<(Href, I, Etag)>>;
+    async fn get_all_items(&self, collection: &Collection) -> Result<Vec<FetchedItem<I>>>;
 
     /// Saves a new item into a given collection
     async fn add_item(&self, collection: &Collection, item: &I) -> Result<ItemRef>;
@@ -495,4 +495,14 @@ impl From<String> for VcardItem {
     fn from(value: String) -> Self {
         VcardItem { raw: value }
     }
+}
+
+/// An item plus metadata returned when fetching it.
+pub struct FetchedItem<I: Item> {
+    /// See [`Href`]
+    pub href: Href,
+    /// The actual content of this item. See [`Item`].
+    pub item: I,
+    /// See [`Etag`]
+    pub etag: Etag,
 }

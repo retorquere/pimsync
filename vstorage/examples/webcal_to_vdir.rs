@@ -18,6 +18,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use vstorage::base::Collection;
 use vstorage::base::Definition;
+use vstorage::base::FetchedItem;
 use vstorage::base::Item;
 use vstorage::base::Storage;
 use vstorage::filesystem::FilesystemDefinition;
@@ -68,7 +69,7 @@ async fn copy_collection<I: Item>(
     target_collection: Collection,
 ) -> usize {
     let mut count = 0;
-    for (_href, item, _etag) in source_storage
+    for FetchedItem { item, .. } in source_storage
         .get_all_items(&source_collection)
         .await
         .expect("webcal remote has items")

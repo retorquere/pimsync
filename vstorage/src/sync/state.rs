@@ -9,7 +9,7 @@ use std::sync::Arc;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    base::{Collection, Item, Storage},
+    base::{Collection, FetchedItem, Item, Storage},
     CollectionId, Etag, Href, Result,
 };
 
@@ -134,17 +134,14 @@ impl CollectionState {
             to_prefetch.push(item_ref.href);
         }
         let to_prefetch = to_prefetch.iter().map(String::as_str).collect::<Vec<_>>();
-        let prefetched =
-            storage
-                .get_many_items(&to_prefetch)
-                .await?
-                .into_iter()
-                .map(|(href, item, etag)| ItemState {
-                    href,
-                    uid: item.ident(),
-                    etag,
-                    hash: item.hash(),
-                });
+        let prefetched = storage.get_many_items(&to_prefetch).await?.into_iter().map(
+            |FetchedItem { href, item, etag }| ItemState {
+                href,
+                uid: item.ident(),
+                etag,
+                hash: item.hash(),
+            },
+        );
         state.items.extend(prefetched);
 
         Ok(state)

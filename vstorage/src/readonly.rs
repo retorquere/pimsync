@@ -14,10 +14,11 @@ use std::sync::Arc;
 use async_trait::async_trait;
 
 use crate::base::Collection;
+use crate::base::FetchedItem;
 use crate::base::Item;
 use crate::base::Storage;
 use crate::CollectionId;
-use crate::{ErrorKind, Etag, Href, Result};
+use crate::{ErrorKind, Etag, Result};
 
 /// A wrapper around a [`Storage`] that disallows any write operations.
 ///
@@ -79,11 +80,11 @@ impl<I: Item> Storage<I> for ReadOnlyStorage<I> {
         self.inner.get_item(href).await
     }
 
-    async fn get_many_items(&self, hrefs: &[&str]) -> Result<Vec<(crate::Href, I, crate::Etag)>> {
+    async fn get_many_items(&self, hrefs: &[&str]) -> Result<Vec<FetchedItem<I>>> {
         self.inner.get_many_items(hrefs).await
     }
 
-    async fn get_all_items(&self, collection: &Collection) -> Result<Vec<(Href, I, Etag)>> {
+    async fn get_all_items(&self, collection: &Collection) -> Result<Vec<FetchedItem<I>>> {
         self.inner.get_all_items(collection).await
     }
 

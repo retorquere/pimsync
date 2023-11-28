@@ -7,7 +7,7 @@ use std::sync::Arc;
 use hyper_rustls::HttpsConnectorBuilder;
 use libdav::auth::Auth;
 use vstorage::{
-    base::{Collection, Definition, IcsItem, Storage},
+    base::{Collection, Definition, FetchedItem, IcsItem, Storage},
     caldav::CalDavDefinition,
     filesystem::FilesystemDefinition,
 };
@@ -75,7 +75,7 @@ async fn copy_collection(
     target_collection: Collection,
 ) -> usize {
     let mut count = 0;
-    for (_href, item, _etag) in source_storage
+    for FetchedItem { item, .. } in source_storage
         .get_all_items(&source_collection)
         .await
         .expect("webcal remote has items")
