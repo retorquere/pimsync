@@ -375,6 +375,7 @@ mod test {
     // FIXME: use a webcal link hosted by me.
     // TODO: these are just validation tests and not suitable as a keeper.
     #[tokio::test]
+    #[ignore = "uses internet resource"]
     async fn test_dummy() {
         use crate::webcal::WebCalDefinition;
 
