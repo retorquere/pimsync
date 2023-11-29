@@ -17,7 +17,7 @@ tokio = "1.25.0"
 simple_logger = { version = "4.1.0", default-features = false, features = ["colors"] }
 anyhow = { version = "1.0.70", features = ["backtrace"] }
 serde = { version = "1.0.184", features = ["derive"] }
-toml = "0.7.3"
+toml = "0.8.1"
 strum = { version = "0.25", features = ["derive"] }
 hyper = "0.14.27"
 hyper-rustls = "0.24.1"

@@ -21,7 +21,7 @@ rustls = { version = "0.21.8", features = ["dangerous_configuration"] }
 rustls-pemfile = "1.0.3"
 serde = { version = "1.0.188", features = ["derive"] }
 sha2 = "0.10.2"
-simple_logger = { version = "2.3.0", default-features = false, features = ["colors"] }
+simple_logger = { version = "4.1.0", default-features = false, features = ["colors"] }
 tokio = { version = "1.33.0", features = ["sync", "macros", "rt"] }
 toml = { version = "0.8.1", features = ["parse"], default-features = false }
 vstorage = { version = "0.1.0", path = "../vstorage" }
