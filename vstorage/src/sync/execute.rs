@@ -11,6 +11,7 @@ use log::trace;
 use crate::{
     base::{Item, Storage},
     sync::{plan::Action, state::ItemState},
+    Href,
 };
 
 use super::{
@@ -33,9 +34,9 @@ impl ItemAction {
     ) -> std::result::Result<(), Box<dyn std::error::Error>> {
         {
             match self.action() {
-                Action::CopyToB => {
+                Action::CopyToB { source } => {
                     copy_item(
-                        state_a.ok_or("collection missing from state a")?,
+                        &source,
                         state_b.ok_or("collection missing from state b")?,
                         storage_a,
                         storage_b,
@@ -43,9 +44,9 @@ impl ItemAction {
                     )
                     .await?;
                 }
-                Action::CopyToA => {
+                Action::CopyToA { source } => {
                     copy_item(
-                        state_b.ok_or("collection missing from state b")?,
+                        &source,
                         state_a.ok_or("collection missing from state a")?,
                         storage_b,
                         storage_a,
@@ -53,16 +54,18 @@ impl ItemAction {
                     )
                     .await?;
                 }
-                Action::DeleteInA => {
+                Action::DeleteInA { href } => {
                     delete_item(
+                        &href,
                         state_a.ok_or("collection is missing from state a")?,
                         storage_a,
                         self.uid(),
                     )
                     .await?;
                 }
-                Action::DeleteInB => {
+                Action::DeleteInB { href } => {
                     delete_item(
+                        &href,
                         state_b.ok_or("collection is missing from state b")?,
                         storage_b,
                         self.uid(),
@@ -77,14 +80,13 @@ impl ItemAction {
 }
 
 async fn copy_item<I: Item>(
-    src_state: &CollectionState,
+    src_href: &Href,
     dst_state: &mut CollectionState,
     src_storage: &Arc<dyn Storage<I>>,
     dst_storage: &Arc<dyn Storage<I>>,
     uid: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let item_state = src_state.get_item_by_uid(uid).ok_or("item is missing")?;
-    let (item, _) = src_storage.get_item(&item_state.href).await?;
+    let (item, _) = src_storage.get_item(src_href).await?;
 
     let col = dst_storage.open_collection(&dst_state.href)?;
 
@@ -110,6 +112,7 @@ async fn copy_item<I: Item>(
 }
 
 async fn delete_item<I: Item>(
+    href: &Href,
     state: &mut CollectionState,
     storage: &Arc<dyn Storage<I>>,
     uid: &str,
@@ -121,9 +124,7 @@ async fn delete_item<I: Item>(
         .ok_or("item pending deletion is missing from state")?;
     let item_state = &state.items[pos];
 
-    storage
-        .delete_item(&item_state.href, &item_state.etag)
-        .await?;
+    storage.delete_item(href, &item_state.etag).await?;
 
     state.items.swap_remove(pos);
 
@@ -145,49 +146,52 @@ impl<'pair, I: Item> Plan<'pair, I> {
         let storage_a = &self.pair.storage_a;
         let storage_b = &self.pair.storage_b;
 
-        for cp in self.collection_plans {
-            let mut delete_collection_in_a = false;
-            let mut delete_collection_in_b = false;
-            match cp.collection_action() {
+        for mut cp in self.collection_plans {
+            let mut delete_collection_in_a = None;
+            let mut delete_collection_in_b = None;
+            let action = cp.take_collection_action();
+            match action {
                 None => {}
-                Some(Action::CopyToB) => {
-                    create_collection(
-                        storage_b,
-                        cp.mapping().collection_b(),
-                        &mut final_state.state_b,
-                        &mut final_state.errors,
-                        &Action::CopyToB,
-                        cp.mapping(),
-                    )
-                    .await;
-                }
-                Some(Action::CopyToA) => {
-                    create_collection(
-                        storage_a,
-                        cp.mapping().collection_a(),
-                        &mut final_state.state_a,
-                        &mut final_state.errors,
-                        &Action::CopyToA,
-                        cp.mapping(),
-                    )
-                    .await;
-                }
-                Some(Action::Conflict) => {
-                    final_state.errors.push(SynchronizationError {
-                        action: Action::Conflict,
-                        resource: FailedResource::Collection {
-                            collection: cp.mapping().clone(),
-                        },
-                        /// FIXME: actually, meta can conflict.
-                        error: "Invalid input: conflict between storages is senseless".into(),
-                    });
-                }
-                Some(Action::DeleteInA) => {
-                    delete_collection_in_a = true;
-                }
-                Some(Action::DeleteInB) => {
-                    delete_collection_in_b = true;
-                }
+                Some(action) => match action {
+                    Action::CopyToB { .. } => {
+                        create_collection(
+                            storage_b,
+                            cp.mapping().collection_b(),
+                            &mut final_state.state_b,
+                            &mut final_state.errors,
+                            action,
+                            cp.mapping(),
+                        )
+                        .await;
+                    }
+                    Action::CopyToA { .. } => {
+                        create_collection(
+                            storage_a,
+                            cp.mapping().collection_a(),
+                            &mut final_state.state_a,
+                            &mut final_state.errors,
+                            action,
+                            cp.mapping(),
+                        )
+                        .await;
+                    }
+                    Action::Conflict => {
+                        final_state.errors.push(SynchronizationError {
+                            action: Action::Conflict,
+                            resource: FailedResource::Collection {
+                                collection: cp.mapping().clone(),
+                            },
+                            /// FIXME: actually, meta can conflict.
+                            error: "Invalid input: conflict between storages is senseless".into(),
+                        });
+                    }
+                    Action::DeleteInA { href } => {
+                        delete_collection_in_a = Some(href);
+                    }
+                    Action::DeleteInB { href } => {
+                        delete_collection_in_b = Some(href);
+                    }
+                },
             }
 
             for item_action in cp.items() {
@@ -212,24 +216,24 @@ impl<'pair, I: Item> Plan<'pair, I> {
                     });
                 };
             }
-            if delete_collection_in_a {
+            if let Some(href) = delete_collection_in_a.take() {
                 delete_collection(
                     storage_a,
-                    cp.mapping().collection_a(),
+                    &href,
                     &mut final_state.state_a,
                     &mut final_state.errors,
-                    &Action::DeleteInA,
+                    Action::DeleteInA { href: href.clone() },
                     cp.mapping(),
                 )
                 .await;
             }
-            if delete_collection_in_b {
+            if let Some(href) = delete_collection_in_b {
                 delete_collection(
                     storage_b,
-                    cp.mapping().collection_b(),
+                    &href,
                     &mut final_state.state_b,
                     &mut final_state.errors,
-                    &Action::DeleteInA,
+                    Action::DeleteInA { href: href.clone() },
                     cp.mapping(),
                 )
                 .await;
@@ -292,7 +296,7 @@ async fn create_collection<I: Item>(
     collection: &ResolvedCollection,
     state: &mut StorageState,
     errors: &mut Vec<SynchronizationError>,
-    action: &Action,
+    action: Action,
     mapping: &ResolvedMapping,
 ) {
     let creation_result = match collection {
@@ -311,7 +315,7 @@ async fn create_collection<I: Item>(
         }
         Err(e) => {
             errors.push(SynchronizationError {
-                action: action.clone(),
+                action,
                 resource: FailedResource::Collection {
                     collection: mapping.clone(),
                 },
@@ -323,29 +327,19 @@ async fn create_collection<I: Item>(
 
 async fn delete_collection<I: Item>(
     storage: &Arc<dyn Storage<I>>,
-    collection: &ResolvedCollection,
+    href: &Href,
     state: &mut StorageState,
     errors: &mut Vec<SynchronizationError>,
-    action: &Action,
+    action: Action,
     mapping: &ResolvedMapping,
 ) {
-    let href = match collection.href() {
-        Some(h) => h,
-        None => {
-            // TODO: this should not be possible to model.
-            //       deleting a collection requires specifying it by href. If no href is available,
-            //       then the planning stage should no-op, because it doesn't exist.
-            todo!("deleting collections without an href is not yet implemented")
-        }
-    };
-
     match storage.destroy_collection(href).await {
         Ok(()) => {
             state.remove_collection(href);
         }
         Err(e) => {
             errors.push(SynchronizationError {
-                action: action.clone(),
+                action,
                 resource: FailedResource::Collection {
                     collection: mapping.clone(),
                 },

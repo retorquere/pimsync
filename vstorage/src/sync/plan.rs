@@ -13,7 +13,7 @@ use log::{debug, error};
 use crate::base::{Collection, Storage};
 use crate::sync::state::StorageState;
 use crate::{base::Item, sync::declare::StoragePair, Result};
-use crate::{CollectionId, Error, ErrorKind};
+use crate::{CollectionId, Error, ErrorKind, Href};
 
 use super::declare::{CollectionDescription, DeclaredMapping};
 use super::helpers::find_collection_by_id;
@@ -361,13 +361,6 @@ pub(super) enum ResolvedCollection {
 }
 
 impl ResolvedCollection {
-    pub(super) fn href(&self) -> Option<&str> {
-        match self {
-            ResolvedCollection::Id { .. } => None,
-            ResolvedCollection::Href { href } => Some(href),
-        }
-    }
-
     /// Resolve the collection based on a storage and its collections.
     fn from_declared_collection<I: Item>(
         declared: CollectionDescription,
@@ -539,8 +532,8 @@ impl CollectionPlan {
         &self.mapping
     }
 
-    pub(super) fn collection_action(&self) -> Option<&Action> {
-        self.collection_action.as_ref()
+    pub(super) fn take_collection_action(&mut self) -> Option<Action> {
+        self.collection_action.take()
     }
 
     pub(super) fn items(&self) -> &Vec<ItemAction> {
@@ -551,11 +544,10 @@ impl CollectionPlan {
 /// An action to executing when synchronising.
 #[derive(PartialEq, Debug, Clone)]
 pub enum Action {
-    // TODO: keep href of items that need to be acted upon?
-    CopyToA,
-    CopyToB,
-    DeleteInA,
-    DeleteInB,
+    CopyToA { source: Href },
+    CopyToB { source: Href },
+    DeleteInA { href: Href },
+    DeleteInB { href: Href },
     Conflict, // TODO: content might still match on both sides
 }
 
@@ -566,46 +558,63 @@ impl Action {
     #[must_use]
     fn from_changes(left: Change, right: Change) -> Option<Action> {
         match (left, right) {
-            (Change::Changed, Change::Changed) => Some(Action::Conflict),
-            (Change::NoChange, Change::Deleted) => Some(Action::DeleteInA),
-            (Change::Deleted, Change::NoChange) => Some(Action::DeleteInB),
-            (Change::Deleted | Change::NoChange | Change::Absent, Change::Changed)
-            | (Change::Absent, Change::NoChange) => Some(Action::CopyToA),
-            (Change::Changed, Change::Deleted | Change::NoChange | Change::Absent)
-            | (Change::NoChange, Change::Absent) => Some(Action::CopyToB),
-            (Change::Deleted | Change::Absent, Change::Deleted | Change::Absent)
-            | (Change::NoChange, Change::NoChange) => None,
+            (Change::Changed { .. }, Change::Changed { .. }) => Some(Action::Conflict),
+            (Change::NoChange { href }, Change::Deleted { .. }) => {
+                Some(Action::DeleteInA { href: href.clone() })
+            }
+            (Change::Deleted { .. }, Change::NoChange { href }) => {
+                Some(Action::DeleteInB { href: href.clone() })
+            }
+            (
+                Change::Deleted { .. } | Change::NoChange { .. } | Change::Absent,
+                Change::Changed { href },
+            )
+            | (Change::Absent, Change::NoChange { href }) => Some(Action::CopyToA {
+                source: href.clone(), // TODO: cloning is not ideal
+            }),
+            (
+                Change::Changed { href },
+                Change::Deleted { .. } | Change::NoChange { .. } | Change::Absent,
+            )
+            | (Change::NoChange { href }, Change::Absent) => Some(Action::CopyToB {
+                source: href.clone(), // TODO: cloning is not ideal
+            }),
+            (Change::Deleted { .. } | Change::Absent, Change::Deleted { .. } | Change::Absent)
+            | (Change::NoChange { .. }, Change::NoChange { .. }) => None,
         }
     }
 }
 
 /// A transition that has occurred to a pair of items or collections.
-#[derive(Debug, Clone, Copy)]
-pub(super) enum Change {
+#[derive(Debug, Clone)]
+pub(super) enum Change<'href> {
     /// Mutated or created.
-    Changed,
+    Changed { href: &'href Href },
     /// Deleted.
     Deleted,
     /// The item exists and has not changed.
-    NoChange,
+    NoChange { href: &'href Href },
     /// The item does not exist and did not exist before.
     ///
     /// This might indicate that this item was previously excluded from synchronisation.
     Absent,
 }
 
-impl Change {
+impl<'href> Change<'href> {
     #[must_use]
-    pub(super) fn for_item(current: Option<&ItemState>, previous: Option<&ItemState>) -> Change {
+    pub(super) fn for_item(
+        current: Option<&'href ItemState>,
+        previous: Option<&ItemState>,
+    ) -> Change<'href> {
         match (current, previous) {
             (Some(c), Some(p)) => {
                 if c.uid == p.uid && c.etag == p.etag && c.hash == p.hash {
-                    Change::NoChange
+                    Change::NoChange { href: &c.href }
                 } else {
-                    Change::Changed
+                    Change::Changed { href: &c.href }
                 }
             }
-            (Some(_), None) => Change::Changed,
+            (Some(c), None) => Change::Changed { href: &c.href },
             (None, Some(_)) => Change::Deleted,
             (None, None) => Change::Absent,
         }
@@ -613,16 +622,16 @@ impl Change {
 
     #[must_use]
     pub(super) fn for_collection(
-        current: Option<&CollectionState>,
-        previous: Option<&CollectionState>,
-    ) -> Change {
+        current: Option<&'href CollectionState>,
+        previous: Option<&'href CollectionState>,
+    ) -> Change<'href> {
         match (current, previous) {
             (None, None) => Change::Absent,
             (None, Some(_)) => Change::Deleted,
-            (Some(_), None) => Change::Changed,
+            (Some(c), None) => Change::Changed { href: &c.href },
             // TODO: Ignores meta; considers collections immutable:
             // they might change etag (or meta!?!?!)
-            (Some(_), Some(_)) => Change::NoChange,
+            (Some(c), Some(_)) => Change::NoChange { href: &c.href },
         }
     }
 }
