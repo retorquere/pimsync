@@ -95,6 +95,8 @@ impl<I: Item> StoragePairBuilder<I> {
     }
 
     /// Provide a previous state for storage A.
+    ///
+    /// States MUST NOT be re-used across different pairs.
     #[must_use]
     pub fn with_previous_state_for_a(mut self, state: impl Into<Arc<StorageState>>) -> Self {
         self.previous_state_a = Some(state.into());
@@ -102,6 +104,8 @@ impl<I: Item> StoragePairBuilder<I> {
     }
 
     /// Provide a previous state for storage B.
+    ///
+    /// States MUST NOT be re-used across different pairs.
     #[must_use]
     pub fn with_previous_state_for_b(mut self, state: impl Into<Arc<StorageState>>) -> Self {
         self.previous_state_b = Some(state.into());
