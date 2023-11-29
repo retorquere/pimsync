@@ -35,6 +35,7 @@ pub enum RequestError {
 
 /// A generic error for WebDav operations.
 #[derive(thiserror::Error, Debug)]
+#[allow(clippy::module_name_repetitions)]
 pub enum DavError {
     #[error("error performing http request")]
     Request(#[from] RequestError),

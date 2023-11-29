@@ -1,4 +1,4 @@
-#![warn(clippy::pedantic)]
+#![deny(clippy::pedantic)]
 // Copyright 2023 Hugo Osvaldo Barrera
 //
 // SPDX-License-Identifier: EUPL-1.2
