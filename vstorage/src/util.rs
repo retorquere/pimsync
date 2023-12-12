@@ -6,22 +6,35 @@
 use sha2::{Digest, Sha256};
 use vparser::Parser;
 
+// TODO: See (in vdirsyncer-py) IGNORE_PROPS for more props that might make sense to ignore.
+const ICS_FIELDS_TO_IGNORE: &[&str] = &[
+    // Servers often mutate this; resulting in noise when comparing.
+    "PRODID",
+    // When the information was last revised.
+    // I don't think that servers SHOULD modify this, but they often do.
+    // See: https://www.rfc-editor.org/rfc/rfc5545#section-3.8.7.2
+    "DTSTAMP",
+    // Ditto
+    // See: https://www.rfc-editor.org/rfc/rfc5545#section-3.8.7.3
+    "LAST-MODIFIED",
+];
+
 /// Return the SHA256 hash of an icalendar or vcard.
 pub(crate) fn hash(input: impl AsRef<str>) -> String {
-    // TODO: See (in vdirsyncer-py) IGNORE_PROPS for more props that might make sense to ignore.
     let mut hasher = Sha256::new();
     let parser = Parser::new(input.as_ref());
     for line in parser {
-        if line.name() == "PRODID" {
-            continue; // Frequently mutated and only adds noise when comparing.
+        if ICS_FIELDS_TO_IGNORE.contains(&line.name().as_ref()) {
+            continue;
         }
         // TODO: strip/normalize timezones (tip: they are sometimes renamed)?
-        // TODO: normalise order?
+        // TODO: normalise order of lines inside each component?
         let raw = line.raw();
         if raw.is_empty() {
             continue;
         }
-        hasher.update(raw);
+        // Use unfolded lines to ignore discrepancies in folding.
+        hasher.update(line.unfolded().as_ref());
         hasher.update("\r\n"); // Included even for the last line.
     }
     format!("{:X}", hasher.finalize())
@@ -58,5 +71,21 @@ mod test {
         .join("\r\n");
 
         assert_eq!(hash(without_prodid), hash(with_prodid));
+    }
+
+    #[test]
+    fn compare_hashing_with_different_folding() {
+        let first = vec![
+            "DESCRIPTION:Voor meer informatie zie https://nluug.nl/evenementen/nluug/na",
+            " jaarsconferentie-2023/",
+        ]
+        .join("\r\n");
+        let second = vec![
+            "DESCRIPTION:Voor meer informatie zie https:",
+            " //nluug.nl/evenementen/nluug/najaarsconferentie-2023/",
+        ]
+        .join("\r\n");
+
+        assert_eq!(hash(first), hash(second));
     }
 }
