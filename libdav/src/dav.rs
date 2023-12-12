@@ -811,7 +811,7 @@ fn multi_get_parse(
 
     let mut items = Vec::new();
     for response in responses {
-        let bad_status = match check_multistatus(response) {
+        let status = match check_multistatus(response) {
             Ok(()) => None,
             Err(DavError::BadStatusCode(status)) => Some(status),
             Err(e) => return Err(e),
@@ -824,7 +824,7 @@ fn multi_get_parse(
         if has_propstat {
             let href = get_unquoted_href(&response)?.to_string();
 
-            if let Some(status) = bad_status {
+            if let Some(status) = status {
                 items.push(FetchedResource {
                     href,
                     content: Err(status),
@@ -857,7 +857,7 @@ fn multi_get_parse(
                     .ok_or(DavError::InvalidResponse("missing text in href".into()))?
                     .decode_utf8()?
                     .to_string();
-                let status = bad_status.ok_or(DavError::InvalidResponse(
+                let status = status.ok_or(DavError::InvalidResponse(
                     "missing props but no error status code".into(),
                 ))?;
                 items.push(FetchedResource {
