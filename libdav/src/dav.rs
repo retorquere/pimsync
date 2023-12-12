@@ -263,7 +263,7 @@ where
         let (head, body) = response.into_parts();
         let body = hyper::body::to_bytes(body).await?;
 
-        log::debug!("Response ({}): {:?}", head.status, body);
+        log::trace!("Response ({}): {:?}", head.status, body);
         Ok((head, body))
     }
 

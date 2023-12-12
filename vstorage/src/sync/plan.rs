@@ -8,7 +8,7 @@ use std::collections::HashSet;
 use std::sync::Arc;
 
 use itertools::Itertools;
-use log::{debug, error};
+use log::{error, trace};
 
 use crate::base::{Collection, Storage};
 use crate::sync::state::StorageState;
@@ -496,7 +496,7 @@ impl CollectionPlan {
                 let item_b = current_state_b.and_then(|s| s.get_item_by_uid(uid));
 
                 if item_a.is_some_and(|a| item_b.is_some_and(|b| a.hash == b.hash)) {
-                    debug!("Item uid={} is unchanged; will take no action.", uid);
+                    trace!("Item uid={} is unchanged; will take no action.", uid);
                     return None;
                 }
 
