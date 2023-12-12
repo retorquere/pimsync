@@ -116,7 +116,7 @@ pub trait Storage<I: Item>: Sync + Send {
     ///
     /// All requested items MUST belong to the same collection.
     ///
-    /// # Note for implementors
+    /// # Note for implementers
     ///
     /// The default implementation is usually not optimal, and implementations of this trait should
     /// override it.
