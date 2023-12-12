@@ -8,7 +8,7 @@ use std::collections::HashSet;
 use std::sync::Arc;
 
 use itertools::Itertools;
-use log::{error, trace};
+use log::{debug, error, trace};
 
 use crate::base::{Collection, Storage};
 use crate::sync::state::StorageState;
@@ -88,12 +88,17 @@ impl<'pair, I: Item> Plan<'pair, I> {
                     &pair.storage_a,
                     &all_a,
                 )?;
-                mappings.push(ResolvedMapping {
+                let mapping = ResolvedMapping {
                     a: counterpart,
                     b: ResolvedCollection::Href {
-                        href: collection.href().to_string(),
+                        href: collection.href().to_owned(),
                     },
-                });
+                };
+                if mappings.iter().any(|m| *m == mapping) {
+                    debug!("Skipping mapping; already present.");
+                } else {
+                    mappings.push(mapping);
+                }
             }
         }
 
@@ -271,7 +276,7 @@ mod test {
 /// A mapping resolved based on the storage's current state.
 ///
 /// A `ResolvedCollection::Id` variant implies that a collection does not exist on that side.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ResolvedMapping {
     // TODO: An alias attribute?
     pub(super) a: ResolvedCollection,
