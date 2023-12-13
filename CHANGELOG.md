@@ -31,3 +31,8 @@ Works with the following configuration:
 ```toml
 password.fetch = ["command", "printenv", "PASSWORD"]
 ```
+
+## Manual discovery is no longer required
+
+Discovering collections ahead of time is no longer required. Collections are
+discovered automatically. The `discover` command is gone.

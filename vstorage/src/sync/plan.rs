@@ -48,6 +48,7 @@ impl<'pair, I: Item> Plan<'pair, I> {
     /// - There is an error reading the state of existing items.
     /// - The same collection is mapped more than once.
     pub async fn new(pair: &'pair StoragePair<I>) -> Result<Plan<'pair, I>> {
+        // TODO: only discover collections if any are specified by Id or All
         let all_a = pair.storage_a.discover_collections().await?;
         let all_b = pair.storage_b.discover_collections().await?;
 
