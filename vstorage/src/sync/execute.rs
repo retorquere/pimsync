@@ -6,7 +6,7 @@
 
 use std::sync::Arc;
 
-use log::trace;
+use log::debug;
 
 use crate::{
     base::{Item, Storage},
@@ -91,14 +91,14 @@ async fn copy_item<I: Item>(
     let col = dst_storage.open_collection(&dst_state.href)?;
 
     if let Some(dst_item_state) = dst_state.get_item_by_uid_mut(uid) {
-        trace!("Updating {uid}");
+        debug!("Updating {uid}");
         let new_etag = dst_storage
             .update_item(&dst_item_state.href, &dst_item_state.etag, &item)
             .await?;
         dst_item_state.etag = new_etag;
         dst_item_state.hash = item.hash();
     } else {
-        trace!("Creating {uid}");
+        debug!("Creating {uid}");
         let new_ref = dst_storage.add_item(&col, &item).await?;
         dst_state.items.push(ItemState {
             href: new_ref.href,
