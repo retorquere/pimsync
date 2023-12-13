@@ -21,6 +21,7 @@ use anyhow::{bail, Context};
 use hyper::client::HttpConnector;
 use hyper_rustls::{ConfigBuilderExt, HttpsConnector, HttpsConnectorBuilder};
 use libdav::auth::Password;
+use log::debug;
 use rustls::{ClientConfig, RootCertStore};
 use serde::Deserialize;
 use vstorage::{
@@ -28,7 +29,10 @@ use vstorage::{
     caldav::{CalDavDefinition, CalDavStorage},
     carddav::{CardDavDefinition, CardDavStorage},
     filesystem::{FilesystemDefinition, FilesystemStorage},
-    sync::declare::{CollectionDescription, DeclaredMapping, StoragePair},
+    sync::{
+        declare::{CollectionDescription, DeclaredMapping, StoragePair},
+        state::PairState,
+    },
     webcal::{WebCalDefinition, WebCalStorage},
     CollectionId,
 };
@@ -52,17 +56,13 @@ pub(crate) struct Config {
 }
 
 impl Config {
-    /// Returns the `status_path`, expanding a leading tilde if present.
-    fn status_path(&self) -> Cow<Path> {
-        expand_tilde(&self.general.status_path)
-    }
-
     /// Convert this configuration into an `App` instance.
     ///
     /// This consumes the configuration to avoid copying any data needlessly and freeing up any
     /// unnecessary data.
     // TODO: the "previous state" is required here.
     pub(crate) async fn into_app<'storages>(self) -> anyhow::Result<App> {
+        let status_dir = expand_tilde(&self.general.status_path).to_path_buf();
         // Initialise storages once, to avoid duplicating any.
         // TODO: do this in parallel: https://docs.rs/tokio/latest/tokio/task/struct.JoinSet.html
         let storages = {
@@ -92,11 +92,13 @@ impl Config {
 
             match (a, b) {
                 (EitherStorage::Calendar(a), EitherStorage::Calendar(b)) => {
-                    calendar_pairs.push(source.into_named_pair(
+                    let pair = source.try_into_named_pair(
                         name,
                         a.inner.clone(),
                         b.inner.clone(),
-                    ));
+                        &status_dir,
+                    )?;
+                    calendar_pairs.push(pair);
                 }
                 (EitherStorage::Calendar(_), EitherStorage::AddressBook(_)) => {
                     bail!("pair {} mixes calendar storage with contacts storage", name)
@@ -105,11 +107,13 @@ impl Config {
                     bail!("pair {} mixes contacts storage with calendar storage", name)
                 }
                 (EitherStorage::AddressBook(a), EitherStorage::AddressBook(b)) => {
-                    contact_pairs.push(source.into_named_pair(
+                    let pair = source.try_into_named_pair(
                         name,
                         a.inner.clone(),
                         b.inner.clone(),
-                    ));
+                        &status_dir,
+                    )?;
+                    contact_pairs.push(pair);
                 }
             }
         }
@@ -154,13 +158,17 @@ struct PairSection {
 }
 
 impl PairSection {
-    fn into_named_pair<I: Item>(
+    fn try_into_named_pair<I: Item>(
         self,
         name: String,
         a: Arc<dyn Storage<I>>,
         b: Arc<dyn Storage<I>>,
-    ) -> NamedPair<I> {
+        status_dir: &Path,
+    ) -> anyhow::Result<NamedPair<I>> {
+        let status_path = status_dir.join(format!("{name}.status"));
+
         let mut pair = StoragePair::builder(a, b);
+
         for cv in self.collections {
             pair = match cv {
                 CollectionValue::All => pair.with_all_from_a().with_all_from_b(),
@@ -178,10 +186,11 @@ impl PairSection {
             };
         }
 
-        NamedPair {
+        Ok(NamedPair {
             name,
             inner: pair.build(),
-        }
+            status_path,
+        })
     }
 }
 
