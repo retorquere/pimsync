@@ -220,7 +220,8 @@ where
     }
 
     async fn update_item(&self, href: &str, etag: &Etag, item: &I) -> Result<Etag> {
-        let actual_etag = etag_for_path(&href).await?;
+        let filename = self.definition.path.join(href);
+        let actual_etag = etag_for_path(&filename).await?;
         if *etag != actual_etag {
             return Err(Error::new(ErrorKind::InvalidData, "wrong etag"));
         }
@@ -231,11 +232,11 @@ where
             .write(true)
             .truncate(true)
             .create(false)
-            .open(&href)
+            .open(&filename)
             .await?;
         file.write_all(item.as_str().as_bytes()).await?;
 
-        let etag = etag_for_path(&href).await?;
+        let etag = etag_for_path(&filename).await?;
         Ok(etag)
     }
 
