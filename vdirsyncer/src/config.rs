@@ -10,7 +10,6 @@ use std::{
     collections::HashMap,
     ffi::OsString,
     marker::PhantomData,
-    num::ParseIntError,
     os::unix::prelude::{OsStrExt, OsStringExt},
     path::{Path, PathBuf},
     process::{Command, Stdio},
@@ -21,26 +20,25 @@ use std::{
 use anyhow::{bail, Context};
 use hyper::client::HttpConnector;
 use hyper_rustls::{ConfigBuilderExt, HttpsConnector, HttpsConnectorBuilder};
-use itertools::Itertools;
 use libdav::auth::Password;
-use rustls::{
-    client::{ServerCertVerified, ServerCertVerifier},
-    CertificateError, ClientConfig, RootCertStore,
-};
+use rustls::{ClientConfig, RootCertStore};
 use serde::Deserialize;
 use vstorage::{
     base::{IcsItem, Item, Storage, VcardItem},
     caldav::{CalDavDefinition, CalDavStorage},
     carddav::{CardDavDefinition, CardDavStorage},
     filesystem::{FilesystemDefinition, FilesystemStorage},
-    sync::declare::{CollectionDescription, DeclaredMapping, StoragePair, StoragePairBuilder},
+    sync::declare::{CollectionDescription, DeclaredMapping, StoragePair},
     webcal::{WebCalDefinition, WebCalStorage},
     CollectionId,
 };
 
-use crate::tls::{
-    cert_and_key_from_pemfile, certs_from_pemfile, key_from_pemfile, FingerprintAndWebPkiVerifier,
-    FingerprintVerifier,
+use crate::{
+    tls::{
+        cert_and_key_from_pemfile, certs_from_pemfile, key_from_pemfile,
+        FingerprintAndWebPkiVerifier, FingerprintVerifier,
+    },
+    App, NamedPair, NamedStorage,
 };
 
 /// A deserialised configuration file.
@@ -53,103 +51,74 @@ pub(crate) struct Config {
     storages: HashMap<String, StorageSection>,
 }
 
-// TODO: the Config instance should be consumed when converting into Storages and Pairs.
-//       this would reduce a lot of pointless cloning and copying values.
 impl Config {
     /// Returns the `status_path`, expanding a leading tilde if present.
-    pub(crate) fn status_path(&self) -> Cow<Path> {
+    fn status_path(&self) -> Cow<Path> {
         expand_tilde(&self.general.status_path)
     }
 
-    pub(crate) async fn storages(
-        &self,
-    ) -> anyhow::Result<(
-        HashMap<String, Arc<dyn Storage<IcsItem>>>,
-        HashMap<String, Arc<dyn Storage<VcardItem>>>,
-    )> {
-        let mut calendars = HashMap::new();
-        let mut address_books = HashMap::new();
-
-        for (name, source) in &self.storages {
-            match source.storage().await? {
-                EitherStorage::Calendar(c) => {
-                    calendars.insert(name.clone(), c);
-                }
-                EitherStorage::AddressBook(a) => {
-                    address_books.insert(name.clone(), a);
-                }
+    /// Convert this configuration into an `App` instance.
+    ///
+    /// This consumes the configuration to avoid copying any data needlessly and freeing up any
+    /// unnecessary data.
+    // TODO: the "previous state" is required here.
+    pub(crate) async fn into_app<'storages>(self) -> anyhow::Result<App> {
+        // Initialise storages once, to avoid duplicating any.
+        // TODO: do this in parallel: https://docs.rs/tokio/latest/tokio/task/struct.JoinSet.html
+        let storages = {
+            let mut storages = Vec::with_capacity(self.storages.len());
+            for (name, source) in self.storages {
+                storages.push(source.into_storage(name).await?);
             }
-        }
-
-        Ok((calendars, address_books))
-    }
-
-    pub(crate) fn pairs<'storages>(
-        &self,
-        calendars: &'storages HashMap<String, Arc<dyn Storage<IcsItem>>>,
-        contacts: &'storages HashMap<String, Arc<dyn Storage<VcardItem>>>,
-        // TODO: the "previous state" is required here.
-    ) -> anyhow::Result<(Vec<StoragePair<IcsItem>>, Vec<StoragePair<VcardItem>>)> {
-        let mut calendar_pairs = Vec::new(); // TODO: with_capacity?
-        let mut contact_pairs = Vec::new(); // TODO: with_capacity?
-
-        for (name, source) in &self.pairs {
-            match (calendars.get(&source.a), calendars.get(&source.b)) {
-                (None, None) => {
-                    match (contacts.get(&source.a), contacts.get(&source.b)) {
-                        (None, None) => {
-                            bail!("Pair {} is missing both storages.", name);
-                        }
-                        (None, Some(_)) => {
-                            bail!("Pair {} is missing contacts storage A.", name);
-                        }
-                        (Some(_), None) => {
-                            bail!("Pair {} is missing contacts storage B.", name);
-                        }
-                        (Some(a), Some(b)) => {
-                            contact_pairs.push(create_pair(name, source, a, b));
-                        }
-                    };
-                }
-                (None, Some(_)) => {
-                    bail!("Pair {} is missing calendar storage A.", name);
-                }
-                (Some(_), None) => {
-                    bail!("Pair {} is missing calendar storage B.", name);
-                }
-                (Some(a), Some(b)) => {
-                    calendar_pairs.push(create_pair(name, source, a, b));
-                }
-            }
-        }
-        Ok((calendar_pairs, contact_pairs))
-    }
-}
-
-fn create_pair<I: Item>(
-    name: &str,
-    source: &PairSection,
-    a: &Arc<dyn Storage<I>>,
-    b: &Arc<dyn Storage<I>>,
-) -> StoragePair<I> {
-    let mut pair = StoragePair::builder(a.clone(), b.clone());
-    for cv in &source.collections {
-        pair = match cv {
-            CollectionValue::All => pair.with_all_from_a().with_all_from_b(),
-            CollectionValue::FromA => pair.with_all_from_a(),
-            CollectionValue::FromB => pair.with_all_from_b(),
-            CollectionValue::Mapped(alias, a, b) => {
-                let mapping = DeclaredMapping::Mapped {
-                    alias: alias.clone(),
-                    a: a.to_description(),
-                    b: b.to_description(),
-                };
-                pair.with_mapping(mapping)
-            }
-            CollectionValue::Collection(col) => pair.with_mapping(col.to_mapping()),
+            storages
         };
+
+        let mut calendar_pairs = Vec::new();
+        let mut contact_pairs = Vec::new();
+
+        for (name, source) in self.pairs {
+            let a = storages
+                .iter()
+                .find(|s| s.name() == source.a)
+                .with_context(|| {
+                    format!("pair {} refers to undefined storage {}.", name, source.a)
+                })?;
+            let b = storages
+                .iter()
+                .find(|s| s.name() == source.b)
+                .with_context(|| {
+                    format!("pair {} refers to undefined storage {}.", name, source.b)
+                })?;
+
+            match (a, b) {
+                (EitherStorage::Calendar(a), EitherStorage::Calendar(b)) => {
+                    calendar_pairs.push(source.into_named_pair(
+                        name,
+                        a.inner.clone(),
+                        b.inner.clone(),
+                    ));
+                }
+                (EitherStorage::Calendar(_), EitherStorage::AddressBook(_)) => {
+                    bail!("pair {} mixes calendar storage with contacts storage", name)
+                }
+                (EitherStorage::AddressBook(_), EitherStorage::Calendar(_)) => {
+                    bail!("pair {} mixes contacts storage with calendar storage", name)
+                }
+                (EitherStorage::AddressBook(a), EitherStorage::AddressBook(b)) => {
+                    contact_pairs.push(source.into_named_pair(
+                        name,
+                        a.inner.clone(),
+                        b.inner.clone(),
+                    ));
+                }
+            }
+        }
+
+        Ok(App {
+            calendar_pairs,
+            contact_pairs,
+        })
     }
-    pair.build()
 }
 
 fn expand_tilde(orig: &PathBuf) -> Cow<Path> {
@@ -167,11 +136,13 @@ fn expand_tilde(orig: &PathBuf) -> Cow<Path> {
     Cow::Borrowed(orig)
 }
 
+/// The "general" section of the parsed configuration file
 #[derive(Deserialize, Debug)]
 pub(crate) struct GeneralSection {
     status_path: PathBuf,
 }
 
+/// A "pair" section of the parsed configuration file
 #[derive(Deserialize, Debug)]
 struct PairSection {
     a: String,
@@ -180,6 +151,38 @@ struct PairSection {
     metadata: Option<Vec<String>>,
     // TODO: conflict_resolution: Option<Vec<String>>,
     // TODO: partial_sync
+}
+
+impl PairSection {
+    fn into_named_pair<I: Item>(
+        self,
+        name: String,
+        a: Arc<dyn Storage<I>>,
+        b: Arc<dyn Storage<I>>,
+    ) -> NamedPair<I> {
+        let mut pair = StoragePair::builder(a, b);
+        for cv in self.collections {
+            pair = match cv {
+                CollectionValue::All => pair.with_all_from_a().with_all_from_b(),
+                CollectionValue::FromA => pair.with_all_from_a(),
+                CollectionValue::FromB => pair.with_all_from_b(),
+                CollectionValue::Mapped(alias, a, b) => {
+                    let mapping = DeclaredMapping::Mapped {
+                        alias,
+                        a: a.into_description(),
+                        b: b.into_description(),
+                    };
+                    pair.with_mapping(mapping)
+                }
+                CollectionValue::Collection(col) => pair.with_mapping(col.into_mapping()),
+            };
+        }
+
+        NamedPair {
+            name,
+            inner: pair.build(),
+        }
+    }
 }
 
 #[derive(Deserialize, Debug)]
@@ -206,22 +209,20 @@ enum Collection {
 }
 
 impl Collection {
-    // TODO: these would be less inefficient if they consumed their input.
-
-    fn to_description(&self) -> CollectionDescription {
+    fn into_description(self) -> CollectionDescription {
         match self {
-            Collection::Id(id) => CollectionDescription::Id { id: id.clone() },
-            Collection::Href(href) => CollectionDescription::Href { href: href.clone() },
+            Collection::Id(id) => CollectionDescription::Id { id },
+            Collection::Href(href) => CollectionDescription::Href { href },
         }
     }
 
-    fn to_mapping(&self) -> DeclaredMapping {
+    fn into_mapping(self) -> DeclaredMapping {
         match self {
             Collection::Id(id) => DeclaredMapping::Direct {
-                description: CollectionDescription::Id { id: id.clone() },
+                description: CollectionDescription::Id { id },
             },
             Collection::Href(href) => DeclaredMapping::Direct {
-                description: CollectionDescription::Href { href: href.clone() },
+                description: CollectionDescription::Href { href },
             },
         }
     }
@@ -237,6 +238,7 @@ enum CollectionSpecial {
     FromB,
 }
 
+/// A "storage" section of the parsed configuration file
 #[derive(Deserialize, Debug)]
 #[serde(tag = "type")]
 enum StorageSection {
@@ -245,6 +247,7 @@ enum StorageSection {
     // - items: refuses to operate if any item would be deleted.
     // - collection: refuses to operate if a non-empty collection would be emptied or deleted.
     // - storage: refuses to operate if ALL collections would be emptied or deleted.
+    // TODO: changelog MUST mention the change in default behaviour here.
     #[serde(rename = "filesystem/icalendar")]
     FilesystemIcalendar(Filesystem<IcsItem>),
 
@@ -262,54 +265,42 @@ enum StorageSection {
 }
 
 enum EitherStorage {
-    Calendar(Arc<dyn Storage<IcsItem>>),
-    AddressBook(Arc<dyn Storage<VcardItem>>),
+    Calendar(NamedStorage<IcsItem>),
+    AddressBook(NamedStorage<VcardItem>),
+}
+
+impl EitherStorage {
+    fn name(&self) -> &str {
+        match self {
+            EitherStorage::Calendar(c) => &c.name,
+            EitherStorage::AddressBook(a) => &a.name,
+        }
+    }
 }
 
 impl StorageSection {
-    pub(crate) async fn storage(&self) -> anyhow::Result<EitherStorage> {
+    pub(crate) async fn into_storage(self, name: String) -> anyhow::Result<EitherStorage> {
         Ok(match self {
             StorageSection::FilesystemIcalendar(def) => {
-                EitherStorage::Calendar(Arc::new(def.to_storage()))
+                let inner = Arc::new(def.into_storage());
+                EitherStorage::Calendar(NamedStorage { name, inner })
             }
             StorageSection::FilesystemVcard(def) => {
-                EitherStorage::AddressBook(Arc::new(def.to_storage()))
+                let inner = Arc::new(def.into_storage());
+                EitherStorage::AddressBook(NamedStorage { name, inner })
             }
             StorageSection::CardDav(carddav) => {
-                EitherStorage::AddressBook(Arc::new(carddav.to_storage().await?))
+                let inner = Arc::new(carddav.into_storage().await?);
+                EitherStorage::AddressBook(NamedStorage { name, inner })
             }
             StorageSection::CalDav(caldav) => {
-                EitherStorage::Calendar(Arc::new(caldav.to_storage().await?))
+                let inner = Arc::new(caldav.into_storage().await?);
+                EitherStorage::Calendar(NamedStorage { name, inner })
             }
-            StorageSection::Http(http) => EitherStorage::Calendar(Arc::new(http.to_storage()?)),
-        })
-    }
-
-    // If this is a calendar, return the Storage.
-    //
-    // - Returns None if no storage matches this type.
-    // - Returns Some(_) if a storage matches.
-    pub(crate) async fn calendar_storage(
-        &self,
-    ) -> anyhow::Result<Option<Arc<dyn Storage<IcsItem>>>> {
-        Ok(match self {
-            StorageSection::FilesystemIcalendar(def) => Some(Arc::new(def.to_storage())),
-            StorageSection::CalDav(caldav) => Some(Arc::new(caldav.to_storage().await?)),
-            StorageSection::Http(http) => Some(Arc::new(http.to_storage()?)),
-            StorageSection::FilesystemVcard(_) | StorageSection::CardDav(_) => None,
-        })
-    }
-
-    // If this is a calendar, return the Storage.
-    pub(crate) async fn contact_storage(
-        &self,
-    ) -> anyhow::Result<Option<Arc<dyn Storage<VcardItem>>>> {
-        Ok(match self {
-            StorageSection::FilesystemVcard(def) => Some(Arc::new(def.to_storage())),
-            StorageSection::CardDav(carddav) => Some(Arc::new(carddav.to_storage().await?)),
-            StorageSection::FilesystemIcalendar(_)
-            | StorageSection::CalDav(_)
-            | StorageSection::Http(_) => None,
+            StorageSection::Http(http) => {
+                let inner = Arc::new(http.into_storage()?);
+                EitherStorage::Calendar(NamedStorage { name, inner })
+            }
         })
     }
 }
@@ -327,9 +318,9 @@ struct Filesystem<I: Item> {
 }
 
 impl<I: Item> Filesystem<I> {
-    fn to_storage(&self) -> FilesystemStorage<I> {
+    fn into_storage(self) -> FilesystemStorage<I> {
         let path = expand_tilde(&self.path);
-        FilesystemDefinition::new(path.to_path_buf(), self.fileext.clone()).build()
+        FilesystemDefinition::new(path.to_path_buf(), self.fileext).build()
     }
 }
 
@@ -343,14 +334,14 @@ struct CardDav {
 }
 
 impl CardDav {
-    async fn to_storage(&self) -> anyhow::Result<CardDavStorage<HttpsConnector<HttpConnector>>> {
+    async fn into_storage(self) -> anyhow::Result<CardDavStorage<HttpsConnector<HttpConnector>>> {
         Ok(CardDavDefinition {
-            url: self.url.to_string().parse()?,
+            url: self.url.parse()?,
             auth: libdav::auth::Auth::Basic {
-                username: self.username.to_string()?,
-                password: Some(self.password.to_password()?),
+                username: self.username.into_string()?,
+                password: Some(self.password.into_password()?),
             },
-            connector: self.network_opts.to_connector()?,
+            connector: self.network_opts.into_connector()?,
         }
         .build()
         .await?)
@@ -370,18 +361,18 @@ struct CalDav {
 }
 
 impl CalDav {
-    async fn to_storage(&self) -> anyhow::Result<CalDavStorage<HttpsConnector<HttpConnector>>> {
+    async fn into_storage(self) -> anyhow::Result<CalDavStorage<HttpsConnector<HttpConnector>>> {
         Ok(CalDavDefinition {
             url: self
                 .url
-                .to_string()?
+                .into_string()?
                 .parse()
                 .context("parsing caldav URL")?,
             auth: libdav::auth::Auth::Basic {
-                username: self.username.to_string()?,
-                password: Some(self.password.to_password()?),
+                username: self.username.into_string()?,
+                password: Some(self.password.into_password()?),
             },
-            connector: self.network_opts.to_connector()?,
+            connector: self.network_opts.into_connector()?,
         }
         .build()
         .await?)
@@ -398,10 +389,10 @@ pub(crate) struct Http {
 }
 
 impl Http {
-    fn to_storage(&self) -> anyhow::Result<WebCalStorage> {
+    fn into_storage(self) -> anyhow::Result<WebCalStorage> {
         Ok(WebCalDefinition {
-            url: self.url.to_string()?.parse()?,
-            collection_name: self.collection.clone(),
+            url: self.url.into_string()?.parse()?,
+            collection_name: self.collection,
         }
         .build()?)
     }
@@ -419,19 +410,21 @@ struct HttpsConfig {
 }
 
 impl HttpsConfig {
-    fn to_connector(&self) -> anyhow::Result<HttpsConnector<HttpConnector>> {
+    // TODO: keep a global cache using the hash of these.
+    //       this would allow re-using the same TLS store for all clients.
+    fn into_connector(self) -> anyhow::Result<HttpsConnector<HttpConnector>> {
         let tls_config = ClientConfig::builder().with_safe_defaults();
-        let tls_config = match (&self.verify, &self.verify_fingerprint) {
+        let tls_config = match (self.verify, self.verify_fingerprint) {
             (None, None) => tls_config
                 .with_native_roots()
                 .with_certificate_transparency_logs(&[], SystemTime::now()),
             (None, Some(fingerprint)) => {
-                let verifier = Arc::from(FingerprintVerifier::new(fingerprint)?);
+                let verifier = Arc::from(FingerprintVerifier::new(&fingerprint)?);
                 tls_config.with_custom_certificate_verifier(verifier)
             }
             (Some(path), None) => {
                 let mut root_store = RootCertStore::empty();
-                for cert in certs_from_pemfile(path)? {
+                for cert in certs_from_pemfile(&path)? {
                     root_store.add(&cert)?;
                 }
                 tls_config
@@ -440,24 +433,24 @@ impl HttpsConfig {
             }
             (Some(path), Some(fingerprint)) => {
                 let mut root_store = RootCertStore::empty();
-                for cert in certs_from_pemfile(path)? {
+                for cert in certs_from_pemfile(&path)? {
                     root_store.add(&cert)?;
                 }
                 let verifier =
-                    Arc::from(FingerprintAndWebPkiVerifier::new(fingerprint, root_store)?);
+                    Arc::from(FingerprintAndWebPkiVerifier::new(&fingerprint, root_store)?);
                 tls_config.with_custom_certificate_verifier(verifier)
             }
         };
 
-        let tls_config = match &self.auth_cert {
+        let tls_config = match self.auth_cert {
             None => tls_config.with_no_client_auth(),
             Some(cc) => {
                 let (certs, key) = match cc {
                     ClientCert::SingleFile(combined_path) => {
-                        cert_and_key_from_pemfile(combined_path)?
+                        cert_and_key_from_pemfile(&combined_path)?
                     }
                     ClientCert::SeparateKeyAndCert(crt_path, key_path) => {
-                        (certs_from_pemfile(crt_path)?, key_from_pemfile(key_path)?)
+                        (certs_from_pemfile(&crt_path)?, key_from_pemfile(&key_path)?)
                     }
                 };
                 tls_config.with_client_auth_cert(certs, key)?
@@ -502,13 +495,13 @@ enum StringOrFetch {
 }
 
 impl StringOrFetch {
-    fn to_string(&self) -> anyhow::Result<String> {
+    fn into_string(self) -> anyhow::Result<String> {
         match self {
-            StringOrFetch::Raw(s) => Ok(s.clone()),
+            StringOrFetch::Raw(s) => Ok(s),
             StringOrFetch::Fetch { fetch } => {
                 // TODO: should expand user and normalise paths.
-                let mut values = fetch.iter();
-                if Some(&String::from("command")) != values.next() {
+                let mut values = fetch.into_iter();
+                if Some(String::from("command")) != values.next() {
                     bail!("First word of a fetch directive must be 'command'")
                 };
                 let cmd = values.next().context("extracting command from 'fetch'")?;
@@ -522,8 +515,8 @@ impl StringOrFetch {
         }
     }
 
-    fn to_password(&self) -> anyhow::Result<Password> {
-        self.to_string().map(Password::from)
+    fn into_password(self) -> anyhow::Result<Password> {
+        self.into_string().map(Password::from)
     }
 }
 

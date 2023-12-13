@@ -249,6 +249,7 @@ impl<'pair, I: Item> Plan<'pair, I> {
 /// Storages may have been mutated before an error occurred, so the final state for both is always
 /// returned, even in case of an error.
 #[must_use]
+#[derive(Debug)]
 pub struct FinalState {
     /// The state of `storage_a` after executing a plan.
     pub(super) state_a: StorageState,
