@@ -15,20 +15,30 @@ use crate::{
 
 use super::plan::ResolvedCollection;
 
-/// The state of a storage at a specific point in time.
+/// The state of a pair at a specific point in time.
 ///
 /// Generally, this should be treated as opaque data and not modified by consumers of this library.
 /// It should, however, be serialised and saved into persistent storages between synchronisation
 /// operations.
 #[derive(Serialize, Deserialize, Clone, Default, Debug)]
 #[allow(clippy::module_name_repetitions)] // This name would be ambiguous otherwise.
-pub struct StorageState {
+pub struct PairState {
+    pub(super) a: StorageState,
+    pub(super) b: StorageState,
+}
+
+/// The state of a storage at a specific point in time.
+///
+/// See [`PairState`].
+#[derive(Serialize, Deserialize, Clone, Default, Debug)]
+#[allow(clippy::module_name_repetitions)] // This name would be ambiguous otherwise.
+pub(super) struct StorageState {
     collections: Vec<CollectionState>,
 }
 
 impl StorageState {
     pub(super) async fn current_for_storage<I: crate::base::Item>(
-        previous_state: &Option<Arc<StorageState>>,
+        previous_state: Option<&StorageState>,
         storage: &Arc<dyn Storage<I>>,
         // The hrefs that we care about:
         collection_hrefs: &Vec<&str>,

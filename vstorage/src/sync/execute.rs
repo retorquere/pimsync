@@ -16,7 +16,7 @@ use crate::{
 
 use super::{
     plan::{ItemAction, Plan, ResolvedCollection, ResolvedMapping},
-    state::{CollectionState, StorageState},
+    state::{CollectionState, PairState, StorageState},
 };
 
 impl ItemAction {
@@ -137,12 +137,9 @@ impl<'pair, I: Item> Plan<'pair, I> {
     /// Always returns a final state, regardless of what changes were applied. The returned value
     /// will include any errors that occurred during synchronisation. If any errors exist, then
     /// both storage may still be  out of sync.
-    pub async fn execute(self) -> FinalState {
-        let mut final_state = FinalState {
-            state_a: self.current_state_a().clone(),
-            state_b: self.current_state_b().clone(),
-            errors: Vec::new(),
-        };
+    pub async fn execute(self) -> SyncResult {
+        let mut final_state = self.current_state().clone();
+        let mut errors = Vec::new();
         let storage_a = &self.pair.storage_a;
         let storage_b = &self.pair.storage_b;
 
@@ -157,8 +154,8 @@ impl<'pair, I: Item> Plan<'pair, I> {
                         create_collection(
                             storage_b,
                             cp.mapping().collection_b(),
-                            &mut final_state.state_b,
-                            &mut final_state.errors,
+                            &mut final_state.b,
+                            &mut errors,
                             action,
                             cp.mapping(),
                         )
@@ -168,15 +165,15 @@ impl<'pair, I: Item> Plan<'pair, I> {
                         create_collection(
                             storage_a,
                             cp.mapping().collection_a(),
-                            &mut final_state.state_a,
-                            &mut final_state.errors,
+                            &mut final_state.a,
+                            &mut errors,
                             action,
                             cp.mapping(),
                         )
                         .await;
                     }
                     Action::Conflict => {
-                        final_state.errors.push(SynchronizationError {
+                        errors.push(SynchronizationError {
                             action: Action::Conflict,
                             resource: FailedResource::Collection {
                                 collection: cp.mapping().clone(),
@@ -196,18 +193,14 @@ impl<'pair, I: Item> Plan<'pair, I> {
 
             for item_action in cp.items() {
                 // FIXME: I need to somehow move these two calls outside of the "for" loop.
-                let state_a = final_state
-                    .state_a
-                    .find_collection_state_mut(&cp.mapping().a);
-                let state_b = final_state
-                    .state_b
-                    .find_collection_state_mut(&cp.mapping().b);
+                let state_a = final_state.a.find_collection_state_mut(&cp.mapping().a);
+                let state_b = final_state.b.find_collection_state_mut(&cp.mapping().b);
 
                 if let Err(err) = item_action
                     .execute(storage_a, storage_b, state_a, state_b)
                     .await
                 {
-                    final_state.errors.push(SynchronizationError {
+                    errors.push(SynchronizationError {
                         action: item_action.action(),
                         resource: FailedResource::Item {
                             uid: item_action.uid().to_string(),
@@ -220,8 +213,8 @@ impl<'pair, I: Item> Plan<'pair, I> {
                 delete_collection(
                     storage_a,
                     &href,
-                    &mut final_state.state_a,
-                    &mut final_state.errors,
+                    &mut final_state.a,
+                    &mut errors,
                     Action::DeleteInA { href: href.clone() },
                     cp.mapping(),
                 )
@@ -231,8 +224,8 @@ impl<'pair, I: Item> Plan<'pair, I> {
                 delete_collection(
                     storage_b,
                     &href,
-                    &mut final_state.state_b,
-                    &mut final_state.errors,
+                    &mut final_state.b,
+                    &mut errors,
                     Action::DeleteInA { href: href.clone() },
                     cp.mapping(),
                 )
@@ -240,48 +233,40 @@ impl<'pair, I: Item> Plan<'pair, I> {
             }
         }
 
-        final_state
+        SyncResult {
+            final_state,
+            errors,
+        }
     }
 }
 
-/// The state of a storage pair after synchronisation.
+/// The result of executing a synchronisation.
 ///
 /// Storages may have been mutated before an error occurred, so the final state for both is always
 /// returned, even in case of an error.
 #[must_use]
 #[derive(Debug)]
-pub struct FinalState {
-    /// The state of `storage_a` after executing a plan.
-    pub(super) state_a: StorageState,
-    /// The state of `storage_b` after executing a plan.
-    pub(super) state_b: StorageState,
+pub struct SyncResult {
+    /// The state of this pair after synchronisation.
+    final_state: PairState,
     /// Any errors that may have occurred during synchronisation.
-    pub(super) errors: Vec<SynchronizationError>,
+    errors: Vec<SynchronizationError>,
 }
 
-impl FinalState {
+impl SyncResult {
     /// Returns `true` if both storages are in sync.
     #[must_use]
     pub fn synchronised_ok(&self) -> bool {
         self.errors.is_empty()
     }
 
-    /// The state of `storage_a` after synchronisation.
+    /// The state the pair of storages after synchronisation.
     ///
     /// This value should be persisted and supplied as a `previous_state` the next time this storage
     /// is synchronised.
     #[must_use]
-    pub fn final_state_a(&self) -> &StorageState {
-        &self.state_a
-    }
-
-    /// The state of `storage_b` after synchronisation.
-    ///
-    /// This value should be persisted and supplied as a `previous_state` the next time this storage
-    /// is synchronised.
-    #[must_use]
-    pub fn final_state_b(&self) -> &StorageState {
-        &self.state_b
+    pub fn final_state(&self) -> &PairState {
+        &self.final_state
     }
 
     /// Errors that occurred during synchronisation, if any.

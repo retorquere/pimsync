@@ -17,14 +17,13 @@ use crate::{CollectionId, Error, ErrorKind, Href};
 
 use super::declare::{CollectionDescription, DeclaredMapping};
 use super::helpers::find_collection_by_id;
-use super::state::{CollectionState, ItemState};
+use super::state::{CollectionState, ItemState, PairState};
 
 /// A series of actions that would synchronise a pair of storages.
 pub struct Plan<'pair, I: Item> {
     pub(super) pair: &'pair StoragePair<I>,
     pub(super) collection_plans: Vec<CollectionPlan>,
-    current_state_a: StorageState,
-    current_state_b: StorageState,
+    current_state: PairState,
 }
 
 /// Show only details of the plan itself; ignore other data.
@@ -144,14 +143,14 @@ impl<'pair, I: Item> Plan<'pair, I> {
             .collect();
 
         let current_state_a = StorageState::current_for_storage(
-            &pair.previous_state_a,
+            pair.previous_state_a(),
             &pair.storage_a,
             &hrefs_a,
             &all_a,
         )
         .await?;
         let current_state_b = StorageState::current_for_storage(
-            &pair.previous_state_b,
+            pair.previous_state_b(),
             &pair.storage_b,
             &hrefs_b,
             &all_b,
@@ -172,15 +171,13 @@ impl<'pair, I: Item> Plan<'pair, I> {
             if let Some(href) = collection.href_a() {
                 cur_a = current_state_a.find_collection_state(href);
                 prev_a = pair
-                    .previous_state_a
-                    .as_ref()
+                    .previous_state_a()
                     .and_then(|s| s.find_collection_state(href));
             };
             if let Some(href) = collection.href_b() {
                 cur_b = current_state_b.find_collection_state(href);
                 prev_b = pair
-                    .previous_state_b
-                    .as_ref()
+                    .previous_state_b()
                     .and_then(|s| s.find_collection_state(href));
             };
 
@@ -193,8 +190,10 @@ impl<'pair, I: Item> Plan<'pair, I> {
         Ok(Plan {
             pair,
             collection_plans,
-            current_state_a,
-            current_state_b,
+            current_state: PairState {
+                a: current_state_a,
+                b: current_state_b,
+            },
         })
     }
 
@@ -204,16 +203,10 @@ impl<'pair, I: Item> Plan<'pair, I> {
         self.pair
     }
 
-    /// The state of storage a, as resolved when creating this plan.
+    /// The state of the pair, as resolved when creating this plan.
     #[must_use]
-    pub fn current_state_a(&self) -> &StorageState {
-        &self.current_state_a
-    }
-
-    /// The state of storage a, as resolved when creating this plan.
-    #[must_use]
-    pub fn current_state_b(&self) -> &StorageState {
-        &self.current_state_b
+    pub fn current_state(&self) -> &PairState {
+        &self.current_state
     }
 }
 
