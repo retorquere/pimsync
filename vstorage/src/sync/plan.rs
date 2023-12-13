@@ -183,8 +183,10 @@ impl<'pair, I: Item> Plan<'pair, I> {
                     .and_then(|s| s.find_collection_state(href));
             };
 
-            let plan = CollectionPlan::new(collection.clone(), prev_a, cur_a, prev_b, cur_b);
-            collection_plans.push(plan);
+            let plan = CollectionPlan::new(collection, prev_a, cur_a, prev_b, cur_b);
+            if let Some(plan) = plan {
+                collection_plans.push(plan);
+            };
         }
 
         Ok(Plan {
@@ -473,18 +475,20 @@ impl CollectionPlan {
     /// Each `previous_state` field shall be `None` if the collection did not previously exist.
     /// Each `current_state` field shall be `None` if the collection currently does not exist.
     ///
+    /// Returns `None` if this plan would be a no-op.
+    ///
     /// # Performance
     ///
     /// This methods is still quite inefficient. While the external API is not expected to change
     /// much, the internal implementation is not yet final.
     #[must_use]
     fn new<'a>(
-        mapping: ResolvedMapping,
+        mapping: &ResolvedMapping,
         previous_state_a: Option<&'a CollectionState>,
         current_state_a: Option<&'a CollectionState>,
         previous_state_b: Option<&'a CollectionState>,
         current_state_b: Option<&'a CollectionState>,
-    ) -> CollectionPlan {
+    ) -> Option<CollectionPlan> {
         let all_items = current_state_a
             .map(|s| &s.items)
             .into_iter()
@@ -516,7 +520,7 @@ impl CollectionPlan {
                     action,
                 })
             })
-            .collect();
+            .collect::<Vec<ItemAction>>();
 
         let collection_action = match Action::from_changes(
             Change::for_collection(current_state_a, previous_state_a),
@@ -526,10 +530,14 @@ impl CollectionPlan {
             other => other,
         };
 
-        CollectionPlan {
-            mapping,
-            collection_action,
-            items: item_actions,
+        if collection_action.is_none() && item_actions.is_empty() {
+            None
+        } else {
+            Some(CollectionPlan {
+                mapping: mapping.clone(),
+                collection_action,
+                items: item_actions,
+            })
         }
     }
 
