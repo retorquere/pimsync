@@ -104,7 +104,7 @@ async fn test_sync_simple_case() {
         .with_mapping(first_mapping)
         .with_mapping(second_mapping)
         .build();
-    let plan = Plan::new(&mut pair).await.unwrap();
+    let plan = Plan::new(&mut pair, None).await.unwrap();
     // dbg!(&plan);
     // TODO: I'll need to trace! the point where each actions is decided.
     let result = plan.execute().await;

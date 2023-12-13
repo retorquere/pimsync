@@ -7,7 +7,6 @@ use std::sync::Arc;
 
 use crate::{
     base::{Item, Storage},
-    sync::state::{PairState, StorageState},
     CollectionId, Href,
 };
 
@@ -61,7 +60,6 @@ impl DeclaredMapping {
 pub struct StoragePairBuilder<I: Item> {
     storage_a: Arc<dyn Storage<I>>,
     storage_b: Arc<dyn Storage<I>>,
-    previous_state: Option<PairState>,
     mappings: Vec<DeclaredMapping>,
     all_from_a: bool,
     all_from_b: bool,
@@ -93,22 +91,12 @@ impl<I: Item> StoragePairBuilder<I> {
         self
     }
 
-    /// Provide a previous state for this pair.
-    ///
-    /// States MUST NOT be re-used across different pairs.
-    #[must_use]
-    pub fn with_previous_state(mut self, state: PairState) -> Self {
-        self.previous_state = Some(state);
-        self
-    }
-
     /// Build the `StoragePair` instance, which can no longer be mutated.
     #[must_use]
     pub fn build(self) -> StoragePair<I> {
         StoragePair {
             storage_a: self.storage_a,
             storage_b: self.storage_b,
-            previous_state: self.previous_state,
             mappings: self.mappings,
             all_from_a: self.all_from_a,
             all_from_b: self.all_from_b,
@@ -127,7 +115,6 @@ impl<I: Item> StoragePairBuilder<I> {
 pub struct StoragePair<I: Item> {
     pub(super) storage_a: Arc<dyn Storage<I>>,
     pub(super) storage_b: Arc<dyn Storage<I>>,
-    pub(super) previous_state: Option<PairState>,
     pub(super) mappings: Vec<DeclaredMapping>,
     pub(super) all_from_a: bool,
     pub(super) all_from_b: bool,
@@ -142,26 +129,9 @@ impl<I: Item> StoragePair<I> {
         StoragePairBuilder {
             storage_a,
             storage_b,
-            previous_state: None,
             mappings: Vec::new(),
             all_from_a: false,
             all_from_b: false,
-        }
-    }
-
-    #[must_use]
-    pub(super) fn previous_state_a(&self) -> Option<&StorageState> {
-        match &self.previous_state {
-            Some(state) => Some(&state.a),
-            None => None,
-        }
-    }
-
-    #[must_use]
-    pub(super) fn previous_state_b(&self) -> Option<&StorageState> {
-        match &self.previous_state {
-            Some(state) => Some(&state.b),
-            None => None,
         }
     }
 }

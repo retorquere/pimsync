@@ -46,7 +46,11 @@ impl<'pair, I: Item> Plan<'pair, I> {
     /// - A mapping is defined by collection id, but the id is invalid for the underlying storage.
     /// - There is an error reading the state of existing items.
     /// - The same collection is mapped more than once.
-    pub async fn new(pair: &'pair StoragePair<I>) -> Result<Plan<'pair, I>> {
+    pub async fn new(
+        pair: &'pair StoragePair<I>,
+        previous_state: Option<&PairState>,
+    ) -> Result<Plan<'pair, I>> {
+        // TODO: disco needs to returns its own error type?
         // TODO: only discover collections if any are specified by Id or All
         let all_a = pair.storage_a.discover_collections().await?;
         let all_b = pair.storage_b.discover_collections().await?;
@@ -142,20 +146,17 @@ impl<'pair, I: Item> Plan<'pair, I> {
             .filter_map(ResolvedMapping::href_b)
             .collect();
 
-        let current_state_a = StorageState::current_for_storage(
-            pair.previous_state_a(),
-            &pair.storage_a,
-            &hrefs_a,
-            &all_a,
-        )
-        .await?;
-        let current_state_b = StorageState::current_for_storage(
-            pair.previous_state_b(),
-            &pair.storage_b,
-            &hrefs_b,
-            &all_b,
-        )
-        .await?;
+        let (previous_a, previous_b) = match previous_state {
+            Some(prev) => (Some(&prev.a), Some(&prev.b)),
+            None => (None, None),
+        };
+
+        let current_state_a =
+            StorageState::current_for_storage(previous_a, &pair.storage_a, &hrefs_a, &all_a)
+                .await?;
+        let current_state_b =
+            StorageState::current_for_storage(previous_b, &pair.storage_b, &hrefs_b, &all_b)
+                .await?;
 
         // TODO: this method's implementation is not performant; it mostly "just works"
         //       Performance will be tweaked at a later date. In particular, we need a
@@ -170,15 +171,11 @@ impl<'pair, I: Item> Plan<'pair, I> {
 
             if let Some(href) = collection.href_a() {
                 cur_a = current_state_a.find_collection_state(href);
-                prev_a = pair
-                    .previous_state_a()
-                    .and_then(|s| s.find_collection_state(href));
+                prev_a = previous_a.and_then(|s| s.find_collection_state(href));
             };
             if let Some(href) = collection.href_b() {
                 cur_b = current_state_b.find_collection_state(href);
-                prev_b = pair
-                    .previous_state_b()
-                    .and_then(|s| s.find_collection_state(href));
+                prev_b = previous_b.and_then(|s| s.find_collection_state(href));
             };
 
             let plan = CollectionPlan::new(collection, prev_a, cur_a, prev_b, cur_b);
@@ -247,7 +244,7 @@ mod test {
         {
             // This sync would be a no-op, but it's not "wrong".
             let mut pair = StoragePair::builder(storage_a.clone(), storage_b.clone()).build();
-            assert!(Plan::new(&mut pair).await.is_ok());
+            assert!(Plan::new(&mut pair, None).await.is_ok());
         }
         {
             // This sync is okay.
@@ -255,7 +252,7 @@ mod test {
             let mut pair = StoragePair::builder(storage_a.clone(), storage_b.clone())
                 .with_mapping(DeclaredMapping::direct(collection))
                 .build();
-            assert!(Plan::new(&mut pair).await.is_ok());
+            assert!(Plan::new(&mut pair, None).await.is_ok());
         }
         {
             // This sync has duplicate items.
@@ -264,7 +261,7 @@ mod test {
                 .with_mapping(DeclaredMapping::direct(collection.clone()))
                 .with_mapping(DeclaredMapping::direct(collection))
                 .build();
-            assert!(Plan::new(&mut pair).await.is_err());
+            assert!(Plan::new(&mut pair, None).await.is_err());
         }
     }
 }
