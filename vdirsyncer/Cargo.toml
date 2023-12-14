@@ -21,6 +21,6 @@ rustls-pemfile = "1.0.3"
 serde = { version = "1.0.188", features = ["derive"] }
 sha2 = "0.10.2"
 simple_logger = { version = "4.1.0", default-features = false, features = ["colors"] }
-tokio = { version = "1.33.0", features = ["sync", "macros", "rt"] }
+tokio = { version = "1.33.0", features = ["macros", "rt"] }
 toml = { version = "0.8.1", features = ["parse", "display"], default-features = false }
 vstorage = { version = "0.1.0", path = "../vstorage" }

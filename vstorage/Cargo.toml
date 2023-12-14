@@ -17,7 +17,7 @@ license = "EUPL-1.2"
 sha2 = "0.10.2"
 # TODO: Maybe use camino for UTF8 paths??
 log = "0.4.17"
-tokio = { version = "1.21.2", features = ["full"] }
+tokio = { version = "1.21.2", features = ["io-util", "fs"] }
 thiserror = "1.0.37"
 async-trait = "0.1.64"
 libdav = { version = "0.1.0", path = "../libdav" }
@@ -31,3 +31,4 @@ vparser = "0.1.4"
 anyhow = "1.0.71"
 rand = "0.8.5"
 tempfile = "3.3.0"
+tokio = { version = "1.21.2", features = ["full"] }
