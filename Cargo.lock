@@ -622,7 +622,6 @@ checksum = "a08173bc88b7955d1b3145aa561539096c421ac8debde8cbc3612ec635fee29b"
 name = "libdav"
 version = "0.1.1"
 dependencies = [
- "async-trait",
  "base64",
  "domain",
  "email_address",
@@ -1311,7 +1310,6 @@ dependencies = [
  "anyhow",
  "hyper",
  "hyper-rustls",
- "itertools",
  "libdav",
  "log",
  "rustls",

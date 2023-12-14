@@ -14,7 +14,6 @@ license = "EUPL-1.2"
 keywords = ["caldav", "carddav", "webcal", "calendar", "contacts"]
 
 [dependencies]
-async-trait = "0.1.66"
 base64 = "0.21.0"
 domain = { version = "0.8.1", features = ["resolv"] }
 email_address = { version = "0.2.4", default-features = false }
