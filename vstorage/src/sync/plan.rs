@@ -7,7 +7,6 @@
 use std::collections::HashSet;
 use std::sync::Arc;
 
-use itertools::Itertools;
 use log::{debug, error, trace};
 
 use crate::base::{Collection, Storage};
@@ -488,9 +487,9 @@ impl CollectionPlan {
             .chain(previous_state_a.map(|s| &s.items).into_iter().flatten())
             .chain(previous_state_b.map(|s| &s.items).into_iter().flatten());
 
+        let all_items = all_items.map(|i| &i.uid).collect::<HashSet<_>>();
         let item_actions = all_items
-            .map(|i| &i.uid)
-            .unique()
+            .into_iter()
             .filter_map(|uid| {
                 let item_a = current_state_a.and_then(|s| s.get_item_by_uid(uid));
                 let item_b = current_state_b.and_then(|s| s.get_item_by_uid(uid));
