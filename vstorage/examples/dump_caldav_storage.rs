@@ -47,10 +47,10 @@ async fn main() {
     let caldav_storage = create_caldav_from_env().await;
     let vdir_storage = create_vdir_from_env().await;
 
-    let collections = caldav_storage.discover_collections().await.unwrap();
+    let discovery = caldav_storage.discover_collections().await.unwrap();
 
-    println!("Found {} collections", collections.len());
-    for collection in collections {
+    println!("Found {} collections", discovery.collection_count());
+    for collection in discovery.collections() {
         println!("Creating {}", collection.href());
         let collection_name = collection
             .href()
@@ -63,16 +63,16 @@ async fn main() {
             .await
             .unwrap();
 
-        copy_collection(&caldav_storage, collection, &vdir_storage, new_collection).await;
+        copy_collection(&caldav_storage, collection, &vdir_storage, &new_collection).await;
     }
 }
 
 /// Copies from `source` to `target` and returns the amount of items copied.
 async fn copy_collection(
     source_storage: &Arc<dyn Storage<IcsItem>>,
-    source_collection: Collection,
+    source_collection: &Collection,
     target_storage: &Arc<dyn Storage<IcsItem>>,
-    target_collection: Collection,
+    target_collection: &Collection,
 ) -> usize {
     let mut count = 0;
     for FetchedItem { item, .. } in source_storage

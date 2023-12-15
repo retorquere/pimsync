@@ -20,6 +20,7 @@ use crate::{
     base::{
         CalendarProperty, Collection, Definition, FetchedItem, IcsItem, Item, ItemRef, Storage,
     },
+    disco::Discovery,
     simple_component::Component,
     CollectionId, Error, ErrorKind, Etag, Result,
 };
@@ -112,10 +113,12 @@ impl Storage<IcsItem> for WebCalStorage {
     }
 
     /// Returns a single collection with the name specified in the definition.
-    async fn discover_collections(&self) -> Result<Vec<Collection>> {
+    async fn discover_collections(&self) -> Result<Discovery> {
+        // TODO: shouldn't I check that the collection actually exists?
         Ok(vec![Collection::new(
             self.definition.collection_name.clone().into(),
-        )])
+        )]
+        .into())
     }
 
     /// Unsupported for this storage type.
@@ -385,7 +388,10 @@ mod test {
         let collection = &storage.open_collection("holidays").unwrap();
         let discovery = &storage.discover_collections().await.unwrap();
 
-        assert_eq!(&collection.href(), &discovery.first().unwrap().href());
+        assert_eq!(
+            &collection.href(),
+            &discovery.collections().first().unwrap().href()
+        );
 
         let item_refs = storage.list_items(collection).await.unwrap();
 

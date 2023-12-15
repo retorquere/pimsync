@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     base::{Collection, FetchedItem, Item, Storage},
+    disco::Discovery,
     CollectionId, Etag, Href, Result,
 };
 
@@ -42,13 +43,13 @@ impl StorageState {
         storage: &Arc<dyn Storage<I>>,
         // The hrefs that we care about:
         collection_hrefs: &Vec<&str>,
-        // All collections found via discovery:
-        discovered: &[Collection],
+        discovery: &Discovery,
     ) -> Result<StorageState> {
         let mut collections = Vec::with_capacity(collection_hrefs.len());
 
         for href in collection_hrefs {
-            let Some(collection) = discovered.iter().find(|c| c.href() == *href) else {
+            let Some(collection) = discovery.collections().iter().find(|c| c.href() == *href)
+            else {
                 // If a collection does not exist the there is no state for it.
                 continue;
             };

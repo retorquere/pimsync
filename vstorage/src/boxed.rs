@@ -2,6 +2,7 @@ use crate::base::Collection;
 use crate::base::FetchedItem;
 use crate::base::ItemRef;
 use crate::base::{Item, Storage};
+use crate::disco::Discovery;
 use crate::{CollectionId, Etag, Result};
 
 use async_trait::async_trait;
@@ -13,7 +14,7 @@ impl<I: Item> Storage<I> for Box<dyn Storage<I>> {
         AsRef::<dyn Storage<I>>::as_ref(self).check().await
     }
 
-    async fn discover_collections(&self) -> Result<Vec<Collection>> {
+    async fn discover_collections(&self) -> Result<Discovery> {
         AsRef::<dyn Storage<I>>::as_ref(self)
             .discover_collections()
             .await

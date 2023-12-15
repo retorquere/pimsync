@@ -25,6 +25,7 @@ use crate::base::{
     AddressBookProperty, CalendarProperty, Collection, Definition, FetchedItem, Item, ItemRef,
     Storage,
 };
+use crate::disco::Discovery;
 use crate::{CollectionId, Error, ErrorKind, Etag, Result};
 
 // TODO: atomic writes
@@ -57,7 +58,7 @@ where
         }
     }
 
-    async fn discover_collections(&self) -> Result<Vec<Collection>> {
+    async fn discover_collections(&self) -> Result<Discovery> {
         let mut entries = read_dir(&self.definition.path).await?;
 
         let mut collections = Vec::<Collection>::new();
@@ -74,7 +75,7 @@ where
             collections.push(Collection::new(href));
         }
 
-        Ok(collections)
+        Ok(collections.into())
     }
 
     async fn create_collection(&self, href: &str) -> Result<Collection> {

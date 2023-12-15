@@ -17,6 +17,7 @@ use crate::base::Collection;
 use crate::base::FetchedItem;
 use crate::base::Item;
 use crate::base::Storage;
+use crate::disco::Discovery;
 use crate::CollectionId;
 use crate::{ErrorKind, Etag, Result};
 
@@ -52,7 +53,7 @@ impl<I: Item> Storage<I> for ReadOnlyStorage<I> {
         self.inner.check().await
     }
 
-    async fn discover_collections(&self) -> Result<Vec<Collection>> {
+    async fn discover_collections(&self) -> Result<Discovery> {
         self.inner.discover_collections().await
     }
 

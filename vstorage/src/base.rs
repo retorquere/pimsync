@@ -13,7 +13,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 
-use crate::{CollectionId, Etag, Href, Result};
+use crate::{disco::Discovery, CollectionId, Etag, Href, Result};
 
 /// Implementation-specific storage definition.
 ///
@@ -61,7 +61,7 @@ pub trait Storage<I: Item>: Sync + Send {
 
     /// Finds existing collections for this storage.
     // TODO: return a wrapper type around Vec<Collection> with helpers like find_by_name.
-    async fn discover_collections(&self) -> Result<Vec<Collection>>;
+    async fn discover_collections(&self) -> Result<Discovery>;
 
     /// Creates a new collection with a specified `href`.
     ///

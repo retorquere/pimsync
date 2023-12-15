@@ -17,6 +17,7 @@ use crate::base::{
     CalendarProperty, Collection, Definition, FetchedItem, IcsItem, Item, ItemRef, Storage,
 };
 use crate::dav::{collection_href_for_item, path_for_collection_in_home_set};
+use crate::disco::Discovery;
 use crate::{CollectionId, Error, ErrorKind, Etag, Result};
 
 #[derive(Debug)]
@@ -107,15 +108,15 @@ where
     ///
     /// Collections outside the principal's home can still be found by providing an absolute path
     /// to [`CalDavStorage::open_collection`].
-    async fn discover_collections(&self) -> Result<Vec<Collection>> {
-        let x = self
+    async fn discover_collections(&self) -> Result<Discovery> {
+        let collections = self
             .client
             .find_calendars(None)
             .await?
             .into_iter()
             .map(|collection| Collection::new(collection.href))
             .collect::<Vec<_>>();
-        Ok(x)
+        Ok(collections.into())
     }
 
     async fn create_collection(&self, href: &str) -> Result<Collection> {

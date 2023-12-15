@@ -60,6 +60,7 @@ mod boxed;
 pub mod caldav;
 pub mod carddav;
 mod dav;
+pub mod disco;
 pub mod filesystem;
 pub mod readonly;
 mod simple_component;
