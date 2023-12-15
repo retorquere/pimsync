@@ -97,7 +97,7 @@ impl Config {
                         a.inner.clone(),
                         b.inner.clone(),
                         &status_dir,
-                    )?;
+                    );
                     calendar_pairs.push(pair);
                 }
                 (EitherStorage::Calendar(_), EitherStorage::AddressBook(_)) => {
@@ -112,7 +112,7 @@ impl Config {
                         a.inner.clone(),
                         b.inner.clone(),
                         &status_dir,
-                    )?;
+                    );
                     contact_pairs.push(pair);
                 }
             }
@@ -164,7 +164,7 @@ impl PairSection {
         a: Arc<dyn Storage<I>>,
         b: Arc<dyn Storage<I>>,
         status_dir: &Path,
-    ) -> anyhow::Result<NamedPair<I>> {
+    ) -> NamedPair<I> {
         let status_path = status_dir.join(format!("{name}.status"));
 
         let mut pair = StoragePair::builder(a, b);
@@ -186,11 +186,11 @@ impl PairSection {
             };
         }
 
-        Ok(NamedPair {
+        NamedPair {
             name,
             inner: pair.build(),
             status_path,
-        })
+        }
     }
 }
 
