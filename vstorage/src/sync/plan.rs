@@ -148,46 +148,17 @@ impl<'pair, I: Item> Plan<'pair, I> {
             None => (None, None),
         };
 
-        let current_state_a =
-            StorageState::current_for_storage(previous_a, &pair.storage_a, &hrefs_a, &disco_a)
-                .await?;
-        let current_state_b =
-            StorageState::current_for_storage(previous_b, &pair.storage_b, &hrefs_b, &disco_b)
-                .await?;
+        let a = StorageState::current_for_storage(previous_a, &pair.storage_a, &hrefs_a, &disco_a)
+            .await?;
+        let b = StorageState::current_for_storage(previous_b, &pair.storage_b, &hrefs_b, &disco_b)
+            .await?;
 
-        // TODO: this method's implementation is not performant; it mostly "just works"
-        //       Performance will be tweaked at a later date. In particular, we need a
-        //       fully functioning system to properly benchmark different implementations.
-
-        let mut collection_plans = Vec::new();
-        for collection in &mappings {
-            let mut prev_a = None;
-            let mut cur_a = None;
-            let mut prev_b = None;
-            let mut cur_b = None;
-
-            if let Some(href) = collection.href_a() {
-                cur_a = current_state_a.find_collection_state(href);
-                prev_a = previous_a.and_then(|s| s.find_collection_state(href));
-            };
-            if let Some(href) = collection.href_b() {
-                cur_b = current_state_b.find_collection_state(href);
-                prev_b = previous_b.and_then(|s| s.find_collection_state(href));
-            };
-
-            let plan = CollectionPlan::new(collection, prev_a, cur_a, prev_b, cur_b);
-            if let Some(plan) = plan {
-                collection_plans.push(plan);
-            };
-        }
+        let collection_plans = create_plan_for_mappings(&mappings, &a, &b, previous_a, previous_b);
 
         Ok(Plan {
             pair,
             collection_plans,
-            current_state: PairState {
-                a: current_state_a,
-                b: current_state_b,
-            },
+            current_state: PairState { a, b },
         })
     }
 
@@ -202,6 +173,43 @@ impl<'pair, I: Item> Plan<'pair, I> {
     pub fn current_state(&self) -> &PairState {
         &self.current_state
     }
+}
+
+fn create_plan_for_mappings(
+    mappings: &[ResolvedMapping],
+    current_a: &StorageState,
+    current_b: &StorageState,
+    previous_a: Option<&StorageState>,
+    previous_b: Option<&StorageState>,
+) -> Vec<CollectionPlan> {
+    // TODO: this method's implementation is not performant. It does work. Performance will be
+    //       tweaked at a later date. Ideally, we'll have benchmarks in place first.
+
+    let mut collection_plans = Vec::new();
+    for collection in mappings {
+        let mut prev_a = None;
+        let mut cur_a = None;
+        let mut prev_b = None;
+        let mut cur_b = None;
+
+        if let Some(href) = collection.href_a() {
+            cur_a = current_a.find_collection_state(href);
+            prev_a = previous_a
+                .as_ref()
+                .and_then(|s| s.find_collection_state(href));
+        };
+        if let Some(href) = collection.href_b() {
+            cur_b = current_b.find_collection_state(href);
+            prev_b = previous_b
+                .as_ref()
+                .and_then(|s| s.find_collection_state(href));
+        };
+
+        if let Some(plan) = CollectionPlan::new(collection, prev_a, cur_a, prev_b, cur_b) {
+            collection_plans.push(plan);
+        };
+    }
+    collection_plans
 }
 
 #[cfg(test)]
