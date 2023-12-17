@@ -68,31 +68,29 @@ impl<'pair, I: Item> Plan<'pair, I> {
         if pair.all_from_a {
             mappings.reserve(disco_a.collection_count());
             for collection in disco_a.collections() {
-                let counterpart = resolve_mapping_counterpart(
-                    &pair.storage_a,
-                    collection,
-                    &pair.storage_b,
-                    &disco_b,
-                )?;
                 mappings.push(ResolvedMapping {
                     a: ResolvedCollection::Href {
                         href: collection.href().to_string(),
                     },
-                    b: counterpart,
+                    b: resolve_mapping_counterpart(
+                        &pair.storage_a,
+                        collection,
+                        &pair.storage_b,
+                        &disco_b,
+                    )?,
                 });
             }
         }
         if pair.all_from_b {
             mappings.reserve(disco_b.collection_count());
             for collection in disco_b.collections() {
-                let counterpart = resolve_mapping_counterpart(
-                    &pair.storage_b,
-                    collection,
-                    &pair.storage_a,
-                    &disco_a,
-                )?;
                 let mapping = ResolvedMapping {
-                    a: counterpart,
+                    a: resolve_mapping_counterpart(
+                        &pair.storage_b,
+                        collection,
+                        &pair.storage_a,
+                        &disco_a,
+                    )?,
                     b: ResolvedCollection::Href {
                         href: collection.href().to_owned(),
                     },
