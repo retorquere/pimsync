@@ -54,56 +54,12 @@ impl<'pair, I: Item> Plan<'pair, I> {
         let disco_a = pair.storage_a.discover_collections().await?;
         let disco_b = pair.storage_b.discover_collections().await?;
 
-        let mut mappings = Vec::<ResolvedMapping>::with_capacity(pair.mappings.len());
-        for mapping in &pair.mappings {
-            mappings.push(ResolvedMapping::from_declared_mapping(
-                mapping.clone(),
-                &pair.storage_a,
-                &pair.storage_b,
-                &disco_a,
-                &disco_b,
-            )?);
-        }
-
-        if pair.all_from_a {
-            mappings.reserve(disco_a.collection_count());
-            for collection in disco_a.collections() {
-                mappings.push(ResolvedMapping {
-                    a: ResolvedCollection::Href {
-                        href: collection.href().to_string(),
-                    },
-                    b: resolve_mapping_counterpart(
-                        &pair.storage_a,
-                        collection,
-                        &pair.storage_b,
-                        &disco_b,
-                    )?,
-                });
-            }
-        }
-        if pair.all_from_b {
-            mappings.reserve(disco_b.collection_count());
-            for collection in disco_b.collections() {
-                let mapping = ResolvedMapping {
-                    a: resolve_mapping_counterpart(
-                        &pair.storage_b,
-                        collection,
-                        &pair.storage_a,
-                        &disco_a,
-                    )?,
-                    b: ResolvedCollection::Href {
-                        href: collection.href().to_owned(),
-                    },
-                };
-                if mappings.iter().any(|m| *m == mapping) {
-                    debug!("Skipping mapping; already present.");
-                } else {
-                    mappings.push(mapping);
-                }
-            }
-        }
+        // TODO: edicated error type
+        let mappings = create_mappings_for_pair(pair, &disco_a, &disco_b)?;
 
         // TODO: can I avoid generating duplicates in the first place?
+        //       conflicts need to be resolved explicitly, not via hash:
+        //       E.g.: href0<>href1 && id0 <> id1 where id(href1) != id1
         {
             let mut seen_a = HashSet::<&ResolvedCollection>::new();
             let mut seen_b = HashSet::<&ResolvedCollection>::new();
@@ -133,7 +89,6 @@ impl<'pair, I: Item> Plan<'pair, I> {
             }
         }
 
-        // IMPORTANT: id-only definitions need to be resolved at this point!
         let hrefs_a = mappings
             .iter()
             .filter_map(ResolvedMapping::href_a)
@@ -143,17 +98,17 @@ impl<'pair, I: Item> Plan<'pair, I> {
             .filter_map(ResolvedMapping::href_b)
             .collect();
 
-        let (previous_a, previous_b) = match previous_state {
+        let (prev_a, prev_b) = match previous_state {
             Some(prev) => (Some(&prev.a), Some(&prev.b)),
             None => (None, None),
         };
 
-        let a = StorageState::current_for_storage(previous_a, &pair.storage_a, &hrefs_a, &disco_a)
-            .await?;
-        let b = StorageState::current_for_storage(previous_b, &pair.storage_b, &hrefs_b, &disco_b)
-            .await?;
+        let a =
+            StorageState::current_for_storage(prev_a, &pair.storage_a, &hrefs_a, &disco_a).await?;
+        let b =
+            StorageState::current_for_storage(prev_b, &pair.storage_b, &hrefs_b, &disco_b).await?;
 
-        let collection_plans = create_plan_for_mappings(&mappings, &a, &b, previous_a, previous_b);
+        let collection_plans = create_plan_for_mappings(&mappings, &a, &b, prev_a, prev_b);
 
         Ok(Plan {
             pair,
@@ -173,6 +128,62 @@ impl<'pair, I: Item> Plan<'pair, I> {
     pub fn current_state(&self) -> &PairState {
         &self.current_state
     }
+}
+
+fn create_mappings_for_pair<I: Item>(
+    pair: &StoragePair<I>,
+    disco_a: &Discovery,
+    disco_b: &Discovery,
+) -> Result<Vec<ResolvedMapping>> {
+    let mut mappings = Vec::<ResolvedMapping>::with_capacity(pair.mappings.len());
+    for mapping in &pair.mappings {
+        mappings.push(ResolvedMapping::from_declared_mapping(
+            mapping.clone(),
+            &pair.storage_a,
+            &pair.storage_b,
+            disco_a,
+            disco_b,
+        )?);
+    }
+
+    if pair.all_from_a {
+        mappings.reserve(disco_a.collection_count());
+        for collection in disco_a.collections() {
+            mappings.push(ResolvedMapping {
+                a: ResolvedCollection::Href {
+                    href: collection.href().to_string(),
+                },
+                b: resolve_mapping_counterpart(
+                    &pair.storage_a,
+                    collection,
+                    &pair.storage_b,
+                    disco_b,
+                )?,
+            });
+        }
+    }
+    if pair.all_from_b {
+        mappings.reserve(disco_b.collection_count());
+        for collection in disco_b.collections() {
+            let mapping = ResolvedMapping {
+                a: resolve_mapping_counterpart(
+                    &pair.storage_b,
+                    collection,
+                    &pair.storage_a,
+                    disco_a,
+                )?,
+                b: ResolvedCollection::Href {
+                    href: collection.href().to_owned(),
+                },
+            };
+            if mappings.iter().any(|m| *m == mapping) {
+                debug!("Skipping mapping; already present.");
+            } else {
+                mappings.push(mapping);
+            }
+        }
+    }
+    Ok(mappings)
 }
 
 fn create_plan_for_mappings(
