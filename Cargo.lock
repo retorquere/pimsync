@@ -1293,6 +1293,7 @@ name = "vdirsyncer"
 version = "0.0.1"
 dependencies = [
  "anyhow",
+ "clap",
  "hyper",
  "hyper-rustls",
  "libdav",

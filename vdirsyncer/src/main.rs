@@ -4,15 +4,19 @@
 
 #![allow(unused)]
 
-use std::{fs::OpenOptions, io::Write, path::PathBuf, sync::Arc};
+use std::{fs::OpenOptions, io::Write, path::PathBuf, sync::Arc, time::Duration};
 
-use anyhow::Context;
-use log::{debug, error, trace};
+use anyhow::{bail, Context};
+use clap::Parser;
+use log::{debug, error, info, trace, warn};
 use vstorage::{
     base::{IcsItem, Item, Storage, VcardItem},
     sync::{declare::StoragePair, plan::Plan, state::PairState},
 };
 
+use crate::cli::Vdirsyncer;
+
+mod cli;
 mod config;
 mod tls;
 
@@ -71,13 +75,31 @@ pub(crate) struct App {
     contact_pairs: Vec<NamedPair<VcardItem>>,
 }
 
+impl App {
+    async fn sync(&self) {
+        synchronise_pairs(&self.calendar_pairs).await;
+        synchronise_pairs(&self.contact_pairs).await;
+        info!("Synchronisation complete");
+    }
+}
+
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> anyhow::Result<()> {
-    let log_level = log::Level::Debug;
+    let cli = Vdirsyncer::parse();
+    let log_level = cli.log_level();
     simple_logger::init_with_level(log_level).expect("logger should initialise");
+    info!("Logging enabled with {} level", log_level);
+
+    if !cli.sync && !cli.check {
+        bail!("Must specify something to do (either --sync or --check)");
+    }
 
     let config = config::parse_from_file("/home/hugo/.config/vdirsyncer/config.toml")?;
     debug!("Parsed configuration: {:?}", &config);
+
+    if cli.check {
+        return Ok(());
+    }
 
     let app = config
         .into_app()
@@ -85,17 +107,27 @@ async fn main() -> anyhow::Result<()> {
         .context("Failed to initialise with given configuration.")?;
     debug!("Initialised application");
 
-    syncrhonise_pairs(app.calendar_pairs).await;
-    syncrhonise_pairs(app.contact_pairs).await;
+    if cli.sync {
+        if cli.daemon {
+            warn!("Storage monitor is not implemented, will auto-sync every 5 minutes.");
+            // TODO: HTTPS connections are kept open for a while; this should also be configurable.
+            loop {
+                app.sync().await;
+                // TODO: make this interval configurable.
+                tokio::time::sleep(Duration::from_secs(5 * 60)).await;
+            }
+        } else {
+            app.sync().await;
+        }
+    }
 
     // TODO: turn storages into lockables
     // TODO: create per-pair tasks and sync pairs in parallel.
 
-    dbg!("Sync complete!");
     Ok(())
 }
 
-async fn syncrhonise_pairs<I: Item>(pairs: Vec<NamedPair<I>>) -> anyhow::Result<()> {
+async fn synchronise_pairs<I: Item>(pairs: &Vec<NamedPair<I>>) -> anyhow::Result<()> {
     for pair in pairs {
         // TODO: locking storages so we can do things in parallel
         let state = pair.load_state()?;
