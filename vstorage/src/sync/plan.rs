@@ -54,12 +54,9 @@ impl<'pair, I: Item> Plan<'pair, I> {
         let disco_a = pair.storage_a.discover_collections().await?;
         let disco_b = pair.storage_b.discover_collections().await?;
 
-        // TODO: edicated error type
+        // TODO: dedicated error type
         let mappings = create_mappings_for_pair(pair, &disco_a, &disco_b)?;
 
-        // TODO: can I avoid generating duplicates in the first place?
-        //       conflicts need to be resolved explicitly, not via hash:
-        //       E.g.: href0<>href1 && id0 <> id1 where id(href1) != id1
         {
             let mut seen_a = HashSet::<&ResolvedCollection>::new();
             let mut seen_b = HashSet::<&ResolvedCollection>::new();
@@ -130,6 +127,9 @@ impl<'pair, I: Item> Plan<'pair, I> {
     }
 }
 
+/// Resolve all collection mappings for a given pair.
+///
+/// Performs no I/O; only operates on input data.
 fn create_mappings_for_pair<I: Item>(
     pair: &StoragePair<I>,
     disco_a: &Discovery,
@@ -186,6 +186,9 @@ fn create_mappings_for_pair<I: Item>(
     Ok(mappings)
 }
 
+/// Create plan items for a pair and its collection mappings.
+///
+/// Performs no I/O; only operates on input data.
 fn create_plan_for_mappings(
     mappings: &[ResolvedMapping],
     current_a: &StorageState,
