@@ -38,6 +38,8 @@ use crate::{
 ///
 /// The `href` for this meaningless. A string matching the [`WebCalDefinition::collection_name`]
 /// property is used to describe the only available collection.
+// TODO: If an alternative href is provided, it should be used as a path on the same host.
+//       Note that discovery will only support the one matching the input URL.
 pub struct WebCalStorage {
     definition: WebCalDefinition,
     http_client: Client<HttpsConnector<HttpConnector>>,
@@ -116,7 +118,7 @@ impl Storage<IcsItem> for WebCalStorage {
     async fn discover_collections(&self) -> Result<Discovery> {
         // TODO: shouldn't I check that the collection actually exists?
         Ok(vec![DiscoveredCollection::new(
-            self.definition.url.host().unwrap_or("/").to_string(),
+            self.definition.url.path().to_string(),
             self.definition.collection_name.clone(),
         )]
         .into())
@@ -155,7 +157,7 @@ impl Storage<IcsItem> for WebCalStorage {
         let raw = fetch_raw(&self.http_client, &self.definition.url).await?;
 
         // TODO: it would be best if the parser could operate on a stream, although that might
-        //       complicate inlining VTIMEZONEs that are at the end.
+        //       complicate copying VTIMEZONEs inline if they are at the end of the stream.
         let refs = Component::parse(&raw)
             .map_err(|e| Error::new(ErrorKind::InvalidData, e))?
             .into_split_collection()
@@ -308,8 +310,8 @@ impl Storage<IcsItem> for WebCalStorage {
         ))
     }
 
-    fn collection_id(&self, collection: &str) -> Result<CollectionId> {
-        if collection == self.definition.collection_name.as_ref() {
+    fn collection_id(&self, collection_href: &str) -> Result<CollectionId> {
+        if collection_href == self.definition.url.path() {
             Ok(self.definition.collection_name.clone())
         } else {
             Err(ErrorKind::DoesNotExist.into())
