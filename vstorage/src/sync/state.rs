@@ -126,7 +126,7 @@ impl CollectionState {
 
         // TODO: I could special case if previous_state is None and just get_all
 
-        for item_ref in storage.list_items(&collection.to_collection()).await? {
+        for item_ref in storage.list_items(collection.href()).await? {
             if let Some(ps) = previous_state {
                 if let Some(p) = ps.get_item_by_href(&item_ref.href) {
                     if p.etag == item_ref.etag {

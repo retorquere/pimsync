@@ -9,7 +9,7 @@ use std::sync::Arc;
 
 use log::{debug, trace};
 
-use crate::base::{Collection, Storage};
+use crate::base::Storage;
 use crate::disco::{DiscoveredCollection, Discovery};
 use crate::sync::state::StorageState;
 use crate::{base::Item, sync::declare::StoragePair, Result};
@@ -397,7 +397,7 @@ fn resolve_from_x<I: Item>(
             (id, collection.href().to_string())
         }
         CollectionDescription::Href { href } => {
-            let id = storage_x.collection_id(&Collection::new(href.clone()))?;
+            let id = storage_x.collection_id(&href)?;
             (id, href.to_string())
         }
     };

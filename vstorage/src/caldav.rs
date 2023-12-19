@@ -109,8 +109,7 @@ where
     /// this implies that only collections owned by the current user are found and not other
     /// collections.
     ///
-    /// Collections outside the principal's home can still be found by providing an absolute path
-    /// to [`CalDavStorage::open_collection`].
+    /// Collections outside the principal's home can be referenced by using an absolute path.
     async fn discover_collections(&self) -> Result<Discovery> {
         self.client
             .find_calendars(None)
@@ -191,11 +190,10 @@ where
         // TODO: specific error kind type for MissingEtag?
 
         // TODO: if no etag -> use force deletion (and warn)
-        let collection = Collection::new(href.to_string());
 
         // TODO: verify that the collection is actually a calendar collection?
         // This could be done by using discover above.
-        let items = self.list_items(&collection).await?;
+        let items = self.list_items(href).await?;
         if !items.is_empty() {
             return Err(ErrorKind::CollectionNotEmpty.into());
         }
@@ -207,12 +205,8 @@ where
         Ok(())
     }
 
-    fn open_collection(&self, href: &str) -> Result<Collection> {
-        Ok(Collection::new(href.to_string()))
-    }
-
-    async fn list_items(&self, collection: &Collection) -> Result<Vec<ItemRef>> {
-        let response = self.client.list_resources(collection.href()).await?;
+    async fn list_items(&self, collection_href: &str) -> Result<Vec<ItemRef>> {
+        let response = self.client.list_resources(collection_href).await?;
         let mut items = Vec::with_capacity(response.len());
         for r in response {
             items.push(ItemRef {
@@ -276,14 +270,14 @@ where
             .collect())
     }
 
-    async fn get_all_items(&self, collection: &Collection) -> Result<Vec<FetchedItem<IcsItem>>> {
+    async fn get_all_items(&self, collection: &str) -> Result<Vec<FetchedItem<IcsItem>>> {
         let list = self.list_items(collection).await?;
         let hrefs = list.iter().map(|i| i.href.as_str()).collect::<Vec<_>>();
         self.get_many_items(&hrefs).await
     }
 
-    async fn add_item(&self, collection: &Collection, item: &IcsItem) -> Result<ItemRef> {
-        let href = join_hrefs(collection.href(), &item.ident());
+    async fn add_item(&self, collection_href: &str, item: &IcsItem) -> Result<ItemRef> {
+        let href = join_hrefs(collection_href, &item.ident());
         // TODO: ident: .chars().filter(char::is_ascii_alphanumeric)
 
         self.client
@@ -322,19 +316,19 @@ where
     /// Only `DisplayName` and `Colour` are implemented.
     async fn set_collection_property(
         &self,
-        collection: &Collection,
+        collection_href: &str,
         meta: CalendarProperty,
         value: &str,
     ) -> Result<()> {
         match meta {
             CalendarProperty::DisplayName => {
                 self.client
-                    .set_collection_displayname(collection.href(), Some(value))
+                    .set_collection_displayname(collection_href, Some(value))
                     .await
             }
             CalendarProperty::Colour => {
                 self.client
-                    .set_calendar_colour(collection.href(), Some(value))
+                    .set_calendar_colour(collection_href, Some(value))
                     .await
             }
             _ => todo!(), // TODO FIXME
@@ -356,16 +350,16 @@ where
     /// Only `DisplayName` and `Colour` are implemented.
     async fn get_collection_property(
         &self,
-        collection: &Collection,
+        collection_href: &str,
         meta: CalendarProperty,
     ) -> Result<Option<String>> {
         let result = match meta {
             CalendarProperty::DisplayName => {
                 self.client
-                    .get_collection_displayname(collection.href())
+                    .get_collection_displayname(collection_href)
                     .await
             }
-            CalendarProperty::Colour => self.client.get_calendar_colour(collection.href()).await,
+            CalendarProperty::Colour => self.client.get_calendar_colour(collection_href).await,
             _ => todo!(), // TODO FIXME
         };
 
@@ -380,10 +374,9 @@ where
     }
 
     /// The id of a caldav collection is the last component of the path.
-    fn collection_id(&self, collection: &Collection) -> Result<CollectionId> {
+    fn collection_id(&self, collection_href: &str) -> Result<CollectionId> {
         // TODO: this will need to be different for Google's WebDav.
-        collection_id_for_href(collection.href())
-            .map_err(|e| Error::new(ErrorKind::InvalidInput, e))
+        collection_id_for_href(collection_href).map_err(|e| Error::new(ErrorKind::InvalidInput, e))
     }
 }
 
@@ -420,8 +413,7 @@ mod test {
             ("/", ""),
         ];
         for (input, output) in samples {
-            let collection = test_client.open_collection(input).unwrap();
-            let collection_id = test_client.collection_id(&collection).unwrap();
+            let collection_id = test_client.collection_id(input).unwrap();
 
             assert_eq!(collection_id, output.parse().unwrap());
         }

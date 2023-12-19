@@ -16,7 +16,6 @@
 use http::Uri;
 use std::path::PathBuf;
 use std::sync::Arc;
-use vstorage::base::Collection;
 use vstorage::base::Definition;
 use vstorage::base::FetchedItem;
 use vstorage::base::Item;
@@ -48,15 +47,13 @@ async fn main() {
         .await
         .expect("can create fs storage");
 
-    let webcal_collection = webcal
-        .open_collection("holidays_nl")
-        .expect("can open webcal collection");
+    let webcal_collection = "holidays_nl";
     let fs_collection = fs
         .create_collection("holidays_nl")
         .await
         .expect("can create fs collection");
 
-    let copied = copy_collection(webcal, webcal_collection, fs, fs_collection).await;
+    let copied = copy_collection(webcal, webcal_collection, fs, fs_collection.href()).await;
 
     println!("Copied {copied} items");
 }
@@ -64,19 +61,19 @@ async fn main() {
 /// Copies from `source` to `target` and returns the amount of items copied.
 async fn copy_collection<I: Item>(
     source_storage: Arc<dyn Storage<I>>,
-    source_collection: Collection,
+    source_collection_name: &str,
     target_storage: Arc<dyn Storage<I>>,
-    target_collection: Collection,
+    target_collection_href: &str,
 ) -> usize {
     let mut count = 0;
     for FetchedItem { item, .. } in source_storage
-        .get_all_items(&source_collection)
+        .get_all_items(source_collection_name)
         .await
         .expect("webcal remote has items")
     {
         count += 1;
         target_storage
-            .add_item(&target_collection, &item)
+            .add_item(target_collection_href, &item)
             .await
             .expect("write to local filesystem collection");
     }

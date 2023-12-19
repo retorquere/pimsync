@@ -38,34 +38,30 @@ impl<I: Item> Storage<I> for Box<dyn Storage<I>> {
             .await
     }
 
-    fn open_collection(&self, href: &str) -> Result<Collection> {
-        AsRef::<dyn Storage<I>>::as_ref(self).open_collection(href)
-    }
-
     async fn get_collection_property(
         &self,
-        collection: &Collection,
+        collection_href: &str,
         property: I::CollectionProperty,
     ) -> Result<Option<String>> {
         AsRef::<dyn Storage<I>>::as_ref(self)
-            .get_collection_property(collection, property)
+            .get_collection_property(collection_href, property)
             .await
     }
 
     async fn set_collection_property(
         &self,
-        collection: &Collection,
+        collection_href: &str,
         property: I::CollectionProperty,
         value: &str,
     ) -> Result<()> {
         AsRef::<dyn Storage<I>>::as_ref(self)
-            .set_collection_property(collection, property, value)
+            .set_collection_property(collection_href, property, value)
             .await
     }
 
-    async fn list_items(&self, collection: &Collection) -> Result<Vec<ItemRef>> {
+    async fn list_items(&self, collection_href: &str) -> Result<Vec<ItemRef>> {
         AsRef::<dyn Storage<I>>::as_ref(self)
-            .list_items(collection)
+            .list_items(collection_href)
             .await
     }
 
@@ -79,15 +75,15 @@ impl<I: Item> Storage<I> for Box<dyn Storage<I>> {
             .await
     }
 
-    async fn get_all_items(&self, collection: &Collection) -> Result<Vec<FetchedItem<I>>> {
+    async fn get_all_items(&self, collection_href: &str) -> Result<Vec<FetchedItem<I>>> {
         AsRef::<dyn Storage<I>>::as_ref(self)
-            .get_all_items(collection)
+            .get_all_items(collection_href)
             .await
     }
 
-    async fn add_item(&self, collection: &Collection, item: &I) -> Result<ItemRef> {
+    async fn add_item(&self, collection_href: &str, item: &I) -> Result<ItemRef> {
         AsRef::<dyn Storage<I>>::as_ref(self)
-            .add_item(collection, item)
+            .add_item(collection_href, item)
             .await
     }
 
@@ -103,7 +99,7 @@ impl<I: Item> Storage<I> for Box<dyn Storage<I>> {
             .await
     }
 
-    fn collection_id(&self, collection: &Collection) -> Result<CollectionId> {
-        AsRef::<dyn Storage<I>>::as_ref(self).collection_id(collection)
+    fn collection_id(&self, collection_href: &str) -> Result<CollectionId> {
+        AsRef::<dyn Storage<I>>::as_ref(self).collection_id(collection_href)
     }
 }

@@ -88,8 +88,6 @@ async fn copy_item<I: Item>(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let (item, _) = src_storage.get_item(src_href).await?;
 
-    let col = dst_storage.open_collection(&dst_state.href)?;
-
     if let Some(dst_item_state) = dst_state.get_item_by_uid_mut(uid) {
         debug!("Updating {uid}");
         let new_etag = dst_storage
@@ -99,7 +97,7 @@ async fn copy_item<I: Item>(
         dst_item_state.hash = item.hash();
     } else {
         debug!("Creating {uid}");
-        let new_ref = dst_storage.add_item(&col, &item).await?;
+        let new_ref = dst_storage.add_item(&dst_state.href, &item).await?;
         dst_state.items.push(ItemState {
             href: new_ref.href,
             uid: uid.to_string(),
@@ -296,7 +294,7 @@ async fn create_collection<I: Item>(
             // To be honest, it doesn't make sense that this error would ever happen.
             // It implies that we managed to create a collection, but the `href` is not valid and
             // we can't get it's collection_id.
-            let id = storage.collection_id(&col).unwrap();
+            let id = storage.collection_id(col.href()).unwrap();
             state.add_collection(id, col.href().to_string());
         }
         Err(e) => {

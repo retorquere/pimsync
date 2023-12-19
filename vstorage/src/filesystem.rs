@@ -84,14 +84,14 @@ where
         let path = self.join_collection_href(href)?;
         create_dir(&path).await?;
 
-        self.open_collection(href)
+        Ok(Collection::new(href.to_string()))
     }
 
     async fn create_collection_with_id(&self, id: &CollectionId) -> Result<Collection> {
         let path = self.join_collection_href(id.as_ref())?;
         create_dir(&path).await?;
 
-        self.open_collection(id.as_ref())
+        Ok(Collection::new(id.as_ref().to_string()))
     }
 
     async fn destroy_collection(&self, href: &str) -> Result<()> {
@@ -99,11 +99,7 @@ where
         remove_dir(path).await.map_err(Error::from)
     }
 
-    fn open_collection(&self, href: &str) -> Result<Collection> {
-        Ok(Collection::new(href.to_string()))
-    }
-
-    async fn list_items(&self, collection: &Collection) -> Result<Vec<ItemRef>> {
+    async fn list_items(&self, collection: &str) -> Result<Vec<ItemRef>> {
         let mut read_dir = read_dir(self.collection_path(collection)).await?;
 
         let mut items = Vec::new();
@@ -145,7 +141,7 @@ where
         Ok(items)
     }
 
-    async fn get_all_items(&self, collection: &Collection) -> Result<Vec<FetchedItem<I>>> {
+    async fn get_all_items(&self, collection: &str) -> Result<Vec<FetchedItem<I>>> {
         let mut read_dir = read_dir(self.collection_path(collection)).await?;
 
         let mut items = Vec::new();
@@ -168,7 +164,7 @@ where
 
     async fn set_collection_property(
         &self,
-        collection: &Collection,
+        collection: &str,
         meta: I::CollectionProperty,
         value: &str,
     ) -> Result<()> {
@@ -183,7 +179,7 @@ where
 
     async fn get_collection_property(
         &self,
-        collection: &Collection,
+        collection: &str,
         meta: I::CollectionProperty,
     ) -> Result<Option<String>> {
         let filename = meta.filename();
@@ -198,7 +194,7 @@ where
         Ok(Some(value))
     }
 
-    async fn add_item(&self, collection: &Collection, item: &I) -> Result<ItemRef> {
+    async fn add_item(&self, collection: &str, item: &I) -> Result<ItemRef> {
         // TODO: We only need to remove a few "illegal" characters, so this is a bit too strict.
         let basename = item
             .ident()
@@ -256,9 +252,8 @@ where
     }
 
     /// The id of a filesystem collection is the name of the directory.
-    fn collection_id(&self, collection: &Collection) -> Result<CollectionId> {
+    fn collection_id(&self, collection: &str) -> Result<CollectionId> {
         collection
-            .href()
             .rsplit('/')
             .next()
             .expect("rsplit always returns at least one item")
@@ -268,8 +263,8 @@ where
 }
 
 impl<I: Item> FilesystemStorage<I> {
-    fn collection_path(&self, collection: &Collection) -> PathBuf {
-        self.definition.path.join(collection.href())
+    fn collection_path(&self, collection_href: &str) -> PathBuf {
+        self.definition.path.join(collection_href)
     }
 
     // Joins an href to the storage's path.
@@ -392,7 +387,7 @@ mod tests {
 
     use super::FilesystemDefinition;
     use crate::{
-        base::{Collection, Definition, IcsItem, Storage},
+        base::{Definition, IcsItem, Storage},
         ErrorKind,
     };
     use tempfile::tempdir;
@@ -406,7 +401,10 @@ mod tests {
         let storage = definition.into_storage().await.unwrap();
         let collection = storage.create_collection("test").await.unwrap();
         let displayname = storage
-            .get_collection_property(&collection, crate::base::CalendarProperty::DisplayName)
+            .get_collection_property(
+                &collection.href(),
+                crate::base::CalendarProperty::DisplayName,
+            )
             .await
             .unwrap();
 
@@ -436,7 +434,7 @@ mod tests {
         .join("\r\n");
 
         write(collection_path.join("item.ics"), without_prodid).unwrap();
-        let collection = Collection::new("one".to_string());
+        let collection = "one";
 
         let listed_items = storage.list_items(&collection).await.unwrap();
         assert_eq!(listed_items.len(), 1);
@@ -453,7 +451,7 @@ mod tests {
         assert_eq!(many_items.len(), 1);
         assert_eq!(many_items[0].href, "one/item.ics");
 
-        let missing_collection = Collection::new("two".to_string());
+        let missing_collection = "two";
         let err = match storage.list_items(&missing_collection).await {
             Ok(items) => panic!("expected error, got {} result.", items.len()),
             Err(e) => e,

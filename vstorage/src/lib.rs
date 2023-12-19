@@ -235,6 +235,8 @@ pub type Href = String;
 ///
 /// # Creating instances
 ///
+/// Instances of `CollectionId` always contain previously validated data.
+///
 /// See: [`CollectionId::try_from`] and [`CollectionId::from_str`].
 #[derive(PartialEq, Debug, Clone, Eq, Hash)]
 pub struct CollectionId {

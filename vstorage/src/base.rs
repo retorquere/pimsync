@@ -36,7 +36,7 @@ pub trait Definition<I: Item>: Sync + Send + std::fmt::Debug {
 /// A storage is the highest level abstraction where items can be stored. It can be a remote CalDav
 /// account, a local filesystem, etc.
 ///
-/// Each storage may contain one or more [`Collection`]s (e.g.: calendars or address books).
+/// Each storage may contain one or more **collections** (e.g.: calendars or address books).
 ///
 /// The specific type of item that a storage can hold is defined by the `I` generic parameter.
 /// E.g.: a CalDav storage can hold icalendar items. Only items with the same kind of item can be
@@ -79,28 +79,23 @@ pub trait Storage<I: Item>: Sync + Send {
     /// A collection must be empty for deletion to succeed.
     async fn destroy_collection(&self, href: &str) -> Result<()>;
 
-    /// Open an existing collection.
-    ///
-    /// This method does not check the existence of the collection.
-    fn open_collection(&self, href: &str) -> Result<Collection>;
-
     /// Returns the value of a property for a given collection.
     async fn get_collection_property(
         &self,
-        collection: &Collection,
+        collection: &str,
         property: I::CollectionProperty,
     ) -> Result<Option<String>>;
 
     /// Sets the value of a property for a given collection.
     async fn set_collection_property(
         &self,
-        collection: &Collection,
+        collection: &str,
         property: I::CollectionProperty,
         value: &str,
     ) -> Result<()>;
 
     /// Enumerates items in a given collection.
-    async fn list_items(&self, collection: &Collection) -> Result<Vec<ItemRef>>;
+    async fn list_items(&self, collection_href: &str) -> Result<Vec<ItemRef>>;
 
     /// Fetches a single item from given collection.
     ///
@@ -138,7 +133,7 @@ pub trait Storage<I: Item>: Sync + Send {
     ///
     /// The default implementation is usually not optimal, and implementations of this trait should
     /// override it.
-    async fn get_all_items(&self, collection: &Collection) -> Result<Vec<FetchedItem<I>>> {
+    async fn get_all_items(&self, collection: &str) -> Result<Vec<FetchedItem<I>>> {
         let item_refs = self.list_items(collection).await?;
         let mut items = Vec::with_capacity(item_refs.len());
         for item_ref in item_refs {
@@ -153,7 +148,7 @@ pub trait Storage<I: Item>: Sync + Send {
     }
 
     /// Saves a new item into a given collection
-    async fn add_item(&self, collection: &Collection, item: &I) -> Result<ItemRef>;
+    async fn add_item(&self, collection: &str, item: &I) -> Result<ItemRef>;
 
     /// Updates the contents of an existing item.
     async fn update_item(&self, href: &str, etag: &Etag, item: &I) -> Result<Etag>;
@@ -161,7 +156,7 @@ pub trait Storage<I: Item>: Sync + Send {
     /// Deletes an existing item.
     async fn delete_item(&self, href: &str, etag: &Etag) -> Result<()>;
 
-    /// Return the id for a given collection.
+    /// Return the id for a collection with the given `href`.
     ///
     /// The id for a given Collection must never change. Usually this is based off the last
     /// component of the href, but may be different for storages where this does not make sense.
@@ -169,7 +164,7 @@ pub trait Storage<I: Item>: Sync + Send {
     /// # Errors
     ///
     /// This functions returns an `Err` variant if the provided `collection` is invalid.
-    fn collection_id(&self, collection: &Collection) -> Result<CollectionId>;
+    fn collection_id(&self, collection_href: &str) -> Result<CollectionId>;
 }
 
 /// A collection may, for example, be an address book or a calendar.
@@ -187,9 +182,6 @@ pub struct Collection {
 
 impl Collection {
     /// The path to this collection inside the storage.
-    ///
-    /// This value can be used with [`Storage::open_collection`] to later access this same
-    /// collection.
     ///
     /// Href should not change over time, so should be associated with an immutable property of the
     /// collection (e.g.: a relative URL path, or a directory's filename).

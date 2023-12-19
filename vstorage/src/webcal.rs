@@ -146,26 +146,12 @@ impl Storage<IcsItem> for WebCalStorage {
         ))
     }
 
-    /// Usable only with the collection name specified in the definition. Any other name will
-    /// return [`ErrorKind::DoesNotExist`]
-    fn open_collection(&self, href: &str) -> Result<Collection> {
-        if href != self.definition.collection_name.as_ref() {
-            return Err(Error::new(
-                ErrorKind::DoesNotExist,
-                format!("this storage only contains the '{href}' collection"),
-            ));
-        }
-        Ok(Collection::new(
-            self.definition.collection_name.clone().into(),
-        ))
-    }
-
     /// Enumerates items in this collection.
     ///
     /// Note that, due to the nature of webcal, the whole collection needs to be retrieved. If some
     /// items need to be read as well, it is generally best to use
     /// [`WebCalStorage::get_all_items`] instead.
-    async fn list_items(&self, _collection: &Collection) -> Result<Vec<ItemRef>> {
+    async fn list_items(&self, _collection: &str) -> Result<Vec<ItemRef>> {
         let raw = fetch_raw(&self.http_client, &self.definition.url).await?;
 
         // TODO: it would be best if the parser could operate on a stream, although that might
@@ -250,7 +236,7 @@ impl Storage<IcsItem> for WebCalStorage {
     /// Fetch all items in the collection.
     ///
     /// Performs a single HTTP(s) request to fetch all items.
-    async fn get_all_items(&self, _collection: &Collection) -> Result<Vec<FetchedItem<IcsItem>>> {
+    async fn get_all_items(&self, _collection: &str) -> Result<Vec<FetchedItem<IcsItem>>> {
         let raw = fetch_raw(&self.http_client, &self.definition.url).await?;
 
         // TODO: it would be best if the parser could operate on a stream, although that might
@@ -274,7 +260,7 @@ impl Storage<IcsItem> for WebCalStorage {
     }
 
     /// Unsupported for this storage type.
-    async fn add_item(&self, _collection: &Collection, _: &IcsItem) -> Result<ItemRef> {
+    async fn add_item(&self, _collection: &str, _: &IcsItem) -> Result<ItemRef> {
         Err(Error::new(
             ErrorKind::Unsupported,
             "creating collections via webcal is not supported",
@@ -292,7 +278,7 @@ impl Storage<IcsItem> for WebCalStorage {
     /// Unsupported for this storage type.
     async fn set_collection_property(
         &self,
-        _collection: &Collection,
+        _collection: &str,
         _: CalendarProperty,
         _: &str,
     ) -> Result<()> {
@@ -305,7 +291,7 @@ impl Storage<IcsItem> for WebCalStorage {
     /// Unsupported for this storage type.
     async fn get_collection_property(
         &self,
-        _collection: &Collection,
+        _collection: &str,
         _: CalendarProperty,
     ) -> Result<Option<String>> {
         // TODO: return None?
@@ -322,8 +308,8 @@ impl Storage<IcsItem> for WebCalStorage {
         ))
     }
 
-    fn collection_id(&self, collection: &Collection) -> Result<CollectionId> {
-        if collection.href() == self.definition.collection_name.as_ref() {
+    fn collection_id(&self, collection: &str) -> Result<CollectionId> {
+        if collection == self.definition.collection_name.as_ref() {
             Ok(self.definition.collection_name.clone())
         } else {
             Err(ErrorKind::DoesNotExist.into())
@@ -386,11 +372,11 @@ mod test {
         };
         let storage = definition.into_storage().await.unwrap();
         storage.check().await.unwrap();
-        let collection = &storage.open_collection("holidays").unwrap();
+        let collection = "holidays";
         let discovery = &storage.discover_collections().await.unwrap();
 
         assert_eq!(
-            &collection.href(),
+            &collection,
             &discovery.collections().first().unwrap().href()
         );
 

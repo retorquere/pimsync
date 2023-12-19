@@ -7,7 +7,7 @@ use std::sync::Arc;
 use hyper_rustls::HttpsConnectorBuilder;
 use libdav::auth::Auth;
 use vstorage::{
-    base::{Collection, Definition, FetchedItem, IcsItem, Storage},
+    base::{Definition, FetchedItem, IcsItem, Storage},
     caldav::CalDavDefinition,
     filesystem::FilesystemDefinition,
 };
@@ -65,9 +65,9 @@ async fn main() {
 
         copy_collection(
             &caldav_storage,
-            &discovered_collection.to_collection(),
+            discovered_collection.href(),
             &vdir_storage,
-            &new_collection,
+            new_collection.href(),
         )
         .await;
     }
@@ -76,19 +76,19 @@ async fn main() {
 /// Copies from `source` to `target` and returns the amount of items copied.
 async fn copy_collection(
     source_storage: &Arc<dyn Storage<IcsItem>>,
-    source_collection: &Collection,
+    source_collection_href: &str,
     target_storage: &Arc<dyn Storage<IcsItem>>,
-    target_collection: &Collection,
+    target_collection_href: &str,
 ) -> usize {
     let mut count = 0;
     for FetchedItem { item, .. } in source_storage
-        .get_all_items(&source_collection)
+        .get_all_items(&source_collection_href)
         .await
         .expect("webcal remote has items")
     {
         count += 1;
         target_storage
-            .add_item(&target_collection, &item)
+            .add_item(target_collection_href, &item)
             .await
             .expect("write to local filesystem collection");
     }

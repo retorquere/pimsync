@@ -69,12 +69,8 @@ impl<I: Item> Storage<I> for ReadOnlyStorage<I> {
         Err(ErrorKind::ReadOnly.into())
     }
 
-    fn open_collection(&self, href: &str) -> Result<Collection> {
-        self.inner.open_collection(href)
-    }
-
-    async fn list_items(&self, collection: &Collection) -> Result<Vec<crate::base::ItemRef>> {
-        self.inner.list_items(collection).await
+    async fn list_items(&self, collection_href: &str) -> Result<Vec<crate::base::ItemRef>> {
+        self.inner.list_items(collection_href).await
     }
 
     async fn get_item(&self, href: &str) -> Result<(I, Etag)> {
@@ -85,11 +81,11 @@ impl<I: Item> Storage<I> for ReadOnlyStorage<I> {
         self.inner.get_many_items(hrefs).await
     }
 
-    async fn get_all_items(&self, collection: &Collection) -> Result<Vec<FetchedItem<I>>> {
-        self.inner.get_all_items(collection).await
+    async fn get_all_items(&self, collection_href: &str) -> Result<Vec<FetchedItem<I>>> {
+        self.inner.get_all_items(collection_href).await
     }
 
-    async fn add_item(&self, _: &Collection, _: &I) -> Result<crate::base::ItemRef> {
+    async fn add_item(&self, _: &str, _: &I) -> Result<crate::base::ItemRef> {
         Err(ErrorKind::ReadOnly.into())
     }
 
@@ -99,7 +95,7 @@ impl<I: Item> Storage<I> for ReadOnlyStorage<I> {
 
     async fn set_collection_property(
         &self,
-        _: &Collection,
+        _: &str,
         _: I::CollectionProperty,
         _: &str,
     ) -> Result<()> {
@@ -108,18 +104,20 @@ impl<I: Item> Storage<I> for ReadOnlyStorage<I> {
 
     async fn get_collection_property(
         &self,
-        collection: &Collection,
+        collection_href: &str,
         meta: I::CollectionProperty,
     ) -> Result<Option<String>> {
-        self.inner.get_collection_property(collection, meta).await
+        self.inner
+            .get_collection_property(collection_href, meta)
+            .await
     }
 
     async fn delete_item(&self, _: &str, _: &Etag) -> Result<()> {
         Err(ErrorKind::ReadOnly.into())
     }
 
-    fn collection_id(&self, collection: &Collection) -> Result<CollectionId> {
-        self.inner.collection_id(collection)
+    fn collection_id(&self, collection_href: &str) -> Result<CollectionId> {
+        self.inner.collection_id(collection_href)
     }
 }
 

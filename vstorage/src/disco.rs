@@ -1,6 +1,6 @@
 //! Types related to collection discovery.
 
-use crate::{base::Collection, CollectionId};
+use crate::CollectionId;
 
 /// A collection found during discovery.
 pub struct DiscoveredCollection {
@@ -24,11 +24,6 @@ impl DiscoveredCollection {
     #[must_use]
     pub fn id(&self) -> &CollectionId {
         &self.id
-    }
-
-    #[must_use]
-    pub fn to_collection(&self) -> Collection {
-        Collection::new(self.href.clone())
     }
 }
 

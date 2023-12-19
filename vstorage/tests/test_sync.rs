@@ -47,31 +47,31 @@ async fn create_populated_storage(path: PathBuf) -> Arc<dyn Storage<IcsItem>> {
     let item = &minimal_icalendar("First calendar event one")
         .unwrap()
         .into();
-    storage.add_item(&first, item).await.unwrap();
+    storage.add_item(first.href(), item).await.unwrap();
 
     let item = &minimal_icalendar("First calendar event two")
         .unwrap()
         .into();
-    storage.add_item(&first, item).await.unwrap();
+    storage.add_item(first.href(), item).await.unwrap();
     drop(first);
 
     let second = storage.create_collection("second-calendar").await.unwrap();
     let item = &minimal_icalendar("Second calendar event one")
         .unwrap()
         .into();
-    storage.add_item(&second, item).await.unwrap();
+    storage.add_item(second.href(), item).await.unwrap();
 
     let item = &minimal_icalendar("Second calendar event two")
         .unwrap()
         .into();
-    storage.add_item(&second, item).await.unwrap();
+    storage.add_item(second.href(), item).await.unwrap();
     drop(second);
 
     let third = storage.create_collection("third-calendar").await.unwrap();
     let item = &minimal_icalendar("Third calendar event one")
         .unwrap()
         .into();
-    storage.add_item(&third, item).await.unwrap();
+    storage.add_item(third.href(), item).await.unwrap();
     drop(third);
 
     storage.into()
