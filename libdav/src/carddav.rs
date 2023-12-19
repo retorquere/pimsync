@@ -20,8 +20,8 @@ use crate::{CheckSupportError, FetchedResource};
 
 /// Client to communicate with a carddav server.
 ///
-/// Instances are usually created via a builder, which does discovery of the exact host and context
-/// path.
+/// Instances are usually created via a [`ClientBuilder`], which can also automatically bootstrap
+/// the exact host and context path.
 ///
 /// ```rust,no_run
 /// # use libdav::CardDavClient;
