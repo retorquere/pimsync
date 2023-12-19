@@ -60,7 +60,6 @@ pub trait Storage<I: Item>: Sync + Send {
     async fn check(&self) -> Result<()>;
 
     /// Finds existing collections for this storage.
-    // TODO: return a wrapper type around Vec<Collection> with helpers like find_by_name.
     async fn discover_collections(&self) -> Result<Discovery>;
 
     /// Creates a new collection with a specified `href`.
