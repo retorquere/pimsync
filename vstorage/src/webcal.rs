@@ -41,7 +41,8 @@ use crate::{
 // TODO: If an alternative href is provided, it should be used as a path on the same host.
 //       Note that discovery will only support the one matching the input URL.
 pub struct WebCalStorage {
-    definition: WebCalDefinition,
+    url: Uri,
+    collection_name: CollectionId,
     http_client: Client<HttpsConnector<HttpConnector>>,
 }
 
@@ -82,7 +83,8 @@ impl WebCalDefinition {
             None => todo!(),
         };
         Ok(WebCalStorage {
-            definition: self,
+            url: self.url,
+            collection_name: self.collection_name,
             http_client: Client::builder().build(proto),
         })
     }
@@ -103,7 +105,7 @@ impl Storage<IcsItem> for WebCalStorage {
     /// Checks that the remove resource exists and whether it looks like an icalendar resource.
     async fn check(&self) -> Result<()> {
         // TODO: Should map status codes to io::Error. if 404 -> NotFound, etc.
-        let raw = fetch_raw(&self.http_client, &self.definition.url).await?;
+        let raw = fetch_raw(&self.http_client, &self.url).await?;
 
         if !raw.starts_with("BEGIN:VCALENDAR") {
             return Err(Error::new(
@@ -118,8 +120,8 @@ impl Storage<IcsItem> for WebCalStorage {
     async fn discover_collections(&self) -> Result<Discovery> {
         // TODO: shouldn't I check that the collection actually exists?
         Ok(vec![DiscoveredCollection::new(
-            self.definition.url.path().to_string(),
-            self.definition.collection_name.clone(),
+            self.url.path().to_string(),
+            self.collection_name.clone(),
         )]
         .into())
     }
@@ -154,7 +156,7 @@ impl Storage<IcsItem> for WebCalStorage {
     /// items need to be read as well, it is generally best to use
     /// [`WebCalStorage::get_all_items`] instead.
     async fn list_items(&self, _collection: &str) -> Result<Vec<ItemRef>> {
-        let raw = fetch_raw(&self.http_client, &self.definition.url).await?;
+        let raw = fetch_raw(&self.http_client, &self.url).await?;
 
         // TODO: it would be best if the parser could operate on a stream, although that might
         //       complicate copying VTIMEZONEs inline if they are at the end of the stream.
@@ -182,7 +184,7 @@ impl Storage<IcsItem> for WebCalStorage {
     /// Note that, due to the nature of webcal, the whole collection needs to be retrieved. It is
     /// strongly recommended to use [`WebCalStorage::get_all_items`] instead.
     async fn get_item(&self, href: &str) -> Result<(IcsItem, Etag)> {
-        let raw = fetch_raw(&self.http_client, &self.definition.url).await?;
+        let raw = fetch_raw(&self.http_client, &self.url).await?;
 
         // TODO: it would be best if the parser could operate on a stream, although that might
         //       complicate inlining VTIMEZONEs that are at the end.
@@ -210,7 +212,7 @@ impl Storage<IcsItem> for WebCalStorage {
     /// Note that, due to the nature of webcal, the whole collection needs to be retrieved. It is
     /// generally best to use [`WebCalStorage::get_all_items`] instead.
     async fn get_many_items(&self, hrefs: &[&str]) -> Result<Vec<FetchedItem<IcsItem>>> {
-        let raw = fetch_raw(&self.http_client, &self.definition.url).await?;
+        let raw = fetch_raw(&self.http_client, &self.url).await?;
 
         // TODO: it would be best if the parser could operate on a stream, although that might
         //       complicate inlining VTIMEZONEs that are at the end.
@@ -239,7 +241,7 @@ impl Storage<IcsItem> for WebCalStorage {
     ///
     /// Performs a single HTTP(s) request to fetch all items.
     async fn get_all_items(&self, _collection: &str) -> Result<Vec<FetchedItem<IcsItem>>> {
-        let raw = fetch_raw(&self.http_client, &self.definition.url).await?;
+        let raw = fetch_raw(&self.http_client, &self.url).await?;
 
         // TODO: it would be best if the parser could operate on a stream, although that might
         //       complicate inlining VTIMEZONEs that are at the end.
@@ -311,8 +313,8 @@ impl Storage<IcsItem> for WebCalStorage {
     }
 
     fn collection_id(&self, collection_href: &str) -> Result<CollectionId> {
-        if collection_href == self.definition.url.path() {
-            Ok(self.definition.collection_name.clone())
+        if collection_href == self.url.path() {
+            Ok(self.collection_name.clone())
         } else {
             Err(ErrorKind::DoesNotExist.into())
         }
