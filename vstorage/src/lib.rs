@@ -68,7 +68,7 @@ pub mod sync;
 mod util;
 pub mod webcal;
 
-type Result<T> = std::result::Result<T, crate::Error>;
+type Result<T, E = crate::Error> = std::result::Result<T, E>;
 
 /// Variants used to categorise [`Error`] instances.
 #[derive(Debug, PartialEq)]
