@@ -10,7 +10,7 @@ use crate::{
     dns::{find_context_path_via_txt_records, resolve_srv_record, DiscoverableService},
     names,
     xmlutils::get_unquoted_href,
-    BootstrapError, FindHomeSetError, Property,
+    BootstrapError, FindHomeSetError, InvalidUrl, Property,
 };
 use domain::base::Dname;
 
@@ -26,13 +26,10 @@ pub(crate) async fn bootstrap_client<C>(
 where
     C: Connect + Clone + Send + Sync,
 {
-    let domain = base_uri
-        .host()
-        .ok_or(BootstrapError::InvalidUrl("a host is required"))?;
+    let domain = base_uri.host().ok_or(InvalidUrl::MissingHost)?;
     let port = base_uri.port_u16().unwrap_or(service.default_port());
 
-    let dname = Dname::bytes_from_str(domain)
-        .map_err(|_| BootstrapError::InvalidUrl("invalid domain name"))?;
+    let dname = Dname::bytes_from_str(domain).map_err(InvalidUrl::InvalidDomain)?;
     let host_candidates = resolve_srv_record(service, &dname, port)
         .await?
         .ok_or(BootstrapError::NotAvailable)?;
@@ -138,7 +135,7 @@ where
 
 pub trait Rfc6764Protocol {
     /// Returns the service type based on the provided Uri.
-    fn service(uri: &Uri) -> Result<DiscoverableService, BootstrapError>;
+    fn service(uri: &Uri) -> Result<DiscoverableService, InvalidUrl>;
     /// Name of the property that describes this protocol's home set.
     fn home_set_property() -> &'static Property<'static, 'static>;
 }

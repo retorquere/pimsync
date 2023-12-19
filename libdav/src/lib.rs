@@ -46,9 +46,25 @@ pub type Property<'ns, 'name> = roxmltree::ExpandedName<'ns, 'name>;
 
 /// An error automatically bootstrapping a new client.
 #[derive(thiserror::Error, Debug)]
+pub enum InvalidUrl {
+    #[error("missing scheme")]
+    MissingScheme,
+
+    #[error("scheme is not valid for service type")]
+    InvalidScheme,
+
+    #[error("missing host")]
+    MissingHost,
+
+    #[error("the host is not a valid domain")]
+    InvalidDomain(domain::base::name::FromStrError),
+}
+
+/// An error automatically bootstrapping a new client.
+#[derive(thiserror::Error, Debug)]
 pub enum BootstrapError {
-    #[error("the input URL is not valid")]
-    InvalidUrl(&'static str),
+    #[error("the input URL is not valid: {0}")]
+    InvalidUrl(#[from] InvalidUrl),
 
     #[error("error resolving DNS SRV records")]
     DnsError(#[from] SrvError),

@@ -11,11 +11,11 @@ use log::debug;
 
 use crate::builder::{ClientBuilder, NeedsUri};
 use crate::common::{parse_find_multiple_collections, Rfc6764Protocol};
+use crate::dav::WebDavClient;
 use crate::dav::{check_status, DavError, FoundCollection};
 use crate::dns::DiscoverableService;
-use crate::names;
 use crate::xmlutils::{check_multistatus, quote_href};
-use crate::{dav::WebDavClient, BootstrapError};
+use crate::{names, InvalidUrl};
 use crate::{CheckSupportError, FetchedResource};
 
 /// Client to communicate with a caldav server.
@@ -80,14 +80,11 @@ impl<C> Rfc6764Protocol for CalDavClient<C>
 where
     C: Connect + Clone + Sync + Send,
 {
-    fn service(uri: &Uri) -> Result<DiscoverableService, BootstrapError> {
-        let scheme = uri
-            .scheme()
-            .ok_or(BootstrapError::InvalidUrl("missing scheme"))?;
-        match scheme.as_ref() {
+    fn service(uri: &Uri) -> Result<DiscoverableService, InvalidUrl> {
+        match uri.scheme().ok_or(InvalidUrl::MissingScheme)?.as_ref() {
             "https" | "caldavs" => Ok(DiscoverableService::CalDavs),
             "http" | "caldav" => Ok(DiscoverableService::CalDav),
-            _ => Err(BootstrapError::InvalidUrl("scheme is invalid")),
+            _ => Err(InvalidUrl::InvalidScheme),
         }
     }
 

@@ -11,11 +11,11 @@ use log::debug;
 
 use crate::builder::{ClientBuilder, NeedsUri};
 use crate::common::{parse_find_multiple_collections, Rfc6764Protocol};
+use crate::dav::WebDavClient;
 use crate::dav::{check_status, DavError, FoundCollection};
 use crate::dns::DiscoverableService;
-use crate::names;
 use crate::xmlutils::quote_href;
-use crate::{dav::WebDavClient, BootstrapError};
+use crate::{names, InvalidUrl};
 use crate::{CheckSupportError, FetchedResource};
 
 /// Client to communicate with a carddav server.
@@ -80,14 +80,11 @@ impl<C> Rfc6764Protocol for CardDavClient<C>
 where
     C: Connect + Clone + Sync + Send,
 {
-    fn service(uri: &Uri) -> Result<DiscoverableService, BootstrapError> {
-        let scheme = uri
-            .scheme()
-            .ok_or(BootstrapError::InvalidUrl("missing scheme"))?;
-        match scheme.as_ref() {
+    fn service(uri: &Uri) -> Result<DiscoverableService, InvalidUrl> {
+        match uri.scheme().ok_or(InvalidUrl::MissingScheme)?.as_ref() {
             "https" | "carddavs" => Ok(DiscoverableService::CardDavs),
             "http" | "carddav" => Ok(DiscoverableService::CardDav),
-            _ => Err(BootstrapError::InvalidUrl("scheme is invalid")),
+            _ => Err(InvalidUrl::InvalidScheme),
         }
     }
 
