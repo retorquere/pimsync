@@ -304,16 +304,13 @@ where
     ) -> Result<()> {
         // TODO: make MetaKind paramatrezed on the ItemKind
         match meta {
-            AddressBookProperty::DisplayName => {
-                self.client
-                    .set_collection_displayname(collection_href, Some(value))
-                    .await
-            }
-            AddressBookProperty::Description => {
-                todo!(); // TODO FIXME
-            }
+            AddressBookProperty::DisplayName => self
+                .client
+                .set_collection_displayname(collection_href, Some(value))
+                .await
+                .map_err(Error::from),
+            AddressBookProperty::Description => Err(Error::from(ErrorKind::Unsupported)),
         }
-        .map_err(Error::from)
     }
 
     /// Read metadata from a collection.
@@ -333,18 +330,14 @@ where
         collection_href: &str,
         meta: AddressBookProperty,
     ) -> Result<Option<String>> {
-        let result = match meta {
-            AddressBookProperty::DisplayName => {
-                self.client
-                    .get_collection_displayname(collection_href)
-                    .await
-            }
-            AddressBookProperty::Description => {
-                todo!(); // TODO FIXME
-            }
-        };
-
-        result.map_err(Error::from)
+        match meta {
+            AddressBookProperty::DisplayName => self
+                .client
+                .get_collection_displayname(collection_href)
+                .await
+                .map_err(Error::from),
+            AddressBookProperty::Description => Err(Error::from(ErrorKind::Unsupported)),
+        }
     }
 
     async fn delete_item(&self, href: &str, etag: &Etag) -> Result<()> {

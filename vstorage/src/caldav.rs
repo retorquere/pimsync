@@ -321,19 +321,18 @@ where
         value: &str,
     ) -> Result<()> {
         match meta {
-            CalendarProperty::DisplayName => {
-                self.client
-                    .set_collection_displayname(collection_href, Some(value))
-                    .await
-            }
-            CalendarProperty::Colour => {
-                self.client
-                    .set_calendar_colour(collection_href, Some(value))
-                    .await
-            }
-            _ => todo!(), // TODO FIXME
+            CalendarProperty::DisplayName => self
+                .client
+                .set_collection_displayname(collection_href, Some(value))
+                .await
+                .map_err(Error::from),
+            CalendarProperty::Colour => self
+                .client
+                .set_calendar_colour(collection_href, Some(value))
+                .await
+                .map_err(Error::from),
+            _ => Err(Error::from(ErrorKind::Unsupported)),
         }
-        .map_err(Error::from)
     }
 
     /// Read metadata from a collection.
@@ -353,17 +352,19 @@ where
         collection_href: &str,
         meta: CalendarProperty,
     ) -> Result<Option<String>> {
-        let result = match meta {
-            CalendarProperty::DisplayName => {
-                self.client
-                    .get_collection_displayname(collection_href)
-                    .await
-            }
-            CalendarProperty::Colour => self.client.get_calendar_colour(collection_href).await,
-            _ => todo!(), // TODO FIXME
-        };
-
-        result.map_err(Error::from)
+        match meta {
+            CalendarProperty::DisplayName => self
+                .client
+                .get_collection_displayname(collection_href)
+                .await
+                .map_err(Error::from),
+            CalendarProperty::Colour => self
+                .client
+                .get_calendar_colour(collection_href)
+                .await
+                .map_err(Error::from),
+            _ => Err(Error::from(ErrorKind::Unsupported)),
+        }
     }
 
     async fn delete_item(&self, href: &str, etag: &Etag) -> Result<()> {
