@@ -12,6 +12,7 @@ license = "EUPL-1.2"
 
 [dependencies]
 anyhow = "1.0.75"
+camino = { version = "1.1.6", features = ["serde1"] }
 clap = { version = "4.0.0", features = ["derive"] }
 hyper = "0.14.27"
 hyper-rustls = "0.24.1"

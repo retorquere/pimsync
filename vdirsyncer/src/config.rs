@@ -18,6 +18,7 @@ use std::{
 };
 
 use anyhow::{bail, Context};
+use camino::{Utf8Path, Utf8PathBuf};
 use hyper::client::HttpConnector;
 use hyper_rustls::{ConfigBuilderExt, HttpsConnector, HttpsConnectorBuilder};
 use libdav::auth::Password;
@@ -61,7 +62,8 @@ impl Config {
     /// This consumes the configuration to avoid copying any data needlessly and freeing up any
     /// unnecessary data.
     pub(crate) async fn into_app<'storages>(self) -> anyhow::Result<App> {
-        let status_dir = expand_tilde(&self.general.status_path).to_path_buf();
+        let status_dir = expand_tilde(self.general.status_path)
+            .context("error expanding tilde for status_dir")?;
         // Initialise storages once, to avoid duplicating any.
         // TODO: do this in parallel: https://docs.rs/tokio/latest/tokio/task/struct.JoinSet.html
         let storages = {
@@ -124,25 +126,27 @@ impl Config {
     }
 }
 
-fn expand_tilde(orig: &PathBuf) -> Cow<Path> {
-    let mut iter = orig.as_path().as_os_str().as_bytes().iter();
-    if let Some(b'~') = iter.next() {
-        if let Some(b'/') = iter.next() {
+/// # Errors
+///
+/// If this path starts with tilde AND the home directory is non-UTF8.
+fn expand_tilde(orig: Utf8PathBuf) -> Result<Utf8PathBuf, camino::FromPathBufError> {
+    let mut iter = orig.as_str().chars();
+    if let Some('~') = iter.next() {
+        if let Some('/') = iter.next() {
             #[allow(deprecated)] // Only problematic on unsupported platforms.
             let home = std::env::home_dir().expect("must resolve home path to expand tilde");
-            let home = home.into_os_string().into_vec().into_iter();
-            let all = home.chain(std::iter::once(b'/')).chain(iter.copied());
-            let os_string = OsString::from_vec(all.collect::<Vec<_>>());
-            return Cow::Owned(PathBuf::from(os_string));
+            let home = Utf8PathBuf::try_from(home)?;
+            let rest = iter.collect::<String>();
+            return Ok(home.join(rest));
         }
     }
-    Cow::Borrowed(orig)
+    Ok(orig)
 }
 
 /// The "general" section of the parsed configuration file
 #[derive(Deserialize, Debug)]
 pub(crate) struct GeneralSection {
-    status_path: PathBuf,
+    status_path: Utf8PathBuf,
 }
 
 /// A "pair" section of the parsed configuration file
@@ -162,7 +166,7 @@ impl PairSection {
         name: String,
         a: Arc<dyn Storage<I>>,
         b: Arc<dyn Storage<I>>,
-        status_dir: &Path,
+        status_dir: &Utf8Path,
     ) -> NamedPair<I> {
         let status_path = status_dir.join(format!("{name}.status"));
 
@@ -290,11 +294,11 @@ impl StorageSection {
     pub(crate) async fn into_storage(self, name: String) -> anyhow::Result<EitherStorage> {
         Ok(match self {
             StorageSection::FilesystemIcalendar(def) => {
-                let inner = Arc::new(def.into_storage());
+                let inner = Arc::new(def.into_storage()?);
                 EitherStorage::Calendar(NamedStorage { name, inner })
             }
             StorageSection::FilesystemVcard(def) => {
-                let inner = Arc::new(def.into_storage());
+                let inner = Arc::new(def.into_storage()?);
                 EitherStorage::AddressBook(NamedStorage { name, inner })
             }
             StorageSection::CardDav(carddav) => {
@@ -315,7 +319,7 @@ impl StorageSection {
 
 #[derive(Deserialize, Debug)]
 struct Filesystem<I: Item> {
-    path: PathBuf,
+    path: Utf8PathBuf,
     fileext: String,
     // TODO: encoding
     // TODO: post_hook
@@ -326,9 +330,9 @@ struct Filesystem<I: Item> {
 }
 
 impl<I: Item> Filesystem<I> {
-    fn into_storage(self) -> FilesystemStorage<I> {
-        let path = expand_tilde(&self.path);
-        FilesystemDefinition::new(path.to_path_buf(), self.fileext).build()
+    fn into_storage(self) -> anyhow::Result<FilesystemStorage<I>> {
+        let path = expand_tilde(self.path).context("error expanding tilde for storage")?;
+        Ok(FilesystemDefinition::new(path, self.fileext).build())
     }
 }
 

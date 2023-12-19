@@ -30,12 +30,12 @@ use crate::{ErrorKind, Etag, Result};
 /// # use crate::vstorage::base::Storage;
 /// # use crate::vstorage::base::IcsItem;
 /// # use vstorage::filesystem::FilesystemDefinition;
-/// # use std::path::PathBuf;
+/// # use camino::Utf8PathBuf;
 /// # use vstorage::readonly::ReadOnlyStorage;
 /// # use crate::vstorage::base::Definition;
 /// # tokio::runtime::Runtime::new().unwrap().block_on(async {
 /// let orig = FilesystemDefinition::<IcsItem>::new(
-///     PathBuf::from("/path/to/storage/"),
+///     Utf8PathBuf::from("/path/to/storage/"),
 ///     String::from("ics"),
 /// ).into_storage().await.unwrap();
 ///

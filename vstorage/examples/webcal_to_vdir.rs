@@ -13,8 +13,8 @@
 //! cargo run --example=webcal_to_vdir https://www.officeholidays.com/ics/netherlands /tmp/holidays
 //! ```
 
+use camino::Utf8PathBuf;
 use http::Uri;
-use std::path::PathBuf;
 use std::sync::Arc;
 use vstorage::base::Definition;
 use vstorage::base::FetchedItem;
@@ -33,7 +33,7 @@ async fn main() {
     let raw_path = arguments.next().expect("$2 is a valid path");
 
     let url = Uri::try_from(raw_url.as_str()).expect("provided URL must be valid");
-    let path = PathBuf::from(raw_path);
+    let path = Utf8PathBuf::from(raw_path);
 
     let webcal = WebCalDefinition {
         url,

@@ -2,9 +2,10 @@
 //
 // SPDX-License-Identifier: EUPL-1.2
 
+use camino::Utf8PathBuf;
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
+use std::fmt::Write;
 use std::sync::Arc;
-use std::{fmt::Write, path::PathBuf};
 use vstorage::sync::declare::{DeclaredMapping, StoragePair};
 use vstorage::sync::plan::Plan;
 use vstorage::{
@@ -38,7 +39,7 @@ fn minimal_icalendar(summary: &str) -> anyhow::Result<String> {
     Ok(entry.into())
 }
 
-async fn create_populated_storage(path: PathBuf) -> Arc<dyn Storage<IcsItem>> {
+async fn create_populated_storage(path: Utf8PathBuf) -> Arc<dyn Storage<IcsItem>> {
     std::fs::create_dir(&path).unwrap();
     let def = FilesystemDefinition::<IcsItem>::new(path, "ics".into());
     let storage = def.into_storage().await.unwrap();
@@ -77,7 +78,7 @@ async fn create_populated_storage(path: PathBuf) -> Arc<dyn Storage<IcsItem>> {
     storage.into()
 }
 
-async fn create_empty_storage(path: PathBuf) -> Arc<dyn Storage<IcsItem>> {
+async fn create_empty_storage(path: Utf8PathBuf) -> Arc<dyn Storage<IcsItem>> {
     std::fs::create_dir(&path).unwrap();
     let def = FilesystemDefinition::<IcsItem>::new(path, "ics".into());
     Arc::from(def.into_storage().await.unwrap())
@@ -88,12 +89,12 @@ async fn test_sync_simple_case() {
     let populated_path = {
         let mut p = std::env::temp_dir();
         p.push(random_string(12));
-        p
+        Utf8PathBuf::try_from(p).unwrap()
     };
     let empty_path = {
         let mut p = std::env::temp_dir();
         p.push(random_string(12));
-        p
+        Utf8PathBuf::try_from(p).unwrap()
     };
     let populated = create_populated_storage(populated_path.clone()).await;
     let empty = create_empty_storage(empty_path.clone()).await;

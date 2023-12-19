@@ -238,16 +238,22 @@ mod test {
         let dir_b = Builder::new().prefix("vstorage").tempdir().unwrap();
 
         let storage_a = Arc::<dyn Storage<_>>::from(
-            FilesystemDefinition::<IcsItem>::new(dir_a.path().to_path_buf(), "ics".to_string())
-                .into_storage()
-                .await
-                .unwrap(),
+            FilesystemDefinition::<IcsItem>::new(
+                dir_a.path().to_path_buf().try_into().unwrap(),
+                "ics".to_string(),
+            )
+            .into_storage()
+            .await
+            .unwrap(),
         );
         let storage_b = Arc::<dyn Storage<_>>::from(
-            FilesystemDefinition::<IcsItem>::new(dir_b.path().to_path_buf(), "ics".to_string())
-                .into_storage()
-                .await
-                .unwrap(),
+            FilesystemDefinition::<IcsItem>::new(
+                dir_b.path().to_path_buf().try_into().unwrap(),
+                "ics".to_string(),
+            )
+            .into_storage()
+            .await
+            .unwrap(),
         );
 
         {

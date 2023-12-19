@@ -11,9 +11,10 @@
 #![allow(clippy::module_name_repetitions)]
 
 use async_trait::async_trait;
+use camino::Utf8PathBuf;
 use std::ffi::OsStr;
 use std::marker::PhantomData;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::Arc;
 use std::{fs::Metadata, os::unix::prelude::MetadataExt};
 use tokio::fs::{
@@ -194,26 +195,31 @@ where
         Ok(Some(value))
     }
 
-    async fn add_item(&self, collection: &str, item: &I) -> Result<ItemRef> {
+    async fn add_item(&self, collection_href: &str, item: &I) -> Result<ItemRef> {
         // TODO: We only need to remove a few "illegal" characters, so this is a bit too strict.
         let basename = item
             .ident()
             .chars()
             .filter(char::is_ascii_alphanumeric)
             .collect::<String>();
-        let href = format!("{}.{}", basename, self.definition.extension);
 
-        let filename = self.collection_path(collection).join(&href);
-        let mut file = OpenOptions::new()
+        let filename = format!("{}.{}", basename, self.definition.extension);
+        let relpath = Utf8PathBuf::try_from(collection_href)
+            .map_err(|e| Error::new(ErrorKind::InvalidInput, e))?
+            .join(filename);
+
+        let absolute_path = self.definition.path.join(&relpath);
+        OpenOptions::new()
             .write(true)
             .create_new(true)
-            .open(&filename)
+            .open(&absolute_path)
+            .await?
+            .write_all(item.as_str().as_bytes())
             .await?;
-        file.write_all(item.as_str().as_bytes()).await?;
 
         let item_ref = ItemRef {
-            href,
-            etag: etag_for_path(&filename).await?,
+            href: relpath.into_string(),
+            etag: etag_for_path(&absolute_path).await?,
         };
         Ok(item_ref)
     }
@@ -264,7 +270,7 @@ where
 }
 
 impl<I: Item> FilesystemStorage<I> {
-    fn collection_path(&self, collection_href: &str) -> PathBuf {
+    fn collection_path(&self, collection_href: &str) -> Utf8PathBuf {
         self.definition.path.join(collection_href)
     }
 
@@ -273,7 +279,7 @@ impl<I: Item> FilesystemStorage<I> {
     // # Errors
     //
     // If the resulting path is not a child of the storage's directory.
-    fn join_collection_href(&self, href: &str) -> Result<PathBuf> {
+    fn join_collection_href(&self, href: &str) -> Result<Utf8PathBuf> {
         // TODO: validate that no `.` nor `..` components are in the input.
         let path = self.definition.path.join(href);
         if path.parent() != Some(&self.definition.path) {
@@ -308,7 +314,7 @@ pub struct FilesystemDefinition<I: Item> {
     ///
     /// Each top-level subdirectory will be treated as a separate collection, and individual files
     /// inside these are each treated as an `Item`.
-    pub path: PathBuf,
+    pub path: Utf8PathBuf,
     /// Filename extension for items in a storage. Files with matching extension are treated a
     /// items for a collection, and all other files are ignored.
     pub extension: String,
@@ -317,7 +323,7 @@ pub struct FilesystemDefinition<I: Item> {
 
 impl<I: Item> FilesystemDefinition<I> {
     #[must_use]
-    pub fn new(path: PathBuf, extension: String) -> Self {
+    pub fn new(path: Utf8PathBuf, extension: String) -> Self {
         Self {
             path,
             extension,
@@ -396,8 +402,10 @@ mod tests {
     #[tokio::test]
     async fn test_missing_displayname() {
         let dir = tempdir().unwrap();
-        let definition =
-            FilesystemDefinition::<IcsItem>::new(dir.path().to_path_buf(), "ics".to_string());
+        let definition = FilesystemDefinition::<IcsItem>::new(
+            dir.path().to_path_buf().try_into().unwrap(),
+            "ics".to_string(),
+        );
 
         let storage = definition.into_storage().await.unwrap();
         let collection = storage.create_collection("test").await.unwrap();
@@ -415,8 +423,10 @@ mod tests {
     #[tokio::test]
     async fn test_path_handling() {
         let dir = tempdir().unwrap();
-        let definition =
-            FilesystemDefinition::<IcsItem>::new(dir.path().to_path_buf(), "ics".to_string());
+        let definition = FilesystemDefinition::<IcsItem>::new(
+            dir.path().to_path_buf().try_into().unwrap(),
+            "ics".to_string(),
+        );
         let storage = definition.build();
 
         let collection_path = dir.path().join("one");

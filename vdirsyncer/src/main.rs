@@ -7,6 +7,7 @@
 use std::{fs::OpenOptions, io::Write, path::PathBuf, sync::Arc, time::Duration};
 
 use anyhow::{bail, Context};
+use camino::Utf8PathBuf;
 use clap::Parser;
 use log::{debug, error, info, trace, warn};
 use vstorage::{
@@ -32,7 +33,7 @@ pub(crate) struct NamedStorage<I: Item> {
 pub(crate) struct NamedPair<I: Item> {
     name: String,
     inner: StoragePair<I>,
-    status_path: PathBuf,
+    status_path: Utf8PathBuf,
 }
 
 impl<I: Item> NamedPair<I> {
