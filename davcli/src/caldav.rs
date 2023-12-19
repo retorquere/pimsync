@@ -62,15 +62,16 @@ impl Server {
             .https_or_http()
             .enable_http1()
             .build();
-        CalDavClient::builder()
+        let builder = CalDavClient::builder()
             .with_uri(self.server_url.clone())
             .with_auth(Auth::Basic {
                 username: self.username.clone(),
                 password: Some(password),
             })
-            .build(https)
+            .bootstrap(https)
             .await
-            .map_err(anyhow::Error::from)
+            .map_err(anyhow::Error::from)?;
+        Ok(builder.build())
     }
 }
 

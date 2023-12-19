@@ -9,7 +9,7 @@ use hyper::client::connect::Connect;
 use hyper::{Body, Uri};
 use log::debug;
 
-use crate::builder::{ClientBuilder, NeedsUri};
+use crate::builder::{ClientBuilder, NeedsUri, Ready};
 use crate::common::{bootstrap_client, find_home_set, parse_find_multiple_collections};
 use crate::dav::{check_status, DavError, FoundCollection};
 use crate::dns::DiscoverableService;
@@ -20,8 +20,8 @@ use crate::{CheckSupportError, FetchedResource};
 
 /// Client to communicate with a caldav server.
 ///
-/// Instances are usually created via a builder, which does discovery of the exact host and context
-/// path.
+/// Instances are usually created via a builder, which can also automatically bootstrap the exact
+/// host and context path.
 ///
 /// ```rust,no_run
 /// # use libdav::CalDavClient;
@@ -44,9 +44,10 @@ use crate::{CheckSupportError, FetchedResource};
 /// let client = CalDavClient::builder()
 ///     .with_uri(uri)
 ///     .with_auth(auth)
-///     .build(https)
+///     .bootstrap(https)
 ///     .await
-///     .unwrap();
+///     .unwrap()
+///     .build();
 /// # })
 /// ```
 #[derive(Debug, Clone)]
@@ -75,11 +76,11 @@ where
     }
 }
 
-impl<C> ClientBuilder<CalDavClient<C>, crate::builder::Ready>
+impl<C> ClientBuilder<CalDavClient<C>, crate::builder::PendingDiscovery>
 where
     C: Connect + Clone + Sync + Send,
 {
-    /// Builds a caldav client.
+    /// Perform client bootstrap sequence.
     ///
     /// Determines the caldav server's real host and the context path of the resources for a
     /// server, following the discovery mechanism described in [rfc6764].
@@ -92,31 +93,35 @@ where
     /// parse.
     ///
     /// Does not return an error if DNS records as missing, only if they contain invalid data.
-    pub async fn build(self, connector: C) -> Result<CalDavClient<C>, BootstrapError> {
+    pub async fn bootstrap(
+        self,
+        connector: C,
+    ) -> Result<ClientBuilder<CalDavClient<C>, Ready<C>>, BootstrapError> {
         let service = CalDavClient::<C>::service(&self.state.uri)?;
 
         let dav_client =
             bootstrap_client(self.state.uri, self.state.auth, connector, service).await?;
         let calendar_home_set = find_home_set(&dav_client, &names::CALENDAR_HOME_SET).await?;
 
-        Ok(CalDavClient {
-            dav_client,
-            calendar_home_set,
+        Ok(ClientBuilder {
+            state: Ready {
+                dav_client,
+                home_set: calendar_home_set,
+            },
+            phantom: self.phantom,
         })
     }
+}
 
-    /// Create a client without any discovery.
-    ///
-    /// This constructor is recommended only for situations where DNS-based discovery is
-    /// unavailable or undesirable.
-    ///
-    /// When in doubt, use [`ClientBuilder<CalDavClient>::build`].
-    pub fn build_without_discovery(self, connector: C) -> CalDavClient<C> {
+impl<C> ClientBuilder<CalDavClient<C>, crate::builder::Ready<C>>
+where
+    C: Connect + Clone + Sync + Send,
+{
+    /// Builds a caldav client
+    pub fn build(self) -> CalDavClient<C> {
         CalDavClient {
-            // TODO: it is not possible to override the user pricinpal
-            dav_client: WebDavClient::new(self.state.uri, self.state.auth, connector),
-            // TODO: Allow specifying this value
-            calendar_home_set: None,
+            dav_client: self.state.dav_client,
+            calendar_home_set: self.state.home_set,
         }
     }
 }
@@ -139,7 +144,7 @@ where
 
     /// Find calendars collections under the given `url`.
     ///
-    /// It `url` is not specified, this client's calendar home set is used instead. If no calendar
+    /// If `url` is not specified, this client's calendar home set is used instead. If no calendar
     /// home set has been found, then the server's context path will be used. When using a client
     /// bootstrapped via automatic discovery, passing `None` will usually yield the expected
     /// results.

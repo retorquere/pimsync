@@ -9,8 +9,12 @@ use std::marker::PhantomData;
 
 use email_address::EmailAddress;
 use http::Uri;
+use hyper::client::connect::Connect;
 
-use crate::auth::{Auth, Password};
+use crate::{
+    auth::{Auth, Password},
+    dav::WebDavClient,
+};
 
 pub struct NeedsUri(());
 pub struct NeedsAuth {
@@ -20,9 +24,17 @@ pub struct NeedsPassword {
     uri: Uri,
     username: String,
 }
-pub struct Ready {
+pub struct PendingDiscovery {
     pub(crate) uri: Uri,
     pub(crate) auth: Auth,
+}
+// Hint: This state is required to have generic without_discovery and with_home_set functions.
+pub struct Ready<C>
+where
+    C: Connect + Clone + Sync + Send + 'static,
+{
+    pub(crate) dav_client: WebDavClient<C>,
+    pub(crate) home_set: Option<Uri>,
 }
 
 /// A builder for clients.
@@ -31,10 +43,40 @@ pub struct Ready {
 ///
 /// [`CalDavClient::builder`]: `super::CalDavClient::builder`
 /// [`CardDavClient::builder`]: `super::CardDavClient::builder`
+///
+/// # Example
+///
+///```no_run
+/// # use http::Uri;
+/// use libdav::CardDavClient;
+/// use libdav::auth::Auth;
+/// use hyper_rustls::HttpsConnectorBuilder;
+/// # tokio::runtime::Builder::new_current_thread().build().unwrap().block_on(async {
+/// # let base_url = Uri::try_from("https://example.com").unwrap();
+/// # let username = "test".to_string();
+/// # let password = "test".to_string().into();
+///
+/// let https = HttpsConnectorBuilder::new()
+///     .with_native_roots()
+///     .https_or_http()
+///     .enable_http1()
+///     .build();
+/// let carddav_client = CardDavClient::builder()
+///     .with_uri(base_url)
+///     .with_auth(Auth::Basic {
+///         username,
+///         password: Some(password),
+///     })
+///     .bootstrap(https)
+///     .await
+///     .unwrap()
+///     .build();
+/// # })
+///```
 #[allow(clippy::module_name_repetitions)]
 pub struct ClientBuilder<ClientType, State> {
     pub(crate) state: State,
-    phantom: PhantomData<ClientType>,
+    pub(super) phantom: PhantomData<ClientType>,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -108,9 +150,9 @@ impl<ClientType> ClientBuilder<ClientType, NeedsUri> {
 
 impl<ClientType> ClientBuilder<ClientType, NeedsAuth> {
     /// Sets the authentication type and credentials.
-    pub fn with_auth(self, auth: Auth) -> ClientBuilder<ClientType, Ready> {
+    pub fn with_auth(self, auth: Auth) -> ClientBuilder<ClientType, PendingDiscovery> {
         ClientBuilder {
-            state: Ready {
+            state: PendingDiscovery {
                 uri: self.state.uri,
                 auth,
             },
@@ -121,9 +163,14 @@ impl<ClientType> ClientBuilder<ClientType, NeedsAuth> {
 
 impl<ClientType> ClientBuilder<ClientType, NeedsPassword> {
     /// Sets the password.
-    pub fn with_password<P: Into<Password>>(self, password: P) -> ClientBuilder<ClientType, Ready> {
+    ///
+    /// Passing a `String` works, but using the `Password` type is recommended.
+    pub fn with_password<P: Into<Password>>(
+        self,
+        password: P,
+    ) -> ClientBuilder<ClientType, PendingDiscovery> {
         ClientBuilder {
-            state: Ready {
+            state: PendingDiscovery {
                 uri: self.state.uri,
                 auth: Auth::Basic {
                     username: self.state.username,
@@ -135,14 +182,53 @@ impl<ClientType> ClientBuilder<ClientType, NeedsPassword> {
     }
 
     /// Sets no password.
-    pub fn without_password(self) -> ClientBuilder<ClientType, Ready> {
+    pub fn without_password(self) -> ClientBuilder<ClientType, PendingDiscovery> {
         ClientBuilder {
-            state: Ready {
+            state: PendingDiscovery {
                 uri: self.state.uri,
                 auth: Auth::Basic {
                     username: self.state.username,
                     password: None,
                 },
+            },
+            phantom: self.phantom,
+        }
+    }
+}
+
+impl<ClientType> ClientBuilder<ClientType, PendingDiscovery> {
+    /// Create a client without any discovery.
+    ///
+    /// This constructor is recommended only for situations where DNS-based discovery is
+    /// unavailable or undesirable.
+    ///
+    /// When in doubt, use [`ClientBuilder::build`].
+    // TODO: normalise wording; we mix "discovery" and "bootstrap" in some places.
+    pub fn without_discovery<C>(self, connector: C) -> ClientBuilder<ClientType, Ready<C>>
+    where
+        C: Connect + Clone + Sync + Send + 'static,
+    {
+        ClientBuilder {
+            state: Ready {
+                dav_client: WebDavClient::new(self.state.uri, self.state.auth, connector),
+                home_set: None,
+            },
+            phantom: self.phantom,
+        }
+    }
+
+    pub fn with_home_set<C>(
+        self,
+        connector: C,
+        home_set: Uri,
+    ) -> ClientBuilder<ClientType, Ready<C>>
+    where
+        C: Connect + Clone + Sync + Send + 'static,
+    {
+        ClientBuilder {
+            state: Ready {
+                dav_client: WebDavClient::new(self.state.uri, self.state.auth, connector),
+                home_set: Some(home_set),
             },
             phantom: self.phantom,
         }

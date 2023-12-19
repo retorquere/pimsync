@@ -9,7 +9,7 @@ use hyper::client::connect::Connect;
 use hyper::{Body, Uri};
 use log::debug;
 
-use crate::builder::{ClientBuilder, NeedsUri};
+use crate::builder::{ClientBuilder, NeedsUri, Ready};
 use crate::common::{bootstrap_client, find_home_set, parse_find_multiple_collections};
 use crate::dav::{check_status, DavError, FoundCollection};
 use crate::dns::DiscoverableService;
@@ -44,9 +44,10 @@ use crate::{CheckSupportError, FetchedResource};
 /// let client = CardDavClient::builder()
 ///     .with_uri(uri)
 ///     .with_auth(auth)
-///     .build(https)
+///     .bootstrap(https)
 ///     .await
-///     .unwrap();
+///     .unwrap()
+///     .build();
 /// # })
 /// ```
 #[derive(Debug)]
@@ -75,11 +76,11 @@ where
     }
 }
 
-impl<C> ClientBuilder<CardDavClient<C>, crate::builder::Ready>
+impl<C> ClientBuilder<CardDavClient<C>, crate::builder::PendingDiscovery>
 where
     C: Connect + Clone + Sync + Send,
 {
-    /// Builds a carddav client
+    /// Perform automatic client bootstrapping.
     ///
     /// Determines the carddav server's real host and the context path of the resources for a
     /// server, following the discovery mechanism described in [rfc6764].
@@ -92,31 +93,35 @@ where
     /// parse.
     ///
     /// Does not return an error if DNS records as missing, only if they contain invalid data.
-    pub async fn build(self, connector: C) -> Result<CardDavClient<C>, BootstrapError> {
+    pub async fn bootstrap(
+        self,
+        connector: C,
+    ) -> Result<ClientBuilder<CardDavClient<C>, crate::builder::Ready<C>>, BootstrapError> {
         let service = CardDavClient::<C>::service(&self.state.uri)?;
 
         let dav_client =
             bootstrap_client(self.state.uri, self.state.auth, connector, service).await?;
         let addressbook_home_set = find_home_set(&dav_client, &names::ADDRESSBOOK_HOME_SET).await?;
 
-        Ok(CardDavClient {
-            dav_client,
-            addressbook_home_set,
+        Ok(ClientBuilder {
+            state: Ready {
+                dav_client,
+                home_set: addressbook_home_set,
+            },
+            phantom: self.phantom,
         })
     }
+}
 
-    /// Create a client without any discovery.
-    ///
-    /// This constructor is recommended only for situations where DNS-based discovery is
-    /// unavailable or undesirable.
-    ///
-    /// When in doubt, use [`ClientBuilder<CardDavClient>::build`].
-    pub fn build_without_discovery(self, connector: C) -> CardDavClient<C> {
+impl<C> ClientBuilder<CardDavClient<C>, crate::builder::Ready<C>>
+where
+    C: Connect + Clone + Sync + Send,
+{
+    /// Builds a carddav client
+    pub fn build(self) -> CardDavClient<C> {
         CardDavClient {
-            // TODO: it is not possible to override the user pricinpal
-            dav_client: WebDavClient::new(self.state.uri, self.state.auth, connector),
-            // TODO: Allow specifying this value
-            addressbook_home_set: None,
+            dav_client: self.state.dav_client,
+            addressbook_home_set: self.state.home_set,
         }
     }
 }
@@ -139,7 +144,7 @@ where
 
     /// Find address book collections under the given `url`.
     ///
-    /// It `url` is not specified, this client's address book home set is used instead. If no
+    /// If `url` is not specified, this client's address book home set is used instead. If no
     /// address book home set has been found, then the server's context path will be used. When
     /// using a client bootstrapped via automatic discovery, passing `None` will usually yield the
     /// expected results.

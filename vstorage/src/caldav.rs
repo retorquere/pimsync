@@ -43,8 +43,9 @@ where
         let client = CalDavClient::builder()
             .with_uri(self.url)
             .with_auth(self.auth)
-            .build(self.connector)
-            .await?;
+            .bootstrap(self.connector)
+            .await?
+            .build();
 
         Ok(CalDavStorage { client })
     }
@@ -405,7 +406,8 @@ mod test {
             let client = CalDavClient::builder()
                 .with_uri("https://example.com".parse().unwrap())
                 .with_auth(Auth::None)
-                .build_without_discovery(https);
+                .without_discovery(https)
+                .build();
 
             CalDavStorage { client }
         };

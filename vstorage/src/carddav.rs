@@ -42,8 +42,9 @@ where
         let client = CardDavClient::builder()
             .with_uri(self.url)
             .with_auth(self.auth)
-            .build(self.connector)
-            .await?;
+            .bootstrap(self.connector)
+            .await?
+            .build();
 
         Ok(CardDavStorage { client })
     }

@@ -49,9 +49,10 @@ async fn main() {
             username,
             password: Some(password),
         })
-        .build(https)
+        .bootstrap(https)
         .await
-        .unwrap();
+        .unwrap()
+        .build();
 
     println!("Resolved server URL to: {}", carddav_client.base_url());
 

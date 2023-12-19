@@ -60,9 +60,10 @@ impl TestData {
                 username: profile.username.clone(),
                 password: Some(profile.password.clone().into()),
             })
-            .build(https.clone())
+            .bootstrap(https.clone())
             .await
-            .context("could not initialise test client")?;
+            .context("could not initialise test client")?
+            .build();
         let calendar_home_set = caldav
             .calendar_home_set()
             .context("no calendar home set found")?
@@ -74,9 +75,10 @@ impl TestData {
                 username: profile.username.clone(),
                 password: Some(profile.password.clone().into()),
             })
-            .build(https)
+            .bootstrap(https)
             .await
-            .context("could not initialise test client")?;
+            .context("could not initialise test client")?
+            .build();
         let address_home_set = carddav
             .addressbook_home_set()
             .context("no calendar home set found")?
