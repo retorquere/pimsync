@@ -22,7 +22,8 @@ use crate::auth::Auth;
 use dav::DavError;
 use dav::FindCurrentUserPrincipalError;
 use dav::RequestError;
-use dns::{SrvError, TxtError};
+use dns::TxtError;
+use domain::resolv::lookup::srv::SrvError;
 use http::StatusCode;
 
 pub mod auth;
@@ -50,7 +51,7 @@ pub enum BootstrapError {
     InvalidUrl(&'static str),
 
     #[error("error resolving DNS SRV records")]
-    DnsError(SrvError),
+    DnsError(#[from] SrvError),
 
     #[error("SRV records returned domain/port pair that failed to parse")]
     UnusableSrv(http::Error),

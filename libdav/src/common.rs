@@ -34,8 +34,7 @@ where
     let dname = Dname::bytes_from_str(domain)
         .map_err(|_| BootstrapError::InvalidUrl("invalid domain name"))?;
     let host_candidates = resolve_srv_record(service, &dname, port)
-        .await
-        .map_err(BootstrapError::DnsError)?
+        .await?
         .ok_or(BootstrapError::NotAvailable)?;
 
     let mut client = WebDavClient::new(base_uri, auth, connector);

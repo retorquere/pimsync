@@ -10,6 +10,7 @@ use std::string::FromUtf8Error;
 use domain::base::name::LongChainError;
 use domain::base::wire::ParseError;
 use domain::base::ToRelativeDname;
+use domain::resolv::lookup::srv::SrvError;
 use domain::{
     base::{Dname, Question, RelativeDname, Rtype},
     rdata::Txt,
@@ -68,29 +69,6 @@ impl DiscoverableService {
         match self {
             DiscoverableService::CalDavs | DiscoverableService::CardDavs => 443,
             DiscoverableService::CalDav | DiscoverableService::CardDav => 80,
-        }
-    }
-}
-
-#[derive(thiserror::Error, Debug)]
-pub enum SrvError {
-    #[error("domain name is too long")]
-    LongName,
-
-    #[error("the resolver returned a malformed answer")]
-    MalformedAnswer,
-
-    #[error("error executing DNS query")]
-    Query(io::Error),
-}
-
-// See: https://github.com/NLnetLabs/domain/pull/183
-impl From<domain::resolv::lookup::srv::SrvError> for SrvError {
-    fn from(value: domain::resolv::lookup::srv::SrvError) -> Self {
-        match value {
-            domain::resolv::lookup::srv::SrvError::LongName => SrvError::LongName,
-            domain::resolv::lookup::srv::SrvError::MalformedAnswer => SrvError::MalformedAnswer,
-            domain::resolv::lookup::srv::SrvError::Query(e) => SrvError::Query(e),
         }
     }
 }
