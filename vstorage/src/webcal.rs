@@ -20,7 +20,7 @@ use crate::{
     base::{
         CalendarProperty, Collection, Definition, FetchedItem, IcsItem, Item, ItemRef, Storage,
     },
-    disco::Discovery,
+    disco::{DiscoveredCollection, Discovery},
     simple_component::Component,
     CollectionId, Error, ErrorKind, Etag, Result,
 };
@@ -115,8 +115,9 @@ impl Storage<IcsItem> for WebCalStorage {
     /// Returns a single collection with the name specified in the definition.
     async fn discover_collections(&self) -> Result<Discovery> {
         // TODO: shouldn't I check that the collection actually exists?
-        Ok(vec![Collection::new(
-            self.definition.collection_name.clone().into(),
+        Ok(vec![DiscoveredCollection::new(
+            self.definition.url.host().unwrap_or("/").to_string(),
+            self.definition.collection_name.clone(),
         )]
         .into())
     }

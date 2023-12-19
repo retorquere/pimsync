@@ -2,7 +2,7 @@
 
 use http::Uri;
 
-use crate::{Error, ErrorKind, Result};
+use crate::{CollectionId, CollectionIdError, Error, ErrorKind, Result};
 
 pub(crate) fn path_for_collection_in_home_set(home_set: &Uri, name: &str) -> String {
     // TODO: can be simplified with: https://github.com/hyperium/http/pull/623
@@ -30,4 +30,13 @@ pub(crate) fn collection_href_for_item(item_href: &str) -> Result<&str> {
         .next()
         .ok_or_else(|| Error::from(ErrorKind::InvalidInput))?;
     Ok(collection_href)
+}
+
+#[inline]
+pub(crate) fn collection_id_for_href(href: &str) -> Result<CollectionId, CollectionIdError> {
+    href.trim_matches('/') // Remove any trailing slashes.
+        .rsplit('/')
+        .next()
+        .expect("rsplit always returns at least one item")
+        .parse()
 }

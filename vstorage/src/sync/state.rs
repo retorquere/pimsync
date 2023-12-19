@@ -9,8 +9,8 @@ use std::sync::Arc;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    base::{Collection, FetchedItem, Item, Storage},
-    disco::Discovery,
+    base::{FetchedItem, Item, Storage},
+    disco::{DiscoveredCollection, Discovery},
     CollectionId, Etag, Href, Result,
 };
 
@@ -48,8 +48,7 @@ impl StorageState {
         let mut collections = Vec::with_capacity(collection_hrefs.len());
 
         for href in collection_hrefs {
-            let Some(collection) = discovery.collections().iter().find(|c| c.href() == *href)
-            else {
+            let Some(collection) = discovery.find_collection_by_href(href) else {
                 // If a collection does not exist the there is no state for it.
                 continue;
             };
@@ -116,10 +115,10 @@ impl CollectionState {
     async fn generate_current<I: Item>(
         previous_state: Option<&CollectionState>,
         storage: &Arc<dyn Storage<I>>,
-        collection: &Collection,
+        collection: &DiscoveredCollection,
     ) -> crate::Result<Self> {
         let mut state = CollectionState {
-            id: storage.collection_id(collection)?,
+            id: collection.id().clone(),
             href: collection.href().to_string(),
             items: Vec::new(),
         };
@@ -127,7 +126,7 @@ impl CollectionState {
 
         // TODO: I could special case if previous_state is None and just get_all
 
-        for item_ref in storage.list_items(collection).await? {
+        for item_ref in storage.list_items(&collection.to_collection()).await? {
             if let Some(ps) = previous_state {
                 if let Some(p) = ps.get_item_by_href(&item_ref.href) {
                     if p.etag == item_ref.etag {

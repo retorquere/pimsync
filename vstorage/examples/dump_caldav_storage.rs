@@ -50,9 +50,9 @@ async fn main() {
     let discovery = caldav_storage.discover_collections().await.unwrap();
 
     println!("Found {} collections", discovery.collection_count());
-    for collection in discovery.collections() {
-        println!("Creating {}", collection.href());
-        let collection_name = collection
+    for discovered_collection in discovery.collections() {
+        println!("Creating {}", discovered_collection.href());
+        let collection_name = discovered_collection
             .href()
             .trim_end_matches('/')
             .rsplit('/')
@@ -63,7 +63,13 @@ async fn main() {
             .await
             .unwrap();
 
-        copy_collection(&caldav_storage, collection, &vdir_storage, &new_collection).await;
+        copy_collection(
+            &caldav_storage,
+            &discovered_collection.to_collection(),
+            &vdir_storage,
+            &new_collection,
+        )
+        .await;
     }
 }
 

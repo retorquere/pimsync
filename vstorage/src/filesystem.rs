@@ -25,7 +25,7 @@ use crate::base::{
     AddressBookProperty, CalendarProperty, Collection, Definition, FetchedItem, Item, ItemRef,
     Storage,
 };
-use crate::disco::Discovery;
+use crate::disco::{DiscoveredCollection, Discovery};
 use crate::{CollectionId, Error, ErrorKind, Etag, Result};
 
 // TODO: atomic writes
@@ -61,7 +61,7 @@ where
     async fn discover_collections(&self) -> Result<Discovery> {
         let mut entries = read_dir(&self.definition.path).await?;
 
-        let mut collections = Vec::<Collection>::new();
+        let mut collections = Vec::<_>::new();
         while let Some(entry) = entries.next_entry().await? {
             if !metadata(entry.path()).await?.is_dir() {
                 continue;
@@ -71,8 +71,10 @@ where
                 .to_str()
                 .ok_or_else(|| Error::new(ErrorKind::InvalidData, "collection name is not utf8"))?
                 .to_owned();
-
-            collections.push(Collection::new(href));
+            let id = href
+                .parse()
+                .map_err(|e| Error::new(ErrorKind::InvalidData, e))?;
+            collections.push(DiscoveredCollection::new(href, id));
         }
 
         Ok(collections.into())

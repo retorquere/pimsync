@@ -7,10 +7,10 @@
 use std::collections::HashSet;
 use std::sync::Arc;
 
-use log::{debug, error, trace};
+use log::{debug, trace};
 
 use crate::base::{Collection, Storage};
-use crate::disco::Discovery;
+use crate::disco::{DiscoveredCollection, Discovery};
 use crate::sync::state::StorageState;
 use crate::{base::Item, sync::declare::StoragePair, Result};
 use crate::{CollectionId, Error, ErrorKind, Href};
@@ -153,12 +153,7 @@ fn create_mappings_for_pair<I: Item>(
                 a: ResolvedCollection::Href {
                     href: collection.href().to_string(),
                 },
-                b: resolve_mapping_counterpart(
-                    &pair.storage_a,
-                    collection,
-                    &pair.storage_b,
-                    disco_b,
-                )?,
+                b: resolve_mapping_counterpart(collection, disco_b),
             });
         }
     }
@@ -166,12 +161,7 @@ fn create_mappings_for_pair<I: Item>(
         mappings.reserve(disco_b.collection_count());
         for collection in disco_b.collections() {
             let mapping = ResolvedMapping {
-                a: resolve_mapping_counterpart(
-                    &pair.storage_b,
-                    collection,
-                    &pair.storage_a,
-                    disco_a,
-                )?,
+                a: resolve_mapping_counterpart(collection, disco_a),
                 b: ResolvedCollection::Href {
                     href: collection.href().to_owned(),
                 },
@@ -327,30 +317,22 @@ impl ResolvedMapping {
     ) -> Result<Self> {
         match declared {
             DeclaredMapping::Direct { description } => Ok(ResolvedMapping {
-                a: ResolvedCollection::from_declared_collection(
-                    description.clone(),
-                    storage_a,
-                    discovery_a,
-                )?,
-                b: ResolvedCollection::from_declared_collection(
-                    description,
-                    storage_b,
-                    discovery_b,
-                )?,
+                a: ResolvedCollection::from_declared_collection(description.clone(), discovery_a),
+                b: ResolvedCollection::from_declared_collection(description, discovery_b),
             }),
             DeclaredMapping::FromA { description } => {
-                resolve_from_x(description, discovery_a, storage_a, discovery_b, storage_b)
+                resolve_from_x(description, discovery_a, storage_a, discovery_b)
                     // Note the order of arguments here.
                     .map(|(a, b)| ResolvedMapping { a, b })
             }
             DeclaredMapping::FromB { description } => {
-                resolve_from_x(description, discovery_b, storage_b, discovery_a, storage_a)
+                resolve_from_x(description, discovery_b, storage_b, discovery_a)
                     // Note the order of arguments here.
                     .map(|(b, a)| ResolvedMapping { a, b })
             }
             DeclaredMapping::Mapped { a, b, .. } => Ok(ResolvedMapping {
-                a: ResolvedCollection::from_declared_collection(a, storage_a, discovery_a)?,
-                b: ResolvedCollection::from_declared_collection(b, storage_b, discovery_b)?,
+                a: ResolvedCollection::from_declared_collection(a, discovery_a),
+                b: ResolvedCollection::from_declared_collection(b, discovery_b),
             }),
         }
     }
@@ -367,40 +349,34 @@ pub(super) enum ResolvedCollection {
 
 impl ResolvedCollection {
     /// Resolve the collection based on a storage and its collections.
-    fn from_declared_collection<I: Item>(
+    fn from_declared_collection(
         declared: CollectionDescription,
-        storage: &Arc<dyn Storage<I>>,
         discovery: &Discovery,
-    ) -> Result<Self> {
-        Ok(match declared {
-            CollectionDescription::Id { id } => {
-                match discovery.find_collection_by_id(storage, &id)? {
-                    Some(collection) => ResolvedCollection::Href {
-                        href: collection.href().to_string(),
-                    },
-                    None => ResolvedCollection::Id { id: id.clone() },
-                }
-            }
+    ) -> ResolvedCollection {
+        match declared {
+            CollectionDescription::Id { id } => match discovery.find_collection_by_id(&id) {
+                Some(collection) => ResolvedCollection::Href {
+                    href: collection.href().to_string(),
+                },
+                None => ResolvedCollection::Id { id: id.clone() },
+            },
             CollectionDescription::Href { href } => ResolvedCollection::Href { href },
-        })
+        }
     }
 }
 
 /// Finds a counterpart for a collection matching by id.
-fn resolve_mapping_counterpart<I: Item>(
-    source_storage: &Arc<dyn Storage<I>>,
-    source_collection: &Collection,
-    target_storage: &Arc<dyn Storage<I>>,
+fn resolve_mapping_counterpart(
+    source_collection: &DiscoveredCollection,
     target_discovery: &Discovery,
-) -> Result<ResolvedCollection> {
-    let id = source_storage.collection_id(source_collection)?;
-    let counterpart = match target_discovery.find_collection_by_id(target_storage, &id)? {
+) -> ResolvedCollection {
+    let id = source_collection.id();
+    match target_discovery.find_collection_by_id(id) {
         Some(c) => ResolvedCollection::Href {
             href: c.href().to_string(),
         },
-        None => ResolvedCollection::Id { id },
-    };
-    Ok(counterpart)
+        None => ResolvedCollection::Id { id: id.clone() },
+    }
 }
 
 /// Resolve a `FromX` mapping (e.g.: `FromA` or `FromB`).
@@ -411,17 +387,13 @@ fn resolve_from_x<I: Item>(
     discovery_x: &Discovery,
     storage_x: &Arc<dyn Storage<I>>,
     discovery_y: &Discovery,
-    storage_y: &Arc<dyn Storage<I>>,
 ) -> Result<(ResolvedCollection, ResolvedCollection)> {
     let (id, href) = match description {
         CollectionDescription::Id { id } => {
-            let collection =
-                discovery_x
-                    .find_collection_by_id(storage_x, &id)?
-                    .ok_or(Error::new(
-                        ErrorKind::DoesNotExist,
-                        format!("No collection with id: {id}"),
-                    ))?;
+            let collection = discovery_x.find_collection_by_id(&id).ok_or(Error::new(
+                ErrorKind::DoesNotExist,
+                format!("No collection with id: {id}"),
+            ))?;
             (id, collection.href().to_string())
         }
         CollectionDescription::Href { href } => {
@@ -430,16 +402,11 @@ fn resolve_from_x<I: Item>(
         }
     };
 
-    let counterpart = match discovery_y.find_collection_by_id(storage_y, &id) {
-        Ok(Some(c)) => ResolvedCollection::Href {
+    let counterpart = match discovery_y.find_collection_by_id(&id) {
+        Some(c) => ResolvedCollection::Href {
             href: c.href().to_string(),
         },
-        Ok(None) => ResolvedCollection::Id { id },
-        Err(err) => {
-            // This really should never happen, let's add extra logging just in case.
-            error!("Error finding counterpart for id-based mapping: {:?}", err);
-            return Err(err);
-        }
+        None => ResolvedCollection::Id { id },
     };
 
     Ok((ResolvedCollection::Href { href }, counterpart))

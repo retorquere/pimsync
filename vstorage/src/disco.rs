@@ -1,22 +1,47 @@
 //! Types related to collection discovery.
 
-use std::sync::Arc;
+use crate::{base::Collection, CollectionId};
 
-use crate::{
-    base::{Collection, Item, Storage},
-    CollectionId, Result,
-};
+/// A collection found during discovery.
+pub struct DiscoveredCollection {
+    // TODO: this does an eager calculation of the CollectionId.
+    //       ideally, we'd do this on-demand.
+    href: String,
+    id: CollectionId,
+}
+
+impl DiscoveredCollection {
+    #[must_use]
+    pub fn new(href: String, id: CollectionId) -> DiscoveredCollection {
+        DiscoveredCollection { href, id }
+    }
+
+    #[must_use]
+    pub fn href(&self) -> &str {
+        &self.href
+    }
+
+    #[must_use]
+    pub fn id(&self) -> &CollectionId {
+        &self.id
+    }
+
+    #[must_use]
+    pub fn to_collection(&self) -> Collection {
+        Collection::new(self.href.clone())
+    }
+}
 
 /// The result of running discovery on a `Storage`.
 ///
 /// See `[crate::Storage::discover_collections`].
 pub struct Discovery {
-    collections: Vec<Collection>,
+    collections: Vec<DiscoveredCollection>,
 }
 
 impl Discovery {
     #[must_use]
-    pub fn collections(&self) -> &[Collection] {
+    pub fn collections(&self) -> &[DiscoveredCollection] {
         &self.collections
     }
 
@@ -26,34 +51,24 @@ impl Discovery {
     }
 
     /// Find a collection with a matching id.
-    ///
-    /// - Returns `Ok(Some(_))` if a matching collection was found.
-    /// - Returns `Ok(None)` if no collection has the specified id.
-    /// - Returns `Err(_)` if resolving the id of a collection failed.
-    // TODO: Instances of this type could be associated to the Storage type that returned it.
-    pub(super) fn find_collection_by_id<'disco, I: Item>(
+    pub(super) fn find_collection_by_id<'disco>(
         self: &'disco Discovery,
-        storage: &Arc<dyn Storage<I>>,
         id: &CollectionId,
-    ) -> Result<Option<&'disco Collection>> {
-        self.collections()
-            .iter()
-            .find_map(|c| match storage.collection_id(c) {
-                Ok(c_id) => {
-                    if c_id == *id {
-                        Some(Ok(c))
-                    } else {
-                        None
-                    }
-                }
-                Err(err) => Some(Err(err)),
-            })
-            .transpose()
+    ) -> Option<&'disco DiscoveredCollection> {
+        self.collections().iter().find(|c| c.id == *id)
+    }
+
+    /// Find a collection with a matching href.
+    pub(super) fn find_collection_by_href<'disco>(
+        self: &'disco Discovery,
+        href: &str,
+    ) -> Option<&'disco DiscoveredCollection> {
+        self.collections().iter().find(|c| c.href == *href)
     }
 }
 
-impl From<Vec<Collection>> for Discovery {
-    fn from(collections: Vec<Collection>) -> Discovery {
+impl From<Vec<DiscoveredCollection>> for Discovery {
+    fn from(collections: Vec<DiscoveredCollection>) -> Discovery {
         Discovery { collections }
     }
 }
