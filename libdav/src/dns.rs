@@ -53,7 +53,7 @@ impl DiscoverableService {
         }
     }
 
-    /// The will-known path for context-path discovery.
+    /// The well-known path for context-path discovery.
     #[must_use]
     pub fn well_known_path(self) -> &'static str {
         match self {
