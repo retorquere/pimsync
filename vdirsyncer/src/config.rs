@@ -60,7 +60,6 @@ impl Config {
     ///
     /// This consumes the configuration to avoid copying any data needlessly and freeing up any
     /// unnecessary data.
-    // TODO: the "previous state" is required here.
     pub(crate) async fn into_app<'storages>(self) -> anyhow::Result<App> {
         let status_dir = expand_tilde(&self.general.status_path).to_path_buf();
         // Initialise storages once, to avoid duplicating any.
