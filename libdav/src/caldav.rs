@@ -9,8 +9,8 @@ use hyper::client::connect::Connect;
 use hyper::{Body, Uri};
 use log::debug;
 
-use crate::builder::{ClientBuilder, NeedsUri, Ready};
-use crate::common::{bootstrap_client, find_home_set, parse_find_multiple_collections};
+use crate::builder::{ClientBuilder, NeedsUri};
+use crate::common::{parse_find_multiple_collections, Rfc6764Protocol};
 use crate::dav::{check_status, DavError, FoundCollection};
 use crate::dns::DiscoverableService;
 use crate::names;
@@ -76,40 +76,23 @@ where
     }
 }
 
-impl<C> ClientBuilder<CalDavClient<C>, crate::builder::PendingDiscovery>
+impl<C> Rfc6764Protocol for CalDavClient<C>
 where
     C: Connect + Clone + Sync + Send,
 {
-    /// Perform client bootstrap sequence.
-    ///
-    /// Determines the caldav server's real host and the context path of the resources for a
-    /// server, following the discovery mechanism described in [rfc6764].
-    ///
-    /// [rfc6764]: https://www.rfc-editor.org/rfc/rfc6764
-    ///
-    /// # Errors
-    ///
-    /// If any of the underlying DNS or HTTP requests fail, or if any of the responses fail to
-    /// parse.
-    ///
-    /// Does not return an error if DNS records as missing, only if they contain invalid data.
-    pub async fn bootstrap(
-        self,
-        connector: C,
-    ) -> Result<ClientBuilder<CalDavClient<C>, Ready<C>>, BootstrapError> {
-        let service = CalDavClient::<C>::service(&self.state.uri)?;
+    fn service(uri: &Uri) -> Result<DiscoverableService, BootstrapError> {
+        let scheme = uri
+            .scheme()
+            .ok_or(BootstrapError::InvalidUrl("missing scheme"))?;
+        match scheme.as_ref() {
+            "https" | "caldavs" => Ok(DiscoverableService::CalDavs),
+            "http" | "caldav" => Ok(DiscoverableService::CalDav),
+            _ => Err(BootstrapError::InvalidUrl("scheme is invalid")),
+        }
+    }
 
-        let dav_client =
-            bootstrap_client(self.state.uri, self.state.auth, connector, service).await?;
-        let calendar_home_set = find_home_set(&dav_client, &names::CALENDAR_HOME_SET).await?;
-
-        Ok(ClientBuilder {
-            state: Ready {
-                dav_client,
-                home_set: calendar_home_set,
-            },
-            phantom: self.phantom,
-        })
+    fn home_set_property() -> &'static crate::Property<'static, 'static> {
+        &names::CALENDAR_HOME_SET
     }
 }
 
@@ -119,9 +102,10 @@ where
 {
     /// Builds a caldav client
     pub fn build(self) -> CalDavClient<C> {
+        let (dav_client, calendar_home_set) = self.into_parts();
         CalDavClient {
-            dav_client: self.state.dav_client,
-            calendar_home_set: self.state.home_set,
+            dav_client,
+            calendar_home_set,
         }
     }
 }
@@ -311,17 +295,6 @@ where
             Ok(())
         } else {
             Err(CheckSupportError::NotAdvertised)
-        }
-    }
-
-    fn service(uri: &Uri) -> Result<DiscoverableService, BootstrapError> {
-        let scheme = uri
-            .scheme()
-            .ok_or(BootstrapError::InvalidUrl("missing scheme"))?;
-        match scheme.as_ref() {
-            "https" | "caldavs" => Ok(DiscoverableService::CalDavs),
-            "http" | "caldav" => Ok(DiscoverableService::CalDav),
-            _ => Err(BootstrapError::InvalidUrl("scheme is invalid")),
         }
     }
 

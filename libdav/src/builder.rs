@@ -13,7 +13,9 @@ use hyper::client::connect::Connect;
 
 use crate::{
     auth::{Auth, Password},
+    common::{bootstrap_client, find_home_set, Rfc6764Protocol},
     dav::WebDavClient,
+    BootstrapError,
 };
 
 pub struct NeedsUri(());
@@ -75,8 +77,8 @@ where
 ///```
 #[allow(clippy::module_name_repetitions)]
 pub struct ClientBuilder<ClientType, State> {
-    pub(crate) state: State,
-    pub(super) phantom: PhantomData<ClientType>,
+    state: State,
+    phantom: PhantomData<ClientType>,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -196,7 +198,43 @@ impl<ClientType> ClientBuilder<ClientType, NeedsPassword> {
     }
 }
 
-impl<ClientType> ClientBuilder<ClientType, PendingDiscovery> {
+impl<ClientType: Rfc6764Protocol> ClientBuilder<ClientType, PendingDiscovery> {
+    /// Perform client bootstrap sequence.
+    ///
+    /// Determines the server's real host and the context path of the resources for a server,
+    /// following the discovery mechanism described in [rfc6764].
+    ///
+    /// [rfc6764]: https://www.rfc-editor.org/rfc/rfc6764
+    ///
+    /// # Errors
+    ///
+    /// If any of the underlying DNS or HTTP requests fail, or if any of the responses fail to
+    /// parse.
+    ///
+    /// Does not return an error if DNS records as missing, only if they contain invalid data.
+    pub async fn bootstrap<C>(
+        self,
+        connector: C,
+    ) -> Result<ClientBuilder<ClientType, Ready<C>>, BootstrapError>
+    where
+        C: Connect + Clone + Sync + Send,
+    {
+        let service = ClientType::service(&self.state.uri)?;
+        let home_set_prop = ClientType::home_set_property();
+
+        let dav_client =
+            bootstrap_client(self.state.uri, self.state.auth, connector, service).await?;
+        let home_set = find_home_set(&dav_client, home_set_prop).await?;
+
+        Ok(ClientBuilder {
+            state: Ready {
+                dav_client,
+                home_set,
+            },
+            phantom: self.phantom,
+        })
+    }
+
     /// Create a client without any discovery.
     ///
     /// This constructor is recommended only for situations where DNS-based discovery is
@@ -232,5 +270,15 @@ impl<ClientType> ClientBuilder<ClientType, PendingDiscovery> {
             },
             phantom: self.phantom,
         }
+    }
+}
+
+impl<ClientType: Rfc6764Protocol, C> ClientBuilder<ClientType, Ready<C>>
+where
+    C: Connect + Clone + Sync + Send,
+{
+    /// Returns a webdav client and the discovered home set.
+    pub(crate) fn into_parts(self) -> (WebDavClient<C>, Option<Uri>) {
+        (self.state.dav_client, self.state.home_set)
     }
 }

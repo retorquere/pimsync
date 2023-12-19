@@ -135,3 +135,10 @@ where
         .await
         .map_err(FindHomeSetError)
 }
+
+pub trait Rfc6764Protocol {
+    /// Returns the service type based on the provided Uri.
+    fn service(uri: &Uri) -> Result<DiscoverableService, BootstrapError>;
+    /// Name of the property that describes this protocol's home set.
+    fn home_set_property() -> &'static Property<'static, 'static>;
+}
