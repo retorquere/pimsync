@@ -5,63 +5,14 @@
 //! Common bits shared between caldav and carddav clients.
 
 use crate::{
-    auth::Auth,
     dav::{DavError, FoundCollection, WebDavClient},
-    dns::{find_context_path_via_txt_records, resolve_srv_record, DiscoverableService},
+    dns::DiscoverableService,
     names,
     xmlutils::get_unquoted_href,
-    BootstrapError, FindHomeSetError, InvalidUrl, Property,
+    FindHomeSetError, InvalidUrl, Property,
 };
-use domain::base::Dname;
 
 use hyper::{client::connect::Connect, Uri};
-
-/// Crate a client bootstrapped with discovery data.
-pub(crate) async fn bootstrap_client<C>(
-    base_uri: Uri,
-    auth: Auth,
-    connector: C,
-    service: DiscoverableService,
-) -> Result<WebDavClient<C>, BootstrapError>
-where
-    C: Connect + Clone + Send + Sync,
-{
-    let domain = base_uri.host().ok_or(InvalidUrl::MissingHost)?;
-    let port = base_uri.port_u16().unwrap_or(service.default_port());
-
-    let dname = Dname::bytes_from_str(domain).map_err(InvalidUrl::InvalidDomain)?;
-    let host_candidates = resolve_srv_record(service, &dname, port)
-        .await?
-        .ok_or(BootstrapError::NotAvailable)?;
-
-    let mut client = WebDavClient::new(base_uri, auth, connector);
-
-    if let Some(path) = find_context_path_via_txt_records(service, &dname).await? {
-        let candidate = &host_candidates[0];
-
-        // TODO: check `DAV:` capabilities here.
-        client.base_url = Uri::builder()
-            .scheme(service.scheme())
-            .authority(format!("{}:{}", candidate.0, candidate.1))
-            .path_and_query(path)
-            .build()
-            .map_err(BootstrapError::UnusableSrv)?;
-    } else {
-        for candidate in host_candidates {
-            if let Ok(Some(url)) = client
-                .find_context_path(service, &candidate.0, candidate.1)
-                .await
-            {
-                client.base_url = url;
-                break;
-            }
-        }
-    }
-
-    client.principal = client.find_current_user_principal().await?;
-
-    Ok(client)
-}
 
 pub(crate) fn parse_find_multiple_collections(
     body: impl AsRef<[u8]>,
@@ -133,6 +84,7 @@ where
         .map_err(FindHomeSetError)
 }
 
+/// Helper trait for implementing [rfc6764](https://www.rfc-editor.org/rfc/rfc6764) discovery.
 pub trait Rfc6764Protocol {
     /// Returns the service type based on the provided Uri.
     fn service(uri: &Uri) -> Result<DiscoverableService, InvalidUrl>;

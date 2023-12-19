@@ -7,15 +7,17 @@
 //! The main type here is [`ClientBuilder`].
 use std::marker::PhantomData;
 
+use domain::base::Dname;
 use email_address::EmailAddress;
 use http::Uri;
 use hyper::client::connect::Connect;
 
 use crate::{
     auth::{Auth, Password},
-    common::{bootstrap_client, find_home_set, Rfc6764Protocol},
+    common::{find_home_set, Rfc6764Protocol},
     dav::WebDavClient,
-    BootstrapError,
+    dns::{find_context_path_via_txt_records, resolve_srv_record},
+    BootstrapError, InvalidUrl,
 };
 
 pub struct NeedsUri(());
@@ -222,8 +224,38 @@ impl<ClientType: Rfc6764Protocol> ClientBuilder<ClientType, PendingDiscovery> {
         let service = ClientType::service(&self.state.uri)?;
         let home_set_prop = ClientType::home_set_property();
 
-        let dav_client =
-            bootstrap_client(self.state.uri, self.state.auth, connector, service).await?;
+        let domain = self.state.uri.host().ok_or(InvalidUrl::MissingHost)?;
+        let port = self.state.uri.port_u16().unwrap_or(service.default_port());
+
+        let dname = Dname::bytes_from_str(domain).map_err(InvalidUrl::InvalidDomain)?;
+        let host_candidates = resolve_srv_record(service, &dname, port)
+            .await?
+            .ok_or(BootstrapError::NotAvailable)?;
+
+        let mut dav_client = WebDavClient::new(self.state.uri, self.state.auth, connector);
+        if let Some(path) = find_context_path_via_txt_records(service, &dname).await? {
+            let candidate = &host_candidates[0];
+
+            // TODO: check `DAV:` capabilities here.
+            dav_client.base_url = Uri::builder()
+                .scheme(service.scheme())
+                .authority(format!("{}:{}", candidate.0, candidate.1))
+                .path_and_query(path)
+                .build()
+                .map_err(BootstrapError::UnusableSrv)?;
+        } else {
+            for candidate in host_candidates {
+                if let Ok(Some(url)) = dav_client
+                    .find_context_path(service, &candidate.0, candidate.1)
+                    .await
+                {
+                    dav_client.base_url = url;
+                    break;
+                }
+            }
+        }
+
+        dav_client.principal = dav_client.find_current_user_principal().await?;
         let home_set = find_home_set(&dav_client, home_set_prop).await?;
 
         Ok(ClientBuilder {
