@@ -252,8 +252,9 @@ where
     }
 
     /// The id of a filesystem collection is the name of the directory.
-    fn collection_id(&self, collection: &str) -> Result<CollectionId> {
-        collection
+    fn collection_id(&self, collection_href: &str) -> Result<CollectionId> {
+        collection_href
+            .trim_end_matches('/')
             .rsplit('/')
             .next()
             .expect("rsplit always returns at least one item")
