@@ -43,7 +43,7 @@ use crate::{
         cert_and_key_from_pemfile, certs_from_pemfile, key_from_pemfile,
         FingerprintAndWebPkiVerifier, FingerprintVerifier,
     },
-    App, NamedPair, NamedStorage,
+    App, NamedPair, NamedStorage, VERSION,
 };
 
 /// A deserialised configuration file.
@@ -487,7 +487,7 @@ enum Auth {
 }
 
 fn default_useragent() -> String {
-    String::from("vdirsyncer/2.0.0-alpha0") // FIXME: hard-coded version
+    String::from(VERSION)
 }
 
 #[derive(Deserialize, Debug)]

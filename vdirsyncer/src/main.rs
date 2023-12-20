@@ -21,6 +21,8 @@ mod cli;
 mod config;
 mod tls;
 
+pub const VERSION: &str = "2.0.0-alpha0";
+
 /// Storage with a name, as defined in the configuration file.
 pub(crate) struct NamedStorage<I: Item> {
     name: String,

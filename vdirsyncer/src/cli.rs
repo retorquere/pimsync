@@ -1,7 +1,9 @@
 use clap::Parser;
 
+use crate::VERSION;
+
 #[derive(Parser)]
-#[clap(author, version = "2.0.0-alpha0", about, long_about = None)]
+#[clap(author, version = VERSION, about, long_about = None)]
 pub(crate) struct Vdirsyncer {
     /// Check configuration file and exit
     #[arg(short, long)]
