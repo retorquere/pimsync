@@ -69,9 +69,10 @@ pub trait Storage<I: Item>: Sync + Send {
     /// should be used instead.
     async fn create_collection(&self, href: &str) -> Result<Collection>;
 
-    /// Creates a new collection with a given name.
+    /// Creates a new collection with a given id.
     ///
-    /// Creates a new collection with an href such that its name matches the one provided.
+    /// The collection SHOULD be created in a way that discovery later yields the collection with a
+    /// `CollectionId` matching the one provided here as input.
     async fn create_collection_with_id(&self, id: &CollectionId) -> Result<Collection>;
 
     /// Deletes an existing collection.
