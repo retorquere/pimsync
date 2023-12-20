@@ -12,11 +12,12 @@ use log::{debug, trace};
 use crate::base::Storage;
 use crate::disco::{DiscoveredCollection, Discovery};
 use crate::sync::state::StorageState;
-use crate::{base::Item, sync::declare::StoragePair, Result};
+use crate::{base::Item, sync::declare::StoragePair};
 use crate::{CollectionId, Error, ErrorKind, Href};
 
 use super::declare::{CollectionDescription, DeclaredMapping};
 use super::state::{CollectionState, ItemState, PairState};
+use super::PlanError;
 
 /// A series of actions that would synchronise a pair of storages.
 pub struct Plan<'pair, I: Item> {
@@ -48,37 +49,36 @@ impl<'pair, I: Item> Plan<'pair, I> {
     pub async fn new(
         pair: &'pair StoragePair<I>,
         previous_state: Option<&PairState>,
-    ) -> Result<Plan<'pair, I>> {
+    ) -> Result<Plan<'pair, I>, PlanError> {
         // TODO: disco needs to returns its own error type?
         // TODO: only discover collections if any are specified by Id or All
-        let disco_a = pair.storage_a.discover_collections().await?;
-        let disco_b = pair.storage_b.discover_collections().await?;
+        let disco_a = pair
+            .storage_a
+            .discover_collections()
+            .await
+            .map_err(PlanError::DiscoveryFailedA)?;
+        let disco_b = pair
+            .storage_b
+            .discover_collections()
+            .await
+            .map_err(PlanError::DiscoveryFailedB)?;
 
-        // TODO: dedicated error type
-        let mappings = create_mappings_for_pair(pair, &disco_a, &disco_b)?;
+        let mappings = create_mappings_for_pair(pair, &disco_a, &disco_b)
+            .map_err(PlanError::BadCollectionMappings)?;
 
         {
             let mut seen_a = HashSet::<&ResolvedCollection>::new();
             let mut seen_b = HashSet::<&ResolvedCollection>::new();
 
             for mapping in &mappings {
+                // TODO: cloning here is not ideal, but it's not a hot path either.
                 if seen_a.contains(&mapping.a) {
-                    return Err(Error::new(
-                        ErrorKind::InvalidInput,
-                        format!(
-                            "Collection for storage a was specified twice: {:?}",
-                            mapping.a
-                        ),
-                    ));
+                    // TODO: only fail if B is different
+                    return Err(PlanError::DuplicateCollectionInA(mapping.a.clone()));
                 }
                 if seen_b.contains(&mapping.b) {
-                    return Err(Error::new(
-                        ErrorKind::InvalidInput,
-                        format!(
-                            "Collection for storage b was specified twice: {:?}",
-                            mapping.a
-                        ),
-                    ));
+                    // TODO: only fail if A is different
+                    return Err(PlanError::DuplicateCollectionInB(mapping.b.clone()));
                 }
 
                 seen_a.insert(&mapping.a);
@@ -100,10 +100,12 @@ impl<'pair, I: Item> Plan<'pair, I> {
             None => (None, None),
         };
 
-        let a =
-            StorageState::current_for_storage(prev_a, &pair.storage_a, &hrefs_a, &disco_a).await?;
-        let b =
-            StorageState::current_for_storage(prev_b, &pair.storage_b, &hrefs_b, &disco_b).await?;
+        let a = StorageState::current_for_storage(prev_a, &pair.storage_a, &hrefs_a, &disco_a)
+            .await
+            .map_err(PlanError::StateA)?;
+        let b = StorageState::current_for_storage(prev_b, &pair.storage_b, &hrefs_b, &disco_b)
+            .await
+            .map_err(PlanError::StateA)?;
 
         let collection_plans = create_plan_for_mappings(&mappings, &a, &b, prev_a, prev_b);
 
@@ -134,7 +136,7 @@ fn create_mappings_for_pair<I: Item>(
     pair: &StoragePair<I>,
     disco_a: &Discovery,
     disco_b: &Discovery,
-) -> Result<Vec<ResolvedMapping>> {
+) -> Result<Vec<ResolvedMapping>, crate::Error> {
     let mut mappings = Vec::<ResolvedMapping>::with_capacity(pair.mappings.len());
     for mapping in &pair.mappings {
         mappings.push(ResolvedMapping::from_declared_mapping(
@@ -320,7 +322,7 @@ impl ResolvedMapping {
         storage_b: &Arc<dyn Storage<I>>,
         discovery_a: &Discovery,
         discovery_b: &Discovery,
-    ) -> Result<Self> {
+    ) -> Result<Self, crate::Error> {
         match declared {
             DeclaredMapping::Direct { description } => Ok(ResolvedMapping {
                 a: ResolvedCollection::from_declared_collection(description.clone(), discovery_a),
@@ -346,7 +348,7 @@ impl ResolvedMapping {
 
 /// A collection as resolved based on existing data.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub(super) enum ResolvedCollection {
+pub enum ResolvedCollection {
     /// The collection does not exist; only its (expected) collection id is known.
     Id { id: CollectionId },
     /// The collection exists and its href is known.
@@ -367,6 +369,15 @@ impl ResolvedCollection {
                 None => ResolvedCollection::Id { id: id.clone() },
             },
             CollectionDescription::Href { href } => ResolvedCollection::Href { href },
+        }
+    }
+}
+
+impl std::fmt::Display for ResolvedCollection {
+    fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ResolvedCollection::Id { id } => write!(fmt, "id: {id}"),
+            ResolvedCollection::Href { href } => write!(fmt, "href: {href}"),
         }
     }
 }
@@ -393,7 +404,7 @@ fn resolve_from_x<I: Item>(
     discovery_x: &Discovery,
     storage_x: &Arc<dyn Storage<I>>,
     discovery_y: &Discovery,
-) -> Result<(ResolvedCollection, ResolvedCollection)> {
+) -> Result<(ResolvedCollection, ResolvedCollection), crate::Error> {
     let (id, href) = match description {
         CollectionDescription::Id { id } => {
             let collection = discovery_x.find_collection_by_id(&id).ok_or(Error::new(
