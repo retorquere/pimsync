@@ -249,25 +249,29 @@ where
     }
 
     async fn get_many_items(&self, hrefs: &[&str]) -> Result<Vec<FetchedItem<IcsItem>>> {
+        // TODO: use generics for CalDavClient+CardDavClient and make this method generic too.
         if hrefs.is_empty() {
             return Ok(Vec::new());
         }
         let collection_href = collection_href_for_item(hrefs[0])?;
-        Ok(self
-            .client
+        self.client
             .get_resources(collection_href, hrefs)
             .await
             .map_err(|e| Error::new(ErrorKind::Uncategorised, e))?
             .into_iter()
-            .map(|r| {
-                let content = r.content.unwrap();
-                FetchedItem {
-                    href: r.href,
-                    item: IcsItem::from(content.data),
-                    etag: content.etag.into(),
-                }
+            .map(|resource| {
+                resource
+                    .content
+                    .map_err(|e| {
+                        ErrorKind::Io.error(format!("Got status code {} for {}", e, resource.href))
+                    })
+                    .map(|content| FetchedItem {
+                        href: resource.href,
+                        item: IcsItem::from(content.data),
+                        etag: content.etag.into(),
+                    })
             })
-            .collect())
+            .collect()
     }
 
     async fn get_all_items(&self, collection: &str) -> Result<Vec<FetchedItem<IcsItem>>> {

@@ -90,6 +90,16 @@ pub enum ErrorKind {
 }
 
 impl ErrorKind {
+    /// Create a new error of this kind.
+    ///
+    /// This is merely a convenience shortcut to [`Error::new`].
+    fn error<E>(self, source: E) -> Error
+    where
+        E: Into<Box<dyn std::error::Error + Send + Sync>>,
+    {
+        Error::new(self, source)
+    }
+
     #[must_use]
     const fn as_str(&self) -> &'static str {
         match self {
