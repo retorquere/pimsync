@@ -89,7 +89,7 @@ where
     }
 
     fn home_set_property() -> &'static crate::Property<'static, 'static> {
-        &names::CALENDAR_HOME_SET
+        &names::ADDRESSBOOK_HOME_SET
     }
 }
 
