@@ -25,6 +25,8 @@ pub struct CardDavArgs {
 pub(crate) enum CardDavCommand {
     /// Perform discovery and print results
     Discover,
+    /// Find address books under the address book home set.
+    FindAddressBooks,
 }
 
 impl Server {
@@ -57,6 +59,7 @@ impl CardDavArgs {
 
         match self.command {
             CardDavCommand::Discover => discover(&client),
+            CardDavCommand::FindAddressBooks => list_collections(client).await?,
         };
 
         Ok(())
@@ -70,4 +73,13 @@ fn discover(client: &Client) {
         Some(home_set) => println!("- Address book home set: {home_set}"),
         None => println!("- Address book home set not found."),
     }
+}
+
+async fn list_collections(client: Client) -> anyhow::Result<()> {
+    let response = client.find_addresbooks(None).await?;
+    for collection in response {
+        println!("{}", collection.href);
+    }
+
+    Ok(())
 }
