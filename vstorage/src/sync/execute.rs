@@ -6,7 +6,7 @@
 
 use std::sync::Arc;
 
-use log::debug;
+use log::{debug, error};
 
 use crate::{
     base::{Item, Storage},
@@ -72,7 +72,9 @@ impl ItemAction {
                     )
                     .await?;
                 }
-                Action::Conflict => todo!("conflict resolution"),
+                Action::Conflict => {
+                    error!("Conflict for items {}. Skipping.", self.uid());
+                }
             };
             Ok(())
         }
