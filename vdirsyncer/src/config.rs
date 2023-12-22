@@ -154,7 +154,7 @@ pub(crate) struct GeneralSection {
 struct PairSection {
     a: String,
     b: String,
-    collections: Vec<CollectionValue>,
+    collections: Collections,
     metadata: Option<Vec<String>>,
     // TODO: conflict_resolution: Option<Vec<String>>,
     // TODO: partial_sync
@@ -172,21 +172,27 @@ impl PairSection {
 
         let mut pair = StoragePair::builder(a, b);
 
-        for cv in self.collections {
-            pair = match cv {
-                CollectionValue::All => pair.with_all_from_a().with_all_from_b(),
-                CollectionValue::FromA => pair.with_all_from_a(),
-                CollectionValue::FromB => pair.with_all_from_b(),
-                CollectionValue::Mapped(alias, a, b) => {
-                    let mapping = DeclaredMapping::Mapped {
-                        alias,
-                        a: a.into_description(),
-                        b: b.into_description(),
+        match self.collections {
+            Collections::All => {
+                pair = pair.with_all_from_a().with_all_from_b();
+            }
+            Collections::Mappings(mappings) => {
+                for cv in mappings {
+                    pair = match cv {
+                        CollectionValue::FromA => pair.with_all_from_a(),
+                        CollectionValue::FromB => pair.with_all_from_b(),
+                        CollectionValue::Mapped(alias, a, b) => {
+                            let mapping = DeclaredMapping::Mapped {
+                                alias,
+                                a: a.into_description(),
+                                b: b.into_description(),
+                            };
+                            pair.with_mapping(mapping)
+                        }
+                        CollectionValue::Collection(col) => pair.with_mapping(col.into_mapping()),
                     };
-                    pair.with_mapping(mapping)
                 }
-                CollectionValue::Collection(col) => pair.with_mapping(col.into_mapping()),
-            };
+            }
         }
 
         NamedPair {
@@ -198,9 +204,15 @@ impl PairSection {
 }
 
 #[derive(Deserialize, Debug)]
-enum CollectionValue {
+enum Collections {
     #[serde(rename = "all")]
     All,
+    #[serde(untagged)]
+    Mappings(Vec<CollectionValue>),
+}
+
+#[derive(Deserialize, Debug)]
+enum CollectionValue {
     #[serde(rename = "from a")]
     FromA,
     #[serde(rename = "from b")]
