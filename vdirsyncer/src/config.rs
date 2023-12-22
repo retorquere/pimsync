@@ -225,7 +225,6 @@ enum CollectionValue {
 
 #[derive(Deserialize, Debug)]
 enum Collection {
-    // TODO: can I re-use vstorage::sync::declare::CollectionDescription here?
     #[serde(rename = "id")]
     Id(CollectionId),
     #[serde(rename = "href")]
