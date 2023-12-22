@@ -307,7 +307,7 @@ pub(crate) async fn test_create_and_fetch_resource(test_data: &TestData) -> anyh
 
     let fetched = test_data
         .caldav
-        .get_resources(&collection, &[&items[0].href])
+        .get_calendar_resources(&collection, &[&items[0].href])
         .await?;
     ensure!(fetched.len() == 1);
     assert_eq!(fetched[0].href, resource);
@@ -341,7 +341,7 @@ pub(crate) async fn test_create_and_fetch_resource_with_non_ascii_data(
 
     let mut fetched = test_data
         .caldav
-        .get_resources(&collection, &[&items[0].href])
+        .get_calendar_resources(&collection, &[&items[0].href])
         .await?;
     ensure!(fetched.len() == 1);
     assert_eq!(fetched[0].href, resource);
@@ -397,7 +397,7 @@ pub(crate) async fn test_create_and_fetch_resource_with_weird_characters(
 
         let fetched = test_data
             .caldav
-            .get_resources(&collection, &[&resource])
+            .get_calendar_resources(&collection, &[&resource])
             .await
             .context(format!("failed to get resource with '{symbol}'"))?;
         ensure!(fetched.len() == 1);
@@ -424,7 +424,7 @@ pub(crate) async fn test_fetch_missing(test_data: &TestData) -> anyhow::Result<(
     let missing = format!("{}{}.ics", collection, &random_string(8));
     let fetched = test_data
         .caldav
-        .get_resources(&collection, &[&resource, &missing])
+        .get_calendar_resources(&collection, &[&resource, &missing])
         .await?;
     log::debug!("{:?}", &fetched);
     // Nextcloud omits missing entries, rather than return 404, so we might have just one result.

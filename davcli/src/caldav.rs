@@ -118,7 +118,7 @@ async fn get(client: Client, href: String) -> anyhow::Result<()> {
     .to_string();
 
     let response = client
-        .get_resources(collection, &[href])
+        .get_calendar_resources(collection, &[href])
         .await?
         .into_iter()
         .next()

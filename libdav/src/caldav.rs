@@ -230,7 +230,7 @@ where
     /// # Errors
     ///
     /// If there are any network errors or the response could not be parsed.
-    pub async fn get_resources(
+    pub async fn get_calendar_resources(
         &self,
         calendar_href: impl AsRef<str>,
         hrefs: impl IntoIterator<Item = impl AsRef<str>>,

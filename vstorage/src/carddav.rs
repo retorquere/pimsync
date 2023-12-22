@@ -149,7 +149,7 @@ where
     async fn destroy_collection(&self, href: &str) -> Result<()> {
         let mut results = self
             .client
-            .get_resources(href, &[href])
+            .get_address_book_resources(href, &[href])
             .await
             .map_err(|e| Error::new(ErrorKind::Uncategorised, e))?;
 
@@ -207,7 +207,7 @@ where
         let collection_href = collection_href_for_item(href)?;
         let mut results = self
             .client
-            .get_resources(collection_href, &[href])
+            .get_address_book_resources(collection_href, &[href])
             .await
             .map_err(|e| Error::new(ErrorKind::Uncategorised, e))?;
 
@@ -237,7 +237,7 @@ where
         }
         let collection_href = collection_href_for_item(hrefs[0])?;
         self.client
-            .get_resources(collection_href, hrefs)
+            .get_address_book_resources(collection_href, hrefs)
             .await
             .map_err(|e| Error::new(ErrorKind::Uncategorised, e))?
             .into_iter()
