@@ -332,7 +332,13 @@ struct Filesystem<I: Item> {
 impl<I: Item> Filesystem<I> {
     fn into_storage(self) -> anyhow::Result<FilesystemStorage<I>> {
         let path = expand_tilde(self.path).context("error expanding tilde for storage")?;
-        Ok(FilesystemDefinition::new(path, self.fileext).build())
+        // v0.X series expected the leading string. This is not ideal and should be deprecated.
+        let fileext = self
+            .fileext
+            .strip_prefix('.')
+            .unwrap_or(&self.fileext)
+            .to_string();
+        Ok(FilesystemDefinition::new(path, fileext).build())
     }
 }
 
