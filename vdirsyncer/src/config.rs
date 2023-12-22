@@ -522,13 +522,21 @@ impl StringOrFetch {
                     .stdout(Stdio::piped())
                     .output()
                     .context("executing fetch command")?;
-                Ok(std::str::from_utf8(&output.stdout)?.trim().to_owned())
+                match output.status.code() {
+                    Some(0) => Ok(std::str::from_utf8(&output.stdout)?.trim().to_owned()),
+                    Some(code) => bail!("Fetch command exited with status {}.", code),
+                    None => bail!("Fetch command exited unexpectedly."),
+                }
             }
         }
     }
 
     fn into_password(self) -> anyhow::Result<Password> {
-        self.into_string().map(Password::from)
+        let string = self.into_string()?;
+        if string.is_empty() {
+            bail!("Fetch returned an empty password. This is likely a misconfiguration.")
+        }
+        Ok(Password::from(string))
     }
 }
 
