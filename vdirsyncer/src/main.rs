@@ -97,7 +97,8 @@ async fn main() -> anyhow::Result<()> {
         bail!("Must specify something to do (either --sync or --check)");
     }
 
-    let config = config::parse_from_file("/home/hugo/.config/vdirsyncer/config.toml")?;
+    let config = config::parse_from_file("/home/hugo/.config/vdirsyncer/config.toml")
+        .context("could not load configuration file")?;
     debug!("Parsed configuration: {:?}", &config);
 
     if cli.check {
