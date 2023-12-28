@@ -9,7 +9,7 @@
 //!
 //! [`ReadOnly`]: ErrorKind::ReadOnly
 
-use std::sync::Arc;
+use std::marker::PhantomData;
 
 use async_trait::async_trait;
 
@@ -37,18 +37,18 @@ use crate::{ErrorKind, Etag, Result};
 /// let orig = FilesystemDefinition::<IcsItem>::new(
 ///     Utf8PathBuf::from("/path/to/storage/"),
 ///     String::from("ics"),
-/// ).into_storage().await.unwrap();
+/// ).build();
 ///
 /// let read_only = ReadOnlyStorage::from(orig);
 /// # })
 /// ```
-pub struct ReadOnlyStorage<I: Item> {
-    // FIXME: This ends up being an Arc containing another Arc. That sounds like an anti pattern.
-    inner: Arc<dyn Storage<I>>,
+pub struct ReadOnlyStorage<S: Storage<I>, I: Item> {
+    inner: S,
+    phantom: PhantomData<I>,
 }
 
 #[async_trait]
-impl<I: Item> Storage<I> for ReadOnlyStorage<I> {
+impl<S: Storage<I>, I: Item> Storage<I> for ReadOnlyStorage<S, I> {
     async fn check(&self) -> Result<()> {
         self.inner.check().await
     }
@@ -121,8 +121,11 @@ impl<I: Item> Storage<I> for ReadOnlyStorage<I> {
     }
 }
 
-impl<I: Item> From<Arc<dyn Storage<I>>> for ReadOnlyStorage<I> {
-    fn from(value: Arc<dyn Storage<I>>) -> Self {
-        Self { inner: value }
+impl<S: Storage<I>, I: Item> From<S> for ReadOnlyStorage<S, I> {
+    fn from(value: S) -> Self {
+        Self {
+            inner: value,
+            phantom: PhantomData,
+        }
     }
 }
