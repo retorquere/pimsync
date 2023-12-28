@@ -446,7 +446,7 @@ mod tests {
         ]
         .join("\r\n");
 
-        write(collection_path.join("item.ics"), without_prodid).unwrap();
+        write(collection_path.join("item.ics"), &without_prodid).unwrap();
 
         let listed_items = storage.list_items(&collection_name).await.unwrap();
         assert_eq!(listed_items.len(), 1);
@@ -464,6 +464,12 @@ mod tests {
         assert_eq!(many_items[0].href, "one/item.ics");
 
         storage.delete_item("one/item.ics", &etag).await.unwrap();
+
+        let item = IcsItem::from(without_prodid);
+        storage.add_item("one", &item).await.unwrap();
+
+        let all_items = storage.get_all_items(&collection_name).await.unwrap();
+        assert_eq!(all_items.len(), 1);
     }
 
     #[tokio::test]
