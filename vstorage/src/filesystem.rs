@@ -246,13 +246,14 @@ where
     }
 
     async fn delete_item(&self, href: &str, etag: &Etag) -> Result<()> {
-        let actual_etag = etag_for_path(&href).await?;
+        let filename = self.definition.path.join(href);
+        let actual_etag = etag_for_path(&filename).await?;
         if *etag != actual_etag {
             return Err(Error::new(ErrorKind::InvalidData, "wrong etag"));
         }
 
         // FIXME: this is racey and the etag can change after checking.
-        remove_file(href).await?;
+        remove_file(filename).await?;
 
         Ok(())
     }
@@ -429,7 +430,8 @@ mod tests {
         );
         let storage = definition.build();
 
-        let collection_path = dir.path().join("one");
+        let collection_name = "one";
+        let collection_path = dir.path().join(collection_name);
         create_dir_all(&collection_path).unwrap();
 
         let without_prodid = vec![
@@ -445,22 +447,33 @@ mod tests {
         .join("\r\n");
 
         write(collection_path.join("item.ics"), without_prodid).unwrap();
-        let collection = "one";
 
-        let listed_items = storage.list_items(&collection).await.unwrap();
+        let listed_items = storage.list_items(&collection_name).await.unwrap();
         assert_eq!(listed_items.len(), 1);
         assert_eq!(listed_items[0].href, "one/item.ics");
 
-        let all_items = storage.get_all_items(&collection).await.unwrap();
+        let all_items = storage.get_all_items(&collection_name).await.unwrap();
         assert_eq!(all_items.len(), 1);
         assert_eq!(all_items[0].href, "one/item.ics");
 
-        let _item = storage.get_item("one/item.ics").await.unwrap();
+        let (_item, etag) = storage.get_item("one/item.ics").await.unwrap();
         // Nothing to assert here.
 
         let many_items = storage.get_many_items(&["one/item.ics"]).await.unwrap();
         assert_eq!(many_items.len(), 1);
         assert_eq!(many_items[0].href, "one/item.ics");
+
+        storage.delete_item("one/item.ics", &etag).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_missing_paths() {
+        let dir = tempdir().unwrap();
+        let definition = FilesystemDefinition::<IcsItem>::new(
+            dir.path().to_path_buf().try_into().unwrap(),
+            "ics".to_string(),
+        );
+        let storage = definition.build();
 
         let missing_collection = "two";
         let err = match storage.list_items(&missing_collection).await {
