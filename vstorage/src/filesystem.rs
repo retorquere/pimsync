@@ -11,7 +11,7 @@
 #![allow(clippy::module_name_repetitions)]
 
 use async_trait::async_trait;
-use camino::Utf8PathBuf;
+use camino::{Utf8Path, Utf8PathBuf};
 use std::ffi::OsStr;
 use std::marker::PhantomData;
 use std::path::Path;
@@ -82,6 +82,7 @@ where
     }
 
     async fn create_collection(&self, href: &str) -> Result<Collection> {
+        // TODO: sanitise href
         let path = self.join_collection_href(href)?;
         create_dir(&path).await?;
 
@@ -89,6 +90,7 @@ where
     }
 
     async fn create_collection_with_id(&self, id: &CollectionId) -> Result<Collection> {
+        // TODO: sanitise id
         let path = self.join_collection_href(id.as_ref())?;
         create_dir(&path).await?;
 
@@ -96,11 +98,13 @@ where
     }
 
     async fn destroy_collection(&self, href: &str) -> Result<()> {
+        // TODO: sanitise href
         let path = self.join_collection_href(href)?;
         remove_dir(path).await.map_err(Error::from)
     }
 
     async fn list_items(&self, collection: &str) -> Result<Vec<ItemRef>> {
+        // TODO: sanitise collection_href
         let mut read_dir = read_dir(self.collection_path(collection)).await?;
 
         let mut items = Vec::new();
@@ -120,6 +124,7 @@ where
     }
 
     async fn get_item(&self, href: &str) -> Result<(I, Etag)> {
+        // TODO: sanitise href
         let path = self.definition.path.join(href);
 
         let item = I::from(read_to_string(&path).await?);
@@ -143,6 +148,7 @@ where
     }
 
     async fn get_all_items(&self, collection: &str) -> Result<Vec<FetchedItem<I>>> {
+        // TODO: sanitise collection_href
         let mut read_dir = read_dir(self.collection_path(collection)).await?;
 
         let mut items = Vec::new();
@@ -169,6 +175,7 @@ where
         meta: I::CollectionProperty,
         value: &str,
     ) -> Result<()> {
+        // TODO: sanitise collection_href
         let filename = meta.filename();
 
         let path = self.collection_path(collection).join(filename);
@@ -183,6 +190,7 @@ where
         collection: &str,
         meta: I::CollectionProperty,
     ) -> Result<Option<String>> {
+        // TODO: sanitise collection_href
         let filename = meta.filename();
 
         let path = self.collection_path(collection).join(filename);
@@ -196,6 +204,7 @@ where
     }
 
     async fn add_item(&self, collection_href: &str, item: &I) -> Result<ItemRef> {
+        // TODO: sanitise collection_href
         // TODO: We only need to remove a few "illegal" characters, so this is a bit too strict.
         let basename = item
             .ident()
@@ -226,6 +235,8 @@ where
 
     async fn update_item(&self, href: &str, etag: &Etag, item: &I) -> Result<Etag> {
         let filename = self.definition.path.join(href);
+        self.check_item_href_is_safe(filename.as_str())?;
+
         let actual_etag = etag_for_path(&filename).await?;
         if *etag != actual_etag {
             return Err(Error::new(ErrorKind::InvalidData, "wrong etag"));
@@ -245,14 +256,18 @@ where
         Ok(etag)
     }
 
+    /// # Quirks
+    ///
+    /// Checking the etag is vulnerable to TOCTOU race conditions.
     async fn delete_item(&self, href: &str, etag: &Etag) -> Result<()> {
         let filename = self.definition.path.join(href);
+        self.check_item_href_is_safe(filename.as_str())?;
+
         let actual_etag = etag_for_path(&filename).await?;
         if *etag != actual_etag {
             return Err(Error::new(ErrorKind::InvalidData, "wrong etag"));
         }
 
-        // FIXME: this is racey and the etag can change after checking.
         remove_file(filename).await?;
 
         Ok(())
@@ -305,6 +320,43 @@ impl<I: Item> FilesystemStorage<I> {
             .to_str()
             .ok_or_else(|| Error::new(ErrorKind::InvalidData, "Filename is not valid UTF-8"))
             .map(str::to_string)
+    }
+
+    /// Check that a given href is safe.
+    ///
+    /// Mostly checks that the href doesn't include parent components and does not escape the
+    /// storage's path.
+    fn check_item_href_is_safe(&self, href: &str) -> Result<()> {
+        // This conversion is cost-free.
+        let path = Utf8Path::new(href);
+
+        if !path
+            .extension()
+            .is_some_and(|e| e == self.definition.extension)
+        {
+            Err(Error::new(
+                ErrorKind::InvalidInput,
+                "href does not have an extension matching this storage",
+            ))?;
+        }
+
+        let parent_path = path
+            .parent()
+            .ok_or(Error::new(ErrorKind::InvalidInput, "href has no parent"))?;
+
+        let grandparent_path = parent_path.parent().ok_or(Error::new(
+            ErrorKind::InvalidInput,
+            "href has no grandparent",
+        ))?;
+
+        if grandparent_path != self.definition.path {
+            Err(Error::new(
+                ErrorKind::InvalidInput,
+                "href is not a grandchild of storage root",
+            ))?;
+        }
+
+        Ok(())
     }
 }
 
