@@ -55,7 +55,10 @@ where
         if meta.is_dir() {
             Ok(())
         } else {
-            Err(Error::from(ErrorKind::NotAStorage))
+            Err(Error::new(
+                ErrorKind::NotAStorage,
+                "path is not a directory",
+            ))
         }
     }
 
