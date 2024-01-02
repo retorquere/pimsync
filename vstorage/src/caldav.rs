@@ -318,7 +318,7 @@ where
             .map(Etag::from)
     }
 
-    /// # Panics
+    /// # Errors
     ///
     /// Only `DisplayName` and `Colour` are implemented.
     async fn set_collection_property(
@@ -350,8 +350,6 @@ where
     /// # Errors
     ///
     /// If the underlying HTTP connection fails or if the server returns invalid data.
-    ///
-    /// # Panics
     ///
     /// Only `DisplayName` and `Colour` are implemented.
     async fn get_collection_property(
