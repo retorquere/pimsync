@@ -284,20 +284,23 @@ where
         let href = join_hrefs(collection_href, &item.ident());
         // TODO: ident: .chars().filter(char::is_ascii_alphanumeric)
 
-        self.client
-            // FIXME: should not copy data here?
+        let response = self
+            .client
             .create_resource(
                 &href,
                 item.as_str().as_bytes().to_vec(),
                 mime_types::CALENDAR,
             )
-            .await
-            // FIXME: etag may be missing. In such case, we should fetch it.
-            .map(|opt| opt.ok_or(Error::new(ErrorKind::InvalidData, "No Etag in response")))?
-            .map(|etag| ItemRef {
-                href,
-                etag: etag.into(),
-            })
+            .await?;
+        let etag = match response {
+            Some(e) => e,
+            // TODO: we should only perform a HEAD request here; we don't need actual data.
+            None => self.get_item(&href).await?.1.to_string(),
+        };
+        Ok(ItemRef {
+            href,
+            etag: Etag::from(etag),
+        })
     }
 
     async fn update_item(&self, href: &str, etag: &Etag, item: &IcsItem) -> Result<Etag> {
