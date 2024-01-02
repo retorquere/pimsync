@@ -4,8 +4,6 @@
 
 //! A [`CalDavStorage`] is a single caldav repository, as specified in rfc4791.
 
-use std::sync::Arc;
-
 use async_trait::async_trait;
 use http::Uri;
 use hyper::client::connect::Connect;
@@ -13,26 +11,14 @@ use libdav::auth::Auth;
 use libdav::dav::mime_types;
 use libdav::CalDavClient;
 
-use crate::base::{
-    CalendarProperty, Collection, Definition, FetchedItem, IcsItem, Item, ItemRef, Storage,
-};
+use crate::base::{CalendarProperty, Collection, FetchedItem, IcsItem, Item, ItemRef, Storage};
 use crate::dav::{
     collection_href_for_item, collection_id_for_href, path_for_collection_in_home_set,
 };
 use crate::disco::{DiscoveredCollection, Discovery};
 use crate::{CollectionId, Error, ErrorKind, Etag, Result};
 
-#[derive(Debug)]
-pub struct CalDavDefinition<C>
-where
-    C: Connect + Send + Sync + Clone + 'static,
-{
-    pub url: Uri,
-    pub auth: Auth,
-    pub connector: C,
-}
-
-impl<C> CalDavDefinition<C>
+impl<C> CalDavStorage<C>
 where
     C: Connect + Send + Sync + Clone + std::fmt::Debug,
 {
@@ -41,11 +27,11 @@ where
     /// # Errors
     ///
     /// If there are errors discovering the CalDav server.
-    pub async fn build(self) -> Result<CalDavStorage<C>> {
+    pub async fn new(url: Uri, auth: Auth, connector: C) -> Result<CalDavStorage<C>> {
         let client = CalDavClient::builder()
-            .with_uri(self.url)
-            .with_auth(self.auth)
-            .bootstrap(self.connector)
+            .with_uri(url)
+            .with_auth(auth)
+            .bootstrap(connector)
             .await?
             .build();
 
@@ -64,16 +50,6 @@ impl From<libdav::dav::DavError> for Error {
     fn from(value: libdav::dav::DavError) -> Self {
         // TODO: not implemented
         Error::new(ErrorKind::Uncategorised, value)
-    }
-}
-
-#[async_trait]
-impl<C> Definition<IcsItem> for CalDavDefinition<C>
-where
-    C: Connect + Send + Sync + Clone + std::fmt::Debug,
-{
-    async fn into_storage(self) -> Result<Arc<dyn Storage<IcsItem>>> {
-        Ok(Arc::from(self.build().await?))
     }
 }
 

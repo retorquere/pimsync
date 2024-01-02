@@ -15,7 +15,6 @@ use camino::{Utf8Path, Utf8PathBuf};
 use std::ffi::OsStr;
 use std::marker::PhantomData;
 use std::path::Path;
-use std::sync::Arc;
 use std::{fs::Metadata, os::unix::prelude::MetadataExt};
 use tokio::fs::{
     create_dir, metadata, read_dir, read_to_string, remove_dir, remove_file, File, OpenOptions,
@@ -23,8 +22,7 @@ use tokio::fs::{
 use tokio::io::AsyncWriteExt;
 
 use crate::base::{
-    AddressBookProperty, CalendarProperty, Collection, Definition, FetchedItem, Item, ItemRef,
-    Storage,
+    AddressBookProperty, CalendarProperty, Collection, FetchedItem, Item, ItemRef, Storage,
 };
 use crate::disco::{DiscoveredCollection, Discovery};
 use crate::{CollectionId, Error, ErrorKind, Etag, Result};
@@ -39,7 +37,15 @@ use crate::{CollectionId, Error, ErrorKind, Etag, Result};
 ///
 /// Internally, all `href`s are paths relative to the base directory.
 pub struct FilesystemStorage<I: Item> {
-    definition: FilesystemDefinition<I>,
+    /// The path to a directory containing a storage.
+    ///
+    /// Each top-level subdirectory will be treated as a separate collection, and individual files
+    /// inside these are each treated as an `Item`.
+    pub path: Utf8PathBuf,
+    /// Filename extension for items in a storage. Files with matching extension are treated a
+    /// items for a collection, and all other files are ignored.
+    pub extension: String,
+    i: PhantomData<I>,
 }
 
 #[async_trait]
@@ -48,7 +54,7 @@ where
     I::CollectionProperty: PropertyWithFilename,
 {
     async fn check(&self) -> Result<()> {
-        let meta = metadata(&self.definition.path)
+        let meta = metadata(&self.path)
             .await
             .map_err(|e| Error::new(ErrorKind::DoesNotExist, e))?;
 
@@ -63,7 +69,7 @@ where
     }
 
     async fn discover_collections(&self) -> Result<Discovery> {
-        let mut entries = read_dir(&self.definition.path).await?;
+        let mut entries = read_dir(&self.path).await?;
 
         let mut collections = Vec::<_>::new();
         while let Some(entry) = entries.next_entry().await? {
@@ -111,7 +117,7 @@ where
         let mut read_dir = read_dir(self.collection_path(collection)).await?;
 
         let mut items = Vec::new();
-        let extension = OsStr::new(self.definition.extension.as_str());
+        let extension = OsStr::new(self.extension.as_str());
         while let Some(entry) = read_dir.next_entry().await? {
             let path = entry.path();
             if !path.extension().is_some_and(|e| e == extension) {
@@ -128,7 +134,7 @@ where
 
     async fn get_item(&self, href: &str) -> Result<(I, Etag)> {
         // TODO: sanitise href
-        let path = self.definition.path.join(href);
+        let path = self.path.join(href);
 
         let item = I::from(read_to_string(&path).await?);
         let etag = etag_for_path(&path).await?;
@@ -155,7 +161,7 @@ where
         let mut read_dir = read_dir(self.collection_path(collection)).await?;
 
         let mut items = Vec::new();
-        let extension = OsStr::new(self.definition.extension.as_str());
+        let extension = OsStr::new(self.extension.as_str());
         while let Some(entry) = read_dir.next_entry().await? {
             let path = entry.path();
             if !path.extension().is_some_and(|e| e == extension) {
@@ -215,12 +221,12 @@ where
             .filter(char::is_ascii_alphanumeric)
             .collect::<String>();
 
-        let filename = format!("{}.{}", basename, self.definition.extension);
+        let filename = format!("{}.{}", basename, self.extension);
         let relpath = Utf8PathBuf::try_from(collection_href)
             .map_err(|e| Error::new(ErrorKind::InvalidInput, e))?
             .join(filename);
 
-        let absolute_path = self.definition.path.join(&relpath);
+        let absolute_path = self.path.join(&relpath);
         OpenOptions::new()
             .write(true)
             .create_new(true)
@@ -237,7 +243,7 @@ where
     }
 
     async fn update_item(&self, href: &str, etag: &Etag, item: &I) -> Result<Etag> {
-        let filename = self.definition.path.join(href);
+        let filename = self.path.join(href);
         self.check_item_href_is_safe(filename.as_str())?;
 
         let actual_etag = etag_for_path(&filename).await?;
@@ -263,7 +269,7 @@ where
     ///
     /// Checking the etag is vulnerable to TOCTOU race conditions.
     async fn delete_item(&self, href: &str, etag: &Etag) -> Result<()> {
-        let filename = self.definition.path.join(href);
+        let filename = self.path.join(href);
         self.check_item_href_is_safe(filename.as_str())?;
 
         let actual_etag = etag_for_path(&filename).await?;
@@ -289,8 +295,17 @@ where
 }
 
 impl<I: Item> FilesystemStorage<I> {
+    #[must_use]
+    pub fn new(path: Utf8PathBuf, extension: String) -> Self {
+        Self {
+            path,
+            extension,
+            i: PhantomData,
+        }
+    }
+
     fn collection_path(&self, collection_href: &str) -> Utf8PathBuf {
-        self.definition.path.join(collection_href)
+        self.path.join(collection_href)
     }
 
     // Joins an href to the storage's path.
@@ -300,8 +315,8 @@ impl<I: Item> FilesystemStorage<I> {
     // If the resulting path is not a child of the storage's directory.
     fn join_collection_href(&self, href: &str) -> Result<Utf8PathBuf> {
         // TODO: validate that no `.` nor `..` components are in the input.
-        let path = self.definition.path.join(href);
-        if path.parent() != Some(&self.definition.path) {
+        let path = self.path.join(href);
+        if path.parent() != Some(&self.path) {
             return Err(Error::new(
                 ErrorKind::InvalidInput,
                 "directory is not child of storage directory",
@@ -317,7 +332,7 @@ impl<I: Item> FilesystemStorage<I> {
     ///
     /// If `path` is not a grandchild of the storage's path.
     fn href_for_path(&self, path: &Path) -> Result<String> {
-        path.strip_prefix(&self.definition.path)
+        path.strip_prefix(&self.path)
             // This never takes external input. If this panics, we have a bug.
             .expect("path of item must include storage path as prefix")
             .to_str()
@@ -333,10 +348,7 @@ impl<I: Item> FilesystemStorage<I> {
         // This conversion is cost-free.
         let path = Utf8Path::new(href);
 
-        if !path
-            .extension()
-            .is_some_and(|e| e == self.definition.extension)
-        {
+        if !path.extension().is_some_and(|e| e == self.extension) {
             Err(Error::new(
                 ErrorKind::InvalidInput,
                 "href does not have an extension matching this storage",
@@ -352,7 +364,7 @@ impl<I: Item> FilesystemStorage<I> {
             "href has no grandparent",
         ))?;
 
-        if grandparent_path != self.definition.path {
+        if grandparent_path != self.path {
             Err(Error::new(
                 ErrorKind::InvalidInput,
                 "href is not a grandchild of storage root",
@@ -360,47 +372,6 @@ impl<I: Item> FilesystemStorage<I> {
         }
 
         Ok(())
-    }
-}
-
-/// Definition for a storage instance.
-#[derive(serde::Deserialize, Debug)]
-pub struct FilesystemDefinition<I: Item> {
-    /// The path to a directory containing a storage.
-    ///
-    /// Each top-level subdirectory will be treated as a separate collection, and individual files
-    /// inside these are each treated as an `Item`.
-    pub path: Utf8PathBuf,
-    /// Filename extension for items in a storage. Files with matching extension are treated a
-    /// items for a collection, and all other files are ignored.
-    pub extension: String,
-    i: PhantomData<I>,
-}
-
-impl<I: Item> FilesystemDefinition<I> {
-    #[must_use]
-    pub fn new(path: Utf8PathBuf, extension: String) -> Self {
-        Self {
-            path,
-            extension,
-            i: PhantomData,
-        }
-    }
-
-    /// Build a new `Storage` instance.
-    #[must_use]
-    pub fn build(self) -> FilesystemStorage<I> {
-        FilesystemStorage { definition: self }
-    }
-}
-
-#[async_trait]
-impl<I: Item + 'static> Definition<I> for FilesystemDefinition<I>
-where
-    I::CollectionProperty: PropertyWithFilename,
-{
-    async fn into_storage(self) -> Result<Arc<dyn Storage<I>>> {
-        Ok(Arc::from(self.build()))
     }
 }
 
@@ -448,9 +419,9 @@ impl PropertyWithFilename for AddressBookProperty {
 mod tests {
     use std::fs::{create_dir_all, write};
 
-    use super::FilesystemDefinition;
     use crate::{
-        base::{Definition, IcsItem, Storage},
+        base::{IcsItem, Storage},
+        filesystem::FilesystemStorage,
         ErrorKind,
     };
     use tempfile::tempdir;
@@ -458,12 +429,11 @@ mod tests {
     #[tokio::test]
     async fn test_missing_displayname() {
         let dir = tempdir().unwrap();
-        let definition = FilesystemDefinition::<IcsItem>::new(
+
+        let storage = FilesystemStorage::<IcsItem>::new(
             dir.path().to_path_buf().try_into().unwrap(),
             "ics".to_string(),
         );
-
-        let storage = definition.into_storage().await.unwrap();
         let collection = storage.create_collection("test").await.unwrap();
         let displayname = storage
             .get_collection_property(
@@ -479,11 +449,10 @@ mod tests {
     #[tokio::test]
     async fn test_path_handling() {
         let dir = tempdir().unwrap();
-        let definition = FilesystemDefinition::<IcsItem>::new(
+        let storage = FilesystemStorage::<IcsItem>::new(
             dir.path().to_path_buf().try_into().unwrap(),
             "ics".to_string(),
         );
-        let storage = definition.build();
 
         let collection_name = "one";
         let collection_path = dir.path().join(collection_name);
@@ -530,11 +499,10 @@ mod tests {
     #[tokio::test]
     async fn test_missing_paths() {
         let dir = tempdir().unwrap();
-        let definition = FilesystemDefinition::<IcsItem>::new(
+        let storage = FilesystemStorage::<IcsItem>::new(
             dir.path().to_path_buf().try_into().unwrap(),
             "ics".to_string(),
         );
-        let storage = definition.build();
 
         let missing_collection = "two";
         let err = match storage.list_items(&missing_collection).await {

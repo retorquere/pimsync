@@ -225,8 +225,8 @@ mod test {
     use tempfile::Builder;
 
     use crate::{
-        base::{Definition, IcsItem, Storage},
-        filesystem::FilesystemDefinition,
+        base::IcsItem,
+        filesystem::FilesystemStorage,
         sync::{
             declare::{DeclaredMapping, StoragePair},
             plan::Plan,
@@ -239,24 +239,14 @@ mod test {
         let dir_a = Builder::new().prefix("vstorage").tempdir().unwrap();
         let dir_b = Builder::new().prefix("vstorage").tempdir().unwrap();
 
-        let storage_a = Arc::<dyn Storage<_>>::from(
-            FilesystemDefinition::<IcsItem>::new(
-                dir_a.path().to_path_buf().try_into().unwrap(),
-                "ics".to_string(),
-            )
-            .into_storage()
-            .await
-            .unwrap(),
-        );
-        let storage_b = Arc::<dyn Storage<_>>::from(
-            FilesystemDefinition::<IcsItem>::new(
-                dir_b.path().to_path_buf().try_into().unwrap(),
-                "ics".to_string(),
-            )
-            .into_storage()
-            .await
-            .unwrap(),
-        );
+        let storage_a = Arc::new(FilesystemStorage::<IcsItem>::new(
+            dir_a.path().to_path_buf().try_into().unwrap(),
+            "ics".to_string(),
+        ));
+        let storage_b = Arc::from(FilesystemStorage::<IcsItem>::new(
+            dir_b.path().to_path_buf().try_into().unwrap(),
+            "ics".to_string(),
+        ));
 
         {
             // This sync would be a no-op, but it's not "wrong".

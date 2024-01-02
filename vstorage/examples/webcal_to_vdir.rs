@@ -16,12 +16,11 @@
 use camino::Utf8PathBuf;
 use http::Uri;
 use std::sync::Arc;
-use vstorage::base::Definition;
 use vstorage::base::FetchedItem;
 use vstorage::base::Item;
 use vstorage::base::Storage;
-use vstorage::filesystem::FilesystemDefinition;
-use vstorage::webcal::WebCalDefinition;
+use vstorage::filesystem::FilesystemStorage;
+use vstorage::webcal::WebCalStorage;
 
 #[tokio::main]
 async fn main() {
@@ -35,17 +34,10 @@ async fn main() {
     let url = Uri::try_from(raw_url.as_str()).expect("provided URL must be valid");
     let path = Utf8PathBuf::from(raw_path);
 
-    let webcal = WebCalDefinition {
-        url,
-        collection_name: "holidays_nl".parse().unwrap(),
-    }
-    .into_storage()
-    .await
-    .expect("can create webcal storage");
-    let fs = FilesystemDefinition::new(path, String::from("ics"))
-        .into_storage()
-        .await
-        .expect("can create fs storage");
+    let webcal = Arc::from(
+        WebCalStorage::new(url, "holidays_nl".parse().unwrap()).expect("can create webcal storage"),
+    );
+    let fs = Arc::new(FilesystemStorage::new(path, String::from("ics")));
 
     let webcal_collection = "holidays_nl";
     let fs_collection = fs

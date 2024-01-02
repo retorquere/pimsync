@@ -4,8 +4,6 @@
 
 //! A [`CardDavStorage`] is a single carddav repository, as specified in rfc6352.
 
-use std::sync::Arc;
-
 use async_trait::async_trait;
 use http::Uri;
 use hyper::client::connect::Connect;
@@ -14,7 +12,7 @@ use libdav::dav::mime_types;
 use libdav::CardDavClient;
 
 use crate::base::{
-    AddressBookProperty, Collection, Definition, FetchedItem, Item, ItemRef, Storage, VcardItem,
+    AddressBookProperty, Collection, FetchedItem, Item, ItemRef, Storage, VcardItem,
 };
 use crate::dav::{
     collection_href_for_item, collection_id_for_href, path_for_collection_in_home_set,
@@ -22,16 +20,7 @@ use crate::dav::{
 use crate::disco::{DiscoveredCollection, Discovery};
 use crate::{CollectionId, Error, ErrorKind, Etag, Result};
 
-#[derive(Debug)]
-pub struct CardDavDefinition<C>
-where
-    C: Connect + Send + Sync + Clone + 'static,
-{
-    pub url: Uri,
-    pub auth: Auth,
-    pub connector: C,
-}
-impl<C> CardDavDefinition<C>
+impl<C> CardDavStorage<C>
 where
     C: Connect + Send + Sync + Clone + std::fmt::Debug,
 {
@@ -40,25 +29,15 @@ where
     /// # Errors
     ///
     /// If there are errors discovering the CardDav server.
-    pub async fn build(self) -> Result<CardDavStorage<C>> {
+    pub async fn new(url: Uri, auth: Auth, connector: C) -> Result<CardDavStorage<C>> {
         let client = CardDavClient::builder()
-            .with_uri(self.url)
-            .with_auth(self.auth)
-            .bootstrap(self.connector)
+            .with_uri(url)
+            .with_auth(auth)
+            .bootstrap(connector)
             .await?
             .build();
 
         Ok(CardDavStorage { client })
-    }
-}
-
-#[async_trait]
-impl<C> Definition<VcardItem> for CardDavDefinition<C>
-where
-    C: Connect + Send + Sync + Clone + 'static + std::fmt::Debug,
-{
-    async fn into_storage(self) -> Result<Arc<dyn Storage<VcardItem>>> {
-        Ok(Arc::from(self.build().await?))
     }
 }
 

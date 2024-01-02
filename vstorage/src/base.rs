@@ -9,29 +9,9 @@
 //!
 //! See [`Storage`] as an entry point to this module.
 
-use std::sync::Arc;
-
 use async_trait::async_trait;
 
 use crate::{disco::Discovery, CollectionId, Etag, Href, Result};
-
-/// Implementation-specific storage definition.
-///
-/// This type carries any configuration required to define a storage instances. This include
-/// this like URL or TLS for network-based storages, or path and file extensions for filesystem
-/// based storages.
-#[async_trait]
-pub trait Definition<I: Item>: Sync + Send + std::fmt::Debug {
-    /// Returns a new storage instance wrapped in a box.
-    ///
-    /// When the specific `Storage` type is required the non-trait methods of the implementing type
-    /// should be used instead.
-    ///
-    /// # Errors
-    ///
-    /// Errors are implementation-dependant; see implementations for details.
-    async fn into_storage(self) -> Result<Arc<dyn Storage<I>>>;
-}
 
 /// A storage is the highest level abstraction where items can be stored. It can be a remote CalDav
 /// account, a local filesystem, etc.

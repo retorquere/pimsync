@@ -7,9 +7,9 @@ use std::sync::Arc;
 use hyper_rustls::HttpsConnectorBuilder;
 use libdav::auth::Auth;
 use vstorage::{
-    base::{Definition, FetchedItem, IcsItem, Storage},
-    caldav::CalDavDefinition,
-    filesystem::FilesystemDefinition,
+    base::{FetchedItem, IcsItem, Storage},
+    caldav::CalDavStorage,
+    filesystem::FilesystemStorage,
 };
 
 async fn create_caldav_from_env() -> Arc<dyn Storage<IcsItem>> {
@@ -22,25 +22,23 @@ async fn create_caldav_from_env() -> Arc<dyn Storage<IcsItem>> {
         .https_or_http()
         .enable_http1()
         .build();
-    CalDavDefinition {
-        url: server.parse().unwrap(),
-        auth: Auth::Basic {
+    let storage = CalDavStorage::new(
+        server.parse().unwrap(),
+        Auth::Basic {
             username,
             password: Some(password),
         },
         connector,
-    }
-    .into_storage()
+    )
     .await
-    .unwrap()
+    .unwrap();
+    Arc::from(storage)
 }
 
 async fn create_vdir_from_env() -> Arc<dyn Storage<IcsItem>> {
     let path = std::env::var("VDIR_PATH").unwrap();
-    FilesystemDefinition::new(path.try_into().unwrap(), "ics".to_string())
-        .into_storage()
-        .await
-        .unwrap()
+    let storage = FilesystemStorage::new(path.try_into().unwrap(), "ics".to_string());
+    Arc::new(storage)
 }
 #[tokio::main]
 async fn main() {

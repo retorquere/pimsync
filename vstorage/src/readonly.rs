@@ -27,20 +27,15 @@ use crate::{ErrorKind, Etag, Result};
 ///
 /// ```
 /// # use vstorage::filesystem::FilesystemStorage;
-/// # use crate::vstorage::base::Storage;
 /// # use crate::vstorage::base::IcsItem;
-/// # use vstorage::filesystem::FilesystemDefinition;
 /// # use camino::Utf8PathBuf;
 /// # use vstorage::readonly::ReadOnlyStorage;
-/// # use crate::vstorage::base::Definition;
-/// # tokio::runtime::Runtime::new().unwrap().block_on(async {
-/// let orig = FilesystemDefinition::<IcsItem>::new(
+/// let orig = FilesystemStorage::<IcsItem>::new(
 ///     Utf8PathBuf::from("/path/to/storage/"),
 ///     String::from("ics"),
-/// ).build();
+/// );
 ///
 /// let read_only = ReadOnlyStorage::from(orig);
-/// # })
 /// ```
 pub struct ReadOnlyStorage<S: Storage<I>, I: Item> {
     inner: S,

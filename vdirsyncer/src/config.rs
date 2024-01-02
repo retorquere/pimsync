@@ -27,14 +27,14 @@ use rustls::{ClientConfig, RootCertStore};
 use serde::Deserialize;
 use vstorage::{
     base::{IcsItem, Item, Storage, VcardItem},
-    caldav::{CalDavDefinition, CalDavStorage},
-    carddav::{CardDavDefinition, CardDavStorage},
-    filesystem::{FilesystemDefinition, FilesystemStorage},
+    caldav::CalDavStorage,
+    carddav::CardDavStorage,
+    filesystem::FilesystemStorage,
     sync::{
         declare::{CollectionDescription, DeclaredMapping, StoragePair},
         state::PairState,
     },
-    webcal::{WebCalDefinition, WebCalStorage},
+    webcal::WebCalStorage,
     CollectionId,
 };
 
@@ -349,7 +349,7 @@ impl<I: Item> Filesystem<I> {
             .strip_prefix('.')
             .unwrap_or(&self.fileext)
             .to_string();
-        Ok(FilesystemDefinition::new(path, fileext).build())
+        Ok(FilesystemStorage::new(path, fileext))
     }
 }
 
@@ -364,15 +364,14 @@ struct CardDav {
 
 impl CardDav {
     async fn into_storage(self) -> anyhow::Result<CardDavStorage<HttpsConnector<HttpConnector>>> {
-        Ok(CardDavDefinition {
-            url: self.url.parse()?,
-            auth: libdav::auth::Auth::Basic {
+        Ok(CardDavStorage::new(
+            self.url.parse()?,
+            libdav::auth::Auth::Basic {
                 username: self.username.into_string()?,
                 password: Some(self.password.into_password()?),
             },
-            connector: self.network_opts.into_connector()?,
-        }
-        .build()
+            self.network_opts.into_connector()?,
+        )
         .await?)
     }
 }
@@ -391,19 +390,17 @@ struct CalDav {
 
 impl CalDav {
     async fn into_storage(self) -> anyhow::Result<CalDavStorage<HttpsConnector<HttpConnector>>> {
-        Ok(CalDavDefinition {
-            url: self
-                .url
+        Ok(CalDavStorage::new(
+            self.url
                 .into_string()?
                 .parse()
                 .context("parsing caldav URL")?,
-            auth: libdav::auth::Auth::Basic {
+            libdav::auth::Auth::Basic {
                 username: self.username.into_string()?,
                 password: Some(self.password.into_password()?),
             },
-            connector: self.network_opts.into_connector()?,
-        }
-        .build()
+            self.network_opts.into_connector()?,
+        )
         .await?)
     }
 }
@@ -419,11 +416,10 @@ pub(crate) struct Http {
 
 impl Http {
     fn into_storage(self) -> anyhow::Result<WebCalStorage> {
-        Ok(WebCalDefinition {
-            url: self.url.into_string()?.parse()?,
-            collection_name: self.collection,
-        }
-        .build()?)
+        Ok(WebCalStorage::new(
+            self.url.into_string()?.parse()?,
+            self.collection,
+        )?)
     }
 }
 

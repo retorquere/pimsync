@@ -9,17 +9,13 @@
 //! See the [Webcal wikipedia page](https://en.wikipedia.org/wiki/Webcal).
 #![allow(clippy::module_name_repetitions)]
 
-use std::sync::Arc;
-
 use async_trait::async_trait;
 use http::{uri::Scheme, StatusCode, Uri};
 use hyper::{client::HttpConnector, Client};
 use hyper_rustls::{HttpsConnector, HttpsConnectorBuilder};
 
 use crate::{
-    base::{
-        CalendarProperty, Collection, Definition, FetchedItem, IcsItem, Item, ItemRef, Storage,
-    },
+    base::{CalendarProperty, Collection, FetchedItem, IcsItem, Item, ItemRef, Storage},
     disco::{DiscoveredCollection, Discovery},
     simple_component::Component,
     CollectionId, Error, ErrorKind, Etag, Result,
@@ -28,41 +24,34 @@ use crate::{
 /// A storage which exposes items in remote icalendar resource.
 ///
 /// A webcal storage contains exactly one collection, which contains all the entires found in the
-/// remote resource. The name of this single collection is specified via the
-/// [`WebCalDefinition::collection_name`] property.
+/// remote resource. The name of this single collection is specified via the `collection_name`
+/// argument.
 ///
 /// This storage is a bit of an odd one (since in reality, there's no concept of collections in
 /// webcal). The extra abstraction layer is here merely to match the format of other storages.
 ///
 /// # Href
 ///
-/// The `href` for this meaningless. A string matching the [`WebCalDefinition::collection_name`]
-/// property is used to describe the only available collection.
+/// The `href` for this meaningless. A string matching the `collection_name` property is used to
+/// describe the only available collection.
 // TODO: If an alternative href is provided, it should be used as a path on the same host.
 //       Note that discovery will only support the one matching the input URL.
 pub struct WebCalStorage {
+    /// The URL of the remote icalendar resource. Must be HTTP or HTTPS.
     url: Uri,
+    /// The href and id to be given to the single collection available.
     collection_name: CollectionId,
     http_client: Client<HttpsConnector<HttpConnector>>,
 }
 
-/// Definition for a [`WebCalStorage`].
-#[derive(Debug, PartialEq)]
-pub struct WebCalDefinition {
-    /// The URL of the remote icalendar resource. Must be HTTP or HTTPS.
-    pub url: Uri,
-    /// The href and id to be given to the single collection available.
-    pub collection_name: CollectionId,
-}
-
-impl WebCalDefinition {
+impl WebCalStorage {
     /// Build a new `Storage` instance.
     ///
     /// # Errors
     ///
     /// If there are errors discovering the CardDav server.
-    pub fn build(self) -> Result<WebCalStorage> {
-        let proto = match &self.url.scheme().map(Scheme::as_str) {
+    pub fn new(url: Uri, collection_name: CollectionId) -> Result<WebCalStorage> {
+        let proto = match &url.scheme().map(Scheme::as_str) {
             Some("http") => HttpsConnectorBuilder::new()
                 .with_native_roots()
                 .https_or_http()
@@ -83,20 +72,10 @@ impl WebCalDefinition {
             None => todo!(),
         };
         Ok(WebCalStorage {
-            url: self.url,
-            collection_name: self.collection_name,
+            url,
+            collection_name,
             http_client: Client::builder().build(proto),
         })
-    }
-}
-
-#[async_trait]
-impl Definition<IcsItem> for WebCalDefinition {
-    /// Create a new storage instance.
-    ///
-    /// Unlike other [`Storage`] implementations, this one allows only a single collection.
-    async fn into_storage(self) -> Result<Arc<dyn Storage<IcsItem>>> {
-        Ok(Arc::new(self.build()?))
     }
 }
 
@@ -116,7 +95,7 @@ impl Storage<IcsItem> for WebCalStorage {
         Ok(())
     }
 
-    /// Returns a single collection with the name specified in the definition.
+    /// Returns a single collection with the name originally specified.
     async fn discover_collections(&self) -> Result<Discovery> {
         // TODO: shouldn't I check that the collection actually exists?
         Ok(vec![DiscoveredCollection::new(
@@ -360,7 +339,7 @@ async fn fetch_raw(client: &Client<HttpsConnector<HttpConnector>>, url: &Uri) ->
 mod test {
     use http::Uri;
 
-    use crate::base::Definition;
+    use crate::{base::Storage, webcal::WebCalStorage};
 
     // FIXME: only run this test with a dedicated flag for networked test.
     // FIXME: use a webcal link hosted by me.
@@ -368,13 +347,11 @@ mod test {
     #[tokio::test]
     #[ignore = "uses internet resource"]
     async fn test_dummy() {
-        use crate::webcal::WebCalDefinition;
-
-        let definition = WebCalDefinition {
-            url: Uri::try_from("https://www.officeholidays.com/ics/netherlands").unwrap(),
-            collection_name: "holidays".parse().unwrap(),
-        };
-        let storage = definition.into_storage().await.unwrap();
+        let storage = WebCalStorage::new(
+            Uri::try_from("https://www.officeholidays.com/ics/netherlands").unwrap(),
+            "holidays".parse().unwrap(),
+        )
+        .unwrap();
         storage.check().await.unwrap();
         let collection = "holidays";
         let discovery = &storage.discover_collections().await.unwrap();
