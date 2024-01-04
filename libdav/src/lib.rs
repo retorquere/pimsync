@@ -44,7 +44,7 @@ pub use carddav::CardDavClient;
 /// This is currently an alias of [`roxmltree::ExpandedName`].
 pub type Property<'ns, 'name> = roxmltree::ExpandedName<'ns, 'name>;
 
-/// An error automatically bootstrapping a new client.
+/// A supplied Url was not valid.
 #[derive(thiserror::Error, Debug)]
 pub enum InvalidUrl {
     #[error("missing scheme")]
