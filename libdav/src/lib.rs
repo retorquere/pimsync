@@ -12,11 +12,11 @@
 //!
 //! # Hrefs
 //!
-//! All `href` strings returned by the server are returned unquoted by this library before being
-//! returned to consumers.
+//! All `href` strings returned by the server are unquoted by this library before being returned to
+//! consumers. I.e.: you should assume that all `href`s have been url-decoded for you.
 //!
 //! All functions that take a parameter named `href` (or similar ones like `calendar_href`) expect
-//! their input to NOT be URL-encoded.
+//! their input to NOT be URL-encoded. I.e.: you do not need to perform any quoting.
 
 use crate::auth::Auth;
 use dav::DavError;
