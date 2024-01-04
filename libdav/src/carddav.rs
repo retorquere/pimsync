@@ -211,7 +211,6 @@ where
     ///
     /// Returns an error in case of network errors or if the server returns a failure status code.
     pub async fn create_addressbook(&self, href: impl AsRef<str>) -> Result<(), DavError> {
-        // TODO: Can I somehow delegate to this async method without introducing a new await point?
         self.dav_client
             .create_collection(href, &[&names::ADDRESSBOOK])
             .await
