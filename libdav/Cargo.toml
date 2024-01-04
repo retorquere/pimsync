@@ -15,7 +15,7 @@ keywords = ["caldav", "carddav", "webcal", "calendar", "contacts"]
 
 [dependencies]
 base64 = "0.21.0"
-domain = { version = "0.8.1", features = ["resolv"] }
+domain = { version = "0.9.3", features = ["resolv"] }
 email_address = { version = "0.2.4", default-features = false }
 http = "0.2.9"
 hyper = { version = "0.14.24", features = ["http1", "client"] }
