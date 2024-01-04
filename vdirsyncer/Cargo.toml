@@ -16,7 +16,7 @@ camino = { version = "1.1.6", features = ["serde1"] }
 clap = { version = "4.0.0", features = ["derive"] }
 hyper = "0.14.27"
 hyper-rustls = "0.24.1"
-libdav = { version = "0.1.0", path = "../libdav" }
+libdav = { version = "0.2.0", path = "../libdav" }
 log = "0.4.20"
 rustls = { version = "0.21.8", features = ["dangerous_configuration"] }
 rustls-pemfile = "1.0.3"
