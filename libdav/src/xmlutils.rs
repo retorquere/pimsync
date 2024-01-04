@@ -184,8 +184,6 @@ mod tests {
 }
 
 /// Find an `href` node and return its unescaped text value.
-//
-// TODO: document that all input to libdav should be unescaped, and that all output is unescaped.
 pub(crate) fn get_unquoted_href<'a>(node: &'a Node) -> Result<Cow<'a, str>, DavError> {
     Ok(node
         .descendants()
