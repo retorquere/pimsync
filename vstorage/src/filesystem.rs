@@ -420,7 +420,7 @@ mod tests {
     use std::fs::{create_dir_all, write};
 
     use crate::{
-        base::{IcsItem, Storage},
+        base::{CalendarProperty, IcsItem, Storage},
         filesystem::FilesystemStorage,
         ErrorKind,
     };
@@ -514,10 +514,48 @@ mod tests {
         // TODO: more tests on the missing collection
     }
 
-    // #[test]
-    // fn test_write_read_meta_name() {
-    //     todo!();
-    // }
+    #[tokio::test]
+    async fn test_write_read_colour() {
+        let dir = tempdir().unwrap();
+        let storage = FilesystemStorage::<IcsItem>::new(
+            dir.path().to_path_buf().try_into().unwrap(),
+            "ics".to_string(),
+        );
+
+        let collection_name = "one";
+        storage.create_collection(collection_name).await.unwrap();
+
+        storage
+            .set_collection_property(collection_name, CalendarProperty::Colour, "#000000")
+            .await
+            .unwrap();
+
+        let colour = storage
+            .get_collection_property(collection_name, CalendarProperty::Colour)
+            .await
+            .unwrap();
+
+        assert_eq!(colour, Some(String::from("#000000")));
+    }
+
+    #[tokio::test]
+    async fn test_read_missing_description() {
+        let dir = tempdir().unwrap();
+        let storage = FilesystemStorage::<IcsItem>::new(
+            dir.path().to_path_buf().try_into().unwrap(),
+            "ics".to_string(),
+        );
+
+        let collection_name = "one";
+        storage.create_collection(collection_name).await.unwrap();
+
+        let description = storage
+            .get_collection_property(collection_name, CalendarProperty::Description)
+            .await
+            .unwrap();
+
+        assert_eq!(description, None);
+    }
 
     // TODO: test writing and then checking the file
     // TODO: test writing a file and then getting
