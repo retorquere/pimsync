@@ -135,7 +135,10 @@ where
         &self,
         url: Option<&Uri>,
     ) -> Result<Vec<FoundCollection>, DavError> {
-        let url = url.unwrap_or(self.addressbook_home_set.as_ref().unwrap_or(&self.base_url));
+        let url = url
+            .or(self.addressbook_home_set.as_ref())
+            .unwrap_or(&self.base_url);
+
         // FIXME: DRY: This is almost a copy-paste of the same method from CalDavClient
         let (head, body) = self
             .propfind(

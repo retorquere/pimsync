@@ -135,7 +135,10 @@ where
         &self,
         url: Option<&Uri>,
     ) -> Result<Vec<FoundCollection>, DavError> {
-        let url = url.unwrap_or(self.calendar_home_set.as_ref().unwrap_or(&self.base_url));
+        let url = url
+            .or(self.calendar_home_set.as_ref())
+            .unwrap_or(&self.base_url);
+
         let (head, body) = self
             .propfind(
                 url,
