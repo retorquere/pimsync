@@ -148,9 +148,6 @@ pub struct ItemDetails {
     pub content_type: Option<String>,
     pub etag: Option<String>,
     pub resource_type: ResourceType,
-    /// From: <https://www.rfc-editor.org/rfc/rfc6578>
-    // TODO: move this field into `FoundCollection`; it is meaningless for non-collections.
-    pub supports_sync: bool,
 }
 
 #[derive(Default, Debug, PartialEq, Eq)]

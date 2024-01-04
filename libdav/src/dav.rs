@@ -666,6 +666,7 @@ pub struct FoundCollection {
     /// This value is not URL-encoded.
     pub href: String,
     pub etag: Option<String>,
+    /// From: <https://www.rfc-editor.org/rfc/rfc6578>
     pub supports_sync: bool,
     // TODO: query displayname by default too.
 }
@@ -785,8 +786,6 @@ fn list_resources_parse(
                 content_type,
                 etag,
                 resource_type,
-                // TODO: this field is only relevant for collections.
-                supports_sync: false,
             },
             href,
         });
@@ -925,7 +924,6 @@ mod more_tests {
                     is_calendar: false,
                     is_address_book: false
                 },
-                supports_sync: false
             },
             href: "/dav/calendars/user/vdirsyncer@fastmail.com/cc396171-0227-4e1c-b5ee-d42b5e17d533/395b00a0-eebc-40fd-a98e-176a06367c82.ics".into()
         }]);
