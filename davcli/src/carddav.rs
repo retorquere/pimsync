@@ -7,6 +7,7 @@ use clap::{Parser, Subcommand};
 use hyper::client::HttpConnector;
 use hyper_rustls::{HttpsConnector, HttpsConnectorBuilder};
 use libdav::{auth::Auth, CardDavClient};
+use log::info;
 
 use crate::cli::Server;
 
@@ -25,8 +26,12 @@ pub struct CardDavArgs {
 pub(crate) enum CardDavCommand {
     /// Perform discovery and print results
     Discover,
+    /// List address book components under a given calendar collection.
+    ListAddressBookComponents { collection_href: String },
     /// Find address books under the address book home set.
     FindAddressBooks,
+    /// Fetches a single address book component.
+    Get { resource_href: String },
 }
 
 impl Server {
@@ -54,12 +59,16 @@ impl Server {
 
 impl CardDavArgs {
     #[tokio::main(flavor = "current_thread")]
-    pub(crate) async fn execute(&self) -> anyhow::Result<()> {
+    pub(crate) async fn execute(self) -> anyhow::Result<()> {
         let client = self.server.carddav_client().await?;
 
         match self.command {
             CardDavCommand::Discover => discover(&client),
             CardDavCommand::FindAddressBooks => list_collections(client).await?,
+            CardDavCommand::ListAddressBookComponents { collection_href } => {
+                list_resources(&client, collection_href).await?;
+            }
+            CardDavCommand::Get { resource_href } => get(client, resource_href).await?,
         };
 
         Ok(())
@@ -79,6 +88,44 @@ async fn list_collections(client: Client) -> anyhow::Result<()> {
     let response = client.find_addresbooks(None).await?;
     for collection in response {
         println!("{}", collection.href);
+    }
+
+    Ok(())
+}
+
+async fn get(client: Client, href: String) -> anyhow::Result<()> {
+    let collection = match href.rfind('/') {
+        Some(i) => &href[0..i],
+        None => "/",
+    }
+    .to_string();
+
+    let response = client
+        .get_address_book_resources(collection, &[href])
+        .await?
+        .into_iter()
+        .next()
+        .context("Server returned a response with no resources")?;
+
+    let raw = &response
+        .content
+        .as_ref()
+        .map_err(|code| anyhow::anyhow!("Server returned error code: {0}", code))?
+        .data;
+
+    println!("{raw}");
+
+    Ok(())
+}
+
+async fn list_resources(client: &Client, href: String) -> anyhow::Result<()> {
+    let resources = client.list_resources(&href).await?;
+    if resources.is_empty() {
+        info!("No items in collection");
+    } else {
+        for resource in resources {
+            println!("{}", resource.href);
+        }
     }
 
     Ok(())
