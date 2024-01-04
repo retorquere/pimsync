@@ -115,6 +115,9 @@ where
         ClientBuilder::new()
     }
 
+    /// The home set found during discovery (if any) or explicitly provided during client creation.
+    ///
+    /// This function does not perform any network operations; it merely returns the already-known URL.
     pub fn calendar_home_set(&self) -> Option<&Uri> {
         self.calendar_home_set.as_ref()
     }
@@ -199,6 +202,8 @@ where
     }
 
     /// Sets the `colour` for a collection
+    ///
+    /// This is not a formally standardised property, but is relatively widespread.
     ///
     /// The `colour` string should be an unescaped hex value with a leading pound sign (e.g.
     /// `#ff0000`).

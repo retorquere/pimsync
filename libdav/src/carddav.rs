@@ -115,6 +115,9 @@ where
         ClientBuilder::new()
     }
 
+    /// The home set found during discovery (if any) or explicitly provided during client creation.
+    ///
+    /// This function does not perform any network operations; it merely returns the already-known URL.
     pub fn addressbook_home_set(&self) -> Option<&Uri> {
         self.addressbook_home_set.as_ref()
     }

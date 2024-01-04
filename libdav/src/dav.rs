@@ -104,10 +104,6 @@ pub enum FindCurrentUserPrincipalError {
 }
 
 /// A generic webdav client.
-// TODO: split this into 'client' and 'server'.
-//       the client is configured with http/s
-//       the 'server' type has the auth and base uri.
-//       basically, splits behavioural interface from state
 #[derive(Debug, Clone)]
 pub struct WebDavClient<C>
 where
@@ -160,6 +156,7 @@ where
     /// # Errors
     ///
     /// If this client's `base_url` is invalid or the provided `path` is not an acceptable path.
+    // TODO: document the exact error variants in each situation.
     pub fn relative_uri(&self, path: impl AsRef<str>) -> Result<Uri, http::Error> {
         let href = quote_href(path.as_ref().as_bytes());
         let mut parts = self.base_url.clone().into_parts();
@@ -567,7 +564,7 @@ where
     /// Deletes the resource at `href`.
     ///
     /// The resource MAY be a collection. Because the implementation for deleting resources and
-    /// collections is identical, this same method covers both cases.
+    /// collections is identical, this same function is used for both cases.
     ///
     /// If the Etag does not match (i.e.: if the resource has been altered), the operation will
     /// fail and return an Error.
@@ -595,7 +592,7 @@ where
 
     /// Force deletion of the resource at `href`.
     ///
-    /// This function cannot guarantee that a resource or collection has not been modified since
+    /// This function does not guarantee that a resource or collection has not been modified since
     /// it was last read. **Use this function with great care**.
     ///
     /// The resource MAY be a collection. Because the implementation for deleting resources and
