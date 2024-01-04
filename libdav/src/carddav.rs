@@ -142,18 +142,12 @@ where
             .or(self.addressbook_home_set.as_ref())
             .unwrap_or(&self.base_url);
 
-        // FIXME: DRY: This is almost a copy-paste of the same method from CalDavClient
-        let (head, body) = self
-            .propfind(
-                url,
-                &[
-                    &names::RESOURCETYPE,
-                    &names::GETETAG,
-                    &names::SUPPORTED_REPORT_SET,
-                ],
-                1,
-            )
-            .await?;
+        let props = [
+            &names::RESOURCETYPE,
+            &names::GETETAG,
+            &names::SUPPORTED_REPORT_SET,
+        ];
+        let (head, body) = self.propfind(url, &props, 1).await?;
         check_status(head.status)?;
 
         parse_find_multiple_collections(body, &names::ADDRESSBOOK)

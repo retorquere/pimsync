@@ -142,17 +142,12 @@ where
             .or(self.calendar_home_set.as_ref())
             .unwrap_or(&self.base_url);
 
-        let (head, body) = self
-            .propfind(
-                url,
-                &[
-                    &names::RESOURCETYPE,
-                    &names::GETETAG,
-                    &names::SUPPORTED_REPORT_SET,
-                ],
-                1,
-            )
-            .await?;
+        let props = [
+            &names::RESOURCETYPE,
+            &names::GETETAG,
+            &names::SUPPORTED_REPORT_SET,
+        ];
+        let (head, body) = self.propfind(url, &props, 1).await?;
         check_status(head.status)?;
 
         parse_find_multiple_collections(body, &names::CALENDAR)
