@@ -69,7 +69,12 @@ impl WebCalStorage {
                     "URL scheme must be http or https",
                 ));
             }
-            None => todo!(),
+            None => {
+                return Err(Error::new(
+                    ErrorKind::InvalidInput,
+                    "webcal URL requires a scheme/protocol",
+                ));
+            }
         };
         Ok(WebCalStorage {
             url,
