@@ -5,14 +5,16 @@
 //! Common bits shared between caldav and carddav clients.
 
 use crate::{
-    dav::{DavError, FoundCollection, WebDavClient},
+    dav::{check_status, DavError, FoundCollection, WebDavClient},
     dns::DiscoverableService,
     names,
     xmlutils::get_unquoted_href,
-    FindHomeSetError, InvalidUrl, Property,
+    CheckSupportError, FindHomeSetError, InvalidUrl, Property,
 };
 
-use hyper::{client::connect::Connect, Uri};
+use http::{Method, Request};
+use hyper::{client::connect::Connect, Body, Uri};
+use log::debug;
 
 pub(crate) fn parse_find_multiple_collections(
     body: impl AsRef<[u8]>,
@@ -90,4 +92,37 @@ pub trait Rfc6764Protocol {
     fn service(uri: &Uri) -> Result<DiscoverableService, InvalidUrl>;
     /// Name of the property that describes this protocol's home set.
     fn home_set_property() -> &'static Property<'static, 'static>;
+}
+
+pub(crate) async fn check_support<C>(
+    client: &WebDavClient<C>,
+    uri: &Uri,
+    expectation: &str,
+) -> Result<(), CheckSupportError>
+where
+    C: Connect + Clone + Sync + Send + 'static,
+{
+    let request = Request::builder()
+        .method(Method::OPTIONS)
+        .uri(uri)
+        .body(Body::empty())?;
+
+    let (head, _body) = client.request(request).await?;
+    check_status(head.status)?;
+
+    let header = head
+        .headers
+        .get("DAV")
+        .ok_or(CheckSupportError::MissingHeader)?
+        .to_str()?;
+
+    debug!("DAV header: '{}'", header);
+    if header
+        .split(|c| c == ',')
+        .any(|part| part.trim() == expectation)
+    {
+        Ok(())
+    } else {
+        Err(CheckSupportError::NotAdvertised)
+    }
 }

@@ -4,13 +4,11 @@
 
 use std::ops::Deref;
 
-use http::{Method, Request};
 use hyper::client::connect::Connect;
-use hyper::{Body, Uri};
-use log::debug;
+use hyper::Uri;
 
 use crate::builder::{ClientBuilder, NeedsUri};
-use crate::common::{parse_find_multiple_collections, Rfc6764Protocol};
+use crate::common::{check_support, parse_find_multiple_collections, Rfc6764Protocol};
 use crate::dav::WebDavClient;
 use crate::dav::{check_status, DavError, FoundCollection};
 use crate::dns::DiscoverableService;
@@ -198,29 +196,7 @@ where
     /// If there are any network issues or if the server does not explicitly advertise carddav
     /// support.
     pub async fn check_support(&self, url: &Uri) -> Result<(), CheckSupportError> {
-        let request = Request::builder()
-            .method(Method::OPTIONS)
-            .uri(url)
-            .body(Body::empty())?;
-
-        let (head, _body) = self.request(request).await?;
-        check_status(head.status)?;
-
-        let header = head
-            .headers
-            .get("DAV")
-            .ok_or(CheckSupportError::MissingHeader)?
-            .to_str()?;
-
-        debug!("DAV header: '{}'", header);
-        if header
-            .split(|c| c == ',')
-            .any(|part| part.trim() == "addressbook")
-        {
-            Ok(())
-        } else {
-            Err(CheckSupportError::NotAdvertised)
-        }
+        check_support(&self.dav_client, url, "addressbook").await
     }
 
     /// Create an address book collection.
