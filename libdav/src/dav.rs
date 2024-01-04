@@ -85,9 +85,6 @@ pub enum ResolveContextPathError {
     #[error("missing Location header in response")]
     MissingLocation,
 
-    // TODO: somehow merge these two into one.
-    #[error("error building new Uri with Location from response")]
-    BadRelativeLocation(#[from] std::str::Utf8Error),
     #[error("error building new Uri with Location from response")]
     BadAbsoluteLocation(#[from] http::uri::InvalidUri),
 }
@@ -405,7 +402,7 @@ where
             Uri::builder()
                 .scheme(service.scheme())
                 .authority(format!("{host}:{port}"))
-                .path_and_query(std::str::from_utf8(location)?)
+                .path_and_query(location)
                 .build()?
         } else {
             Uri::try_from(location)?
