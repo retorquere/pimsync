@@ -580,9 +580,8 @@ fn open_default_path() -> anyhow::Result<File> {
         if let Ok(file) = File::open(&path) {
             debug!("Opened config file {}", path.to_string_lossy());
             return Ok(file);
-        } else {
-            debug!("Could not open config file {}", path.to_string_lossy());
         }
+        debug!("Could not open config file {}", path.to_string_lossy());
     }
 
     #[allow(deprecated)] // Only problematic on unsupported platforms.
@@ -591,9 +590,8 @@ fn open_default_path() -> anyhow::Result<File> {
         if let Ok(file) = File::open(&path) {
             debug!("Opened config file {}", path.to_string_lossy());
             return Ok(file);
-        } else {
-            debug!("Could not open config file {}", path.to_string_lossy());
         }
+        debug!("Could not open config file {}", path.to_string_lossy());
     }
 
     bail!("No usable configuration file found");
