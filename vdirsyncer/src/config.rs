@@ -9,6 +9,8 @@ use std::{
     borrow::Cow,
     collections::HashMap,
     ffi::OsString,
+    fs::File,
+    io::Read,
     marker::PhantomData,
     os::unix::prelude::{OsStrExt, OsStringExt},
     path::{Path, PathBuf},
@@ -561,10 +563,42 @@ impl StringOrFetch {
     }
 }
 
-/// Parse a configuration file at `path`.
-pub(crate) fn parse_from_file(path: impl AsRef<Path>) -> anyhow::Result<Config> {
-    let raw = std::fs::read_to_string(path)?;
-    let config: Config = toml::from_str(&raw)?;
+fn parse_from_file(mut path: File) -> anyhow::Result<Config> {
+    let mut raw = String::new();
+    path.read_to_string(&mut raw)?;
+    let config = toml::from_str::<Config>(&raw)?;
 
     Ok(config)
+}
+
+/// Open the default path.
+///
+/// Attempts to open multiple paths in sequence and returns the first that works.
+fn open_default_path() -> anyhow::Result<File> {
+    if let Some(xdg) = std::env::var_os("XDG_CONFIG_HOME") {
+        let path = PathBuf::from(xdg).join("vdirsyncer/config.toml");
+        if let Ok(file) = File::open(&path) {
+            debug!("Opened config file {}", path.to_string_lossy());
+            return Ok(file);
+        } else {
+            debug!("Could not open config file {}", path.to_string_lossy());
+        }
+    }
+
+    #[allow(deprecated)] // Only problematic on unsupported platforms.
+    if let Some(home) = std::env::home_dir() {
+        let path = home.join(".config/vdirsyncer/config.toml");
+        if let Ok(file) = File::open(&path) {
+            debug!("Opened config file {}", path.to_string_lossy());
+            return Ok(file);
+        } else {
+            debug!("Could not open config file {}", path.to_string_lossy());
+        }
+    }
+
+    bail!("No usable configuration file found");
+}
+
+pub(crate) fn load_from_default_path() -> anyhow::Result<Config> {
+    parse_from_file(open_default_path()?)
 }
