@@ -36,3 +36,9 @@ password.fetch = ["command", "printenv", "PASSWORD"]
 
 Discovering collections ahead of time is no longer required. Collections are
 discovered automatically. The `discover` command is gone.
+
+## Custom encodings for filesystem storage
+
+The filesystem storage saves files as UTF-8, and attempting to use the
+`encoding` setting will fail. If another encoding is required for some
+scenario, please open an issue.

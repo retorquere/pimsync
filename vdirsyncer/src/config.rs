@@ -22,7 +22,7 @@ use camino::{Utf8Path, Utf8PathBuf};
 use hyper::client::HttpConnector;
 use hyper_rustls::{ConfigBuilderExt, HttpsConnector, HttpsConnectorBuilder};
 use libdav::auth::Password;
-use log::debug;
+use log::{debug, error};
 use rustls::{ClientConfig, RootCertStore};
 use serde::Deserialize;
 use vstorage::{
@@ -332,7 +332,8 @@ impl StorageSection {
 struct Filesystem<I: Item> {
     path: Utf8PathBuf,
     fileext: String,
-    // TODO: encoding
+    /// Not implemented; bails.
+    encoding: Option<String>,
     // TODO: post_hook
     // TODO: fileignoreext
     post_hook: Option<OsString>,
@@ -342,6 +343,13 @@ struct Filesystem<I: Item> {
 
 impl<I: Item> Filesystem<I> {
     fn into_storage(self) -> anyhow::Result<FilesystemStorage<I>> {
+        if self.encoding.is_some() {
+            // I don't want to implement a feature that is potentially unused.
+            // If someone really needs this, it's doable.
+            error!("Filesystem storage does no implement 'encoding' in v2.0.0.");
+            error!("If you need to define a specific encoding, please open an issue.");
+            bail!("'encoding' is not implemented for filesystem storages.");
+        }
         let path = expand_tilde(self.path).context("error expanding tilde for storage")?;
         // v0.X series expected the leading string. This is not ideal and should be deprecated.
         let fileext = self
