@@ -101,21 +101,21 @@ impl<'a> Component<'a> {
     pub(crate) fn into_split_collection(
         self: Component<'a>,
     ) -> Result<Vec<Component<'a>>, ComponentError> {
-        let mut inline = Vec::new();
+        let mut timezones = Vec::new();
         let mut items_with_uid = HashMap::new();
         let mut items_without_uid = Vec::new();
 
-        self.split_inner(&mut inline, &mut items_with_uid, &mut items_without_uid)?;
+        self.split_inner(&mut timezones, &mut items_with_uid, &mut items_without_uid)?;
 
         let items_with_timezones = items_with_uid
             .into_values()
-            .map(|mut wrapper| {
-                for entry in &mut *wrapper.subcomponents {
+            .map(|mut calendar| {
+                for entry in &mut *calendar.subcomponents {
                     // Clone here because `append` empties the passed input.
-                    entry.subcomponents.append(&mut (inline.clone()));
+                    entry.subcomponents.append(&mut (timezones.clone()));
                     // FIXME: this copies all timezones into all components. I can do better.
                 }
-                wrapper
+                calendar
             })
             .collect();
 
@@ -126,11 +126,11 @@ impl<'a> Component<'a> {
     ///
     /// Subcomponents are split into three groups:
     ///
-    /// - `inline`: those that must be copied inline (e.g.: `VTIMEZONE`)
+    /// - `timezones`: `VTIMEZONE`, which must be copied inline.
     /// - `items`: items with a UID (which is the key for the `HashMap`.
     /// - `without_uid`: items which as missing a UID.
     ///
-    /// Both `items` and `without_uid` are free-standing items for [`Collection`]s.
+    /// Both `items` and `without_uid` are free-standing items for calendar [`Collection`]s.
     ///
     /// Calendar components will be put inside their own wrapper (e.g.: a `VEVENT` will be wrapped
     /// inside its own `VCALENDAR`.
@@ -138,13 +138,13 @@ impl<'a> Component<'a> {
     /// [`Collection`]: crate::base::Collection
     fn split_inner(
         self: Component<'a>,
-        inline: &mut Vec<Component<'a>>,
+        timezones: &mut Vec<Component<'a>>,
         items: &mut HashMap<Cow<'a, str>, Component<'a>>,
         without_uid: &mut Vec<Component<'a>>,
     ) -> Result<(), ComponentError> {
         match self.kind.as_ref() {
             "VTIMEZONE" => {
-                inline.push(self);
+                timezones.push(self);
             }
             "VTODO" | "VJOURNAL" | "VEVENT" => {
                 // Hint: we don't recurse into these, so VALARM components remain untouched.
@@ -152,12 +152,7 @@ impl<'a> Component<'a> {
                     Some(uid) => {
                         items
                             .entry(uid.clone())
-                            .or_insert(Component {
-                                kind: Cow::Borrowed("VCALENDAR"),
-                                lines: Vec::new(),
-                                subcomponents: Vec::new(),
-                                uid: None,
-                            })
+                            .or_insert(Component::new(Cow::Borrowed("VCALENDAR")))
                             .subcomponents
                             .push(self);
                     }
@@ -168,7 +163,7 @@ impl<'a> Component<'a> {
             }
             "VCALENDAR" => {
                 for component in self.subcomponents {
-                    Self::split_inner(component, inline, items, without_uid)?;
+                    component.split_inner(timezones, items, without_uid)?;
                 }
             }
             kind => return Err(ComponentError::UnknownComponent(kind.to_string())),
