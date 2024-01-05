@@ -16,7 +16,7 @@ use vparser::{ContentLine, Parser};
 ///
 /// # Known Issues
 ///
-/// Works only with iCalendar, but not with vCard.
+/// Works only with iCalendar, not with vCard.
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct Component<'a> {
     kind: Cow<'a, str>,
@@ -136,10 +136,6 @@ impl<'a> Component<'a> {
     /// inside its own `VCALENDAR`.
     ///
     /// [`Collection`]: crate::base::Collection
-    ///
-    /// # Panics
-    ///
-    /// Panics if multiple VCARD entries have the same UID.
     fn split_inner(
         self: Component<'a>,
         inline: &mut Vec<Component<'a>>,
@@ -151,7 +147,7 @@ impl<'a> Component<'a> {
                 inline.push(self);
             }
             "VTODO" | "VJOURNAL" | "VEVENT" => {
-                // Hint: we don't recurse into these, so VALARMS just stay where they are.
+                // Hint: we don't recurse into these, so VALARM components remain untouched.
                 match &self.uid {
                     Some(uid) => {
                         items
@@ -170,16 +166,6 @@ impl<'a> Component<'a> {
                     }
                 }
             }
-            "VCARD" => match &self.uid {
-                Some(uid) => {
-                    if items.insert(uid.clone(), self).is_some() {
-                        todo!("vcard with duplicate UID found!"); // FIXME!
-                    }
-                }
-                None => {
-                    without_uid.push(self);
-                }
-            },
             "VCALENDAR" => {
                 for component in self.subcomponents {
                     Self::split_inner(component, inline, items, without_uid)?;
