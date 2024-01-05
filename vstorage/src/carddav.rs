@@ -123,8 +123,8 @@ where
     /// collection is empty when deleting it.
     ///
     /// If the server is not compliant and does not support Etags, possible race conditions could
-    /// occur and if address book components are added to the collection at the same time, they may
-    /// be deleted.
+    /// occur and if contacts components are added to the collection concurrently, they may be
+    /// deleted.
     async fn destroy_collection(&self, href: &str) -> Result<()> {
         let mut results = self
             .client
@@ -132,14 +132,19 @@ where
             .await
             .map_err(|e| Error::new(ErrorKind::Uncategorised, e))?;
 
-        if results.len() != 1 {
+        // We requested the collection only; only that should be returned.
+        if results.len() > 1 {
             return Err(ErrorKind::InvalidData.into());
         }
 
-        let item = results.pop().expect("results has exactly one item");
+        let item = match results.pop() {
+            Some(i) => i,
+            None => return Err(ErrorKind::InvalidData.into()),
+        };
+
         if item.href != href {
             return Err(Error::new(
-                ErrorKind::Uncategorised,
+                ErrorKind::InvalidData,
                 format!("Requested href: {}, got: {}", href, item.href,),
             ));
         }

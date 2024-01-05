@@ -147,14 +147,18 @@ where
             .await
             .map_err(|e| Error::new(ErrorKind::Uncategorised, e))?;
 
-        if results.len() != 1 {
+        if results.len() > 1 {
             return Err(ErrorKind::InvalidData.into());
         }
 
-        let item = results.pop().expect("results has exactly one item");
+        let item = match results.pop() {
+            Some(i) => i,
+            None => return Err(ErrorKind::InvalidData.into()),
+        };
+
         if item.href != href {
             return Err(Error::new(
-                ErrorKind::Uncategorised,
+                ErrorKind::InvalidData,
                 format!("Requested href: {}, got: {}", href, item.href,),
             ));
         }
