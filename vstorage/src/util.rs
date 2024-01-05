@@ -40,6 +40,38 @@ pub(crate) fn hash(input: impl AsRef<str>) -> String {
     format!("{:X}", hasher.finalize())
 }
 
+/// Replaces the UID for an input vobject.
+///
+/// Expects that the provided vobject has exactly one component of type VEVENT, VTODO, VJOURNAL,
+/// VCARD.
+pub(crate) fn replace_uid(orig: &str, new_uid: &str) -> String {
+    let mut inside_component = false;
+    let mut new = String::new();
+
+    for line in Parser::new(orig) {
+        if line.name() == "BEGIN"
+            && ["VEVENT", "VTODO", "VJOURNAL", "VCARD"].contains(&line.value().as_ref())
+        {
+            inside_component = true;
+        }
+        if line.name() == "END"
+            && ["VEVENT", "VTODO", "VJOURNAL", "VCARD"].contains(&line.value().as_ref())
+        {
+            inside_component = false;
+        }
+        if inside_component && line.name() == "UID" {
+            new.push_str("UID:");
+            new.push_str(new_uid);
+            new.push_str("\r\n");
+        } else {
+            new.push_str(line.raw());
+            new.push_str("\r\n");
+        }
+    }
+
+    new
+}
+
 #[cfg(test)]
 mod test {
     use crate::util::hash;

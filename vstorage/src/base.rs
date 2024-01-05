@@ -11,7 +11,7 @@
 
 use async_trait::async_trait;
 
-use crate::{disco::Discovery, CollectionId, Etag, Href, Result};
+use crate::{disco::Discovery, util::replace_uid, CollectionId, Etag, Href, Result};
 
 /// A storage is the highest level abstraction where items can be stored. It can be a remote CalDav
 /// account, a local filesystem, etc.
@@ -285,15 +285,9 @@ impl Item for IcsItem {
     }
 
     /// Returns a new copy of this Item with the supplied UID.
-    ///
-    /// # Panics
-    ///
-    /// This function is not yet implemented.
     #[must_use]
-    fn with_uid(&self, _new_uid: &str) -> Self {
-        // The logic in vdirsyncer/vobject.py::Item.with_uid seems pretty solid.
-        // TODO: this really needs to be done, although its absence only blocks syncing broken items.
-        todo!()
+    fn with_uid(&self, new_uid: &str) -> Self {
+        IcsItem::from(replace_uid(&self.raw, new_uid))
     }
 
     #[inline]
@@ -435,6 +429,23 @@ mod tests {
         #[allow(dead_code)]
         fn dummy(_: Box<dyn Storage<IcsItem>>) {}
     }
+
+    #[test]
+    fn test_with_uid() {
+        let raw = ["BEGIN:VCARD", "UID:hello", "END:VCARD"].join("\r\n");
+        let item = IcsItem::from(raw);
+        let item2 = item.with_uid("goodbye");
+        assert_eq!(item2.uid(), Some(String::from("goodbye")));
+        assert_eq!(item2.ident(), String::from("goodbye"));
+    }
+
+    #[test]
+    fn test_with_uid_without_uid() {
+        let raw = ["BEGIN:VCARD", "SUMMARY:hello", "END:VCARD"].join("\r\n");
+        let item = IcsItem::from(raw);
+        let item2 = item.with_uid("goodbye");
+        assert_eq!(item2.uid(), None);
+    }
 }
 
 /// Immutable wrapper around a `VCARD`.
@@ -482,15 +493,9 @@ impl Item for VcardItem {
     }
 
     /// Returns a new copy of this Item with the supplied UID.
-    ///
-    /// # Panics
-    ///
-    /// This function is not yet implemented.
     #[must_use]
-    fn with_uid(&self, _new_uid: &str) -> Self {
-        // The logic in vdirsyncer/vobject.py::Item.with_uid seems pretty solid.
-        // TODO: this really needs to be done, although its absence only blocks syncing broken items.
-        todo!()
+    fn with_uid(&self, new_uid: &str) -> Self {
+        VcardItem::from(replace_uid(&self.raw, new_uid))
     }
 
     #[inline]
