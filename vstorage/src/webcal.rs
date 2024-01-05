@@ -130,7 +130,7 @@ impl Storage<IcsItem> for WebCalStorage {
     async fn destroy_collection(&self, _: &str) -> Result<()> {
         Err(Error::new(
             ErrorKind::Unsupported,
-            "creating collections via webcal is not supported",
+            "destroying collections via webcal is not supported",
         ))
     }
 
@@ -251,7 +251,7 @@ impl Storage<IcsItem> for WebCalStorage {
     async fn add_item(&self, _collection: &str, _: &IcsItem) -> Result<ItemRef> {
         Err(Error::new(
             ErrorKind::Unsupported,
-            "creating collections via webcal is not supported",
+            "adding items via webcal is not supported",
         ))
     }
 
