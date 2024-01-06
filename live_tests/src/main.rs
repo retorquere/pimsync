@@ -103,7 +103,7 @@ impl TestData {
 
     async fn addressbook_count(&self) -> anyhow::Result<usize> {
         self.carddav
-            .find_addresbooks(None)
+            .find_addressbooks(None)
             .await
             .map(|a| a.len())
             .context("fetching addressbook count")

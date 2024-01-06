@@ -56,7 +56,7 @@ async fn main() {
 
     println!("Resolved server URL to: {}", carddav_client.base_url());
 
-    let addressbooks = carddav_client.find_addresbooks(None).await.unwrap();
+    let addressbooks = carddav_client.find_addressbooks(None).await.unwrap();
 
     println!("found {} addressbooks...", addressbooks.len());
 

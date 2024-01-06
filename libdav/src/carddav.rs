@@ -134,7 +134,7 @@ where
     /// # Errors
     ///
     /// If the HTTP call fails or parsing the XML response fails.
-    pub async fn find_addresbooks(
+    pub async fn find_addressbooks(
         &self,
         url: Option<&Uri>,
     ) -> Result<Vec<FoundCollection>, DavError> {

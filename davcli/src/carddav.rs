@@ -85,7 +85,7 @@ fn discover(client: &Client) {
 }
 
 async fn list_collections(client: Client) -> anyhow::Result<()> {
-    let response = client.find_addresbooks(None).await?;
+    let response = client.find_addressbooks(None).await?;
     for collection in response {
         println!("{}", collection.href);
     }

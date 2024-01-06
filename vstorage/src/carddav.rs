@@ -73,7 +73,7 @@ where
     /// Collections outside the principal's home can be referenced by using an absolute path.
     async fn discover_collections(&self) -> Result<Discovery> {
         self.client
-            .find_addresbooks(None)
+            .find_addressbooks(None)
             .await?
             .into_iter()
             .map(|collection| {
