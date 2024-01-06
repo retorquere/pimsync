@@ -4,7 +4,7 @@
 
 [package]
 name = "libdav"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["Hugo Osvaldo Barrera <hugo@whynothugo.nl>"]
 edition = "2021"
 description = "CalDav and CardDav client implementations."
