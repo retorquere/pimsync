@@ -22,7 +22,7 @@ async-trait = "0.1.64"
 libdav = { version = "0.2.0", path = "../libdav" }
 http = "0.2.9"
 hyper = "0.14.24"
-hyper-rustls = "0.24.1"
+hyper-rustls = "0.25.0"
 serde = { version = "1.0.184", features = ["derive"] }
 vparser = "1.0.0"
 camino = { version = "1.1.6", features = ["serde1"] }

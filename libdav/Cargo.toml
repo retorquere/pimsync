@@ -26,4 +26,4 @@ thiserror = "1.0.38"
 
 [dev-dependencies]
 tokio = "1.25.0"
-hyper-rustls = "0.24.1"
+hyper-rustls = "0.25.0"

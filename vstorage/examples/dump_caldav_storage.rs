@@ -19,6 +19,7 @@ async fn create_caldav_from_env() -> Arc<dyn Storage<IcsItem>> {
 
     let connector = HttpsConnectorBuilder::new()
         .with_native_roots()
+        .unwrap()
         .https_or_http()
         .enable_http1()
         .build();

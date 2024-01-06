@@ -58,7 +58,7 @@ impl Server {
             .context("failed to determine password")?
             .into();
         let https = HttpsConnectorBuilder::new()
-            .with_native_roots()
+            .with_native_roots()?
             .https_or_http()
             .enable_http1()
             .build();

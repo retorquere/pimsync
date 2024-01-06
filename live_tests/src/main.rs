@@ -50,7 +50,7 @@ struct TestData {
 impl TestData {
     async fn from_profile(profile: Profile) -> anyhow::Result<Self> {
         let https = HttpsConnectorBuilder::new()
-            .with_native_roots()
+            .with_native_roots()?
             .https_or_http()
             .enable_http1()
             .build();

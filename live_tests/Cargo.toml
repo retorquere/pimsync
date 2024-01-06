@@ -19,4 +19,4 @@ anyhow = { version = "1.0.70", features = ["backtrace"] }
 serde = { version = "1.0.184", features = ["derive"] }
 toml = "0.8.1"
 hyper = "0.14.27"
-hyper-rustls = "0.24.1"
+hyper-rustls = "0.25.0"

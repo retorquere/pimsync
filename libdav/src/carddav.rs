@@ -36,6 +36,7 @@ use crate::{CheckSupportError, FetchedResource};
 ///
 /// let https = HttpsConnectorBuilder::new()
 ///     .with_native_roots()
+///     .unwrap()
 ///     .https_or_http()
 ///     .enable_http1()
 ///     .build();

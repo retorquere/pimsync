@@ -39,6 +39,7 @@ async fn main() {
 
     let https = HttpsConnectorBuilder::new()
         .with_native_roots()
+        .expect("native TLS roots should be available")
         .https_or_http()
         .enable_http1()
         .build();

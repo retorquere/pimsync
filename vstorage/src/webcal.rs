@@ -53,12 +53,12 @@ impl WebCalStorage {
     pub fn new(url: Uri, collection_name: CollectionId) -> Result<WebCalStorage> {
         let proto = match &url.scheme().map(Scheme::as_str) {
             Some("http") => HttpsConnectorBuilder::new()
-                .with_native_roots()
+                .with_native_roots()?
                 .https_or_http()
                 .enable_http1()
                 .build(),
             Some("https") => HttpsConnectorBuilder::new()
-                .with_native_roots()
+                .with_native_roots()?
                 .https_only()
                 .enable_http1()
                 .build(),

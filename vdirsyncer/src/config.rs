@@ -25,7 +25,7 @@ use hyper::client::HttpConnector;
 use hyper_rustls::{ConfigBuilderExt, HttpsConnector, HttpsConnectorBuilder};
 use libdav::auth::Password;
 use log::{debug, error};
-use rustls::{ClientConfig, RootCertStore};
+use rustls::{client::danger::DangerousClientConfigBuilder, ClientConfig, RootCertStore};
 use serde::Deserialize;
 use vstorage::{
     base::{IcsItem, Item, Storage, VcardItem},
@@ -448,32 +448,30 @@ impl HttpsConfig {
     // TODO: keep a global cache using the hash of these.
     //       this would allow re-using the same TLS store for all clients.
     fn into_connector(self) -> anyhow::Result<HttpsConnector<HttpConnector>> {
-        let tls_config = ClientConfig::builder().with_safe_defaults();
+        let tls_config = ClientConfig::builder();
         let tls_config = match (self.verify, self.verify_fingerprint) {
-            (None, None) => tls_config
-                .with_native_roots()
-                .with_certificate_transparency_logs(&[], SystemTime::now()),
+            (None, None) => tls_config.with_native_roots()?,
             (None, Some(fingerprint)) => {
                 let verifier = Arc::from(FingerprintVerifier::new(&fingerprint)?);
-                tls_config.with_custom_certificate_verifier(verifier)
+                DangerousClientConfigBuilder { cfg: tls_config }
+                    .with_custom_certificate_verifier(verifier)
             }
             (Some(path), None) => {
                 let mut root_store = RootCertStore::empty();
                 for cert in certs_from_pemfile(&path)? {
-                    root_store.add(&cert)?;
+                    root_store.add(cert)?;
                 }
-                tls_config
-                    .with_root_certificates(root_store)
-                    .with_certificate_transparency_logs(&[], SystemTime::now())
+                tls_config.with_root_certificates(root_store)
             }
             (Some(path), Some(fingerprint)) => {
                 let mut root_store = RootCertStore::empty();
                 for cert in certs_from_pemfile(&path)? {
-                    root_store.add(&cert)?;
+                    root_store.add(cert)?;
                 }
                 let verifier =
                     Arc::from(FingerprintAndWebPkiVerifier::new(&fingerprint, root_store)?);
-                tls_config.with_custom_certificate_verifier(verifier)
+                DangerousClientConfigBuilder { cfg: tls_config }
+                    .with_custom_certificate_verifier(verifier)
             }
         };
 
