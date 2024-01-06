@@ -178,9 +178,9 @@ where
         );
         for href in hrefs {
             let href = quote_href(href.as_ref().as_bytes());
-            body.push_str("<href>");
+            body.push_str("<D:href>");
             body.push_str(&href);
-            body.push_str("</href>");
+            body.push_str("</D:href>");
         }
         body.push_str("</C:addressbook-multiget>");
 
