@@ -42,3 +42,54 @@ discovered automatically. The `discover` command is gone.
 The filesystem storage saves files as UTF-8, and attempting to use the
 `encoding` setting will fail. If another encoding is required for some
 scenario, please open an issue.
+
+## Collections are declared in a different format
+
+The format for specifying collections from both sides remains the same:
+
+```toml
+collections = "all"
+```
+
+The format for specifying all collections from a single side also remains the
+same:
+
+```toml
+collections = ["from b"]
+```
+
+Only the above usages remain the same. To specify a single collection by name,
+use:
+
+```toml
+collections = [
+    { id = "c037725e-e4fd-4b3e-b73d-d5e27d5a90a9" }
+]
+```
+
+A collection can now also be specified by href, which is useful for servers
+that do not support discovery or where multiple collections have the same name:
+
+
+```toml
+collections = [
+    { href = "/calendars/hugo/c037725e-e4fd-4b3e-b73d-d5e27d5a90a9/" }
+]
+```
+
+Finally, two different collections can mapped on each side.
+
+```toml
+collections = [
+    { # first collection
+        "my calendar", # this is an alias, used for logging.
+        { href = "/calendars/hugo/c037725e-e4fd-4b3e-b73d-d5e27d5a90a9/" },
+        { href = "/work/" },
+    },
+    { # second collection
+        "another calendar", # this is an alias, used for logging.
+        { id = "personal" },
+        { href = "/personal/" },
+    }
+]
+```
