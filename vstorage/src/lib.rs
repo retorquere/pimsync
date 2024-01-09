@@ -182,10 +182,16 @@ impl std::error::Error for Error {}
 
 /// An identifier for a specific version of a resource.
 ///
-/// Etags are bound to a specific storage. A storage SHOULD return the same `Etag` for an item as
-/// long has not been modified. The `Etag` MUST change if the item has been modified.
+/// Each time that a resource is read, it will return its current `Etag`. The `Etag` is a unique
+/// identifier for the current version. An `Etag` value is specific to a specific storage
+/// implementation and instance. E.g.: they are opaque values that have no meaning across storages.
 ///
-/// This is inspired on the [HTTP header of the same name][MDN].
+/// This is strongly inspired on the [HTTP header of the same name][MDN].
+///
+/// It is assumed that all `Etag` values are valid UTF-8 strings. As of HTTP 1.1, all header values
+/// are restricted to visible characters in the ASCII range, so this is not a problem for CalDav or
+/// CardDav storages. Other storages with no native `Etag` concept should attempt to use the most
+/// suitable approximation.
 ///
 /// [MDN]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/ETag
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
