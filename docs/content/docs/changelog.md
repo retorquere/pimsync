@@ -6,6 +6,12 @@ type: docs
 
 # Changelog
 
-## Breaking changes from the 0.1.x series
+Given that this is a complete rewrite from the 0.x series, the changelog for
+previous changes is out-of-scope here.
 
-See the [migration guide](/docs/migration-guide/).
+For details on vdirsyncer 0.x, see its separate [changelog][old-changelog].
+
+[old-changelog]: https://vdirsyncer.pimutils.org/en/stable/changelog.html
+
+For details on how to migration a configuration file from vdirsyncer 0.x, see
+the [migration guide](/docs/migration-guide/).
