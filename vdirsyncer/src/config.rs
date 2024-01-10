@@ -366,8 +366,8 @@ impl<I: Item> Filesystem<I> {
 #[derive(Deserialize, Debug)]
 struct CardDav {
     url: String,
-    username: StringOrFetch,
-    password: StringOrFetch,
+    username: StringOrCommand,
+    password: StringOrCommand,
     #[serde(flatten)]
     network_opts: HttpsConfig,
 }
@@ -388,9 +388,9 @@ impl CardDav {
 
 #[derive(Deserialize, Debug)]
 struct CalDav {
-    url: StringOrFetch,
-    username: StringOrFetch,
-    password: StringOrFetch,
+    url: StringOrCommand,
+    username: StringOrCommand,
+    password: StringOrCommand,
     // TODO: start_date
     // TODO: end_date
     // TODO: item_types
@@ -417,7 +417,7 @@ impl CalDav {
 
 #[derive(Deserialize, Debug)]
 pub(crate) struct Http {
-    url: StringOrFetch,
+    url: StringOrCommand,
     /// A name for the single collection inside this storage.
     collection: CollectionId,
     #[serde(flatten)]
@@ -521,32 +521,30 @@ enum ClientCert {
 
 #[derive(Deserialize, Debug)]
 #[serde(untagged)]
-enum StringOrFetch {
+enum StringOrCommand {
     Raw(String),
-    // TODO: evaluate whether I want 'shell' or 'prompt'.
-    Fetch { fetch: Vec<String> },
+    Command { command: Vec<String> },
 }
 
-impl StringOrFetch {
+impl StringOrCommand {
     fn into_string(self) -> anyhow::Result<String> {
         match self {
-            StringOrFetch::Raw(s) => Ok(s),
-            StringOrFetch::Fetch { fetch } => {
+            StringOrCommand::Raw(s) => Ok(s),
+            StringOrCommand::Command { command } => {
                 // TODO: should expand user and normalise paths.
-                let mut values = fetch.into_iter();
-                if Some(String::from("command")) != values.next() {
-                    bail!("First word of a fetch directive must be 'command'")
-                };
-                let cmd = values.next().context("extracting command from 'fetch'")?;
+                let mut values = command.into_iter();
+                let cmd = values
+                    .next()
+                    .context("A command requires at least one value")?;
                 let output = Command::new(cmd)
                     .args(values)
                     .stdout(Stdio::piped())
                     .output()
-                    .context("executing fetch command")?;
+                    .context("problem executing command")?;
                 match output.status.code() {
                     Some(0) => Ok(std::str::from_utf8(&output.stdout)?.trim().to_owned()),
-                    Some(code) => bail!("Fetch command exited with status {}.", code),
-                    None => bail!("Fetch command exited unexpectedly."),
+                    Some(code) => bail!("Command exited with status {}.", code),
+                    None => bail!("Command exited unexpectedly."),
                 }
             }
         }
@@ -555,7 +553,7 @@ impl StringOrFetch {
     fn into_password(self) -> anyhow::Result<Password> {
         let string = self.into_string()?;
         if string.is_empty() {
-            bail!("Fetch returned an empty password. This is likely a misconfiguration.")
+            bail!("Command returned an empty password. This is likely a misconfiguration.")
         }
         Ok(Password::from(string))
     }

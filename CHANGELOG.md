@@ -3,7 +3,24 @@
 ## Fetch mechanisms
 
 The `shell` and `prompt` mechanisms for fetching passwords  have been dropped.
-Only the `command` mechanism remains.
+Only the `command` mechanism remains, and its syntax has changed slightly.
+
+### Fetch / command
+
+A `fetch` definition with a `command` would previously look like this:
+
+```toml
+password.fetch = ["command", "hiq", "-dFpassword", "proto=carddavs", "username=whynothugo@fastmail.com"]
+```
+
+The word `fetch` is replaced by `command` and the word `command` is no longer
+required as the first parameter:
+
+```toml
+password.command = ["hiq", "-dFpassword", "proto=carddavs", "username=whynothugo@fastmail.com"]
+```
+
+### Fetch / shell
 
 The following `shell` example:
 
@@ -14,8 +31,10 @@ password.fetch = ["shell", "~/.local/bin/get-my-password | head -n1"]
 Can be replaced with:
 
 ```toml
-password.fetch = ["command", "sh", "-c", "~/.local/bin/get-my-password | head -n1"]
+password.command = ["sh", "-c", "~/.local/bin/get-my-password | head -n1"]
 ```
+
+### Fetch / prompt
 
 For `prompt` examples, using a wrapper script is a simple approach. E.g.: the
 following script:
@@ -29,8 +48,12 @@ vdirsycner --sync
 Works with the following configuration:
 
 ```toml
-password.fetch = ["command", "printenv", "PASSWORD"]
+password.command = ["printenv", "PASSWORD"]
 ```
+
+Keep in mind that is it possible for other processes of the same user to read
+environment variables. Usage of a password manager with a `command` is
+recommended for best security.
 
 ## Manual discovery is no longer required
 
