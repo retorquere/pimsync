@@ -1,0 +1,9 @@
+.book-menu a {
+  // These links don't look like links by default.
+  color: var(--color-link);
+}
+
+.book-menu a.active {
+  // This needs some highlight to indicate which one is active.
+  font-weight: bold;
+}

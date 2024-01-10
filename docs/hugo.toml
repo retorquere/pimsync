@@ -1,0 +1,9 @@
+baseURL = 'https://vdirsyncer.pimutils.org/'
+languageCode = 'en-gb'
+title = 'vdirsyncer 2.x documentation'
+
+# From: https://github.com/alex-shpak/hugo-book
+theme = "hugo-book"
+
+[params]
+  BookTheme = 'auto'

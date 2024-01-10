@@ -1,4 +1,14 @@
-# Breaking changes from the 0.1.x series
+---
+title: Migration guide
+date: 2024-01-10 12:46:41 +0100
+type: docs
+---
+
+<!-- FIXME: templates don't render titles by default? -->
+# Migration guide
+
+This migration guide covers changes to be kept in mind when migrating from the
+previous implementation (e.g.: the 0.x series).
 
 ## Fetch mechanisms
 
@@ -10,14 +20,14 @@ Only the `command` mechanism remains, and its syntax has changed slightly.
 A `fetch` definition with a `command` would previously look like this:
 
 ```toml
-password.fetch = ["command", "hiq", "-dFpassword", "proto=carddavs", "username=whynothugo@fastmail.com"]
+password.fetch = ["command", "hiq", "-dFpassword", "proto=carddavs", "username=..."]
 ```
 
 The word `fetch` is replaced by `command` and the word `command` is no longer
 required as the first parameter:
 
 ```toml
-password.command = ["hiq", "-dFpassword", "proto=carddavs", "username=whynothugo@fastmail.com"]
+password.command = ["hiq", "-dFpassword", "proto=carddavs", "username=..."]
 ```
 
 ### Fetch / shell
@@ -60,11 +70,19 @@ recommended for best security.
 Discovering collections ahead of time is no longer required. Collections are
 discovered automatically. The `discover` command is gone.
 
+The `-d`/`--discover` flag merely prints discovered collections as a
+convenience for manually configuring collections. It does not affect
+vdirsyncer's internal state.
+
 ## Custom encodings for filesystem storage
 
 The filesystem storage saves files as UTF-8, and attempting to use the
 `encoding` setting will fail. If another encoding is required for some
-scenario, please open an issue.
+scenario, please [open an issue].
+
+<!-- TODO: this should be replaced with a link to a page describing issues and lists -->
+
+[open an issue]: https://todo.sr.ht/~whynothugo/vdirsyncer-rs
 
 ## Collections are declared in a different format
 
@@ -81,8 +99,9 @@ same:
 collections = ["from b"]
 ```
 
-Only the above usages remain the same. To specify a single collection by name,
-use:
+Only the above usages remain unchanged.
+
+To specify a single collection by name, use:
 
 ```toml
 collections = [
@@ -104,15 +123,23 @@ Finally, two different collections can mapped on each side.
 
 ```toml
 collections = [
-    { # first collection
-        "my calendar", # this is an alias, used for logging.
+    # first collection
+    {
+        # an alias, used for logging:
+        "personal",
+        # the description of the collection on storage a
         { href = "/calendars/hugo/c037725e-e4fd-4b3e-b73d-d5e27d5a90a9/" },
-        { href = "/work/" },
-    },
-    { # second collection
-        "another calendar", # this is an alias, used for logging.
-        { id = "personal" },
+        # the description of the collection on storage b
         { href = "/personal/" },
+    },
+    # second collection
+    {
+        # an alias, used for logging:
+        "work",
+        # the description of the collection on storage a
+        { id = "work" },
+        # the description of the collection on storage b
+        { href = "/work/" },
     }
 ]
 ```
