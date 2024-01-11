@@ -107,7 +107,10 @@ impl<'pair, I: Item> Plan<'pair, I> {
             .await
             .map_err(PlanError::StateA)?;
 
-        let collection_plans = create_plan_for_mappings(&mappings, &a, &b, prev_a, prev_b);
+        let collection_plans = mappings
+            .iter()
+            .filter_map(|m| create_plan_for_mapping(m, &a, &b, prev_a, prev_b))
+            .collect::<Vec<_>>();
 
         Ok(Plan {
             pair,
@@ -178,44 +181,34 @@ fn create_mappings_for_pair<I: Item>(
     Ok(mappings)
 }
 
-/// Create plan items for a pair and its collection mappings.
+/// Create plan for a collection mapping.
 ///
 /// Performs no I/O; only operates on input data.
-fn create_plan_for_mappings(
-    mappings: &[ResolvedMapping],
+fn create_plan_for_mapping(
+    mapping: &ResolvedMapping,
     current_a: &StorageState,
     current_b: &StorageState,
     previous_a: Option<&StorageState>,
     previous_b: Option<&StorageState>,
-) -> Vec<CollectionPlan> {
-    // TODO: this method's implementation is not performant. It does work. Performance will be
-    //       tweaked at a later date. Ideally, we'll have benchmarks in place first.
+) -> Option<CollectionPlan> {
+    let (cur_a, prev_a) = if let Some(href) = mapping.href_a() {
+        (
+            current_a.find_collection_state(href),
+            previous_a.and_then(|s| s.find_collection_state(href)),
+        )
+    } else {
+        (None, None)
+    };
+    let (cur_b, prev_b) = if let Some(href) = mapping.href_b() {
+        (
+            current_b.find_collection_state(href),
+            previous_b.and_then(|s| s.find_collection_state(href)),
+        )
+    } else {
+        (None, None)
+    };
 
-    let mut collection_plans = Vec::new();
-    for collection in mappings {
-        let mut prev_a = None;
-        let mut cur_a = None;
-        let mut prev_b = None;
-        let mut cur_b = None;
-
-        if let Some(href) = collection.href_a() {
-            cur_a = current_a.find_collection_state(href);
-            prev_a = previous_a
-                .as_ref()
-                .and_then(|s| s.find_collection_state(href));
-        };
-        if let Some(href) = collection.href_b() {
-            cur_b = current_b.find_collection_state(href);
-            prev_b = previous_b
-                .as_ref()
-                .and_then(|s| s.find_collection_state(href));
-        };
-
-        if let Some(plan) = CollectionPlan::new(collection, prev_a, cur_a, prev_b, cur_b) {
-            collection_plans.push(plan);
-        };
-    }
-    collection_plans
+    CollectionPlan::new(mapping, prev_a, cur_a, prev_b, cur_b)
 }
 
 #[cfg(test)]
