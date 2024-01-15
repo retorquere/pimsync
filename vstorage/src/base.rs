@@ -207,8 +207,8 @@ where
 
     /// Parse the item and return a unique identifier for it.
     ///
-    /// The `uid` does not change when the item is modified. The `uid` MUST remain the same when
-    /// the item is copied across storages and storage types.
+    /// The `uid` does not change when the item is modified. The `uid` remains the same when the
+    /// item is copied across storages and storage types.
     #[must_use]
     fn uid(&self) -> Option<String>;
 

@@ -2,14 +2,15 @@
 //
 // SPDX-License-Identifier: EUPL-1.2
 
-//! This crate is part of the `vdirsyncer` project, and implements a common API for reading and
-//! writing to different underlying storage implementations. Storage implementations can contain
-//! `icalendar` components, `vcard` entries, or any other content type.
+//! This crate implements a common API for reading and writing items on different underlying
+//! storage implementations. Storage implementations can contain `icalendar` components, `vcard`
+//! entries, or content types where items are either immutable or have unique ids.
 //!
 //! # Storage
 //!
-//! A [`Storage`] contains a set of [`Collection`](crate::base::Collection)s, where each collection
-//! can contain many items. For example:
+//! A [`Storage`] contains a set of collections, where each collection can contain many items, but
+//! not other collections. This restriction matches the semantics of caldav/carddav and also object
+//! stores like S3. Some examples are:
 //!
 //! - A [`CalDavStorage`] is a caldav server, where each collection is an individual calendar, and
 //! each item is an individual event or todo in a calendar.
@@ -24,7 +25,7 @@
 //! each side are to be treated as the same.
 //!
 //! Interpreting content to extract these UIDs is done via the generic `I` parameter, which
-//! describes the content type of a given storage instance.
+//! implements the necessary operations for a specific content type of a given storage instance.
 //!
 //! [`Storage`]: crate::base::Storage
 //! [`CalDavStorage`]: crate::caldav::CalDavStorage
@@ -32,8 +33,8 @@
 //!
 //! ## Collections, Hrefs and Collections Ids
 //!
-//! Collections cannot be nested (although having an `INBOX` collection and an `INBOX/Feeds`
-//! collection is perfectly valid).
+//! As mentioned above, collections cannot be nested (although having an `INBOX` collection and an
+//! `INBOX/Feeds` collection is perfectly valid).
 //!
 //! A collection has an `href` and an `id`. The `href` attribute is storage dependant, meaning that
 //! when a collection is synchronised to another storage, it may have a different `href`. The `id`
@@ -45,6 +46,10 @@
 //! treated as an opaque value and not given any special meaning outside of this crate.
 //!
 //! See also: [`CollectionId`].
+//!
+//! ## Items
+//!
+//! See [`Item`](crate::base::Item).
 //!
 //! ## Entity tags
 //!
