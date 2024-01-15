@@ -4,6 +4,7 @@ use crate::VERSION;
 
 #[derive(Parser)]
 #[clap(author, version = VERSION, about, long_about = None)]
+#[allow(clippy::struct_excessive_bools)]
 pub(crate) struct Vdirsyncer {
     /// Check configuration file and exit
     #[arg(short = 'C', long)]
@@ -16,6 +17,10 @@ pub(crate) struct Vdirsyncer {
     /// Continuously monitor for changes and re-synchronise.
     #[arg(short, long)]
     pub(crate) continuous: bool,
+
+    /// Only plan changes but don't execute any.
+    #[arg(short, long)]
+    pub(crate) dry_run: bool,
 
     /// Increase verbosity (can be specified more than once).
     #[clap(short, long, action = clap::ArgAction::Count)]

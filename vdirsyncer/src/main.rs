@@ -81,9 +81,9 @@ pub(crate) struct App {
 }
 
 impl App {
-    async fn sync(&self) {
-        synchronise_pairs(&self.calendar_pairs).await;
-        synchronise_pairs(&self.contact_pairs).await;
+    async fn sync(&self, dry_run: bool) {
+        synchronise_pairs(&self.calendar_pairs, dry_run).await;
+        synchronise_pairs(&self.contact_pairs, dry_run).await;
         info!("Synchronisation complete");
     }
 }
@@ -114,15 +114,18 @@ async fn main() -> anyhow::Result<()> {
 
     if cli.sync {
         if cli.continuous {
+            if cli.dry_run {
+                bail!("--dry-run and --continuous are mutually exclusive");
+            }
             warn!("Storage monitoring is not implemented, will auto-sync every 5 minutes.");
             // TODO: HTTPS connections are kept open for a while; this should also be configurable.
             loop {
-                app.sync().await;
+                app.sync(false).await;
                 // TODO: make this interval configurable.
                 tokio::time::sleep(Duration::from_secs(5 * 60)).await;
             }
         } else {
-            app.sync().await;
+            app.sync(cli.dry_run).await;
         }
     }
 
@@ -132,8 +135,10 @@ async fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-/// Returns an error if a fatal error has ocurred.
-async fn synchronise_pairs<I: Item>(pairs: &Vec<NamedPair<I>>) -> anyhow::Result<()> {
+async fn synchronise_pairs<I: Item>(
+    pairs: &Vec<NamedPair<I>>,
+    dry_run: bool,
+) -> anyhow::Result<()> {
     for pair in pairs {
         // TODO: locking storages so we can do things in parallel
         let state = pair.load_state()?;
@@ -141,18 +146,23 @@ async fn synchronise_pairs<I: Item>(pairs: &Vec<NamedPair<I>>) -> anyhow::Result
         debug!("Creating plan for storage pair '{}'.", pair.name);
         let plan = Plan::new(&pair.inner, state.as_ref()).await?;
 
+        // TODO: print this in more human-friendly format
         dbg!(&plan);
 
-        let sync_result = plan.execute().await;
-        for err in sync_result.errors() {
-            error!("Error during syncrhonisation: {err}");
-        }
+        if dry_run {
+            debug!("Dry run: not synchronising.");
+        } else {
+            let sync_result = plan.execute().await;
+            for err in sync_result.errors() {
+                error!("Error during syncrhonisation: {err}");
+            }
 
-        if let Err(err) = pair.save_state(sync_result.final_state()) {
-            error!("Saving the current state failed. This is a fatal error.");
-            error!("If any changes occurr before the next synchronisation, they will result in conflict!");
-            panic!("{err:?}");
-        };
+            if let Err(err) = pair.save_state(sync_result.final_state()) {
+                error!("Saving the current state failed. This is a fatal error.");
+                error!("If any changes occurr before the next synchronisation, they will result in conflict!");
+                panic!("{err:?}");
+            };
+        }
     }
     Ok(())
 }
