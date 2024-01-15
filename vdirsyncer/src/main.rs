@@ -111,8 +111,8 @@ async fn main() -> anyhow::Result<()> {
     debug!("Initialised application");
 
     if cli.sync {
-        if cli.daemon {
-            warn!("Storage monitor is not implemented, will auto-sync every 5 minutes.");
+        if cli.continuous {
+            warn!("Storage monitoring is not implemented, will auto-sync every 5 minutes.");
             // TODO: HTTPS connections are kept open for a while; this should also be configurable.
             loop {
                 app.sync().await;

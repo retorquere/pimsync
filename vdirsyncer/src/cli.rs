@@ -6,16 +6,16 @@ use crate::VERSION;
 #[clap(author, version = VERSION, about, long_about = None)]
 pub(crate) struct Vdirsyncer {
     /// Check configuration file and exit
-    #[arg(short, long)]
+    #[arg(short = 'C', long)]
     pub(crate) check: bool,
 
     /// Sync configured storage pairs.
     #[arg(short, long)]
     pub(crate) sync: bool,
 
-    /// Continuously sync.
+    /// Continuously monitor for changes and re-synchronise.
     #[arg(short, long)]
-    pub(crate) daemon: bool,
+    pub(crate) continuous: bool,
 
     /// Increase verbosity (can be specified more than once).
     #[clap(short, long, action = clap::ArgAction::Count)]
