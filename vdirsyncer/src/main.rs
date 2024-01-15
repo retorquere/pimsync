@@ -71,6 +71,51 @@ impl<I: Item> NamedPair<I> {
 
         Ok(())
     }
+
+    /// Returns an error only if it is fatal.
+    ///
+    /// If partial errors occurred during synchronisations, returns `Ok(())`.
+    async fn synchronise_pair(self: &NamedPair<I>, dry_run: bool) -> anyhow::Result<()> {
+        // TODO: lock storages so we can do things in parallel
+        let state = match self.load_state() {
+            Ok(s) => s,
+            Err(err) => {
+                // TODO: is this enough, or is {:?} better for the error?
+                error!("Skipping pair {}; failed to load state: {}", self.name, err);
+                return Ok(());
+            }
+        };
+
+        debug!("Creating plan for storage pair '{}'.", self.name);
+        let plan = match Plan::new(&self.inner, state.as_ref()).await {
+            Ok(p) => p,
+            Err(err) => {
+                // TODO: is this enough, or is {:?} better for the error?
+                error!("Skipping pair {}; planning failed: {}", self.name, err);
+                return Ok(());
+            }
+        };
+
+        // TODO: print this in more human-friendly format
+        dbg!(&plan);
+
+        if dry_run {
+            debug!("Dry run: not synchronising.");
+        } else {
+            let sync_result = plan.execute().await;
+            for err in sync_result.errors() {
+                error!("Error during syncrhonisation: {err}");
+            }
+
+            if let Err(err) = self.save_state(sync_result.final_state()) {
+                error!("Saving the current state failed. This is a fatal error.");
+                error!("If any changes occurr before the next synchronisation, they will result in conflict!");
+                return Err(err);
+            };
+        }
+
+        Ok(())
+    }
 }
 
 pub(crate) struct App {
@@ -81,10 +126,16 @@ pub(crate) struct App {
 }
 
 impl App {
-    async fn sync(&self, dry_run: bool) {
-        synchronise_pairs(&self.calendar_pairs, dry_run).await;
-        synchronise_pairs(&self.contact_pairs, dry_run).await;
+    /// Returns an error if a fatal error has ocurred.
+    async fn sync(&self, dry_run: bool) -> anyhow::Result<()> {
+        for pair in &self.calendar_pairs {
+            pair.synchronise_pair(dry_run).await?;
+        }
+        for pair in &self.contact_pairs {
+            pair.synchronise_pair(dry_run).await?;
+        }
         info!("Synchronisation complete");
+        Ok(())
     }
 }
 
@@ -125,44 +176,12 @@ async fn main() -> anyhow::Result<()> {
                 tokio::time::sleep(Duration::from_secs(5 * 60)).await;
             }
         } else {
-            app.sync(cli.dry_run).await;
+            app.sync(cli.dry_run).await
         }
+    } else {
+        Ok(())
     }
 
     // TODO: turn storages into lockables
     // TODO: create per-pair tasks and sync pairs in parallel.
-
-    Ok(())
-}
-
-async fn synchronise_pairs<I: Item>(
-    pairs: &Vec<NamedPair<I>>,
-    dry_run: bool,
-) -> anyhow::Result<()> {
-    for pair in pairs {
-        // TODO: locking storages so we can do things in parallel
-        let state = pair.load_state()?;
-
-        debug!("Creating plan for storage pair '{}'.", pair.name);
-        let plan = Plan::new(&pair.inner, state.as_ref()).await?;
-
-        // TODO: print this in more human-friendly format
-        dbg!(&plan);
-
-        if dry_run {
-            debug!("Dry run: not synchronising.");
-        } else {
-            let sync_result = plan.execute().await;
-            for err in sync_result.errors() {
-                error!("Error during syncrhonisation: {err}");
-            }
-
-            if let Err(err) = pair.save_state(sync_result.final_state()) {
-                error!("Saving the current state failed. This is a fatal error.");
-                error!("If any changes occurr before the next synchronisation, they will result in conflict!");
-                panic!("{err:?}");
-            };
-        }
-    }
-    Ok(())
 }
