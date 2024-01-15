@@ -226,18 +226,18 @@ where
         properties: &[&Property<'_, '_>],
         depth: u8,
     ) -> Result<(Parts, Bytes), DavError> {
-        let mut props = String::new();
+        let mut body = String::from(r#"<propfind xmlns="DAV:"><prop>"#);
         for prop in properties {
-            props.push_str(&render_xml(prop));
+            body.push_str(&render_xml(prop));
         }
+        body.push_str("</prop></propfind>");
+
         let request = Request::builder()
             .method("PROPFIND")
             .uri(url)
             .header("Content-Type", "application/xml; charset=utf-8")
             .header("Depth", depth.to_string())
-            .body(Body::from(format!(
-                r#"<propfind xmlns="DAV:"><prop>{props}</prop></propfind>"#
-            )))?;
+            .body(Body::from(body))?;
 
         self.request(request).await.map_err(DavError::Request)
     }
