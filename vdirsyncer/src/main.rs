@@ -121,6 +121,7 @@ impl<I: Item> NamedPair<I> {
 pub(crate) struct App {
     // TODO: this also needs a global Mutex, which will be taken when trying to take locks on
     // individual storages.
+    interval: Duration,
     calendar_pairs: Vec<NamedPair<IcsItem>>,
     contact_pairs: Vec<NamedPair<VcardItem>>,
 }
@@ -173,7 +174,7 @@ async fn main() -> anyhow::Result<()> {
             loop {
                 app.sync(false).await;
                 // TODO: make this interval configurable.
-                tokio::time::sleep(Duration::from_secs(5 * 60)).await;
+                tokio::time::sleep(app.interval).await;
             }
         } else {
             app.sync(cli.dry_run).await

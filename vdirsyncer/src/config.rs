@@ -16,7 +16,7 @@ use std::{
     path::{Path, PathBuf},
     process::{Command, Stdio},
     sync::Arc,
-    time::SystemTime,
+    time::{Duration, SystemTime},
 };
 
 use anyhow::{bail, Context};
@@ -124,6 +124,7 @@ impl Config {
         Ok(App {
             calendar_pairs,
             contact_pairs,
+            interval: Duration::from_secs(self.general.interval),
         })
     }
 }
@@ -149,6 +150,13 @@ fn expand_tilde(orig: Utf8PathBuf) -> Result<Utf8PathBuf, camino::FromPathBufErr
 #[derive(Deserialize, Debug)]
 pub(crate) struct GeneralSection {
     status_path: Utf8PathBuf,
+    /// In seconds. Used when storages do not implement or support monitoring.
+    #[serde(default = "default_interval")]
+    interval: u64,
+}
+
+fn default_interval() -> u64 {
+    300
 }
 
 /// A "pair" section of the parsed configuration file
