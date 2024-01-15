@@ -56,6 +56,7 @@ impl<I: Item> NamedPair<I> {
     }
 
     fn save_state(&self, new_state: &PairState) -> anyhow::Result<()> {
+        debug!("Saving state file for pair {}.", self.name);
         let serialised = toml::to_string(new_state).context("Failed to serialise new status.")?;
 
         // FIXME: save atomically
@@ -64,9 +65,9 @@ impl<I: Item> NamedPair<I> {
             .truncate(true)
             .write(true)
             .open(&self.status_path)
-            .context("Failed to open file to save status status.")?
+            .context("Failed to open file to save state.")?
             .write(serialised.as_bytes())
-            .context("Error writing serialise status")?;
+            .context("Error writing new state to file.")?;
 
         Ok(())
     }
