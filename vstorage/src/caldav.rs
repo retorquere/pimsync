@@ -151,10 +151,9 @@ where
             return Err(ErrorKind::InvalidData.into());
         }
 
-        let item = match results.pop() {
-            Some(i) => i,
-            None => return Err(ErrorKind::InvalidData.into()),
-        };
+        let item = results
+            .pop()
+            .ok_or_else(|| Error::from(ErrorKind::InvalidData))?;
 
         if item.href != href {
             return Err(Error::new(
