@@ -58,6 +58,7 @@ impl<I: Item> NamedPair<I> {
     fn save_state(&self, new_state: &PairState) -> anyhow::Result<()> {
         let serialised = toml::to_string(new_state).context("Failed to serialise new status.")?;
 
+        // FIXME: save atomically
         let mut file = OpenOptions::new()
             .create(true)
             .truncate(true)
@@ -148,8 +149,6 @@ async fn synchronise_pairs<I: Item>(pairs: &Vec<NamedPair<I>>) -> anyhow::Result
         // TODO: print state to stdout if this fails.
         //       keep in mind that this is FATAL!!
         pair.save_state(sync_result.final_state()).unwrap(); // FIXME: handle this delicately
-
-        // TODO: save state ATOMICALLY!
     }
     Ok(())
 }

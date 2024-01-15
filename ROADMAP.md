@@ -1,6 +1,9 @@
 # Features missing for parity with 0.1.x
 
 - Synchronising properties (colour, displayname, etc).
+- Atomically write files to disk:
+    - Filesystem storage
+    - State file
 - Conflict resolution.
 - Protect collections from deletion.
 - Singlefile storage
