@@ -76,9 +76,6 @@ pub enum ResolveContextPathError {
     #[error("failed to create uri and request with given parameters")]
     BadInput(#[from] http::Error),
 
-    #[error("bad scheme in url")]
-    BadScheme,
-
     #[error("error performing http request")]
     Request(#[from] RequestError),
 
@@ -86,7 +83,7 @@ pub enum ResolveContextPathError {
     MissingLocation,
 
     #[error("error building new Uri with Location from response")]
-    BadAbsoluteLocation(#[from] http::uri::InvalidUri),
+    BadLocation(#[from] http::uri::InvalidUri),
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -352,7 +349,8 @@ where
 
     /// Resolve the default context path using a well-known path.
     ///
-    /// This only applies for servers supporting webdav extensions like caldav or carddav.
+    /// This only applies for servers supporting webdav extensions like caldav or carddav. Returns
+    /// `Ok(None)` if the well-known path does not redirect to another location.
     ///
     /// # Errors
     ///
@@ -365,6 +363,7 @@ where
     ///
     /// - <https://www.rfc-editor.org/rfc/rfc6764#section-5>
     /// - [`ResolveContextPathError`]
+    #[allow(clippy::missing_panics_doc)] // panic condition is unreachable.
     pub async fn find_context_path(
         &self,
         service: DiscoverableService,
@@ -398,15 +397,21 @@ where
             .get(hyper::header::LOCATION)
             .ok_or(ResolveContextPathError::MissingLocation)?
             .as_bytes();
-        let uri = if location.starts_with(b"/") {
-            Uri::builder()
-                .scheme(service.scheme())
-                .authority(format!("{host}:{port}"))
-                .path_and_query(location)
-                .build()?
-        } else {
-            Uri::try_from(location)?
-        };
+        let uri = Uri::try_from(location)?;
+
+        if uri.host().is_some() {
+            return Ok(Some(uri)); // Uri is absolute.
+        }
+
+        let mut parts = uri.into_parts();
+        if parts.scheme.is_none() {
+            parts.scheme = Some(service.scheme());
+        }
+        if parts.authority.is_none() {
+            parts.authority = Some(format!("{host}:{port}").try_into()?);
+        }
+
+        let uri = Uri::from_parts(parts).expect("uri parts are already validated");
         Ok(Some(uri))
     }
 
