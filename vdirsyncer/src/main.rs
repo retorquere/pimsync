@@ -132,6 +132,7 @@ async fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Returns an error if a fatal error has ocurred.
 async fn synchronise_pairs<I: Item>(pairs: &Vec<NamedPair<I>>) -> anyhow::Result<()> {
     for pair in pairs {
         // TODO: locking storages so we can do things in parallel
@@ -147,9 +148,11 @@ async fn synchronise_pairs<I: Item>(pairs: &Vec<NamedPair<I>>) -> anyhow::Result
             error!("Error during syncrhonisation: {err}");
         }
 
-        // TODO: print state to stdout if this fails.
-        //       keep in mind that this is FATAL!!
-        pair.save_state(sync_result.final_state()).unwrap(); // FIXME: handle this delicately
+        if let Err(err) = pair.save_state(sync_result.final_state()) {
+            error!("Saving the current state failed. This is a fatal error.");
+            error!("If any changes occurr before the next synchronisation, they will result in conflict!");
+            panic!("{err:?}");
+        };
     }
     Ok(())
 }
