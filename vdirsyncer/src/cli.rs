@@ -10,10 +10,6 @@ pub(crate) struct Vdirsyncer {
     #[arg(short = 'C', long)]
     pub(crate) check: bool,
 
-    /// Sync configured storage pairs.
-    #[arg(short, long)]
-    pub(crate) sync: bool,
-
     /// Continuously monitor for changes and re-synchronise.
     #[arg(short, long)]
     pub(crate) continuous: bool,

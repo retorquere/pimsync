@@ -147,10 +147,6 @@ async fn main() -> anyhow::Result<()> {
     simple_logger::init_with_level(log_level).expect("logger should initialise");
     info!("Logging enabled with {} level", log_level);
 
-    if !cli.sync && !cli.check {
-        bail!("Must specify something to do (either --sync or --check)");
-    }
-
     let config = config::load_from_default_path().context("could not load configuration file")?;
     debug!("Parsed configuration: {:?}", &config);
 
@@ -164,23 +160,19 @@ async fn main() -> anyhow::Result<()> {
         .context("Failed to initialise with given configuration.")?;
     debug!("Initialised application");
 
-    if cli.sync {
-        if cli.continuous {
-            if cli.dry_run {
-                bail!("--dry-run and --continuous are mutually exclusive");
-            }
-            warn!("Storage monitoring is not implemented, will auto-sync every 5 minutes.");
-            // TODO: HTTPS connections are kept open for a while; this should also be configurable.
-            loop {
-                app.sync(false).await;
-                // TODO: make this interval configurable.
-                tokio::time::sleep(app.interval).await;
-            }
-        } else {
-            app.sync(cli.dry_run).await
+    if cli.continuous {
+        if cli.dry_run {
+            bail!("--dry-run and --continuous are mutually exclusive");
+        }
+        warn!("Storage monitoring is not implemented, will auto-sync every 5 minutes.");
+        // TODO: HTTPS connections are kept open for a while; this should also be configurable.
+        loop {
+            app.sync(false).await;
+            // TODO: make this interval configurable.
+            tokio::time::sleep(app.interval).await;
         }
     } else {
-        Ok(())
+        app.sync(cli.dry_run).await
     }
 
     // TODO: turn storages into lockables
