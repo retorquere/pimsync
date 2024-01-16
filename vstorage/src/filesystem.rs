@@ -81,6 +81,9 @@ where
                 .to_str()
                 .ok_or_else(|| Error::new(ErrorKind::InvalidData, "collection name is not utf8"))?
                 .to_owned();
+            if href.starts_with('.') {
+                continue;
+            }
             let id = href
                 .parse()
                 .map_err(|e| Error::new(ErrorKind::InvalidData, e))?;
