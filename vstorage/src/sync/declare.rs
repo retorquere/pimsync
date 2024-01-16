@@ -134,4 +134,14 @@ impl<I: Item> StoragePair<I> {
             all_from_b: false,
         }
     }
+
+    #[must_use]
+    pub fn storage_a(&self) -> Arc<dyn Storage<I>> {
+        self.storage_a.clone()
+    }
+
+    #[must_use]
+    pub fn storage_b(&self) -> Arc<dyn Storage<I>> {
+        self.storage_b.clone()
+    }
 }

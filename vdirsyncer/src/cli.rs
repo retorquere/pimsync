@@ -18,6 +18,10 @@ pub(crate) struct Vdirsyncer {
     #[arg(short, long)]
     pub(crate) dry_run: bool,
 
+    /// Discover and display remote collections.
+    #[arg(short = 'D', long)]
+    pub(crate) discover: bool,
+
     /// Increase verbosity (can be specified more than once).
     #[clap(short, long, action = clap::ArgAction::Count)]
     verbose: u8,

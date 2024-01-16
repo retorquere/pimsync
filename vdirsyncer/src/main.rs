@@ -116,6 +116,22 @@ impl<I: Item> NamedPair<I> {
 
         Ok(())
     }
+
+    async fn discover(&self) -> anyhow::Result<()> {
+        let disco = self.inner.storage_a().discover_collections().await?;
+        println!("For pair {}, storage a:", self.name);
+        for collection in disco.collections() {
+            println!("- id={} href={}", collection.id(), collection.href());
+        }
+
+        let disco = self.inner.storage_b().discover_collections().await?;
+        println!("For pair {}, storage b:", self.name);
+        for collection in disco.collections() {
+            println!("- id={} href={}", collection.id(), collection.href());
+        }
+
+        Ok(())
+    }
 }
 
 pub(crate) struct App {
@@ -136,6 +152,16 @@ impl App {
             pair.synchronise_pair(dry_run).await?;
         }
         info!("Synchronisation complete");
+        Ok(())
+    }
+
+    async fn discover(&self) -> anyhow::Result<()> {
+        for pair in &self.calendar_pairs {
+            pair.discover().await?;
+        }
+        for pair in &self.contact_pairs {
+            pair.discover().await?;
+        }
         Ok(())
     }
 }
@@ -159,6 +185,10 @@ async fn main() -> anyhow::Result<()> {
         .await
         .context("Failed to initialise with given configuration.")?;
     debug!("Initialised application");
+
+    if cli.discover {
+        return app.discover().await;
+    }
 
     if cli.continuous {
         if cli.dry_run {
