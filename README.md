@@ -10,6 +10,14 @@ well as crates with associated functionality.
 
 For the original Python implementation see https://github.com/pimutils/vdirsyncer.
 
+# Documentation
+
+User documentation is included in the `docs` directory and can be built using
+`hugo`. This will likely change in future to something easier to distribute
+along with the binaries.
+
+Developer documentation for libraries can be built with `cargo doc`.
+
 # Hacking
 
 ## Integration tests
