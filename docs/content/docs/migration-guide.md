@@ -52,7 +52,7 @@ following script:
 ```sh
 read PASSWORD
 export PASSWORD
-vdirsycner --sync
+vdirsycner sync
 ```
 
 Works with the following configuration:
@@ -70,9 +70,9 @@ recommended for best security.
 Discovering collections ahead of time is no longer required. Collections are
 discovered automatically. The `discover` command is gone.
 
-The `-d`/`--discover` flag merely prints discovered collections as a
-convenience for manually configuring collections. It does not affect
-vdirsyncer's internal state.
+The `discover` command merely prints discovered collections as a convenience
+for manually configuring collections. It does not affect vdirsyncer's internal
+state.
 
 ## Custom encodings for filesystem storage
 

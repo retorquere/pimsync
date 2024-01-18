@@ -1,26 +1,30 @@
-use clap::Parser;
+use clap::{Parser, Subcommand};
 
 use crate::VERSION;
+
+#[derive(Subcommand, PartialEq)]
+pub(crate) enum Command {
+    /// Check configuration file and exit
+    Check,
+    /// Sync configured storage pairs.
+    Sync {
+        /// Continuously monitor for changes and re-synchronise.
+        #[arg(short, long)]
+        continuous: bool,
+        /// Only plan changes but don't execute any.
+        #[arg(short, long)]
+        dry_run: bool,
+    },
+    /// Discover and display remote collections.
+    Discover,
+}
 
 #[derive(Parser)]
 #[clap(author, version = VERSION, about, long_about = None)]
 #[allow(clippy::struct_excessive_bools)]
 pub(crate) struct Vdirsyncer {
-    /// Check configuration file and exit
-    #[arg(short = 'C', long)]
-    pub(crate) check: bool,
-
-    /// Continuously monitor for changes and re-synchronise.
-    #[arg(short, long)]
-    pub(crate) continuous: bool,
-
-    /// Only plan changes but don't execute any.
-    #[arg(short, long)]
-    pub(crate) dry_run: bool,
-
-    /// Discover and display remote collections.
-    #[arg(short = 'D', long)]
-    pub(crate) discover: bool,
+    #[command(subcommand)]
+    pub(crate) command: Command,
 
     /// Increase verbosity (can be specified more than once).
     #[clap(short, long, action = clap::ArgAction::Count)]

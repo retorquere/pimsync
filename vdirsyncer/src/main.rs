@@ -15,7 +15,7 @@ use vstorage::{
     sync::{declare::StoragePair, plan::Plan, state::PairState},
 };
 
-use crate::cli::Vdirsyncer;
+use crate::cli::{Command, Vdirsyncer};
 
 mod cli;
 mod config;
@@ -176,33 +176,34 @@ async fn main() -> anyhow::Result<()> {
     let config = config::load_from_default_path().context("could not load configuration file")?;
     debug!("Parsed configuration: {:?}", &config);
 
-    if cli.check {
-        return Ok(());
-    }
-
     let app = config
         .into_app()
         .await
         .context("Failed to initialise with given configuration.")?;
     debug!("Initialised application");
 
-    if cli.discover {
-        return app.discover().await;
-    }
-
-    if cli.continuous {
-        if cli.dry_run {
-            bail!("--dry-run and --continuous are mutually exclusive");
+    match cli.command {
+        Command::Check => Ok(()),
+        Command::Sync {
+            continuous,
+            dry_run,
+        } => {
+            if continuous {
+                if dry_run {
+                    bail!("dry-run and continuous are mutually exclusive");
+                }
+                warn!("Storage monitoring is not implemented, will auto-sync every 5 minutes.");
+                // TODO: HTTPS connections are kept open for a while; this should also be configurable.
+                loop {
+                    app.sync(false).await;
+                    // TODO: make this interval configurable.
+                    tokio::time::sleep(app.interval).await;
+                }
+            } else {
+                app.sync(dry_run).await
+            }
         }
-        warn!("Storage monitoring is not implemented, will auto-sync every 5 minutes.");
-        // TODO: HTTPS connections are kept open for a while; this should also be configurable.
-        loop {
-            app.sync(false).await;
-            // TODO: make this interval configurable.
-            tokio::time::sleep(app.interval).await;
-        }
-    } else {
-        app.sync(cli.dry_run).await
+        Command::Discover => app.discover().await,
     }
 
     // TODO: turn storages into lockables
