@@ -7,3 +7,5 @@ theme = "hugo-book"
 
 [params]
   BookTheme = 'auto'
+  # We have a hack to render the right-side Toc inside the left-side ToC.
+  BookToC = true
