@@ -489,13 +489,12 @@ impl CollectionPlan {
             })
             .collect::<Vec<ItemAction>>();
 
-        let collection_action = match Action::from_changes(
-            Change::for_collection(current_state_a, previous_state_a),
-            Change::for_collection(current_state_b, previous_state_b),
-        ) {
-            Some(Action::Conflict) => None,
-            other => other,
-        };
+        let collection_action = Action::for_collection(
+            current_state_a,
+            current_state_b,
+            previous_state_b,
+            previous_state_a,
+        );
 
         if collection_action.is_none() && item_actions.is_empty() {
             None
@@ -563,6 +562,37 @@ impl Action {
             | (Change::NoChange { .. }, Change::NoChange { .. }) => None,
         }
     }
+
+    #[must_use]
+    fn for_collection<'href>(
+        current_a: Option<&'href CollectionState>,
+        current_b: Option<&'href CollectionState>,
+        previous_a: Option<&'href CollectionState>,
+        previous_b: Option<&'href CollectionState>,
+    ) -> Option<Action> {
+        // TODO: CollectionActions are different from items actions:
+        //   - copying is just creating and doesn't need a source href
+        //   - creating needs an id
+        match (current_a, current_b, previous_a, previous_b) {
+            (None, None, _, _) | (Some(_), Some(_), _, _) => None,
+            // New or present in B, missing from A.
+            (None, Some(c), _, None) | (None, Some(c), None, Some(_)) => Some(Action::CopyToA {
+                source: c.href.clone(),
+            }),
+            // Deleted from A.
+            (None, Some(c), Some(_), Some(_)) => Some(Action::DeleteInB {
+                href: c.href.clone(),
+            }),
+            // New or present in A, missing from B.
+            (Some(c), None, None, _) | (Some(c), None, Some(_), None) => Some(Action::CopyToB {
+                source: c.href.clone(),
+            }),
+            // Deleted from B.
+            (Some(c), None, Some(_), Some(_)) => Some(Action::DeleteInA {
+                href: c.href.clone(),
+            }),
+        }
+    }
 }
 
 /// A transition that has occurred to a pair of items or collections.
@@ -597,21 +627,6 @@ impl<'href> Change<'href> {
             (Some(c), None) => Change::Changed { href: &c.href },
             (None, Some(_)) => Change::Deleted,
             (None, None) => Change::Absent,
-        }
-    }
-
-    #[must_use]
-    pub(super) fn for_collection(
-        current: Option<&'href CollectionState>,
-        previous: Option<&'href CollectionState>,
-    ) -> Change<'href> {
-        match (current, previous) {
-            (None, None) => Change::Absent,
-            (None, Some(_)) => Change::Deleted,
-            (Some(c), None) => Change::Changed { href: &c.href },
-            // TODO: Ignores meta; considers collections immutable:
-            // they might change etag (or meta!?!?!)
-            (Some(c), Some(_)) => Change::NoChange { href: &c.href },
         }
     }
 }
