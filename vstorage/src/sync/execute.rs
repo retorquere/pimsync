@@ -15,7 +15,7 @@ use crate::{
 };
 
 use super::{
-    plan::{ItemAction, Plan, ResolvedCollection, ResolvedMapping},
+    plan::{CollectionAction, ItemAction, Plan, ResolvedCollection},
     state::{CollectionState, PairState, StorageState},
 };
 
@@ -144,92 +144,58 @@ impl<'pair, I: Item> Plan<'pair, I> {
         let storage_b = &self.pair.storage_b;
 
         for mut cp in self.collection_plans {
-            let mut delete_collection_in_a = None;
-            let mut delete_collection_in_b = None;
-            let action = cp.take_collection_action();
-            match action {
-                None => {}
-                Some(action) => match action {
-                    Action::CopyToB { .. } => {
-                        create_collection(
-                            storage_b,
-                            cp.mapping().collection_b(),
-                            &mut final_state.b,
-                            &mut errors,
-                            action,
-                            cp.mapping(),
-                        )
-                        .await;
+            let mut deletion_action = None;
+            if let Some(action) = cp.take_collection_action() {
+                match action {
+                    CollectionAction::CreateInB { collection: ref c } => {
+                        if let Err(e) = create_collection(storage_b, c, &mut final_state.b).await {
+                            errors.push(SynchronizationError::new(action, e));
+                        };
                     }
-                    Action::CopyToA { .. } => {
-                        create_collection(
-                            storage_a,
-                            cp.mapping().collection_a(),
-                            &mut final_state.a,
-                            &mut errors,
-                            action,
-                            cp.mapping(),
-                        )
-                        .await;
+                    CollectionAction::CreateInA { collection: ref c } => {
+                        if let Err(e) = create_collection(storage_a, c, &mut final_state.a).await {
+                            errors.push(SynchronizationError::new(action, e));
+                        }
                     }
-                    Action::Conflict => {
-                        errors.push(SynchronizationError {
-                            action: Action::Conflict,
-                            resource: FailedResource::Collection {
-                                collection: cp.mapping().clone(),
-                            },
-                            /// FIXME: actually, meta can conflict.
-                            error: "Invalid input: conflict between storages is senseless".into(),
-                        });
+                    CollectionAction::DeleteInA { .. } | CollectionAction::DeleteInB { .. } => {
+                        deletion_action = Some(action);
                     }
-                    Action::DeleteInA { href } => {
-                        delete_collection_in_a = Some(href);
-                    }
-                    Action::DeleteInB { href } => {
-                        delete_collection_in_b = Some(href);
-                    }
-                },
+                }
             }
 
             for item_action in cp.items() {
                 // FIXME: I need to somehow move these two calls outside of the "for" loop.
-                let state_a = final_state.a.find_collection_state_mut(&cp.mapping().a);
-                let state_b = final_state.b.find_collection_state_mut(&cp.mapping().b);
+                let state_a = final_state
+                    .a
+                    .find_collection_state_mut(cp.mapping().collection_a());
+                let state_b = final_state
+                    .b
+                    .find_collection_state_mut(cp.mapping().collection_b());
 
                 if let Err(err) = item_action
                     .execute(storage_a, storage_b, state_a, state_b)
                     .await
                 {
-                    errors.push(SynchronizationError {
-                        action: item_action.action(),
-                        resource: FailedResource::Item {
-                            uid: item_action.uid().to_string(),
-                        },
-                        error: err,
-                    });
+                    errors.push(SynchronizationError::new(item_action.action(), err));
                 };
             }
-            if let Some(href) = delete_collection_in_a.take() {
-                delete_collection(
-                    storage_a,
-                    &href,
-                    &mut final_state.a,
-                    &mut errors,
-                    Action::DeleteInA { href: href.clone() },
-                    cp.mapping(),
-                )
-                .await;
-            }
-            if let Some(href) = delete_collection_in_b {
-                delete_collection(
-                    storage_b,
-                    &href,
-                    &mut final_state.b,
-                    &mut errors,
-                    Action::DeleteInA { href: href.clone() },
-                    cp.mapping(),
-                )
-                .await;
+
+            if let Some(action) = deletion_action {
+                match action {
+                    CollectionAction::DeleteInA { ref href } => {
+                        match storage_a.destroy_collection(href).await {
+                            Ok(()) => final_state.a.remove_collection(href),
+                            Err(e) => errors.push(SynchronizationError::new(action, e)),
+                        };
+                    }
+                    CollectionAction::DeleteInB { ref href } => {
+                        match storage_b.destroy_collection(href).await {
+                            Ok(()) => final_state.b.remove_collection(href),
+                            Err(e) => errors.push(SynchronizationError::new(action, e)),
+                        };
+                    }
+                    _ => unreachable!(),
+                }
             }
         }
 
@@ -281,10 +247,7 @@ async fn create_collection<I: Item>(
     storage: &Arc<dyn Storage<I>>,
     collection: &ResolvedCollection,
     state: &mut StorageState,
-    errors: &mut Vec<SynchronizationError>,
-    action: Action,
-    mapping: &ResolvedMapping,
-) {
+) -> Result<(), crate::Error> {
     let creation_result = match collection {
         ResolvedCollection::Id { id } => storage.create_collection_with_id(id).await,
         ResolvedCollection::Href { href } => storage.create_collection(href).await,
@@ -293,84 +256,70 @@ async fn create_collection<I: Item>(
     match creation_result {
         Ok(col) => {
             // FIXME: panics
-            // To be honest, it doesn't make sense that this error would ever happen.
-            // It implies that we managed to create a collection, but the `href` is not valid and
-            // we can't get it's collection_id.
+            // It doesn't make sense that this error would ever happen. It implies a collection was
+            // created, but the `href` is not valid and a collection_id cannot be resolved.
             let id = storage.collection_id(col.href()).unwrap();
             state.add_collection(id, col.href().to_string());
+            Ok(())
         }
-        Err(e) => {
-            errors.push(SynchronizationError {
-                action,
-                resource: FailedResource::Collection {
-                    collection: mapping.clone(),
-                },
-                error: Box::new(e),
-            });
-        }
-    };
+        Err(e) => Err(e),
+    }
 }
 
-async fn delete_collection<I: Item>(
-    storage: &Arc<dyn Storage<I>>,
-    href: &Href,
-    state: &mut StorageState,
-    errors: &mut Vec<SynchronizationError>,
-    action: Action,
-    mapping: &ResolvedMapping,
-) {
-    match storage.destroy_collection(href).await {
-        Ok(()) => {
-            state.remove_collection(href);
-        }
-        Err(e) => {
-            errors.push(SynchronizationError {
-                action,
-                resource: FailedResource::Collection {
-                    collection: mapping.clone(),
-                },
-                error: Box::new(e),
-            });
-        }
-    };
-}
-
-/// Inner type for [`SynchronizationError`].
 #[derive(Debug)]
-pub enum FailedResource {
-    Item { uid: String },
-    Collection { collection: ResolvedMapping },
+pub enum SomeAction {
+    Item(Action),
+    Collection(CollectionAction),
+}
+
+impl From<Action> for SomeAction {
+    fn from(item: Action) -> Self {
+        SomeAction::Item(item)
+    }
+}
+
+impl From<CollectionAction> for SomeAction {
+    fn from(collection: CollectionAction) -> Self {
+        SomeAction::Collection(collection)
+    }
 }
 
 /// An error synchronising two items between storages.
 #[derive(Debug)]
 pub struct SynchronizationError {
-    action: Action,
-    resource: FailedResource,
+    action: SomeAction,
     error: Box<dyn std::error::Error + 'static>,
 }
 
 impl SynchronizationError {
-    /// The action that failed to execute.
     #[must_use]
-    pub fn action(&self) -> &Action {
+    pub fn new(
+        action: impl Into<SomeAction>,
+        error: impl Into<Box<dyn std::error::Error + 'static>>,
+    ) -> Self {
+        Self {
+            action: action.into(),
+            error: error.into(),
+        }
+    }
+
+    /// Action that failed to execute.
+    #[must_use]
+    pub fn action(&self) -> &SomeAction {
         &self.action
     }
 
-    /// The resource that failed to execute.
+    /// Underlying error during the operation.
     #[must_use]
-    pub fn resource(&self) -> &FailedResource {
-        &self.resource
+    #[allow(clippy::borrowed_box)] // side of inner type is unknown at compile time.
+    pub fn error(&self) -> &Box<dyn std::error::Error + 'static> {
+        &self.error
     }
 }
 
 impl std::fmt::Display for SynchronizationError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "Error performing {:?} on {:?}: {}",
-            self.action, self.resource, self.error
-        )
+        write!(f, "Error executing {:?}: {}", self.action, self.error)
     }
 }
 

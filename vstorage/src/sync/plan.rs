@@ -272,8 +272,8 @@ mod test {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ResolvedMapping {
     // TODO: An alias attribute?
-    pub(super) a: ResolvedCollection,
-    pub(super) b: ResolvedCollection,
+    a: ResolvedCollection,
+    b: ResolvedCollection,
 }
 
 impl ResolvedMapping {
@@ -432,7 +432,7 @@ impl ItemAction {
 #[derive(Debug)]
 pub(super) struct CollectionPlan {
     mapping: ResolvedMapping,
-    collection_action: Option<Action>,
+    collection_action: Option<CollectionAction>,
     items: Vec<ItemAction>,
 }
 
@@ -490,6 +490,7 @@ impl CollectionPlan {
             .collect::<Vec<ItemAction>>();
 
         let collection_action = Action::for_collection(
+            mapping,
             current_state_a,
             current_state_b,
             previous_state_b,
@@ -511,7 +512,7 @@ impl CollectionPlan {
         &self.mapping
     }
 
-    pub(super) fn take_collection_action(&mut self) -> Option<Action> {
+    pub(super) fn take_collection_action(&mut self) -> Option<CollectionAction> {
         self.collection_action.take()
     }
 
@@ -528,6 +529,15 @@ pub enum Action {
     DeleteInA { href: Href },
     DeleteInB { href: Href },
     Conflict, // TODO: content might still match on both sides
+}
+
+/// An action to executing on a collection when synchronising.
+#[derive(PartialEq, Debug, Clone)]
+pub enum CollectionAction {
+    CreateInA { collection: ResolvedCollection },
+    CreateInB { collection: ResolvedCollection },
+    DeleteInA { href: Href },
+    DeleteInB { href: Href },
 }
 
 impl Action {
@@ -565,30 +575,32 @@ impl Action {
 
     #[must_use]
     fn for_collection<'href>(
+        mapping: &ResolvedMapping,
         current_a: Option<&'href CollectionState>,
         current_b: Option<&'href CollectionState>,
         previous_a: Option<&'href CollectionState>,
         previous_b: Option<&'href CollectionState>,
-    ) -> Option<Action> {
-        // TODO: CollectionActions are different from items actions:
-        //   - copying is just creating and doesn't need a source href
-        //   - creating needs an id
+    ) -> Option<CollectionAction> {
         match (current_a, current_b, previous_a, previous_b) {
             (None, None, _, _) | (Some(_), Some(_), _, _) => None,
             // New or present in B, missing from A.
-            (None, Some(c), _, None) | (None, Some(c), None, Some(_)) => Some(Action::CopyToA {
-                source: c.href.clone(),
-            }),
+            (None, Some(_), _, None) | (None, Some(_), None, Some(_)) => {
+                Some(CollectionAction::CreateInA {
+                    collection: mapping.a.clone(),
+                })
+            }
             // Deleted from A.
-            (None, Some(c), Some(_), Some(_)) => Some(Action::DeleteInB {
+            (None, Some(c), Some(_), Some(_)) => Some(CollectionAction::DeleteInB {
                 href: c.href.clone(),
             }),
             // New or present in A, missing from B.
-            (Some(c), None, None, _) | (Some(c), None, Some(_), None) => Some(Action::CopyToB {
-                source: c.href.clone(),
-            }),
+            (Some(_), None, None, _) | (Some(_), None, Some(_), None) => {
+                Some(CollectionAction::CreateInB {
+                    collection: mapping.b.clone(),
+                })
+            }
             // Deleted from B.
-            (Some(c), None, Some(_), Some(_)) => Some(Action::DeleteInA {
+            (Some(c), None, Some(_), Some(_)) => Some(CollectionAction::DeleteInA {
                 href: c.href.clone(),
             }),
         }
