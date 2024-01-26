@@ -9,7 +9,7 @@ use std::sync::Arc;
 
 use log::{debug, trace};
 
-use crate::base::Storage;
+use crate::base::{ItemRef, Storage};
 use crate::disco::{DiscoveredCollection, Discovery};
 use crate::sync::state::StorageState;
 use crate::{base::Item, sync::declare::StoragePair};
@@ -515,9 +515,11 @@ impl CollectionPlan {
 /// An action to executing when synchronising.
 #[derive(PartialEq, Debug, Clone)]
 pub enum Action {
-    CopyToA { source: Href },
-    CopyToB { source: Href },
-    DeleteInA { href: Href, etag: Etag },
+    CreateInA { source: Href },
+    CreateInB { source: Href },
+    UpdateInA { source: Href, target: ItemRef },
+    UpdateInB { source: Href, target: ItemRef },
+    DeleteInA { href: Href, etag: Etag }, // TODO: use ItemRef here too
     DeleteInB { href: Href, etag: Etag },
     Conflict, // TODO: content might still match on both sides
 }
@@ -547,20 +549,45 @@ impl Action {
                 href: href.clone(),
                 etag: etag.clone(),
             }),
-            (
-                Change::Deleted { .. } | Change::NoChange { .. } | Change::Absent,
-                Change::Changed { href },
-            )
-            | (Change::Absent, Change::NoChange { href, .. }) => Some(Action::CopyToA {
-                source: href.clone(), // TODO: cloning is not ideal
+            // Copy new into A.
+            (Change::Deleted { .. } | Change::Absent, Change::Changed { href })
+            | (Change::Absent, Change::NoChange { href, .. }) => Some(Action::CreateInA {
+                source: href.clone(),
             }),
+            // Copy and overwrite into A.
+            (
+                Change::NoChange {
+                    etag,
+                    href: target_href,
+                },
+                Change::Changed { href },
+            ) => Some(Action::UpdateInA {
+                source: href.clone(),
+                target: ItemRef {
+                    etag: etag.clone(),
+                    href: target_href.clone(),
+                },
+            }),
+            // Copy new into B.
+            (Change::Changed { href }, Change::Deleted { .. } | Change::Absent)
+            | (Change::NoChange { href, .. }, Change::Absent) => Some(Action::CreateInB {
+                source: href.clone(),
+            }),
+            // Copy and overwrite into B.
             (
                 Change::Changed { href },
-                Change::Deleted { .. } | Change::NoChange { .. } | Change::Absent,
-            )
-            | (Change::NoChange { href, .. }, Change::Absent) => Some(Action::CopyToB {
-                source: href.clone(), // TODO: cloning is not ideal
+                Change::NoChange {
+                    etag,
+                    href: target_href,
+                },
+            ) => Some(Action::UpdateInB {
+                source: href.clone(),
+                target: ItemRef {
+                    etag: etag.clone(),
+                    href: target_href.clone(),
+                },
             }),
+            // No-op
             (Change::Deleted { .. } | Change::Absent, Change::Deleted { .. } | Change::Absent)
             | (Change::NoChange { .. }, Change::NoChange { .. }) => None,
         }

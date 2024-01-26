@@ -168,8 +168,8 @@ impl CollectionState {
     }
 
     #[inline]
-    pub(super) fn get_item_by_uid_mut(&mut self, uid: &str) -> Option<&mut ItemState> {
-        self.items.iter_mut().find(|i| i.uid == *uid)
+    pub(super) fn get_item_by_href_mut(&mut self, href: &str) -> Option<&mut ItemState> {
+        self.items.iter_mut().find(|i| i.href == *href)
     }
 }
 

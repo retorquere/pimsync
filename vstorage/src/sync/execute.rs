@@ -9,7 +9,7 @@ use std::sync::Arc;
 use log::{debug, error};
 
 use crate::{
-    base::{Item, Storage},
+    base::{Item, ItemRef, Storage},
     sync::{plan::Action, state::ItemState},
     Etag, Href,
 };
@@ -34,23 +34,43 @@ impl ItemAction {
     ) -> std::result::Result<(), Box<dyn std::error::Error>> {
         {
             match self.action() {
-                Action::CopyToB { source } => {
-                    copy_item(
+                Action::CreateInB { source } => {
+                    create_item(
                         source,
-                        state_b.ok_or("collection missing from state b")?,
+                        state_b.ok_or("target collection missing when creating")?,
                         storage_a,
                         storage_b,
                         self.uid(),
                     )
                     .await?;
                 }
-                Action::CopyToA { source } => {
-                    copy_item(
+                Action::UpdateInB { source, target } => {
+                    update_item(
                         source,
-                        state_a.ok_or("collection missing from state a")?,
+                        target,
+                        state_b.ok_or("target collection missing when updating")?,
+                        storage_a,
+                        storage_b,
+                    )
+                    .await?;
+                }
+                Action::CreateInA { source } => {
+                    create_item(
+                        source,
+                        state_a.ok_or("target collection missing when creating")?,
                         storage_b,
                         storage_a,
                         self.uid(),
+                    )
+                    .await?;
+                }
+                Action::UpdateInA { source, target } => {
+                    update_item(
+                        source,
+                        target,
+                        state_a.ok_or("target collection missing when updating")?,
+                        storage_b,
+                        storage_a,
                     )
                     .await?;
                 }
@@ -58,7 +78,7 @@ impl ItemAction {
                     delete_item(
                         href,
                         etag,
-                        state_a.ok_or("collection is missing from state a")?,
+                        state_a.ok_or("target collection missing when deleting")?,
                         storage_a,
                     )
                     .await?;
@@ -67,7 +87,7 @@ impl ItemAction {
                     delete_item(
                         href,
                         etag,
-                        state_b.ok_or("collection is missing from state b")?,
+                        state_b.ok_or("target collection missing when deleting")?,
                         storage_b,
                     )
                     .await?;
@@ -81,32 +101,47 @@ impl ItemAction {
     }
 }
 
-async fn copy_item<I: Item>(
+async fn create_item<I: Item>(
     src_href: &Href,
     dst_state: &mut CollectionState,
     src_storage: &Arc<dyn Storage<I>>,
     dst_storage: &Arc<dyn Storage<I>>,
     uid: &str,
+) -> crate::Result<()> {
+    debug!("Creating {uid}");
+
+    let (item, _) = src_storage.get_item(src_href).await?;
+    let new_ref = dst_storage.add_item(&dst_state.href, &item).await?;
+
+    dst_state.items.push(ItemState {
+        href: new_ref.href,
+        uid: uid.to_string(),
+        etag: new_ref.etag,
+        hash: item.hash(),
+    });
+
+    Ok(())
+}
+
+async fn update_item<I: Item>(
+    src_href: &Href,
+    target: &ItemRef,
+    dst_state: &mut CollectionState,
+    src_storage: &Arc<dyn Storage<I>>,
+    dst_storage: &Arc<dyn Storage<I>>,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    debug!("Updating {}", target.href);
+
     let (item, _) = src_storage.get_item(src_href).await?;
 
-    if let Some(dst_item_state) = dst_state.get_item_by_uid_mut(uid) {
-        debug!("Updating {uid}");
-        let new_etag = dst_storage
-            .update_item(&dst_item_state.href, &dst_item_state.etag, &item)
-            .await?;
-        dst_item_state.etag = new_etag;
-        dst_item_state.hash = item.hash();
-    } else {
-        debug!("Creating {uid}");
-        let new_ref = dst_storage.add_item(&dst_state.href, &item).await?;
-        dst_state.items.push(ItemState {
-            href: new_ref.href,
-            uid: uid.to_string(),
-            etag: new_ref.etag,
-            hash: item.hash(),
-        });
-    };
+    let new_etag = dst_storage
+        .update_item(&target.href, &target.etag, &item)
+        .await?;
+    let dst_item_state = dst_state
+        .get_item_by_href_mut(&target.href)
+        .ok_or("item being updated must exist in state")?;
+    dst_item_state.etag = new_etag;
+    dst_item_state.hash = item.hash();
 
     Ok(())
 }
