@@ -414,7 +414,7 @@ fn resolve_from_x<I: Item>(
 }
 
 #[derive(Debug)]
-pub(super) struct ItemAction {
+pub struct ItemAction {
     uid: String,
     action: Action,
 }

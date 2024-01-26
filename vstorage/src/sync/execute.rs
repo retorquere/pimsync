@@ -207,7 +207,7 @@ impl<'pair, I: Item> Plan<'pair, I> {
                     .execute(storage_a, storage_b, state_a, state_b)
                     .await
                 {
-                    errors.push(SynchronizationError::new(item_action.action().clone(), err));
+                    errors.push(SynchronizationError::new(item_action, err));
                 };
             }
 
@@ -299,12 +299,12 @@ async fn create_collection<I: Item>(
 
 #[derive(Debug)]
 pub enum SomeAction {
-    Item(Action),
+    Item(ItemAction),
     Collection(CollectionAction),
 }
 
-impl From<Action> for SomeAction {
-    fn from(item: Action) -> Self {
+impl From<ItemAction> for SomeAction {
+    fn from(item: ItemAction) -> Self {
         SomeAction::Item(item)
     }
 }
