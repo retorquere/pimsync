@@ -13,7 +13,7 @@ use crate::base::Storage;
 use crate::disco::{DiscoveredCollection, Discovery};
 use crate::sync::state::StorageState;
 use crate::{base::Item, sync::declare::StoragePair};
-use crate::{CollectionId, Error, ErrorKind, Href};
+use crate::{CollectionId, Error, ErrorKind, Etag, Href};
 
 use super::declare::{CollectionDescription, DeclaredMapping};
 use super::state::{CollectionState, ItemState, PairState};
@@ -517,8 +517,8 @@ impl CollectionPlan {
 pub enum Action {
     CopyToA { source: Href },
     CopyToB { source: Href },
-    DeleteInA { href: Href },
-    DeleteInB { href: Href },
+    DeleteInA { href: Href, etag: Etag },
+    DeleteInB { href: Href, etag: Etag },
     Conflict, // TODO: content might still match on both sides
 }
 
@@ -539,24 +539,26 @@ impl Action {
     fn from_changes(left: Change, right: Change) -> Option<Action> {
         match (left, right) {
             (Change::Changed { .. }, Change::Changed { .. }) => Some(Action::Conflict),
-            (Change::NoChange { href }, Change::Deleted { .. }) => {
-                Some(Action::DeleteInA { href: href.clone() })
-            }
-            (Change::Deleted { .. }, Change::NoChange { href }) => {
-                Some(Action::DeleteInB { href: href.clone() })
-            }
+            (Change::NoChange { href, etag }, Change::Deleted { .. }) => Some(Action::DeleteInA {
+                href: href.clone(),
+                etag: etag.clone(),
+            }),
+            (Change::Deleted { .. }, Change::NoChange { href, etag }) => Some(Action::DeleteInB {
+                href: href.clone(),
+                etag: etag.clone(),
+            }),
             (
                 Change::Deleted { .. } | Change::NoChange { .. } | Change::Absent,
                 Change::Changed { href },
             )
-            | (Change::Absent, Change::NoChange { href }) => Some(Action::CopyToA {
+            | (Change::Absent, Change::NoChange { href, .. }) => Some(Action::CopyToA {
                 source: href.clone(), // TODO: cloning is not ideal
             }),
             (
                 Change::Changed { href },
                 Change::Deleted { .. } | Change::NoChange { .. } | Change::Absent,
             )
-            | (Change::NoChange { href }, Change::Absent) => Some(Action::CopyToB {
+            | (Change::NoChange { href, .. }, Change::Absent) => Some(Action::CopyToB {
                 source: href.clone(), // TODO: cloning is not ideal
             }),
             (Change::Deleted { .. } | Change::Absent, Change::Deleted { .. } | Change::Absent)
@@ -606,7 +608,10 @@ pub(super) enum Change<'href> {
     /// Deleted.
     Deleted,
     /// The item exists and has not changed.
-    NoChange { href: &'href Href },
+    NoChange {
+        href: &'href Href,
+        etag: &'href Etag,
+    },
     /// The item does not exist and did not exist before.
     ///
     /// This might indicate that this item was previously excluded from synchronisation.
@@ -622,7 +627,10 @@ impl<'href> Change<'href> {
         match (current, previous) {
             (Some(c), Some(p)) => {
                 if c.uid == p.uid && c.etag == p.etag && c.hash == p.hash {
-                    Change::NoChange { href: &c.href }
+                    Change::NoChange {
+                        href: &c.href,
+                        etag: &c.etag,
+                    }
                 } else {
                     Change::Changed { href: &c.href }
                 }

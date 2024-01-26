@@ -11,7 +11,7 @@ use log::{debug, error};
 use crate::{
     base::{Item, Storage},
     sync::{plan::Action, state::ItemState},
-    Href,
+    Etag, Href,
 };
 
 use super::{
@@ -54,21 +54,21 @@ impl ItemAction {
                     )
                     .await?;
                 }
-                Action::DeleteInA { href } => {
+                Action::DeleteInA { href, etag } => {
                     delete_item(
                         href,
+                        etag,
                         state_a.ok_or("collection is missing from state a")?,
                         storage_a,
-                        self.uid(),
                     )
                     .await?;
                 }
-                Action::DeleteInB { href } => {
+                Action::DeleteInB { href, etag } => {
                     delete_item(
                         href,
+                        etag,
                         state_b.ok_or("collection is missing from state b")?,
                         storage_b,
-                        self.uid(),
                     )
                     .await?;
                 }
@@ -113,18 +113,17 @@ async fn copy_item<I: Item>(
 
 async fn delete_item<I: Item>(
     href: &Href,
+    etag: &Etag,
     state: &mut CollectionState,
     storage: &Arc<dyn Storage<I>>,
-    uid: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let pos = state
         .items
         .iter()
-        .position(|i| i.uid == *uid)
+        .position(|i| i.href == *href)
         .ok_or("item pending deletion is missing from state")?;
-    let item_state = &state.items[pos];
 
-    storage.delete_item(href, &item_state.etag).await?;
+    storage.delete_item(href, etag).await?;
 
     state.items.swap_remove(pos);
 
