@@ -4,7 +4,6 @@
 
 //! Models the state of a storage to track which side has mutated across runs.
 
-use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 
@@ -40,7 +39,7 @@ pub(super) struct StorageState {
 impl StorageState {
     pub(super) async fn current_for_storage<I: crate::base::Item>(
         previous_state: Option<&StorageState>,
-        storage: &Arc<dyn Storage<I>>,
+        storage: &dyn Storage<I>,
         // The hrefs that we care about:
         collection_hrefs: &Vec<&str>,
         discovery: &Discovery,
@@ -114,7 +113,7 @@ pub(super) struct CollectionState {
 impl CollectionState {
     async fn generate_current<I: Item>(
         previous_state: Option<&CollectionState>,
-        storage: &Arc<dyn Storage<I>>,
+        storage: &dyn Storage<I>,
         collection: &DiscoveredCollection,
     ) -> crate::Result<Self> {
         let mut state = CollectionState {

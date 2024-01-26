@@ -5,7 +5,6 @@
 //! Plan for a synchronisation.
 
 use std::collections::HashSet;
-use std::sync::Arc;
 
 use log::{debug, trace};
 
@@ -100,12 +99,14 @@ impl<'pair, I: Item> Plan<'pair, I> {
             None => (None, None),
         };
 
-        let a = StorageState::current_for_storage(prev_a, &pair.storage_a, &hrefs_a, &disco_a)
-            .await
-            .map_err(PlanError::StateA)?;
-        let b = StorageState::current_for_storage(prev_b, &pair.storage_b, &hrefs_b, &disco_b)
-            .await
-            .map_err(PlanError::StateA)?;
+        let a =
+            StorageState::current_for_storage(prev_a, pair.storage_a.as_ref(), &hrefs_a, &disco_a)
+                .await
+                .map_err(PlanError::StateA)?;
+        let b =
+            StorageState::current_for_storage(prev_b, pair.storage_b.as_ref(), &hrefs_b, &disco_b)
+                .await
+                .map_err(PlanError::StateA)?;
 
         let collection_plans = mappings
             .iter()
@@ -144,8 +145,8 @@ fn create_mappings_for_pair<I: Item>(
     for mapping in &pair.mappings {
         mappings.push(ResolvedMapping::from_declared_mapping(
             mapping.clone(),
-            &pair.storage_a,
-            &pair.storage_b,
+            pair.storage_a.as_ref(),
+            pair.storage_b.as_ref(),
             disco_a,
             disco_b,
         )?);
@@ -301,8 +302,8 @@ impl ResolvedMapping {
     /// Returns `Err` if the collection is missing on the `From` side.
     fn from_declared_mapping<I: Item>(
         declared: DeclaredMapping,
-        storage_a: &Arc<dyn Storage<I>>,
-        storage_b: &Arc<dyn Storage<I>>,
+        storage_a: &dyn Storage<I>,
+        storage_b: &dyn Storage<I>,
         discovery_a: &Discovery,
         discovery_b: &Discovery,
     ) -> Result<Self, crate::Error> {
@@ -385,7 +386,7 @@ fn resolve_mapping_counterpart(
 fn resolve_from_x<I: Item>(
     description: CollectionDescription,
     discovery_x: &Discovery,
-    storage_x: &Arc<dyn Storage<I>>,
+    storage_x: &dyn Storage<I>,
     discovery_y: &Discovery,
 ) -> Result<(ResolvedCollection, ResolvedCollection), crate::Error> {
     let (id, href) = match description {

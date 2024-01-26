@@ -4,8 +4,6 @@
 
 //! See [`Plan::execute`](Plan::execute).
 
-use std::sync::Arc;
-
 use log::{debug, error};
 
 use crate::{
@@ -27,8 +25,8 @@ impl ItemAction {
     #[inline]
     async fn execute<I: Item>(
         &self,
-        storage_a: &Arc<dyn Storage<I>>,
-        storage_b: &Arc<dyn Storage<I>>,
+        storage_a: &dyn Storage<I>,
+        storage_b: &dyn Storage<I>,
         state_a: Option<&mut CollectionState>,
         state_b: Option<&mut CollectionState>,
     ) -> std::result::Result<(), Box<dyn std::error::Error>> {
@@ -104,8 +102,8 @@ impl ItemAction {
 async fn create_item<I: Item>(
     src_href: &Href,
     dst_state: &mut CollectionState,
-    src_storage: &Arc<dyn Storage<I>>,
-    dst_storage: &Arc<dyn Storage<I>>,
+    src_storage: &dyn Storage<I>,
+    dst_storage: &dyn Storage<I>,
     uid: &str,
 ) -> crate::Result<()> {
     debug!("Creating {uid}");
@@ -127,8 +125,8 @@ async fn update_item<I: Item>(
     src_href: &Href,
     target: &ItemRef,
     dst_state: &mut CollectionState,
-    src_storage: &Arc<dyn Storage<I>>,
-    dst_storage: &Arc<dyn Storage<I>>,
+    src_storage: &dyn Storage<I>,
+    dst_storage: &dyn Storage<I>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     debug!("Updating {}", target.href);
 
@@ -150,7 +148,7 @@ async fn delete_item<I: Item>(
     href: &Href,
     etag: &Etag,
     state: &mut CollectionState,
-    storage: &Arc<dyn Storage<I>>,
+    storage: &dyn Storage<I>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let pos = state
         .items
@@ -174,8 +172,8 @@ impl<'pair, I: Item> Plan<'pair, I> {
     pub async fn execute(self) -> SyncResult {
         let mut final_state = self.current_state().clone();
         let mut errors = Vec::new();
-        let storage_a = &self.pair.storage_a;
-        let storage_b = &self.pair.storage_b;
+        let storage_a = self.pair.storage_a.as_ref();
+        let storage_b = self.pair.storage_b.as_ref();
 
         for cp in self.collection_plans {
             let mut deletion_action = None;
@@ -279,7 +277,7 @@ impl SyncResult {
 
 /// Creates a collection and updates the state and error list accordingly.
 async fn create_collection<I: Item>(
-    storage: &Arc<dyn Storage<I>>,
+    storage: &dyn Storage<I>,
     collection: &ResolvedCollection,
     state: &mut StorageState,
 ) -> Result<(), crate::Error> {

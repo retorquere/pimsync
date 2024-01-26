@@ -63,9 +63,9 @@ async fn main() {
             .unwrap();
 
         copy_collection(
-            &caldav_storage,
+            caldav_storage.as_ref(),
             discovered_collection.href(),
-            &vdir_storage,
+            vdir_storage.as_ref(),
             new_collection.href(),
         )
         .await;
@@ -74,9 +74,9 @@ async fn main() {
 
 /// Copies from `source` to `target` and returns the amount of items copied.
 async fn copy_collection(
-    source_storage: &Arc<dyn Storage<IcsItem>>,
+    source_storage: &dyn Storage<IcsItem>,
     source_collection_href: &str,
-    target_storage: &Arc<dyn Storage<IcsItem>>,
+    target_storage: &dyn Storage<IcsItem>,
     target_collection_href: &str,
 ) -> usize {
     let mut count = 0;
