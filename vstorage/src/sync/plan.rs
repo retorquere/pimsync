@@ -507,16 +507,8 @@ impl CollectionPlan {
         }
     }
 
-    pub(super) fn mapping(&self) -> &ResolvedMapping {
-        &self.mapping
-    }
-
-    pub(super) fn take_collection_action(&mut self) -> Option<CollectionAction> {
-        self.collection_action.take()
-    }
-
-    pub(super) fn items(&self) -> &Vec<ItemAction> {
-        &self.items
+    pub(super) fn into_parts(self) -> (ResolvedMapping, Option<CollectionAction>, Vec<ItemAction>) {
+        (self.mapping, self.collection_action, self.items)
     }
 }
 

@@ -143,9 +143,10 @@ impl<'pair, I: Item> Plan<'pair, I> {
         let storage_a = &self.pair.storage_a;
         let storage_b = &self.pair.storage_b;
 
-        for mut cp in self.collection_plans {
+        for cp in self.collection_plans {
             let mut deletion_action = None;
-            if let Some(action) = cp.take_collection_action() {
+            let (mapping, collection_action, item_actions) = cp.into_parts();
+            if let Some(action) = collection_action {
                 match action {
                     CollectionAction::CreateInB { collection: ref c } => {
                         if let Err(e) = create_collection(storage_b, c, &mut final_state.b).await {
@@ -163,14 +164,14 @@ impl<'pair, I: Item> Plan<'pair, I> {
                 }
             }
 
-            for item_action in cp.items() {
+            for item_action in item_actions {
                 // FIXME: I need to somehow move these two calls outside of the "for" loop.
                 let state_a = final_state
                     .a
-                    .find_collection_state_mut(cp.mapping().collection_a());
+                    .find_collection_state_mut(mapping.collection_a());
                 let state_b = final_state
                     .b
-                    .find_collection_state_mut(cp.mapping().collection_b());
+                    .find_collection_state_mut(mapping.collection_b());
 
                 if let Err(err) = item_action
                     .execute(storage_a, storage_b, state_a, state_b)
