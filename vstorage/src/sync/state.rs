@@ -4,7 +4,6 @@
 
 //! Models the state of a storage to track which side has mutated across runs.
 
-
 use serde::{Deserialize, Serialize};
 
 use crate::{

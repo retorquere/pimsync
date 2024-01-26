@@ -38,7 +38,6 @@ impl ItemAction {
                         state_b.ok_or("target collection missing when creating")?,
                         storage_a,
                         storage_b,
-                        self.uid(),
                     )
                     .await?;
                 }
@@ -58,7 +57,6 @@ impl ItemAction {
                         state_a.ok_or("target collection missing when creating")?,
                         storage_b,
                         storage_a,
-                        self.uid(),
                     )
                     .await?;
                 }
@@ -104,18 +102,18 @@ async fn create_item<I: Item>(
     dst_state: &mut CollectionState,
     src_storage: &dyn Storage<I>,
     dst_storage: &dyn Storage<I>,
-    uid: &str,
 ) -> crate::Result<()> {
-    debug!("Creating {uid}");
+    debug!("Creating item from {src_href}");
 
-    let (item, _) = src_storage.get_item(src_href).await?;
-    let new_ref = dst_storage.add_item(&dst_state.href, &item).await?;
+    let (item_data, _) = src_storage.get_item(src_href).await?;
+    let uid = item_data.ident();
+    let new_item = dst_storage.add_item(&dst_state.href, &item_data).await?;
 
     dst_state.items.push(ItemState {
-        href: new_ref.href,
-        uid: uid.to_string(),
-        etag: new_ref.etag,
-        hash: item.hash(),
+        href: new_item.href,
+        uid,
+        etag: new_item.etag,
+        hash: item_data.hash(),
     });
 
     Ok(())
