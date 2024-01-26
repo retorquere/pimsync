@@ -36,7 +36,7 @@ impl ItemAction {
             match self.action() {
                 Action::CopyToB { source } => {
                     copy_item(
-                        &source,
+                        source,
                         state_b.ok_or("collection missing from state b")?,
                         storage_a,
                         storage_b,
@@ -46,7 +46,7 @@ impl ItemAction {
                 }
                 Action::CopyToA { source } => {
                     copy_item(
-                        &source,
+                        source,
                         state_a.ok_or("collection missing from state a")?,
                         storage_b,
                         storage_a,
@@ -56,7 +56,7 @@ impl ItemAction {
                 }
                 Action::DeleteInA { href } => {
                     delete_item(
-                        &href,
+                        href,
                         state_a.ok_or("collection is missing from state a")?,
                         storage_a,
                         self.uid(),
@@ -65,7 +65,7 @@ impl ItemAction {
                 }
                 Action::DeleteInB { href } => {
                     delete_item(
-                        &href,
+                        href,
                         state_b.ok_or("collection is missing from state b")?,
                         storage_b,
                         self.uid(),
@@ -176,7 +176,7 @@ impl<'pair, I: Item> Plan<'pair, I> {
                     .execute(storage_a, storage_b, state_a, state_b)
                     .await
                 {
-                    errors.push(SynchronizationError::new(item_action.action(), err));
+                    errors.push(SynchronizationError::new(item_action.action().clone(), err));
                 };
             }
 

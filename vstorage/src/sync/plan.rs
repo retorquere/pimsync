@@ -422,9 +422,8 @@ impl ItemAction {
     pub(super) fn uid(&self) -> &str {
         &self.uid
     }
-    pub(super) fn action(&self) -> Action {
-        // Action is smaller than a pointer
-        self.action.clone()
+    pub(super) fn action(&self) -> &Action {
+        &self.action
     }
 }
 
