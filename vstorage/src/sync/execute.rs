@@ -13,8 +13,8 @@ use crate::{
 };
 
 use super::{
-    plan::{CollectionAction, ItemAction, Plan, ResolvedCollection},
-    state::{CollectionState, PairState, StorageState},
+    plan::{CollectionAction, ItemAction, Plan, ResolvedCollection, ResolvedMapping},
+    state::{PairState, StorageState},
 };
 
 impl ItemAction {
@@ -25,68 +25,42 @@ impl ItemAction {
     #[inline]
     async fn execute<I: Item>(
         &self,
-        storage_a: &dyn Storage<I>,
-        storage_b: &dyn Storage<I>,
-        state_a: Option<&mut CollectionState>,
-        state_b: Option<&mut CollectionState>,
+        a: &dyn Storage<I>,
+        b: &dyn Storage<I>,
+        mapping: &ResolvedMapping,
+        final_state: &mut PairState,
     ) -> std::result::Result<(), Box<dyn std::error::Error>> {
         {
             match self.action() {
                 Action::CreateInB { source } => {
-                    create_item(
-                        source,
-                        state_b.ok_or("target collection missing when creating")?,
-                        storage_a,
-                        storage_b,
-                    )
-                    .await?;
+                    let state = &mut final_state.b;
+                    let collection = mapping.collection_b();
+                    create_item(source, state, collection, a, b).await?;
                 }
                 Action::UpdateInB { source, target } => {
-                    update_item(
-                        source,
-                        target,
-                        state_b.ok_or("target collection missing when updating")?,
-                        storage_a,
-                        storage_b,
-                    )
-                    .await?;
+                    let state = &mut final_state.b;
+                    let collection = mapping.collection_b();
+                    update_item(source, target, state, collection, a, b).await?;
                 }
                 Action::CreateInA { source } => {
-                    create_item(
-                        source,
-                        state_a.ok_or("target collection missing when creating")?,
-                        storage_b,
-                        storage_a,
-                    )
-                    .await?;
+                    let state = &mut final_state.a;
+                    let collection = mapping.collection_a();
+                    create_item(source, state, collection, b, a).await?;
                 }
                 Action::UpdateInA { source, target } => {
-                    update_item(
-                        source,
-                        target,
-                        state_a.ok_or("target collection missing when updating")?,
-                        storage_b,
-                        storage_a,
-                    )
-                    .await?;
+                    let state = &mut final_state.a;
+                    let collection = mapping.collection_b();
+                    update_item(source, target, state, collection, b, a).await?;
                 }
                 Action::DeleteInA { href, etag } => {
-                    delete_item(
-                        href,
-                        etag,
-                        state_a.ok_or("target collection missing when deleting")?,
-                        storage_a,
-                    )
-                    .await?;
+                    let dst_state = &mut final_state.a;
+                    let collection = mapping.collection_a();
+                    delete_item(href, etag, dst_state, collection, a).await?;
                 }
                 Action::DeleteInB { href, etag } => {
-                    delete_item(
-                        href,
-                        etag,
-                        state_b.ok_or("target collection missing when deleting")?,
-                        storage_b,
-                    )
-                    .await?;
+                    let dst_state = &mut final_state.b;
+                    let collection = mapping.collection_b();
+                    delete_item(href, etag, dst_state, collection, b).await?;
                 }
                 Action::Conflict => {
                     error!("Conflict for items {}. Skipping.", self.uid());
@@ -99,17 +73,22 @@ impl ItemAction {
 
 async fn create_item<I: Item>(
     src_href: &Href,
-    dst_state: &mut CollectionState,
+    dst_state: &mut StorageState,
+    dst_collection: &ResolvedCollection,
     src_storage: &dyn Storage<I>,
     dst_storage: &dyn Storage<I>,
-) -> crate::Result<()> {
+) -> Result<(), Box<dyn std::error::Error>> {
     debug!("Creating item from {src_href}");
+
+    let collection = dst_state
+        .find_collection_state_mut(dst_collection)
+        .ok_or("target collection missing when creating item")?;
 
     let (item_data, _) = src_storage.get_item(src_href).await?;
     let uid = item_data.ident();
-    let new_item = dst_storage.add_item(&dst_state.href, &item_data).await?;
+    let new_item = dst_storage.add_item(&collection.href, &item_data).await?;
 
-    dst_state.items.push(ItemState {
+    collection.items.push(ItemState {
         href: new_item.href,
         uid,
         etag: new_item.etag,
@@ -122,11 +101,15 @@ async fn create_item<I: Item>(
 async fn update_item<I: Item>(
     src_href: &Href,
     target: &ItemRef,
-    dst_state: &mut CollectionState,
+    dst_state: &mut StorageState,
+    dst_collection: &ResolvedCollection,
     src_storage: &dyn Storage<I>,
     dst_storage: &dyn Storage<I>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     debug!("Updating {}", target.href);
+    let dst_state = dst_state
+        .find_collection_state_mut(dst_collection)
+        .ok_or("target collection missing when updating")?;
 
     let (item, _) = src_storage.get_item(src_href).await?;
 
@@ -145,9 +128,13 @@ async fn update_item<I: Item>(
 async fn delete_item<I: Item>(
     href: &Href,
     etag: &Etag,
-    state: &mut CollectionState,
+    state: &mut StorageState,
+    collection: &ResolvedCollection,
     storage: &dyn Storage<I>,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    let state = state
+        .find_collection_state_mut(collection)
+        .ok_or("target collection missing when deleting")?;
     let pos = state
         .items
         .iter()
@@ -195,16 +182,8 @@ impl<'pair, I: Item> Plan<'pair, I> {
             }
 
             for item_action in item_actions {
-                // FIXME: I need to somehow move these two calls outside of the "for" loop.
-                let state_a = final_state
-                    .a
-                    .find_collection_state_mut(mapping.collection_a());
-                let state_b = final_state
-                    .b
-                    .find_collection_state_mut(mapping.collection_b());
-
                 if let Err(err) = item_action
-                    .execute(storage_a, storage_b, state_a, state_b)
+                    .execute(storage_a, storage_b, &mapping, &mut final_state)
                     .await
                 {
                     errors.push(SynchronizationError::new(item_action, err));
