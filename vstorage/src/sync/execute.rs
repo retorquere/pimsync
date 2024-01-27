@@ -49,7 +49,7 @@ impl ItemAction {
                 }
                 Action::UpdateInA { source, target } => {
                     let state = &mut final_state.a;
-                    let collection = mapping.collection_b();
+                    let collection = mapping.collection_a();
                     update_item(source, target, state, collection, b, a).await?;
                 }
                 Action::DeleteInA { href, etag } => {
