@@ -450,8 +450,8 @@ impl CollectionPlan {
                 None => (None, None),
             };
 
-            let a_changed = Change::for_item(item_a, prev_item_a.as_ref());
-            let b_changed = Change::for_item(item_b, prev_item_b.as_ref());
+            let a_changed = Change::for_item(item_a, prev_item_a);
+            let b_changed = Change::for_item(item_b, prev_item_b);
 
             if let Some(action) = Action::from_changes(a_changed, b_changed) {
                 item_actions.push(ItemAction {
@@ -642,7 +642,7 @@ enum Change<'href> {
 
 impl<'href> Change<'href> {
     #[must_use]
-    fn for_item(current: Option<&'href ItemState>, previous: Option<&ItemState>) -> Change<'href> {
+    fn for_item(current: Option<&'href ItemState>, previous: Option<ItemState>) -> Change<'href> {
         match (current, previous) {
             (Some(c), Some(p)) => {
                 if c.uid == p.uid && c.etag == p.etag && c.hash == p.hash {
