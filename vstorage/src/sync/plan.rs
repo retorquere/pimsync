@@ -265,13 +265,13 @@ impl ResolvedMapping {
         &self.b
     }
 
-    pub(super) fn href_a(&self) -> Option<&str> {
+    fn href_a(&self) -> Option<&str> {
         match &self.a {
             ResolvedCollection::Id { .. } => None,
             ResolvedCollection::Href { href } => Some(href),
         }
     }
-    pub(super) fn href_b(&self) -> Option<&str> {
+    fn href_b(&self) -> Option<&str> {
         match &self.b {
             ResolvedCollection::Id { .. } => None,
             ResolvedCollection::Href { href } => Some(href),
@@ -624,7 +624,7 @@ impl Action {
 
 /// A transition that has occurred to a pair of items or collections.
 #[derive(Debug, Clone)]
-pub(super) enum Change<'href> {
+enum Change<'href> {
     /// Mutated or created.
     Changed { state: &'href ItemState },
     /// Deleted.
@@ -642,10 +642,7 @@ pub(super) enum Change<'href> {
 
 impl<'href> Change<'href> {
     #[must_use]
-    pub(super) fn for_item(
-        current: Option<&'href ItemState>,
-        previous: Option<&ItemState>,
-    ) -> Change<'href> {
+    fn for_item(current: Option<&'href ItemState>, previous: Option<&ItemState>) -> Change<'href> {
         match (current, previous) {
             (Some(c), Some(p)) => {
                 if c.uid == p.uid && c.etag == p.etag && c.hash == p.hash {
