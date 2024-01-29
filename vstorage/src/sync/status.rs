@@ -242,7 +242,7 @@ impl StatusDatabase {
     }
 
     pub(super) fn add_item(&self, side: Side, item: &ItemState) -> Result<()> {
-        let query = "INSERT INTO items VALUES (?, ?, ?, ?, ?)";
+        let query = "INSERT OR REPLACE INTO items VALUES (?, ?, ?, ?, ?)";
         let mut statement = self.conn.prepare(query)?;
         statement.bind((1, item.uid.as_str()))?;
         statement.bind((2, side))?;

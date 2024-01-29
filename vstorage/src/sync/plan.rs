@@ -6,7 +6,7 @@
 
 use std::collections::HashSet;
 
-use log::{debug, trace};
+use log::debug;
 
 use crate::base::{ItemRef, Storage};
 use crate::disco::{DiscoveredCollection, Discovery};
@@ -442,11 +442,6 @@ impl CollectionPlan {
             let item_a = state_a.and_then(|s| s.get_item_by_uid(uid));
             let item_b = state_b.and_then(|s| s.get_item_by_uid(uid));
 
-            if item_a.is_some_and(|a| item_b.is_some_and(|b| a.hash == b.hash)) {
-                trace!("Item uid={} is unchanged; will take no action.", uid);
-                continue;
-            }
-
             let (prev_item_a, prev_item_b) = match status {
                 Some(s) => (
                     s.get_item_by_uid(Side::A, uid)?,
@@ -515,7 +510,16 @@ impl Action {
     #[must_use]
     fn from_changes(left: Change, right: Change) -> Option<Action> {
         match (left, right) {
-            (Change::Changed { .. }, Change::Changed { .. }) => Some(Action::Conflict),
+            (Change::Changed { state: state_a }, Change::Changed { state: state_b }) => {
+                if state_a.hash == state_b.hash {
+                    Some(Action::SaveToState {
+                        a: state_a.clone(),
+                        b: state_b.clone(),
+                    })
+                } else {
+                    Some(Action::Conflict)
+                }
+            }
             (Change::NoChange { href, etag }, Change::Deleted { .. }) => Some(Action::DeleteInA {
                 href: href.clone(),
                 etag: etag.clone(),
@@ -525,8 +529,12 @@ impl Action {
                 etag: etag.clone(),
             }),
             // Copy new into A.
-            (Change::Deleted { .. } | Change::Absent, Change::Changed { href })
-            | (Change::Absent, Change::NoChange { href, .. }) => Some(Action::CreateInA {
+            (Change::Deleted { .. } | Change::Absent, Change::Changed { state }) => {
+                Some(Action::CreateInA {
+                    source: state.href.clone(),
+                })
+            }
+            (Change::Absent, Change::NoChange { href, .. }) => Some(Action::CreateInA {
                 source: href.clone(),
             }),
             // Copy and overwrite into A.
@@ -535,28 +543,32 @@ impl Action {
                     etag,
                     href: target_href,
                 },
-                Change::Changed { href },
+                Change::Changed { state },
             ) => Some(Action::UpdateInA {
-                source: href.clone(),
+                source: state.href.clone(),
                 target: ItemRef {
                     etag: etag.clone(),
                     href: target_href.clone(),
                 },
             }),
             // Copy new into B.
-            (Change::Changed { href }, Change::Deleted { .. } | Change::Absent)
-            | (Change::NoChange { href, .. }, Change::Absent) => Some(Action::CreateInB {
+            (Change::Changed { state }, Change::Deleted { .. } | Change::Absent) => {
+                Some(Action::CreateInB {
+                    source: state.href.clone(),
+                })
+            }
+            (Change::NoChange { href, .. }, Change::Absent) => Some(Action::CreateInB {
                 source: href.clone(),
             }),
             // Copy and overwrite into B.
             (
-                Change::Changed { href },
+                Change::Changed { state },
                 Change::NoChange {
                     etag,
                     href: target_href,
                 },
             ) => Some(Action::UpdateInB {
-                source: href.clone(),
+                source: state.href.clone(),
                 target: ItemRef {
                     etag: etag.clone(),
                     href: target_href.clone(),
@@ -614,7 +626,7 @@ impl Action {
 #[derive(Debug, Clone)]
 pub(super) enum Change<'href> {
     /// Mutated or created.
-    Changed { href: &'href Href },
+    Changed { state: &'href ItemState },
     /// Deleted.
     Deleted,
     /// The item exists and has not changed.
@@ -642,10 +654,10 @@ impl<'href> Change<'href> {
                         etag: &c.etag,
                     }
                 } else {
-                    Change::Changed { href: &c.href }
+                    Change::Changed { state: c }
                 }
             }
-            (Some(c), None) => Change::Changed { href: &c.href },
+            (Some(state), None) => Change::Changed { state },
             (None, Some(_)) => Change::Deleted,
             (None, None) => Change::Absent,
         }
