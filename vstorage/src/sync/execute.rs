@@ -4,6 +4,8 @@
 
 //! See [`Plan::execute`](Plan::execute).
 
+use std::borrow::Cow;
+
 use log::{debug, error};
 
 use crate::{
@@ -14,7 +16,7 @@ use crate::{
 
 use super::{
     plan::{CollectionAction, ItemAction, Plan, ResolvedCollection, ResolvedMapping},
-    status::{Side, StatusDatabase},
+    status::{Side, StatusDatabase, StatusError},
 };
 
 impl ItemAction {
@@ -29,7 +31,7 @@ impl ItemAction {
         b: &dyn Storage<I>,
         mapping: &ResolvedMapping,
         status: &StatusDatabase,
-    ) -> std::result::Result<(), Box<dyn std::error::Error>> {
+    ) -> std::result::Result<(), ExecutionError> {
         {
             match self.action() {
                 Action::SaveToState { a, b } => {
@@ -65,6 +67,16 @@ impl ItemAction {
     }
 }
 
+#[derive(thiserror::Error, Debug)]
+pub enum ExecutionError {
+    #[error("collection missing from status when creating item")]
+    MissingCollection,
+    #[error("error querying status database")]
+    StatusDb(#[from] StatusError),
+    #[error("error interacting with storage")]
+    Storage(#[from] crate::Error),
+}
+
 async fn create_item<I: Item>(
     from: &Href,
     status: &StatusDatabase,
@@ -72,15 +84,16 @@ async fn create_item<I: Item>(
     src_storage: &dyn Storage<I>,
     dst_storage: &dyn Storage<I>,
     side: Side,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<(), ExecutionError> {
     debug!("Creating item from {from}");
 
     let collection_href = match collection {
-        ResolvedCollection::Id { id } => status
-            .get_collection_href(side, id)?
-            .ok_or("target collection missing from status when creating item")?,
-        // FIXME: pointless clone
-        ResolvedCollection::Href { href } => href.clone(),
+        ResolvedCollection::Id { id } => Cow::Owned(
+            status
+                .get_collection_href(side, id)?
+                .ok_or(ExecutionError::MissingCollection)?,
+        ),
+        ResolvedCollection::Href { href } => Cow::Borrowed(href),
     };
 
     let (item_data, _) = src_storage.get_item(from).await?;
@@ -107,7 +120,7 @@ async fn update_item<I: Item>(
     src_storage: &dyn Storage<I>,
     dst_storage: &dyn Storage<I>,
     side: Side,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<(), ExecutionError> {
     debug!("Updating {}", target.href);
     let (item, _) = src_storage.get_item(src_href).await?;
 
@@ -125,7 +138,7 @@ async fn delete_item<I: Item>(
     status: &StatusDatabase,
     storage: &dyn Storage<I>,
     side: Side,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<(), ExecutionError> {
     storage.delete_item(href, etag).await?;
     status.delete_item(side, href)?;
 
@@ -137,7 +150,7 @@ async fn delete_collection<I: Item>(
     status: &StatusDatabase,
     storage: &dyn Storage<I>,
     side: Side,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<(), ExecutionError> {
     storage.destroy_collection(href).await?;
     status.remove_collection(side, href)?;
 
@@ -238,7 +251,7 @@ async fn create_collection<I: Item>(
     collection: &ResolvedCollection,
     status: &StatusDatabase,
     side: Side,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<(), ExecutionError> {
     let creation_result = match collection {
         ResolvedCollection::Id { id } => storage.create_collection_with_id(id).await,
         ResolvedCollection::Href { href } => storage.create_collection(href).await,
@@ -276,15 +289,12 @@ impl From<CollectionAction> for SomeAction {
 #[derive(Debug)]
 pub struct SynchronizationError {
     action: SomeAction,
-    error: Box<dyn std::error::Error + 'static>,
+    error: ExecutionError,
 }
 
 impl SynchronizationError {
     #[must_use]
-    pub fn new(
-        action: impl Into<SomeAction>,
-        error: impl Into<Box<dyn std::error::Error + 'static>>,
-    ) -> Self {
+    pub fn new(action: impl Into<SomeAction>, error: ExecutionError) -> Self {
         Self {
             action: action.into(),
             error: error.into(),
@@ -299,8 +309,7 @@ impl SynchronizationError {
 
     /// Underlying error during the operation.
     #[must_use]
-    #[allow(clippy::borrowed_box)] // side of inner type is unknown at compile time.
-    pub fn error(&self) -> &Box<dyn std::error::Error + 'static> {
+    pub fn error(&self) -> &ExecutionError {
         &self.error
     }
 }
@@ -313,6 +322,6 @@ impl std::fmt::Display for SynchronizationError {
 
 impl std::error::Error for SynchronizationError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        Some(&*self.error)
+        Some(&self.error)
     }
 }
