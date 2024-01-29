@@ -58,8 +58,6 @@
 
 use std::str::FromStr;
 
-use serde::{Deserialize, Serialize};
-
 pub mod base;
 mod boxed;
 pub mod caldav;
@@ -199,7 +197,7 @@ impl std::error::Error for Error {}
 /// suitable approximation.
 ///
 /// [MDN]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/ETag
-#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Etag(String);
 
 impl<T> From<T> for Etag
@@ -297,27 +295,6 @@ impl From<CollectionId> for String {
 impl std::fmt::Display for CollectionId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.inner.fmt(f)
-    }
-}
-
-impl Serialize for CollectionId {
-    /// Serialise a `CollectionId` into a simple string.
-    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        serializer.serialize_str(&self.inner)
-    }
-}
-
-impl<'de> Deserialize<'de> for CollectionId {
-    /// Deserialise a `CollectionId` from a simple string.
-    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let s: String = Deserialize::deserialize(deserializer)?;
-        CollectionId::try_from(s).map_err(serde::de::Error::custom)
     }
 }
 

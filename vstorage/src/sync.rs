@@ -20,12 +20,13 @@
 //!
 //! [orig]: https://unterwaditzer.net/2016/sync-algorithm.html
 
-use self::plan::ResolvedCollection;
+use self::{plan::ResolvedCollection, status::StatusError};
 
 pub mod declare;
 pub mod execute;
 pub mod plan;
-pub mod state;
+mod state;
+pub mod status;
 
 #[derive(thiserror::Error, Debug)]
 pub enum PlanError {
@@ -45,8 +46,11 @@ pub enum PlanError {
     BadCollectionMappings(#[source] crate::Error),
 
     #[error("Error determining current state for storage a")]
-    StateA(#[source] crate::Error),
+    StateA(#[source] Box<dyn std::error::Error>), // FIXME: hacky
 
     #[error("Error determining current state for storage a")]
-    StateB(#[source] crate::Error),
+    StateB(#[source] Box<dyn std::error::Error>), // FIXME: hacky
+
+    #[error("Error querying status databsae")]
+    StatusDb(#[from] StatusError),
 }

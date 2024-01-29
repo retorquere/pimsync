@@ -12,7 +12,7 @@ use clap::Parser;
 use log::{debug, error, info, trace, warn};
 use vstorage::{
     base::{IcsItem, Item, Storage, VcardItem},
-    sync::{declare::StoragePair, plan::Plan, state::PairState},
+    sync::{declare::StoragePair, plan::Plan, status::StatusDatabase},
 };
 
 use crate::cli::{Command, Vdirsyncer};
@@ -39,37 +39,13 @@ pub(crate) struct NamedPair<I: Item> {
 }
 
 impl<I: Item> NamedPair<I> {
-    fn load_state(&self) -> anyhow::Result<Option<PairState>> {
-        match std::fs::read_to_string(&self.status_path) {
-            Ok(raw) => {
-                let state: PairState = toml::from_str(&raw)
-                    .with_context(|| format!("Parsing status file for {}.", self.name))?;
-                debug!("Loaded status file for pair {}", self.name);
-                Ok(Some(state))
-            }
-            Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
-                debug!("No status file for pair {}.", self.name);
-                Ok(None)
-            }
-            Err(e) => Err(e).context("Error reading status file for {name}."),
-        }
+    /// Returns `None` if the database doesn't exist.
+    fn open_status_ro(&self) -> anyhow::Result<Option<StatusDatabase>> {
+        Ok(StatusDatabase::open_readonly(&self.status_path)?)
     }
 
-    fn save_state(&self, new_state: &PairState) -> anyhow::Result<()> {
-        debug!("Saving state file for pair {}.", self.name);
-        let serialised = toml::to_string(new_state).context("Failed to serialise new status.")?;
-
-        // FIXME: save atomically
-        let mut file = OpenOptions::new()
-            .create(true)
-            .truncate(true)
-            .write(true)
-            .open(&self.status_path)
-            .context("Failed to open file to save state.")?
-            .write(serialised.as_bytes())
-            .context("Error writing new state to file.")?;
-
-        Ok(())
+    fn open_status_rw(&self) -> anyhow::Result<StatusDatabase> {
+        Ok(StatusDatabase::open_or_create(&self.status_path)?)
     }
 
     /// Returns an error only if it is fatal.
@@ -77,24 +53,23 @@ impl<I: Item> NamedPair<I> {
     /// If partial errors occurred during synchronisations, returns `Ok(())`.
     async fn synchronise_pair(self: &NamedPair<I>, dry_run: bool) -> anyhow::Result<()> {
         // TODO: lock storages so we can do things in parallel
-        let state = match self.load_state() {
+        let status = match self.open_status_ro() {
             Ok(s) => s,
             Err(err) => {
-                // TODO: is this enough, or is {:?} better for the error?
-                error!("Skipping pair {}; failed to load state: {}", self.name, err);
+                error!("Skipping {}; failed to open status db: {}", self.name, err);
                 return Ok(());
             }
         };
 
         debug!("Creating plan for storage pair '{}'.", self.name);
-        let plan = match Plan::new(&self.inner, state.as_ref()).await {
+        let plan = match Plan::new(&self.inner, status.as_ref()).await {
             Ok(p) => p,
             Err(err) => {
-                // TODO: is this enough, or is {:?} better for the error?
                 error!("Skipping pair {}; planning failed: {}", self.name, err);
                 return Ok(());
             }
         };
+        drop(status);
 
         // TODO: print this in more human-friendly format
         dbg!(&plan);
@@ -102,16 +77,11 @@ impl<I: Item> NamedPair<I> {
         if dry_run {
             debug!("Dry run: not synchronising.");
         } else {
-            let sync_result = plan.execute().await;
+            let status = self.open_status_rw()?;
+            let sync_result = plan.execute(&status).await;
             for err in sync_result.errors() {
                 error!("Error during syncrhonisation: {err}");
             }
-
-            if let Err(err) = self.save_state(sync_result.final_state()) {
-                error!("Saving the current state failed. This is a fatal error.");
-                error!("If any changes occurr before the next synchronisation, they will result in conflict!");
-                return Err(err);
-            };
         }
 
         Ok(())

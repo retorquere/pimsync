@@ -10,6 +10,7 @@ use vstorage::base::{IcsItem, Storage};
 use vstorage::filesystem::FilesystemStorage;
 use vstorage::sync::declare::{DeclaredMapping, StoragePair};
 use vstorage::sync::plan::Plan;
+use vstorage::sync::status::StatusDatabase;
 
 fn random_string(len: usize) -> String {
     thread_rng()
@@ -105,7 +106,8 @@ async fn test_sync_simple_case() {
     let plan = Plan::new(&mut pair, None).await.unwrap();
     // dbg!(&plan);
     // TODO: I'll need to trace! the point where each actions is decided.
-    let result = plan.execute().await;
+    let status = StatusDatabase::open_or_create(":memory:").unwrap();
+    let result = plan.execute(&status).await;
     for error in result.errors().iter() {
         dbg!("Error during test sync: {}", error);
     }

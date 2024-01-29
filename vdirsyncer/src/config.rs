@@ -26,16 +26,13 @@ use hyper_rustls::{ConfigBuilderExt, HttpsConnector, HttpsConnectorBuilder};
 use libdav::auth::Password;
 use log::{debug, error};
 use rustls::{client::danger::DangerousClientConfigBuilder, ClientConfig, RootCertStore};
-use serde::Deserialize;
+use serde::{Deserialize, Deserializer};
 use vstorage::{
     base::{IcsItem, Item, Storage, VcardItem},
     caldav::CalDavStorage,
     carddav::CardDavStorage,
     filesystem::FilesystemStorage,
-    sync::{
-        declare::{CollectionDescription, DeclaredMapping, StoragePair},
-        state::PairState,
-    },
+    sync::declare::{CollectionDescription, DeclaredMapping, StoragePair},
     webcal::WebCalStorage,
     CollectionId,
 };
@@ -233,9 +230,17 @@ enum CollectionValue {
     Collection(Collection),
 }
 
+fn deserialise_collection_id<'de, D>(deserializer: D) -> Result<CollectionId, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let s: String = Deserialize::deserialize(deserializer)?;
+    CollectionId::try_from(s).map_err(serde::de::Error::custom)
+}
+
 #[derive(Deserialize, Debug)]
 enum Collection {
-    #[serde(rename = "id")]
+    #[serde(rename = "id", deserialize_with = "deserialise_collection_id")]
     Id(CollectionId),
     #[serde(rename = "href")]
     Href(String),
@@ -427,6 +432,7 @@ impl CalDav {
 pub(crate) struct Http {
     url: StringOrCommand,
     /// A name for the single collection inside this storage.
+    #[serde(deserialize_with = "deserialise_collection_id")]
     collection: CollectionId,
     #[serde(flatten)]
     https_config: HttpsConfig,

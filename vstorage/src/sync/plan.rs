@@ -15,14 +15,14 @@ use crate::{base::Item, sync::declare::StoragePair};
 use crate::{CollectionId, Error, ErrorKind, Etag, Href};
 
 use super::declare::{CollectionDescription, DeclaredMapping};
-use super::state::{CollectionState, ItemState, PairState};
+use super::state::CollectionState;
+use super::status::{ItemState, Side, StatusDatabase, StatusError};
 use super::PlanError;
 
 /// A series of actions that would synchronise a pair of storages.
 pub struct Plan<'pair, I: Item> {
     pub(super) pair: &'pair StoragePair<I>,
     pub(super) collection_plans: Vec<CollectionPlan>,
-    current_state: PairState,
 }
 
 /// Show only details of the plan itself; ignore other data.
@@ -47,7 +47,7 @@ impl<'pair, I: Item> Plan<'pair, I> {
     /// - The same collection is mapped more than once.
     pub async fn new(
         pair: &'pair StoragePair<I>,
-        previous_state: Option<&PairState>,
+        status: Option<&StatusDatabase>,
     ) -> Result<Plan<'pair, I>, PlanError> {
         // TODO: disco needs to returns its own error type?
         // TODO: only discover collections if any are specified by Id or All
@@ -94,29 +94,21 @@ impl<'pair, I: Item> Plan<'pair, I> {
             .filter_map(ResolvedMapping::href_b)
             .collect();
 
-        let (prev_a, prev_b) = match previous_state {
-            Some(prev) => (Some(&prev.a), Some(&prev.b)),
-            None => (None, None),
-        };
-
-        let a =
-            StorageState::current_for_storage(prev_a, pair.storage_a.as_ref(), &hrefs_a, &disco_a)
-                .await
-                .map_err(PlanError::StateA)?;
-        let b =
-            StorageState::current_for_storage(prev_b, pair.storage_b.as_ref(), &hrefs_b, &disco_b)
-                .await
-                .map_err(PlanError::StateA)?;
+        let a = StorageState::current(status, pair.storage_a.as_ref(), &hrefs_a, &disco_a, Side::A)
+            .await
+            .map_err(PlanError::StateA)?;
+        let b = StorageState::current(status, pair.storage_b.as_ref(), &hrefs_b, &disco_b, Side::B)
+            .await
+            .map_err(PlanError::StateB)?;
 
         let collection_plans = mappings
             .iter()
-            .filter_map(|m| create_plan_for_mapping(m, &a, &b, prev_a, prev_b))
-            .collect::<Vec<_>>();
+            .filter_map(|m| create_plan_for_mapping(status, m, &a, &b).transpose())
+            .collect::<Result<Vec<_>, _>>()?;
 
         Ok(Plan {
             pair,
             collection_plans,
-            current_state: PairState { a, b },
         })
     }
 
@@ -124,12 +116,6 @@ impl<'pair, I: Item> Plan<'pair, I> {
     #[must_use]
     pub fn pair(&self) -> &'pair StoragePair<I> {
         self.pair
-    }
-
-    /// The state of the pair, as resolved when creating this plan.
-    #[must_use]
-    pub fn current_state(&self) -> &PairState {
-        &self.current_state
     }
 }
 
@@ -186,30 +172,23 @@ fn create_mappings_for_pair<I: Item>(
 ///
 /// Performs no I/O; only operates on input data.
 fn create_plan_for_mapping(
+    status: Option<&StatusDatabase>,
     mapping: &ResolvedMapping,
     current_a: &StorageState,
     current_b: &StorageState,
-    previous_a: Option<&StorageState>,
-    previous_b: Option<&StorageState>,
-) -> Option<CollectionPlan> {
-    let (cur_a, prev_a) = if let Some(href) = mapping.href_a() {
-        (
-            current_a.find_collection_state(href),
-            previous_a.and_then(|s| s.find_collection_state(href)),
-        )
+) -> Result<Option<CollectionPlan>, StatusError> {
+    let cur_a = if let Some(href) = mapping.href_a() {
+        current_a.find_collection_state(href)
     } else {
-        (None, None)
+        None
     };
-    let (cur_b, prev_b) = if let Some(href) = mapping.href_b() {
-        (
-            current_b.find_collection_state(href),
-            previous_b.and_then(|s| s.find_collection_state(href)),
-        )
+    let cur_b = if let Some(href) = mapping.href_b() {
+        current_b.find_collection_state(href)
     } else {
-        (None, None)
+        None
     };
 
-    CollectionPlan::new(mapping, prev_a, cur_a, prev_b, cur_b)
+    CollectionPlan::new(mapping, status, cur_a, cur_b)
 }
 
 #[cfg(test)]
@@ -439,72 +418,64 @@ pub(super) struct CollectionPlan {
 impl CollectionPlan {
     /// Calculate actions to sync a collection between two storages.
     ///
-    /// Each `previous_state` field shall be `None` if the collection did not previously exist.
-    /// Each `current_state` field shall be `None` if the collection currently does not exist.
-    ///
     /// Returns `None` if this plan would be a no-op.
-    ///
-    /// # Performance
-    ///
-    /// This methods is still quite inefficient. While the external API is not expected to change
-    /// much, the internal implementation is not yet final.
-    #[must_use]
     fn new<'a>(
         mapping: &ResolvedMapping,
-        previous_state_a: Option<&'a CollectionState>,
-        current_state_a: Option<&'a CollectionState>,
-        previous_state_b: Option<&'a CollectionState>,
-        current_state_b: Option<&'a CollectionState>,
-    ) -> Option<CollectionPlan> {
-        let all_items = current_state_a
+        status: Option<&StatusDatabase>,
+        state_a: Option<&'a CollectionState>,
+        state_b: Option<&'a CollectionState>,
+    ) -> Result<Option<CollectionPlan>, StatusError> {
+        let status_items = status.map_or(Ok(Vec::new()), StatusDatabase::all_uids)?;
+        let status_items = status_items.iter();
+
+        let all_items = state_a
             .map(|s| &s.items)
             .into_iter()
             .flatten()
-            .chain(current_state_b.map(|s| &s.items).into_iter().flatten())
-            .chain(previous_state_a.map(|s| &s.items).into_iter().flatten())
-            .chain(previous_state_b.map(|s| &s.items).into_iter().flatten());
+            .chain(state_b.map(|s| &s.items).into_iter().flatten())
+            .map(|i| &i.uid)
+            .chain(status_items);
+        let all_items = all_items.collect::<HashSet<_>>();
 
-        let all_items = all_items.map(|i| &i.uid).collect::<HashSet<_>>();
-        let item_actions = all_items
-            .into_iter()
-            .filter_map(|uid| {
-                let item_a = current_state_a.and_then(|s| s.get_item_by_uid(uid));
-                let item_b = current_state_b.and_then(|s| s.get_item_by_uid(uid));
+        let mut item_actions = Vec::new();
+        for uid in all_items {
+            let item_a = state_a.and_then(|s| s.get_item_by_uid(uid));
+            let item_b = state_b.and_then(|s| s.get_item_by_uid(uid));
 
-                if item_a.is_some_and(|a| item_b.is_some_and(|b| a.hash == b.hash)) {
-                    trace!("Item uid={} is unchanged; will take no action.", uid);
-                    return None;
-                }
+            if item_a.is_some_and(|a| item_b.is_some_and(|b| a.hash == b.hash)) {
+                trace!("Item uid={} is unchanged; will take no action.", uid);
+                continue;
+            }
 
-                let prev_item_a = previous_state_a.and_then(|s| s.get_item_by_uid(uid));
-                let prev_item_b = previous_state_b.and_then(|s| s.get_item_by_uid(uid));
+            let (prev_item_a, prev_item_b) = match status {
+                Some(s) => (
+                    s.get_item_by_uid(Side::A, uid)?,
+                    s.get_item_by_uid(Side::B, uid)?,
+                ),
+                None => (None, None),
+            };
 
-                let a_changed = Change::for_item(item_a, prev_item_a);
-                let b_changed = Change::for_item(item_b, prev_item_b);
+            let a_changed = Change::for_item(item_a, prev_item_a.as_ref());
+            let b_changed = Change::for_item(item_b, prev_item_b.as_ref());
 
-                Action::from_changes(a_changed, b_changed).map(|action| ItemAction {
+            if let Some(action) = Action::from_changes(a_changed, b_changed) {
+                item_actions.push(ItemAction {
                     uid: uid.clone(),
                     action,
-                })
-            })
-            .collect::<Vec<ItemAction>>();
+                });
+            }
+        }
 
-        let collection_action = Action::for_collection(
-            mapping,
-            current_state_a,
-            current_state_b,
-            previous_state_b,
-            previous_state_a,
-        );
+        let collection_action = Action::for_collection(mapping, status, state_a, state_b)?;
 
         if collection_action.is_none() && item_actions.is_empty() {
-            None
+            Ok(None)
         } else {
-            Some(CollectionPlan {
+            Ok(Some(CollectionPlan {
                 mapping: mapping.clone(),
                 collection_action,
                 items: item_actions,
-            })
+            }))
         }
     }
 
@@ -516,6 +487,9 @@ impl CollectionPlan {
 /// An action to executing when synchronising.
 #[derive(PartialEq, Debug, Clone)]
 pub enum Action {
+    // Item is identical on both sides but are missing from state.
+    // This mostly happens during the first run.
+    SaveToState { a: ItemState, b: ItemState },
     CreateInA { source: Href },
     CreateInB { source: Href },
     UpdateInA { source: Href, target: ItemRef },
@@ -594,37 +568,45 @@ impl Action {
         }
     }
 
-    #[must_use]
     fn for_collection<'href>(
         mapping: &ResolvedMapping,
+        status: Option<&StatusDatabase>,
         current_a: Option<&'href CollectionState>,
         current_b: Option<&'href CollectionState>,
-        previous_a: Option<&'href CollectionState>,
-        previous_b: Option<&'href CollectionState>,
-    ) -> Option<CollectionAction> {
-        match (current_a, current_b, previous_a, previous_b) {
+    ) -> Result<Option<CollectionAction>, StatusError> {
+        // Test whether the collection previously existed.
+        let (previous_a, previous_b) = match status {
+            Some(s) => (
+                s.collection_exists(&mapping.a)?,
+                s.collection_exists(&mapping.b)?,
+            ),
+            None => (false, false),
+        };
+
+        let collection_action = match (current_a, current_b, previous_a, previous_b) {
             (None, None, _, _) | (Some(_), Some(_), _, _) => None,
             // New or present in B, missing from A.
-            (None, Some(_), _, None) | (None, Some(_), None, Some(_)) => {
+            (None, Some(_), _, false) | (None, Some(_), false, true) => {
                 Some(CollectionAction::CreateInA {
                     collection: mapping.a.clone(),
                 })
             }
             // Deleted from A.
-            (None, Some(c), Some(_), Some(_)) => Some(CollectionAction::DeleteInB {
+            (None, Some(c), true, true) => Some(CollectionAction::DeleteInB {
                 href: c.href.clone(),
             }),
             // New or present in A, missing from B.
-            (Some(_), None, None, _) | (Some(_), None, Some(_), None) => {
+            (Some(_), None, false, _) | (Some(_), None, true, false) => {
                 Some(CollectionAction::CreateInB {
                     collection: mapping.b.clone(),
                 })
             }
             // Deleted from B.
-            (Some(c), None, Some(_), Some(_)) => Some(CollectionAction::DeleteInA {
+            (Some(c), None, true, true) => Some(CollectionAction::DeleteInA {
                 href: c.href.clone(),
             }),
-        }
+        };
+        Ok(collection_action)
     }
 }
 
