@@ -94,10 +94,10 @@ impl<'pair, I: Item> Plan<'pair, I> {
             .filter_map(ResolvedMapping::href_b)
             .collect();
 
-        let a = StorageState::current(status, pair.storage_a.as_ref(), &hrefs_a, &disco_a, Side::A)
+        let a = StorageState::current(status, pair.storage_a.as_ref(), &hrefs_a, Side::A)
             .await
             .map_err(PlanError::StateA)?;
-        let b = StorageState::current(status, pair.storage_b.as_ref(), &hrefs_b, &disco_b, Side::B)
+        let b = StorageState::current(status, pair.storage_b.as_ref(), &hrefs_b, Side::B)
             .await
             .map_err(PlanError::StateB)?;
 

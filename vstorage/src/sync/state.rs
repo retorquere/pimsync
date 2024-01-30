@@ -6,7 +6,6 @@
 
 use crate::{
     base::{FetchedItem, Item, Storage},
-    disco::{DiscoveredCollection, Discovery},
     Href, Result,
 };
 
@@ -25,18 +24,12 @@ impl StorageState {
         storage: &dyn Storage<I>,
         // The hrefs that we care about:
         collection_hrefs: &Vec<&str>,
-        discovery: &Discovery,
         side: Side,
     ) -> Result<StorageState, Box<dyn std::error::Error>> {
         let mut collections = Vec::with_capacity(collection_hrefs.len());
 
         for href in collection_hrefs {
-            let Some(collection) = discovery.find_collection_by_href(href) else {
-                // If a collection does not exist the there is no state for it.
-                continue;
-            };
-
-            let state = CollectionState::generate_current(status, storage, collection, side).await;
+            let state = CollectionState::generate_current(status, storage, href, side).await;
             collections.push(state?);
         }
 
@@ -65,18 +58,18 @@ impl CollectionState {
     async fn generate_current<I: Item>(
         status: Option<&StatusDatabase>,
         storage: &dyn Storage<I>,
-        collection: &DiscoveredCollection,
+        collection_href: &str,
         side: Side,
     ) -> Result<CollectionState, Box<dyn std::error::Error>> {
         let mut state = CollectionState {
-            href: collection.href().to_string(),
+            href: collection_href.to_string(),
             items: Vec::new(),
         };
 
         let prefetched = if let Some(status) = status {
             let mut to_prefetch = Vec::new();
 
-            for item_ref in storage.list_items(collection.href()).await? {
+            for item_ref in storage.list_items(collection_href).await? {
                 if let Some(prev_item) = status.get_item_by_href(side, &item_ref.href)? {
                     if prev_item.etag == item_ref.etag {
                         // The item has not changed, so its hash also remains the same.
@@ -96,7 +89,7 @@ impl CollectionState {
             let to_prefetch = to_prefetch.iter().map(String::as_str).collect::<Vec<_>>();
             storage.get_many_items(&to_prefetch).await?
         } else {
-            storage.get_all_items(collection.href()).await?
+            storage.get_all_items(collection_href).await?
         };
 
         let prefetched = prefetched

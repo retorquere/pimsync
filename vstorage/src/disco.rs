@@ -52,14 +52,6 @@ impl Discovery {
     ) -> Option<&'disco DiscoveredCollection> {
         self.collections().iter().find(|c| c.id == *id)
     }
-
-    /// Find a collection with a matching href.
-    pub(super) fn find_collection_by_href<'disco>(
-        self: &'disco Discovery,
-        href: &str,
-    ) -> Option<&'disco DiscoveredCollection> {
-        self.collections().iter().find(|c| c.href == *href)
-    }
 }
 
 impl From<Vec<DiscoveredCollection>> for Discovery {
