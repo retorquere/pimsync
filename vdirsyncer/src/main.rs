@@ -71,7 +71,8 @@ impl<I: Item> NamedPair<I> {
         };
         drop(status);
 
-        // TODO: print this in more human-friendly format
+        // FIXME: print this in more human-friendly format
+        // TODO: print with log level INFO
         dbg!(&plan);
 
         if dry_run {
