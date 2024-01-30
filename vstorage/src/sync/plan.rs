@@ -490,8 +490,8 @@ pub enum Action {
     CreateInB { source: Href },
     UpdateInA { source: Href, target: ItemRef },
     UpdateInB { source: Href, target: ItemRef },
-    DeleteInA { href: Href, etag: Etag }, // TODO: use ItemRef here too
-    DeleteInB { href: Href, etag: Etag },
+    DeleteInA { target: ItemRef },
+    DeleteInB { target: ItemRef },
     Conflict, // TODO: content might still match on both sides
 }
 
@@ -513,12 +513,16 @@ impl Action {
                 }
             }
             (Change::NoChange { href, etag }, Change::Deleted { .. }) => Some(Action::DeleteInA {
-                href: href.clone(),
-                etag: etag.clone(),
+                target: ItemRef {
+                    href: href.clone(),
+                    etag: etag.clone(),
+                },
             }),
             (Change::Deleted { .. }, Change::NoChange { href, etag }) => Some(Action::DeleteInB {
-                href: href.clone(),
-                etag: etag.clone(),
+                target: ItemRef {
+                    href: href.clone(),
+                    etag: etag.clone(),
+                },
             }),
             // Copy new into A.
             (Change::Deleted { .. } | Change::Absent, Change::Changed { state }) => {

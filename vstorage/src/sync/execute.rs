@@ -11,7 +11,7 @@ use log::{debug, error};
 use crate::{
     base::{Item, ItemRef, Storage},
     sync::{plan::Action, status::ItemState},
-    Etag, Href,
+    Href,
 };
 
 use super::{
@@ -52,11 +52,11 @@ impl ItemAction {
                 Action::UpdateInA { source, target } => {
                     update_item(source, target, status, b, a, Side::A).await?;
                 }
-                Action::DeleteInA { href, etag } => {
-                    delete_item(href, etag, status, a, Side::A).await?;
+                Action::DeleteInA { target } => {
+                    delete_item(target, status, a, Side::A).await?;
                 }
-                Action::DeleteInB { href, etag } => {
-                    delete_item(href, etag, status, b, Side::B).await?;
+                Action::DeleteInB { target } => {
+                    delete_item(target, status, b, Side::B).await?;
                 }
                 Action::Conflict => {
                     error!("Conflict for items {}. Skipping.", self.uid());
@@ -133,14 +133,13 @@ async fn update_item<I: Item>(
 }
 
 async fn delete_item<I: Item>(
-    href: &Href,
-    etag: &Etag,
+    item_ref: &ItemRef,
     status: &StatusDatabase,
     storage: &dyn Storage<I>,
     side: Side,
 ) -> Result<(), ExecutionError> {
-    storage.delete_item(href, etag).await?;
-    status.delete_item(side, href)?;
+    storage.delete_item(&item_ref.href, &item_ref.etag).await?;
+    status.delete_item(side, &item_ref.href)?;
 
     Ok(())
 }
