@@ -597,8 +597,9 @@ impl Action {
         };
 
         let collection_action = match (current_a, current_b, previous_a, previous_b) {
+            // Deleted on both sides OR exists on both sides.
             (None, None, _, _) | (Some(_), Some(_), _, _) => None,
-            // New or present in B, missing from A.
+            // New or present in B AND missing from A.
             (None, Some(_), _, false) | (None, Some(_), false, true) => {
                 Some(CollectionAction::CreateInA {
                     collection: mapping.a.clone(),
@@ -608,7 +609,7 @@ impl Action {
             (None, Some(c), true, true) => Some(CollectionAction::DeleteInB {
                 href: c.href.clone(),
             }),
-            // New or present in A, missing from B.
+            // New or present in A AND missing from B.
             (Some(_), None, false, _) | (Some(_), None, true, false) => {
                 Some(CollectionAction::CreateInB {
                     collection: mapping.b.clone(),
