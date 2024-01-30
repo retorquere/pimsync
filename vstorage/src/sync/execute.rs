@@ -297,7 +297,7 @@ impl SynchronizationError {
     pub fn new(action: impl Into<SomeAction>, error: ExecutionError) -> Self {
         Self {
             action: action.into(),
-            error: error.into(),
+            error,
         }
     }
 
