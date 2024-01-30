@@ -462,7 +462,7 @@ impl CollectionPlan {
             }
         }
 
-        let collection_action = Action::for_collection(mapping, status, state_a, state_b)?;
+        let collection_action = CollectionAction::new(mapping, status, state_a, state_b)?;
 
         if collection_action.is_none() && item_actions.is_empty() {
             Ok(None)
@@ -493,15 +493,6 @@ pub enum Action {
     DeleteInA { href: Href, etag: Etag }, // TODO: use ItemRef here too
     DeleteInB { href: Href, etag: Etag },
     Conflict, // TODO: content might still match on both sides
-}
-
-/// An action to executing on a collection when synchronising.
-#[derive(PartialEq, Debug, Clone)]
-pub enum CollectionAction {
-    CreateInA { collection: ResolvedCollection },
-    CreateInB { collection: ResolvedCollection },
-    DeleteInA { href: Href },
-    DeleteInB { href: Href },
 }
 
 impl Action {
@@ -580,8 +571,19 @@ impl Action {
             | (Change::NoChange { .. }, Change::NoChange { .. }) => None,
         }
     }
+}
 
-    fn for_collection<'href>(
+/// An action to executing on a collection when synchronising.
+#[derive(PartialEq, Debug, Clone)]
+pub enum CollectionAction {
+    CreateInA { collection: ResolvedCollection },
+    CreateInB { collection: ResolvedCollection },
+    DeleteInA { href: Href },
+    DeleteInB { href: Href },
+}
+
+impl CollectionAction {
+    fn new<'href>(
         mapping: &ResolvedMapping,
         status: Option<&StatusDatabase>,
         current_a: Option<&'href CollectionState>,
