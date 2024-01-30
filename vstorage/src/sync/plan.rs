@@ -49,41 +49,27 @@ impl<'pair, I: Item> Plan<'pair, I> {
         pair: &'pair StoragePair<I>,
         status: Option<&StatusDatabase>,
     ) -> Result<Plan<'pair, I>, PlanError> {
-        // TODO: disco needs to returns its own error type?
-        // TODO: only discover collections if any are specified by Id or All
-        let disco_a = pair
-            .storage_a
-            .discover_collections()
-            .await
-            .map_err(PlanError::DiscoveryFailedA)?;
-        let disco_b = pair
-            .storage_b
-            .discover_collections()
-            .await
-            .map_err(PlanError::DiscoveryFailedB)?;
+        let mappings = create_mappings_for_pair(pair).await?;
 
-        let mappings = create_mappings_for_pair(pair, &disco_a, &disco_b)
-            .map_err(PlanError::BadCollectionMappings)?;
+        let mut seen_a = HashSet::<&ResolvedCollection>::new();
+        let mut seen_b = HashSet::<&ResolvedCollection>::new();
 
-        {
-            let mut seen_a = HashSet::<&ResolvedCollection>::new();
-            let mut seen_b = HashSet::<&ResolvedCollection>::new();
-
-            for mapping in &mappings {
-                // TODO: cloning here is not ideal, but it's not a hot path either.
-                if seen_a.contains(&mapping.a) {
-                    // TODO: only fail if B is different
-                    return Err(PlanError::DuplicateCollectionInA(mapping.a.clone()));
-                }
-                if seen_b.contains(&mapping.b) {
-                    // TODO: only fail if A is different
-                    return Err(PlanError::DuplicateCollectionInB(mapping.b.clone()));
-                }
-
-                seen_a.insert(&mapping.a);
-                seen_b.insert(&mapping.a);
+        for mapping in &mappings {
+            // TODO: cloning here is not ideal, but it's not a hot path either.
+            if seen_a.contains(&mapping.a) {
+                // TODO: only fail if B is different
+                return Err(PlanError::DuplicateCollectionInA(mapping.a.clone()));
             }
+            if seen_b.contains(&mapping.b) {
+                // TODO: only fail if A is different
+                return Err(PlanError::DuplicateCollectionInB(mapping.b.clone()));
+            }
+
+            seen_a.insert(&mapping.a);
+            seen_b.insert(&mapping.a);
         }
+        drop(seen_a);
+        drop(seen_b);
 
         let hrefs_a = mappings
             .iter()
@@ -122,20 +108,35 @@ impl<'pair, I: Item> Plan<'pair, I> {
 /// Resolve all collection mappings for a given pair.
 ///
 /// Performs no I/O; only operates on input data.
-fn create_mappings_for_pair<I: Item>(
+async fn create_mappings_for_pair<I: Item>(
     pair: &StoragePair<I>,
-    disco_a: &Discovery,
-    disco_b: &Discovery,
-) -> Result<Vec<ResolvedMapping>, crate::Error> {
+) -> Result<Vec<ResolvedMapping>, PlanError> {
     let mut mappings = Vec::<ResolvedMapping>::with_capacity(pair.mappings.len());
+
+    // FIXME: discovery is not required if all collections are defined by href.
+    //        (and discovery may not even be available in such cases)
+    let disco_a = pair
+        .storage_a
+        .discover_collections()
+        .await
+        .map_err(PlanError::DiscoveryFailedA)?;
+    let disco_b = pair
+        .storage_b
+        .discover_collections()
+        .await
+        .map_err(PlanError::DiscoveryFailedB)?;
+
     for mapping in &pair.mappings {
-        mappings.push(ResolvedMapping::from_declared_mapping(
-            mapping.clone(),
-            pair.storage_a.as_ref(),
-            pair.storage_b.as_ref(),
-            disco_a,
-            disco_b,
-        )?);
+        mappings.push(
+            ResolvedMapping::from_declared_mapping(
+                mapping.clone(),
+                pair.storage_a.as_ref(),
+                pair.storage_b.as_ref(),
+                &disco_a,
+                &disco_b,
+            )
+            .map_err(PlanError::BadCollectionMappings)?,
+        );
     }
 
     if pair.all_from_a {
@@ -145,7 +146,7 @@ fn create_mappings_for_pair<I: Item>(
                 a: ResolvedCollection::Href {
                     href: collection.href().to_string(),
                 },
-                b: resolve_mapping_counterpart(collection, disco_b),
+                b: resolve_mapping_counterpart(collection, &disco_b),
             });
         }
     }
@@ -153,7 +154,7 @@ fn create_mappings_for_pair<I: Item>(
         mappings.reserve(disco_b.collection_count());
         for collection in disco_b.collections() {
             let mapping = ResolvedMapping {
-                a: resolve_mapping_counterpart(collection, disco_a),
+                a: resolve_mapping_counterpart(collection, &disco_a),
                 b: ResolvedCollection::Href {
                     href: collection.href().to_owned(),
                 },
