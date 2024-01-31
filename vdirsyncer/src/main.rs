@@ -89,6 +89,7 @@ impl<I: Item> NamedPair<I> {
     }
 
     async fn discover(&self) -> anyhow::Result<()> {
+        // TODO: discover displaynames and colours too
         let disco = self.inner.storage_a().discover_collections().await?;
         println!("For pair {}, storage a:", self.name);
         for collection in disco.collections() {
@@ -116,6 +117,7 @@ pub(crate) struct App {
 impl App {
     /// Returns an error if a fatal error has ocurred.
     async fn sync(&self, dry_run: bool) -> anyhow::Result<()> {
+        // TODO: protect from concurrent runs!
         for pair in &self.calendar_pairs {
             pair.synchronise_pair(dry_run).await?;
         }
