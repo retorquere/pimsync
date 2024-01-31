@@ -388,6 +388,8 @@ impl CollectionPlan {
         mapping: &ResolvedMapping,
         status: Option<&StatusDatabase>,
     ) -> Result<Option<CollectionPlan>, PlanError> {
+        // Collections declared by Id are already resolved to an Href at this point.
+        // Those not resolved don't exist.
         let state_a = CollectionState::new(status, pair.storage_a(), mapping, Side::A).await?;
         let state_b = CollectionState::new(status, pair.storage_b(), mapping, Side::B).await?;
 
