@@ -452,6 +452,7 @@ pub enum Action {
     // Item is identical on both sides but are missing from state.
     // This mostly happens during the first run.
     SaveToState { a: ItemState, b: ItemState },
+    // TODO: details on target collection should be included here.
     CreateInA { source: Href },
     CreateInB { source: Href },
     UpdateInA { source: Href, target: ItemRef },
