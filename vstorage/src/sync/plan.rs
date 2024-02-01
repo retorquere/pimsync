@@ -396,35 +396,35 @@ impl CollectionPlan {
         let items_a = state_a.as_ref().map(|s| &s.items).into_iter().flatten();
         let items_b = state_b.as_ref().map(|s| &s.items).into_iter().flatten();
 
-        let all_items = items_a
-            .chain(items_b)
-            .map(|i| &i.uid)
-            .chain(status_items)
-            .collect::<HashSet<_>>();
+        let all_items = items_a.chain(items_b).map(|i| &i.uid).chain(status_items);
 
-        let mut item_actions = Vec::new();
-        for uid in all_items {
-            let item_a = state_a.as_ref().and_then(|s| s.get_item_by_uid(uid));
-            let item_b = state_b.as_ref().and_then(|s| s.get_item_by_uid(uid));
+        let item_actions = all_items
+            .map(|uid| {
+                let item_a = state_a.as_ref().and_then(|s| s.get_item_by_uid(uid));
+                let item_b = state_b.as_ref().and_then(|s| s.get_item_by_uid(uid));
 
-            let (prev_item_a, prev_item_b) = match status {
-                Some(s) => (
-                    s.get_item_by_uid(Side::A, uid)?,
-                    s.get_item_by_uid(Side::B, uid)?,
-                ),
-                None => (None, None),
-            };
+                let (prev_item_a, prev_item_b) = match status {
+                    Some(s) => (
+                        s.get_item_by_uid(Side::A, uid)?,
+                        s.get_item_by_uid(Side::B, uid)?,
+                    ),
+                    None => (None, None),
+                };
 
-            let a_changed = Change::for_item(item_a, prev_item_a);
-            let b_changed = Change::for_item(item_b, prev_item_b);
+                let a_changed = Change::for_item(item_a, prev_item_a);
+                let b_changed = Change::for_item(item_b, prev_item_b);
 
-            if let Some(action) = Action::from_changes(a_changed, b_changed) {
-                item_actions.push(ItemAction {
-                    uid: uid.clone(),
-                    action,
-                });
-            }
-        }
+                if let Some(action) = Action::from_changes(a_changed, b_changed) {
+                    Ok(Some(ItemAction {
+                        uid: uid.to_string(),
+                        action,
+                    }))
+                } else {
+                    Ok(None)
+                }
+            })
+            .filter_map(Result::transpose)
+            .collect::<Result<Vec<_>, PlanError>>()?;
 
         let collection_action = CollectionAction::new(mapping, status, state_a, state_b)?;
 
