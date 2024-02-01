@@ -29,8 +29,8 @@ impl StorageState {
         let mut collections = Vec::with_capacity(collection_hrefs.len());
 
         for href in collection_hrefs {
-            let state = CollectionState::generate_current(status, storage, href, side).await;
-            collections.push(state?);
+            let state = CollectionState::generate_current(status, storage, href, side).await?;
+            collections.push(state);
         }
 
         Ok(StorageState { collections })
