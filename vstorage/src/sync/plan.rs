@@ -459,7 +459,7 @@ pub enum Action {
     UpdateInB { source: Href, target: ItemRef },
     DeleteInA { target: ItemRef },
     DeleteInB { target: ItemRef },
-    Conflict, // TODO: content might still match on both sides
+    Conflict,
 }
 
 impl Action {
