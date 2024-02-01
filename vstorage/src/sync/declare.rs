@@ -136,12 +136,12 @@ impl<I: Item> StoragePair<I> {
     }
 
     #[must_use]
-    pub fn storage_a(&self) -> Arc<dyn Storage<I>> {
-        self.storage_a.clone()
+    pub fn storage_a(&self) -> &dyn Storage<I> {
+        self.storage_a.as_ref()
     }
 
     #[must_use]
-    pub fn storage_b(&self) -> Arc<dyn Storage<I>> {
-        self.storage_b.clone()
+    pub fn storage_b(&self) -> &dyn Storage<I> {
+        self.storage_b.as_ref()
     }
 }

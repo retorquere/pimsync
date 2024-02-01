@@ -25,7 +25,6 @@ use self::{plan::ResolvedCollection, status::StatusError};
 pub mod declare;
 pub mod execute;
 pub mod plan;
-mod state;
 pub mod status;
 
 #[derive(thiserror::Error, Debug)]
@@ -45,12 +44,9 @@ pub enum PlanError {
     #[error("Invalid collection mappings provided")]
     BadCollectionMappings(#[source] crate::Error),
 
-    #[error("Error determining current state for storage A: {0}")]
-    StateA(#[source] Box<dyn std::error::Error>), // FIXME: hacky
+    #[error("Error interacting with underlying storage")]
+    Storage(#[from] crate::Error),
 
-    #[error("Error determining current state for storage B: {0}")]
-    StateB(#[source] Box<dyn std::error::Error>), // FIXME: hacky
-
-    #[error("Error querying status databsae")]
+    #[error("Error querying status database")]
     StatusDb(#[from] StatusError),
 }

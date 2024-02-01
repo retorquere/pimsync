@@ -8,14 +8,12 @@ use std::collections::HashSet;
 
 use log::debug;
 
-use crate::base::{ItemRef, Storage};
+use crate::base::{FetchedItem, ItemRef, Storage};
 use crate::disco::{DiscoveredCollection, Discovery};
-use crate::sync::state::StorageState;
 use crate::{base::Item, sync::declare::StoragePair};
 use crate::{CollectionId, Error, ErrorKind, Etag, Href};
 
 use super::declare::{CollectionDescription, DeclaredMapping};
-use super::state::CollectionState;
 use super::status::{ItemState, Side, StatusDatabase, StatusError};
 use super::PlanError;
 
@@ -71,26 +69,12 @@ impl<'pair, I: Item> Plan<'pair, I> {
         drop(seen_a);
         drop(seen_b);
 
-        let hrefs_a = mappings
-            .iter()
-            .filter_map(ResolvedMapping::href_a)
-            .collect();
-        let hrefs_b = mappings
-            .iter()
-            .filter_map(ResolvedMapping::href_b)
-            .collect();
-
-        let a = StorageState::current(status, pair.storage_a.as_ref(), &hrefs_a, Side::A)
-            .await
-            .map_err(PlanError::StateA)?;
-        let b = StorageState::current(status, pair.storage_b.as_ref(), &hrefs_b, Side::B)
-            .await
-            .map_err(PlanError::StateB)?;
-
-        let collection_plans = mappings
-            .iter()
-            .filter_map(|m| CollectionPlan::new(m, status, &a, &b).transpose())
-            .collect::<Result<Vec<_>, _>>()?;
+        let mut collection_plans = Vec::new();
+        for ref m in mappings {
+            if let Some(plan) = CollectionPlan::new(pair, m, status).await? {
+                collection_plans.push(plan);
+            }
+        }
 
         Ok(Plan {
             pair,
@@ -243,17 +227,12 @@ impl ResolvedMapping {
         &self.b
     }
 
-    fn href_a(&self) -> Option<&str> {
-        match &self.a {
-            ResolvedCollection::Id { .. } => None,
-            ResolvedCollection::Href { href } => Some(href),
+    fn href(&self, side: Side) -> Option<&str> {
+        match side {
+            Side::A => &self.a,
+            Side::B => &self.b,
         }
-    }
-    fn href_b(&self) -> Option<&str> {
-        match &self.b {
-            ResolvedCollection::Id { .. } => None,
-            ResolvedCollection::Href { href } => Some(href),
-        }
+        .href()
     }
 
     /// Returns `Err` if the collection is missing on the `From` side.
@@ -310,6 +289,13 @@ impl ResolvedCollection {
                 None => ResolvedCollection::Id { id: id.clone() },
             },
             CollectionDescription::Href { href } => ResolvedCollection::Href { href },
+        }
+    }
+
+    fn href(&self) -> Option<&str> {
+        match self {
+            ResolvedCollection::Id { .. } => None,
+            ResolvedCollection::Href { href } => Some(href),
         }
     }
 }
@@ -397,35 +383,31 @@ impl CollectionPlan {
     /// Calculate actions to sync a collection between two storages.
     ///
     /// Returns `None` if this plan would be a no-op.
-    fn new(
+    async fn new<I: Item>(
+        pair: &StoragePair<I>,
         mapping: &ResolvedMapping,
         status: Option<&StatusDatabase>,
-        current_a: &StorageState,
-        current_b: &StorageState,
-    ) -> Result<Option<CollectionPlan>, StatusError> {
-        let state_a = mapping
-            .href_a()
-            .and_then(|href| current_a.find_collection_state(href));
-        let state_b = mapping
-            .href_b()
-            .and_then(|href| current_b.find_collection_state(href));
+    ) -> Result<Option<CollectionPlan>, PlanError> {
+        let state_a = CollectionState::new(status, pair.storage_a(), mapping, Side::A).await?;
+        let state_b = CollectionState::new(status, pair.storage_b(), mapping, Side::B).await?;
 
         let status_items = status.map_or(Ok(Vec::new()), StatusDatabase::all_uids)?;
         let status_items = status_items.iter();
 
         let all_items = state_a
+            .as_ref()
             .map(|s| &s.items)
             .into_iter()
             .flatten()
-            .chain(state_b.map(|s| &s.items).into_iter().flatten())
+            .chain(state_b.as_ref().map(|s| &s.items).into_iter().flatten())
             .map(|i| &i.uid)
             .chain(status_items);
         let all_items = all_items.collect::<HashSet<_>>();
 
         let mut item_actions = Vec::new();
         for uid in all_items {
-            let item_a = state_a.and_then(|s| s.get_item_by_uid(uid));
-            let item_b = state_b.and_then(|s| s.get_item_by_uid(uid));
+            let item_a = state_a.as_ref().and_then(|s| s.get_item_by_uid(uid));
+            let item_b = state_b.as_ref().and_then(|s| s.get_item_by_uid(uid));
 
             let (prev_item_a, prev_item_b) = match status {
                 Some(s) => (
@@ -571,11 +553,11 @@ pub enum CollectionAction {
 }
 
 impl CollectionAction {
-    fn new<'href>(
+    fn new(
         mapping: &ResolvedMapping,
         status: Option<&StatusDatabase>,
-        current_a: Option<&'href CollectionState>,
-        current_b: Option<&'href CollectionState>,
+        current_a: Option<CollectionState>,
+        current_b: Option<CollectionState>,
     ) -> Result<Option<CollectionAction>, StatusError> {
         // Test whether the collection previously existed.
         let (previous_a, previous_b) = match status {
@@ -596,9 +578,7 @@ impl CollectionAction {
                 })
             }
             // Deleted from A.
-            (None, Some(c), true, true) => Some(CollectionAction::DeleteInB {
-                href: c.href.clone(),
-            }),
+            (None, Some(c), true, true) => Some(CollectionAction::DeleteInB { href: c.href }),
             // New or present in A AND missing from B.
             (Some(_), None, false, _) | (Some(_), None, true, false) => {
                 Some(CollectionAction::CreateInB {
@@ -606,9 +586,7 @@ impl CollectionAction {
                 })
             }
             // Deleted from B.
-            (Some(c), None, true, true) => Some(CollectionAction::DeleteInA {
-                href: c.href.clone(),
-            }),
+            (Some(c), None, true, true) => Some(CollectionAction::DeleteInA { href: c.href }),
         };
         Ok(collection_action)
     }
@@ -650,5 +628,73 @@ impl<'href> Change<'href> {
             (None, Some(_)) => Change::Deleted,
             (None, None) => Change::Absent,
         }
+    }
+}
+
+/// The state of a single collection.
+#[derive(Clone, Debug)]
+struct CollectionState {
+    href: Href,
+    items: Vec<ItemState>,
+}
+
+impl CollectionState {
+    /// Returns `None` if the collection does not have an `href`.
+    async fn new<I: Item>(
+        status: Option<&StatusDatabase>,
+        storage: &dyn Storage<I>,
+        mapping: &ResolvedMapping,
+        side: Side,
+    ) -> Result<Option<CollectionState>, PlanError> {
+        let Some(collection_href) = mapping.href(side) else {
+            return Ok(None);
+        };
+        let mut state = CollectionState {
+            href: collection_href.to_string(),
+            items: Vec::new(),
+        };
+
+        let prefetched = if let Some(status) = status {
+            let mut to_prefetch = Vec::new();
+
+            for item_ref in storage.list_items(collection_href).await? {
+                if let Some(prev_item) = status.get_item_by_href(side, &item_ref.href)? {
+                    if prev_item.etag == item_ref.etag {
+                        // The item has not changed, so its hash also remains the same.
+                        // All data available; nothing to request.
+                        state.items.push(ItemState {
+                            href: item_ref.href,
+                            etag: item_ref.etag,
+                            uid: prev_item.uid.clone(),
+                            hash: prev_item.hash.clone(),
+                        });
+                        continue;
+                    } // else: item has changed
+                } // else: item is new
+                to_prefetch.push(item_ref.href);
+            }
+
+            let to_prefetch = to_prefetch.iter().map(String::as_str).collect::<Vec<_>>();
+            storage.get_many_items(&to_prefetch).await?
+        } else {
+            storage.get_all_items(collection_href).await?
+        };
+
+        let prefetched = prefetched
+            .into_iter()
+            .map(|FetchedItem { href, item, etag }| ItemState {
+                href,
+                uid: item.ident(),
+                etag,
+                hash: item.hash(),
+            });
+        state.items.extend(prefetched);
+
+        Ok(Some(state))
+    }
+
+    #[inline]
+    pub fn get_item_by_uid(&self, uid: &str) -> Option<&ItemState> {
+        self.items.iter().find(|i| i.uid == *uid)
     }
 }
