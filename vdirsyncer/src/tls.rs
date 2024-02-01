@@ -3,13 +3,7 @@
 // SPDX-License-Identifier: EUPL-1.2
 
 //! Helpers used for advanced TLS configuration.
-use std::{
-    fs::File,
-    io::BufReader,
-    num::ParseIntError,
-    path::{Path, PathBuf},
-    sync::Arc,
-};
+use std::{fs::File, io::BufReader, num::ParseIntError, path::Path, sync::Arc};
 
 use anyhow::{bail, Context};
 use rustls::{

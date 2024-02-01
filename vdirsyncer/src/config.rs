@@ -2,21 +2,16 @@
 //
 // SPDX-License-Identifier: EUPL-1.2
 
-//! Types for parsing the configuration file.
-#![allow(unused)]
-
 use std::{
-    borrow::Cow,
     collections::HashMap,
     ffi::OsString,
     fs::File,
     io::Read,
     marker::PhantomData,
-    os::unix::prelude::{OsStrExt, OsStringExt},
-    path::{Path, PathBuf},
+    path::PathBuf,
     process::{Command, Stdio},
     sync::Arc,
-    time::{Duration, SystemTime},
+    time::Duration,
 };
 
 use anyhow::{bail, Context};
@@ -162,6 +157,7 @@ struct PairSection {
     a: String,
     b: String,
     collections: Collections,
+    #[allow(dead_code)]
     metadata: Option<Vec<String>>,
     // TODO: conflict_resolution: Option<Vec<String>>,
     // TODO: partial_sync
@@ -351,6 +347,7 @@ struct Filesystem<I: Item> {
     encoding: Option<String>,
     // TODO: post_hook
     // TODO: fileignoreext
+    #[allow(dead_code)]
     post_hook: Option<OsString>,
     #[serde(default)]
     item: PhantomData<I>,
@@ -435,6 +432,7 @@ pub(crate) struct Http {
     #[serde(deserialize_with = "deserialise_collection_id")]
     collection: CollectionId,
     #[serde(flatten)]
+    #[allow(dead_code)]
     https_config: HttpsConfig,
 }
 
@@ -452,9 +450,11 @@ struct HttpsConfig {
     verify: Option<PathBuf>,
     verify_fingerprint: Option<String>,
     #[serde(default)]
+    #[allow(dead_code)]
     auth: Auth,
     auth_cert: Option<ClientCert>,
     #[serde(default = "default_useragent")]
+    #[allow(dead_code)]
     useragent: String,
 }
 

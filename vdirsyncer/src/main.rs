@@ -1,15 +1,12 @@
 // Copyright 2023 Hugo Osvaldo Barrera
 //
 // SPDX-License-Identifier: EUPL-1.2
-
-#![allow(unused)]
-
-use std::{fs::OpenOptions, io::Write, path::PathBuf, sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
 
 use anyhow::{bail, Context};
 use camino::Utf8PathBuf;
 use clap::Parser;
-use log::{debug, error, info, trace, warn};
+use log::{debug, error, info, warn};
 use vstorage::{
     base::{IcsItem, Item, Storage, VcardItem},
     sync::{declare::StoragePair, plan::Plan, status::StatusDatabase},
