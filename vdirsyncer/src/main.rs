@@ -168,7 +168,7 @@ async fn main() -> anyhow::Result<()> {
                 warn!("Storage monitoring is not implemented, will auto-sync every 5 minutes.");
                 // TODO: HTTPS connections are kept open for a while; this should also be configurable.
                 loop {
-                    app.sync(false).await;
+                    app.sync(false).await?;
                     // TODO: make this interval configurable.
                     tokio::time::sleep(app.interval).await;
                 }
