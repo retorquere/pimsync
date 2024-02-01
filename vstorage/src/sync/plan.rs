@@ -393,16 +393,14 @@ impl CollectionPlan {
 
         let status_items = status.map_or(Ok(Vec::new()), StatusDatabase::all_uids)?;
         let status_items = status_items.iter();
+        let items_a = state_a.as_ref().map(|s| &s.items).into_iter().flatten();
+        let items_b = state_b.as_ref().map(|s| &s.items).into_iter().flatten();
 
-        let all_items = state_a
-            .as_ref()
-            .map(|s| &s.items)
-            .into_iter()
-            .flatten()
-            .chain(state_b.as_ref().map(|s| &s.items).into_iter().flatten())
+        let all_items = items_a
+            .chain(items_b)
             .map(|i| &i.uid)
-            .chain(status_items);
-        let all_items = all_items.collect::<HashSet<_>>();
+            .chain(status_items)
+            .collect::<HashSet<_>>();
 
         let mut item_actions = Vec::new();
         for uid in all_items {
