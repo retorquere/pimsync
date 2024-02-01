@@ -1,6 +1,8 @@
 // Copyright 2023 Hugo Osvaldo Barrera
 //
 // SPDX-License-Identifier: EUPL-1.2
+#![deny(clippy::pedantic)]
+
 use std::{sync::Arc, time::Duration};
 
 use anyhow::{bail, Context};

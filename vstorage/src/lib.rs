@@ -1,6 +1,7 @@
 // Copyright 2023 Hugo Osvaldo Barrera
 //
 // SPDX-License-Identifier: EUPL-1.2
+#![deny(clippy::pedantic)]
 
 //! This crate implements a common API for reading and writing items on different underlying
 //! storage implementations. Storage implementations can contain `icalendar` components, `vcard`
