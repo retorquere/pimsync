@@ -89,7 +89,7 @@ impl<'pair, I: Item> Plan<'pair, I> {
 
         let collection_plans = mappings
             .iter()
-            .filter_map(|m| create_plan_for_mapping(status, m, &a, &b).transpose())
+            .filter_map(|m| CollectionPlan::new(m, status, &a, &b).transpose())
             .collect::<Result<Vec<_>, _>>()?;
 
         Ok(Plan {
@@ -167,29 +167,6 @@ async fn create_mappings_for_pair<I: Item>(
         }
     }
     Ok(mappings)
-}
-
-/// Create plan for a collection mapping.
-///
-/// Performs no I/O; only operates on input data.
-fn create_plan_for_mapping(
-    status: Option<&StatusDatabase>,
-    mapping: &ResolvedMapping,
-    current_a: &StorageState,
-    current_b: &StorageState,
-) -> Result<Option<CollectionPlan>, StatusError> {
-    let cur_a = if let Some(href) = mapping.href_a() {
-        current_a.find_collection_state(href)
-    } else {
-        None
-    };
-    let cur_b = if let Some(href) = mapping.href_b() {
-        current_b.find_collection_state(href)
-    } else {
-        None
-    };
-
-    CollectionPlan::new(mapping, status, cur_a, cur_b)
 }
 
 #[cfg(test)]
@@ -420,12 +397,19 @@ impl CollectionPlan {
     /// Calculate actions to sync a collection between two storages.
     ///
     /// Returns `None` if this plan would be a no-op.
-    fn new<'a>(
+    fn new(
         mapping: &ResolvedMapping,
         status: Option<&StatusDatabase>,
-        state_a: Option<&'a CollectionState>,
-        state_b: Option<&'a CollectionState>,
+        current_a: &StorageState,
+        current_b: &StorageState,
     ) -> Result<Option<CollectionPlan>, StatusError> {
+        let state_a = mapping
+            .href_a()
+            .and_then(|href| current_a.find_collection_state(href));
+        let state_b = mapping
+            .href_b()
+            .and_then(|href| current_b.find_collection_state(href));
+
         let status_items = status.map_or(Ok(Vec::new()), StatusDatabase::all_uids)?;
         let status_items = status_items.iter();
 
