@@ -650,10 +650,7 @@ impl CollectionState {
         let Some(collection_href) = mapping.href(side) else {
             return Ok(None);
         };
-        let mut state = CollectionState {
-            href: collection_href.to_string(),
-            items: Vec::new(),
-        };
+        let mut items = Vec::new();
 
         let prefetched = if let Some(status) = status {
             let mut to_prefetch = Vec::new();
@@ -663,7 +660,7 @@ impl CollectionState {
                     if prev_item.etag == item_ref.etag {
                         // The item has not changed, so its hash also remains the same.
                         // All data available; nothing to request.
-                        state.items.push(ItemState {
+                        items.push(ItemState {
                             href: item_ref.href,
                             etag: item_ref.etag,
                             uid: prev_item.uid.clone(),
@@ -689,9 +686,12 @@ impl CollectionState {
                 etag,
                 hash: item.hash(),
             });
-        state.items.extend(prefetched);
+        items.extend(prefetched);
 
-        Ok(Some(state))
+        Ok(Some(CollectionState {
+            href: collection_href.to_string(),
+            items,
+        }))
     }
 
     #[inline]
