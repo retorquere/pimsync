@@ -99,6 +99,10 @@ async fn create_mappings_for_pair<I: Item>(
 
     // FIXME: discovery is not required if all collections are defined by href.
     //        (and discovery may not even be available in such cases)
+    //
+    // wrapping in a huge IF won't work due to inner signatures.
+    // the best approach is likely to have something like a OnceCell for discovery data, so it is
+    // fetched when first required.
     let disco_a = pair
         .storage_a
         .discover_collections()
@@ -614,6 +618,7 @@ enum Change<'href> {
 impl<'href> Change<'href> {
     #[must_use]
     fn for_item(current: Option<&'href ItemState>, previous: Option<ItemState>) -> Change<'href> {
+        // TODO: what happens when an item changes href but all else remains the same?
         match (current, previous) {
             (Some(c), Some(p)) => {
                 if c.uid == p.uid && c.etag == p.etag && c.hash == p.hash {
