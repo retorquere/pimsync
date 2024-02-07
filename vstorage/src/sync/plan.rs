@@ -668,8 +668,8 @@ impl CollectionState {
                         items.push(ItemState {
                             href: item_ref.href,
                             etag: item_ref.etag,
-                            uid: prev_item.uid.clone(),
-                            hash: prev_item.hash.clone(),
+                            uid: prev_item.uid,
+                            hash: prev_item.hash,
                         });
                         continue;
                     } // else: item has changed
