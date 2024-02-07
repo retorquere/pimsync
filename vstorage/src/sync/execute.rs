@@ -258,10 +258,10 @@ async fn create_collection<I: Item>(
 
     let new_collection = creation_result?;
 
-    // FIXME: panics
-    // It doesn't make sense that this error would ever happen. It implies a collection was
-    // created, but the `href` is not valid and a collection_id cannot be resolved.
-    let id = storage.collection_id(new_collection.href()).unwrap();
+    // FIXME: this probably should never error, but I might need to consider making Id optional for
+    // collections. Also, I don't think we should save the Id if the collection won't later show up
+    // in discovery.
+    let id = storage.collection_id(new_collection.href())?;
     status.add_collection(side, &id, new_collection.href())?;
     Ok(())
 }
