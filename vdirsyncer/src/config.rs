@@ -42,6 +42,7 @@ use crate::{
 
 /// A deserialised configuration file.
 #[derive(Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct Config {
     general: GeneralSection,
     #[serde(rename = "pair")]
@@ -140,6 +141,7 @@ fn expand_tilde(orig: Utf8PathBuf) -> Result<Utf8PathBuf, camino::FromPathBufErr
 
 /// The "general" section of the parsed configuration file
 #[derive(Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct GeneralSection {
     status_path: Utf8PathBuf,
     /// In seconds. Used when storages do not implement or support monitoring.
@@ -153,6 +155,7 @@ fn default_interval() -> u64 {
 
 /// A "pair" section of the parsed configuration file
 #[derive(Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
 struct PairSection {
     a: String,
     b: String,
@@ -207,6 +210,7 @@ impl PairSection {
 }
 
 #[derive(Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
 enum Collections {
     #[serde(rename = "all")]
     All,
@@ -215,6 +219,7 @@ enum Collections {
 }
 
 #[derive(Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
 enum CollectionValue {
     #[serde(rename = "from a")]
     FromA,
@@ -235,6 +240,7 @@ where
 }
 
 #[derive(Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
 enum Collection {
     #[serde(rename = "id", deserialize_with = "deserialise_collection_id")]
     Id(CollectionId),
@@ -263,6 +269,7 @@ impl Collection {
 }
 
 #[derive(Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
 enum CollectionSpecial {
     #[serde(rename = "all")]
     All,
@@ -274,6 +281,7 @@ enum CollectionSpecial {
 
 /// A "storage" section of the parsed configuration file
 #[derive(Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
 #[serde(tag = "type")]
 enum StorageSection {
     // TODO: a "protect" flag to protect one side if EVERYTHING is about to be deleted:
@@ -340,6 +348,7 @@ impl StorageSection {
 }
 
 #[derive(Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
 struct Filesystem<I: Item> {
     path: Utf8PathBuf,
     fileext: String,
@@ -374,6 +383,7 @@ impl<I: Item> Filesystem<I> {
 }
 
 #[derive(Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
 struct CardDav {
     url: String,
     username: StringOrCommand,
@@ -397,6 +407,7 @@ impl CardDav {
 }
 
 #[derive(Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
 struct CalDav {
     url: StringOrCommand,
     username: StringOrCommand,
@@ -426,6 +437,7 @@ impl CalDav {
 }
 
 #[derive(Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct Http {
     url: StringOrCommand,
     /// A name for the single collection inside this storage.
@@ -446,6 +458,7 @@ impl Http {
 }
 
 #[derive(Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
 struct HttpsConfig {
     verify: Option<PathBuf>,
     verify_fingerprint: Option<String>,
@@ -513,6 +526,7 @@ impl HttpsConfig {
 }
 
 #[derive(Deserialize, Debug, Default)]
+#[serde(deny_unknown_fields)]
 #[serde(rename_all = "lowercase")]
 enum Auth {
     #[default]
@@ -526,6 +540,7 @@ fn default_useragent() -> String {
 }
 
 #[derive(Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
 enum ClientCert {
     SingleFile(PathBuf),
     SeparateKeyAndCert(PathBuf, PathBuf),
@@ -534,6 +549,7 @@ enum ClientCert {
 // TODO: singlefile
 
 #[derive(Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
 #[serde(untagged)]
 enum StringOrCommand {
     Raw(String),
