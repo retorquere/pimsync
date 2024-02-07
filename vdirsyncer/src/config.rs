@@ -363,7 +363,7 @@ impl<I: Item> Filesystem<I> {
             bail!("'encoding' is not implemented for filesystem storages.");
         }
         let path = expand_tilde(self.path).context("error expanding tilde for storage")?;
-        // v0.X series expected the leading string. This is not ideal and should be deprecated.
+        // v0.X series expected the leading dot. This is not ideal and should be deprecated.
         let fileext = self
             .fileext
             .strip_prefix('.')
