@@ -70,7 +70,7 @@ impl<'pair, I: Item> Plan<'pair, I> {
         drop(seen_b);
 
         let mut collection_plans = Vec::new();
-        for ref m in mappings {
+        for m in mappings {
             if let Some(plan) = CollectionPlan::new(pair, m, status).await? {
                 collection_plans.push(plan);
             }
@@ -389,13 +389,13 @@ impl CollectionPlan {
     /// Returns `None` if this plan would be a no-op.
     async fn new<I: Item>(
         pair: &StoragePair<I>,
-        mapping: &ResolvedMapping,
+        mapping: ResolvedMapping,
         status: Option<&StatusDatabase>,
     ) -> Result<Option<CollectionPlan>, PlanError> {
         // Collections declared by Id are already resolved to an Href at this point.
         // Those not resolved don't exist.
-        let state_a = CollectionState::new(status, pair.storage_a(), mapping, Side::A).await?;
-        let state_b = CollectionState::new(status, pair.storage_b(), mapping, Side::B).await?;
+        let state_a = CollectionState::new(status, pair.storage_a(), &mapping, Side::A).await?;
+        let state_b = CollectionState::new(status, pair.storage_b(), &mapping, Side::B).await?;
 
         let status_items = status.map_or(Ok(Vec::new()), StatusDatabase::all_uids)?;
         let status_items = status_items.iter();
@@ -432,13 +432,13 @@ impl CollectionPlan {
             .filter_map(Result::transpose)
             .collect::<Result<Vec<_>, PlanError>>()?;
 
-        let collection_action = CollectionAction::new(mapping, status, state_a, state_b)?;
+        let collection_action = CollectionAction::new(&mapping, status, state_a, state_b)?;
 
         if collection_action.is_none() && item_actions.is_empty() {
             Ok(None)
         } else {
             Ok(Some(CollectionPlan {
-                mapping: mapping.clone(),
+                mapping,
                 collection_action,
                 items: item_actions,
             }))
