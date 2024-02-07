@@ -1,4 +1,5 @@
 #![deny(clippy::pedantic)]
+#![deny(clippy::unwrap_used)]
 
 // Copyright 2023 Hugo Osvaldo Barrera
 //

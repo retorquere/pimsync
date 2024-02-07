@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: EUPL-1.2
 #![deny(clippy::pedantic)]
+#![deny(clippy::unwrap_used)]
 
 use std::{sync::Arc, time::Duration};
 
