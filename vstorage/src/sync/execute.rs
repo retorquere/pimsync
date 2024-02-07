@@ -156,7 +156,7 @@ async fn delete_collection<I: Item>(
     Ok(())
 }
 
-impl<'pair, I: Item> Plan<'pair, I> {
+impl<I: Item> Plan<I> {
     /// Executes a synchronization plan.
     ///
     /// Always returns a final state, regardless of what changes were applied. The returned value
@@ -165,8 +165,8 @@ impl<'pair, I: Item> Plan<'pair, I> {
     pub async fn execute(self, status: &StatusDatabase) -> SyncResult {
         // FIXME: shouldn't we bail immediately if status fails to write?
         let mut errors = Vec::new();
-        let storage_a = self.pair.storage_a.as_ref();
-        let storage_b = self.pair.storage_b.as_ref();
+        let storage_a = self.storage_a.as_ref();
+        let storage_b = self.storage_b.as_ref();
 
         for cp in self.collection_plans {
             let mut deletion_action = None;

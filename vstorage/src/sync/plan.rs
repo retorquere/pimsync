@@ -5,6 +5,7 @@
 //! Plan for a synchronisation.
 
 use std::collections::HashSet;
+use std::sync::Arc;
 
 use log::debug;
 
@@ -18,21 +19,22 @@ use super::status::{ItemState, Side, StatusDatabase, StatusError};
 use super::PlanError;
 
 /// A series of actions that would synchronise a pair of storages.
-pub struct Plan<'pair, I: Item> {
-    pub(super) pair: &'pair StoragePair<I>,
+pub struct Plan<I: Item> {
+    pub(super) storage_a: Arc<dyn Storage<I>>,
+    pub(super) storage_b: Arc<dyn Storage<I>>,
     pub(super) collection_plans: Vec<CollectionPlan>,
 }
 
 /// Show only details of the plan itself; ignore other data.
 ///
 /// This is partially necessary because storages might not implement `Debug`.
-impl<'pair, I: Item> std::fmt::Debug for Plan<'pair, I> {
+impl<I: Item> std::fmt::Debug for Plan<I> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         std::fmt::Debug::fmt(&self.collection_plans, f)
     }
 }
 
-impl<'pair, I: Item> Plan<'pair, I> {
+impl<I: Item> Plan<I> {
     /// Create a new plan for a given storage pair.
     ///
     /// # Errors
@@ -44,9 +46,9 @@ impl<'pair, I: Item> Plan<'pair, I> {
     /// - There is an error reading the state of existing items.
     /// - The same collection is mapped more than once.
     pub async fn new(
-        pair: &'pair StoragePair<I>,
+        pair: &StoragePair<I>,
         status: Option<&StatusDatabase>,
-    ) -> Result<Plan<'pair, I>, PlanError> {
+    ) -> Result<Plan<I>, PlanError> {
         let mappings = create_mappings_for_pair(pair).await?;
 
         let mut seen_a = HashSet::<&ResolvedCollection>::new();
@@ -77,15 +79,20 @@ impl<'pair, I: Item> Plan<'pair, I> {
         }
 
         Ok(Plan {
-            pair,
+            storage_a: pair.storage_a.clone(),
+            storage_b: pair.storage_b.clone(),
             collection_plans,
         })
     }
 
-    /// Returns a reference to the underlying pair.
     #[must_use]
-    pub fn pair(&self) -> &'pair StoragePair<I> {
-        self.pair
+    pub fn storage_a(&self) -> &dyn Storage<I> {
+        self.storage_a.as_ref()
+    }
+
+    #[must_use]
+    pub fn storage_b(&self) -> &dyn Storage<I> {
+        self.storage_b.as_ref()
     }
 }
 
