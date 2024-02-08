@@ -281,16 +281,7 @@ impl StatusDatabase {
         Ok(())
     }
 
-    pub(super) fn delete_item(&self, side: Side, href: &str) -> Result<()> {
-        let query = "DELETE FROM items WHERE side = ? AND href = ?";
-        let mut statement = self.conn.prepare(query)?;
-        statement.bind((1, side))?;
-        statement.bind((2, href))?;
-        statement.next()?;
-        Ok(())
-    }
-
-    pub(super) fn delete_item_by_uid(&self, uid: &str) -> Result<()> {
+    pub(super) fn delete_item(&self, uid: &str) -> Result<()> {
         let query = "DELETE FROM items WHERE uid = ?";
         let mut statement = self.conn.prepare(query)?;
         statement.bind((1, uid))?;

@@ -39,7 +39,7 @@ impl ItemAction {
                     status.add_item(Side::B, b)?;
                 }
                 Action::ClearState => {
-                    status.delete_item_by_uid(self.uid())?;
+                    status.delete_item(self.uid())?;
                 }
                 Action::CreateInB { source } => {
                     let collection = mapping.collection_b();
@@ -56,10 +56,10 @@ impl ItemAction {
                     update_item(source, target, status, b, a, Side::A).await?;
                 }
                 Action::DeleteInA { target } => {
-                    delete_item(target, status, a, Side::A).await?;
+                    delete_item(target, status, a, self.uid()).await?;
                 }
                 Action::DeleteInB { target } => {
-                    delete_item(target, status, b, Side::B).await?;
+                    delete_item(target, status, b, self.uid()).await?;
                 }
                 Action::Conflict => {
                     error!("Conflict for items {}. Skipping.", self.uid());
@@ -139,10 +139,10 @@ async fn delete_item<I: Item>(
     item_ref: &ItemRef,
     status: &StatusDatabase,
     storage: &dyn Storage<I>,
-    side: Side,
+    uid: &str,
 ) -> Result<(), ExecutionError> {
     storage.delete_item(&item_ref.href, &item_ref.etag).await?;
-    status.delete_item(side, &item_ref.href)?;
+    status.delete_item(uid)?;
 
     Ok(())
 }
