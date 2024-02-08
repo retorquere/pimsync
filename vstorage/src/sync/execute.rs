@@ -38,6 +38,9 @@ impl ItemAction {
                     status.add_item(Side::A, a)?;
                     status.add_item(Side::B, b)?;
                 }
+                Action::ClearState => {
+                    status.delete_item_by_uid(self.uid())?;
+                }
                 Action::CreateInB { source } => {
                     let collection = mapping.collection_b();
                     create_item(source, status, collection, a, b, Side::B).await?;

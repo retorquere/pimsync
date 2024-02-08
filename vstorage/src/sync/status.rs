@@ -2,7 +2,7 @@ use std::path::Path;
 
 use sqlite::{BindableWithIndex, Connection, ConnectionThreadSafe, OpenFlags, State};
 
-use crate::{CollectionId, Etag, Href};
+use crate::{base::ItemRef, CollectionId, Etag, Href};
 
 use super::plan::ResolvedCollection;
 
@@ -45,6 +45,17 @@ pub struct ItemState {
     pub(super) uid: String,
     pub(super) etag: Etag, // TODO: optional?
     pub(super) hash: String,
+}
+
+impl ItemState {
+    /// Create an `ItemRef` by copying the `href` and `etag`.
+    #[must_use]
+    pub fn to_item_ref(&self) -> ItemRef {
+        ItemRef {
+            href: self.href.clone(),
+            etag: self.etag.clone(),
+        }
+    }
 }
 
 /// Connection to an on-disk status database.
@@ -275,6 +286,14 @@ impl StatusDatabase {
         let mut statement = self.conn.prepare(query)?;
         statement.bind((1, side))?;
         statement.bind((2, href))?;
+        statement.next()?;
+        Ok(())
+    }
+
+    pub(super) fn delete_item_by_uid(&self, uid: &str) -> Result<()> {
+        let query = "DELETE FROM items WHERE uid = ?";
+        let mut statement = self.conn.prepare(query)?;
+        statement.bind((1, uid))?;
         statement.next()?;
         Ok(())
     }
