@@ -647,8 +647,11 @@ impl CollectionState {
         side: Side,
     ) -> Result<Option<CollectionState>, PlanError> {
         let Some(collection_href) = mapping.href(side) else {
+            // TODO: I need aliases for mapping to improve logging here.
+            debug!("Skipping state for collection with no href.");
             return Ok(None);
         };
+        debug!("Resolving state for collection: {}.", collection_href);
         let mut items = Vec::new();
 
         let prefetched = if let Some(status) = status {
