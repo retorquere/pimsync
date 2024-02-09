@@ -154,6 +154,7 @@ async fn delete_item<I: Item>(
     storage: &dyn Storage<I>,
     uid: &str,
 ) -> Result<(), ExecutionError> {
+    debug!("Deleting {}", item_ref.href);
     storage.delete_item(&item_ref.href, &item_ref.etag).await?;
     status.delete_item(uid)?;
 
