@@ -35,18 +35,18 @@ pub enum PlanError {
     #[error("Duplicate collection defined for storage B: {0}")]
     DuplicateCollectionInB(ResolvedCollection),
 
-    #[error("Discovery failed for storage A")]
+    #[error("Discovery failed for storage A: {0}")]
     DiscoveryFailedA(#[source] crate::Error),
 
-    #[error("Discovery failed for storage B")]
+    #[error("Discovery failed for storage B: {0}")]
     DiscoveryFailedB(#[source] crate::Error),
 
-    #[error("Invalid collection mappings provided")]
+    #[error("Invalid collection mappings provided: {0}")]
     BadCollectionMappings(#[source] crate::Error),
 
-    #[error("Error interacting with underlying storage")]
+    #[error("Error interacting with underlying storage: {0}")]
     Storage(#[from] crate::Error),
 
-    #[error("Error querying status database")]
+    #[error("Error querying status database: {0}")]
     StatusDb(#[from] StatusError),
 }
