@@ -99,17 +99,27 @@ async fn create_item<I: Item>(
         ResolvedCollection::Href { href } => Cow::Borrowed(href),
     };
 
-    let (item_data, _) = src_storage.get_item(from).await?;
+    let (item_data, source_etag) = src_storage.get_item(from).await?;
     let uid = item_data.ident();
     let new_item = dst_storage.add_item(&collection_href, &item_data).await?;
+    let hash = item_data.hash();
 
     status.add_item(
         side,
         &ItemState {
             href: new_item.href,
+            uid: uid.clone(),
+            etag: new_item.etag.clone(),
+            hash: hash.clone(),
+        },
+    )?;
+    status.add_item(
+        side.opposite(),
+        &ItemState {
+            href: from.to_string(),
             uid,
-            etag: new_item.etag,
-            hash: item_data.hash(),
+            etag: source_etag,
+            hash,
         },
     )?;
 
@@ -125,12 +135,15 @@ async fn update_item<I: Item>(
     side: Side,
 ) -> Result<(), ExecutionError> {
     debug!("Updating {}", target.href);
-    let (item, _) = src_storage.get_item(src_href).await?;
+    let (item, source_etag) = src_storage.get_item(src_href).await?;
 
     let new_etag = dst_storage
         .update_item(&target.href, &target.etag, &item)
         .await?;
-    status.update_item(side, &new_etag, &item.hash(), &target.href)?;
+
+    let hash = item.hash();
+    status.update_item(side, &new_etag, &hash, &target.href)?;
+    status.update_item(side.opposite(), &source_etag, &hash, src_href)?;
 
     Ok(())
 }

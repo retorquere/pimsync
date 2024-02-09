@@ -24,6 +24,16 @@ pub enum Side {
     B,
 }
 
+impl Side {
+    #[must_use]
+    pub fn opposite(self) -> Side {
+        match self {
+            Side::A => Side::B,
+            Side::B => Side::A,
+        }
+    }
+}
+
 impl BindableWithIndex for Side {
     fn bind<T>(self, statement: &mut sqlite::Statement, index: T) -> sqlite::Result<()>
     where
