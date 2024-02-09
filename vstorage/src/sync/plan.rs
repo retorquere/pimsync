@@ -657,14 +657,8 @@ impl CollectionState {
             for item_ref in storage.list_items(collection_href).await? {
                 if let Some(prev_item) = status.get_item_by_href(side, &item_ref.href)? {
                     if prev_item.etag == item_ref.etag {
-                        // The item has not changed, so its hash also remains the same.
-                        // All data available; nothing to request.
-                        items.push(ItemState {
-                            href: item_ref.href,
-                            etag: item_ref.etag,
-                            uid: prev_item.uid,
-                            hash: prev_item.hash,
-                        });
+                        // Item has not changed; nothing to fetch.
+                        items.push(prev_item);
                         continue;
                     } // else: item has changed
                 } // else: item is new
