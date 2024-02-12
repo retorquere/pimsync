@@ -193,11 +193,13 @@ impl<I: Item> Plan<I> {
                     CollectionAction::CreateInB { collection: ref c } => {
                         if let Err(e) = create_collection(storage_b, c, status, Side::B).await {
                             errors.push(SynchronizationError::new(action, e));
+                            continue;
                         };
                     }
                     CollectionAction::CreateInA { collection: ref c } => {
                         if let Err(e) = create_collection(storage_a, c, status, Side::B).await {
                             errors.push(SynchronizationError::new(action, e));
+                            continue;
                         }
                     }
                     CollectionAction::DeleteInA { .. } | CollectionAction::DeleteInB { .. } => {
