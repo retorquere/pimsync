@@ -264,12 +264,14 @@ impl SyncResult {
 }
 
 /// Creates a collection and updates the state and error list accordingly.
+///
+/// Returns the `href` of the collection.
 async fn create_collection<I: Item>(
     storage: &dyn Storage<I>,
     collection: &ResolvedCollection,
     status: &StatusDatabase,
     side: Side,
-) -> Result<(), ExecutionError> {
+) -> Result<String, ExecutionError> {
     let creation_result = match collection {
         ResolvedCollection::Id { id } => storage.create_collection_with_id(id).await,
         ResolvedCollection::Href { href } => storage.create_collection(href).await,
@@ -282,7 +284,7 @@ async fn create_collection<I: Item>(
     // in discovery.
     let id = storage.collection_id(new_collection.href())?;
     status.add_collection(side, &id, new_collection.href())?;
-    Ok(())
+    Ok(new_collection.into_href())
 }
 
 #[derive(Debug)]

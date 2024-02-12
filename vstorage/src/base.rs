@@ -174,6 +174,11 @@ impl Collection {
         &self.href
     }
 
+    #[must_use]
+    pub fn into_href(self) -> String {
+        self.href
+    }
+
     pub(crate) fn new(href: String) -> Collection {
         Collection { href }
     }
