@@ -1,10 +1,11 @@
 use std::path::Path;
 
+use log::debug;
 use sqlite::{BindableWithIndex, Connection, ConnectionThreadSafe, OpenFlags, State};
 
 use crate::{base::ItemRef, CollectionId, Etag, Href};
 
-use super::plan::ResolvedCollection;
+use super::plan::{ResolvedCollection, ResolvedMapping};
 
 const SCHEMA_VERSION: i64 = 2;
 
@@ -113,6 +114,7 @@ impl StatusDatabase {
     /// In case of interruption during the first initialisation, later attempts will finalise
     /// creating tables and indexes.
     fn init_schema(&self) -> Result<()> {
+        debug!("Initialising status database");
         self.conn.execute(
             r#"CREATE TABLE IF NOT EXISTS meta (
                 "version" INTEGER PRIMARY KEY
@@ -132,7 +134,8 @@ impl StatusDatabase {
                 "side" BOOLEAN NOT NULL,
                 "href" TEXT NOT NULL,
                 "hash" TEXT NOT NULL,
-                "etag" TEXT NOT NULL
+                "etag" TEXT NOT NULL,
+                "collection_href" TEXT NOT NULL
             );"#,
         )?;
         self.conn
@@ -172,11 +175,17 @@ impl StatusDatabase {
         }
     }
 
-    pub(super) fn get_item_by_uid(&self, side: Side, uid: &str) -> Result<Option<ItemState>> {
-        let query = "SELECT ident, href, hash, etag FROM items WHERE side = ? AND ident = ?";
+    pub(super) fn get_item_by_uid(
+        &self,
+        side: Side,
+        collection_href: &str,
+        uid: &str,
+    ) -> Result<Option<ItemState>> {
+        let query = "SELECT ident, href, hash, etag FROM items WHERE side = ? AND ident = ? AND collection_href = ?";
         let mut statement = self.conn.prepare(query)?;
         statement.bind((1, side))?;
         statement.bind((2, uid))?;
+        statement.bind((3, collection_href))?;
 
         if let Ok(State::Row) = statement.next() {
             Ok(Some(ItemState {
@@ -190,14 +199,30 @@ impl StatusDatabase {
         }
     }
 
-    pub(super) fn all_uids(&self) -> Result<Vec<String>> {
-        let query = "SELECT DISTINCT ident FROM items";
+    pub(super) fn all_uids(&self, mapping: &ResolvedMapping) -> Result<Vec<String>> {
+        let mut collections = Vec::new();
+        if let Some(href) = mapping.collection(Side::A).href() {
+            collections.push(href);
+        }
+        if let Some(href) = mapping.collection(Side::B).href() {
+            collections.push(href);
+        }
+
+        let query = match collections.len() {
+            0 => return Ok(Vec::new()),
+            1 => "SELECT DISTINCT ident FROM items WHERE collection_href = ?",
+            2 => "SELECT DISTINCT ident FROM items WHERE collection_href IN (?, ?)",
+            _ => unreachable!(),
+        };
+
         let mut statement = self.conn.prepare(query)?;
+        statement.bind(collections.as_slice())?;
 
         let mut results = Vec::new();
         while let Ok(State::Row) = statement.next() {
             results.push(statement.read::<String, _>(0)?);
         }
+
         Ok(results)
     }
 
@@ -262,14 +287,20 @@ impl StatusDatabase {
         }
     }
 
-    pub(super) fn add_item(&self, side: Side, item: &ItemState) -> Result<()> {
-        let query = "INSERT OR REPLACE INTO items VALUES (?, ?, ?, ?, ?)";
+    pub(super) fn add_item(
+        &self,
+        side: Side,
+        collection_href: &str,
+        item: &ItemState,
+    ) -> Result<()> {
+        let query = "INSERT OR REPLACE INTO items VALUES (?, ?, ?, ?, ?, ?)";
         let mut statement = self.conn.prepare(query)?;
         statement.bind((1, item.uid.as_str()))?;
         statement.bind((2, side))?;
         statement.bind((3, item.href.as_str()))?;
         statement.bind((4, item.hash.as_str()))?;
         statement.bind((5, item.etag.as_ref()))?;
+        statement.bind((6, collection_href))?;
         statement.next()?;
         Ok(())
     }

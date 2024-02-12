@@ -230,20 +230,11 @@ pub struct ResolvedMapping {
 }
 
 impl ResolvedMapping {
-    pub(super) fn collection_a(&self) -> &ResolvedCollection {
-        &self.a
-    }
-
-    pub(super) fn collection_b(&self) -> &ResolvedCollection {
-        &self.b
-    }
-
-    fn href(&self, side: Side) -> Option<&str> {
+    pub(super) fn collection(&self, side: Side) -> &ResolvedCollection {
         match side {
             Side::A => &self.a,
             Side::B => &self.b,
         }
-        .href()
     }
 
     /// Returns `Err` if the collection is missing on the `From` side.
@@ -305,7 +296,7 @@ impl ResolvedCollection {
         }
     }
 
-    fn href(&self) -> Option<&str> {
+    pub(super) fn href(&self) -> Option<&str> {
         match self {
             ResolvedCollection::Id { .. } => None,
             ResolvedCollection::Href { href } => Some(href),
@@ -406,7 +397,7 @@ impl CollectionPlan {
         let state_a = CollectionState::new(status, pair.storage_a(), &mapping, Side::A).await?;
         let state_b = CollectionState::new(status, pair.storage_b(), &mapping, Side::B).await?;
 
-        let status_items = status.map_or(Ok(Vec::new()), StatusDatabase::all_uids)?;
+        let status_items = status.map_or(Ok(Vec::new()), |s| s.all_uids(&mapping))?;
         let status_items = status_items.iter();
         let items_a = state_a.as_ref().map(|s| &s.items).into_iter().flatten();
         let items_b = state_b.as_ref().map(|s| &s.items).into_iter().flatten();
@@ -420,8 +411,8 @@ impl CollectionPlan {
 
                 let (prev_a, prev_b) = match status {
                     Some(s) => (
-                        s.get_item_by_uid(Side::A, uid)?,
-                        s.get_item_by_uid(Side::B, uid)?,
+                        get_item_by_uid(s, Side::A, &mapping, uid)?,
+                        get_item_by_uid(s, Side::B, &mapping, uid)?,
                     ),
                     None => (None, None),
                 };
@@ -451,6 +442,19 @@ impl CollectionPlan {
 
     pub(super) fn into_parts(self) -> (ResolvedMapping, Option<CollectionAction>, Vec<ItemAction>) {
         (self.mapping, self.collection_action, self.items)
+    }
+}
+
+fn get_item_by_uid(
+    status: &StatusDatabase,
+    side: Side,
+    mapping: &ResolvedMapping,
+    uid: &str,
+) -> Result<Option<ItemState>, StatusError> {
+    if let Some(collection_href) = mapping.collection(side).href() {
+        status.get_item_by_uid(side, collection_href, uid)
+    } else {
+        Ok(None)
     }
 }
 
@@ -646,7 +650,7 @@ impl CollectionState {
         mapping: &ResolvedMapping,
         side: Side,
     ) -> Result<Option<CollectionState>, PlanError> {
-        let Some(collection_href) = mapping.href(side) else {
+        let Some(collection_href) = mapping.collection(side).href() else {
             // TODO: I need aliases for mapping to improve logging here.
             debug!("Skipping state for collection with no href.");
             return Ok(None);

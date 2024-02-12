@@ -4,8 +4,6 @@
 
 //! See [`Plan::execute`](Plan::execute).
 
-use std::borrow::Cow;
-
 use log::{debug, error};
 
 use crate::{
@@ -31,26 +29,27 @@ impl ItemAction {
         b: &dyn Storage<I>,
         mapping: &ResolvedMapping,
         status: &StatusDatabase,
-    ) -> std::result::Result<(), ExecutionError> {
+    ) -> Result<(), ExecutionError> {
         {
             match self.action() {
                 Action::SaveToState { a, b } => {
-                    status.add_item(Side::A, a)?;
-                    status.add_item(Side::B, b)?;
+                    let collection_a = href_for_collection(mapping, status, Side::A)?;
+                    let collection_b = href_for_collection(mapping, status, Side::B)?;
+
+                    status.add_item(Side::A, &collection_a, a)?;
+                    status.add_item(Side::B, &collection_b, b)?;
                 }
                 Action::ClearState => {
                     status.delete_item(self.uid())?;
                 }
                 Action::CreateInB { source } => {
-                    let collection = mapping.collection_b();
-                    create_item(source, status, collection, a, b, Side::B).await?;
+                    create_item(source, status, mapping, a, b, Side::B).await?;
                 }
                 Action::UpdateInB { source, target } => {
                     update_item(source, target, status, a, b, Side::B).await?;
                 }
                 Action::CreateInA { source } => {
-                    let collection = mapping.collection_a();
-                    create_item(source, status, collection, b, a, Side::A).await?;
+                    create_item(source, status, mapping, b, a, Side::A).await?;
                 }
                 Action::UpdateInA { source, target } => {
                     update_item(source, target, status, b, a, Side::A).await?;
@@ -83,29 +82,25 @@ pub enum ExecutionError {
 async fn create_item<I: Item>(
     from: &Href,
     status: &StatusDatabase,
-    collection: &ResolvedCollection,
+    mapping: &ResolvedMapping,
     src_storage: &dyn Storage<I>,
     dst_storage: &dyn Storage<I>,
     side: Side,
 ) -> Result<(), ExecutionError> {
     debug!("Creating item from {from}");
 
-    let collection_href = match collection {
-        ResolvedCollection::Id { id } => Cow::Owned(
-            status
-                .get_collection_href(side, id)?
-                .ok_or(ExecutionError::MissingCollection)?,
-        ),
-        ResolvedCollection::Href { href } => Cow::Borrowed(href),
-    };
+    let collection_href = href_for_collection(mapping, status, side)?;
+    let opposite_col_href = href_for_collection(mapping, status, side.opposite())?;
 
     let (item_data, source_etag) = src_storage.get_item(from).await?;
     let uid = item_data.ident();
     let new_item = dst_storage.add_item(&collection_href, &item_data).await?;
     let hash = item_data.hash();
 
+    // Save new item.
     status.add_item(
         side,
+        &collection_href,
         &ItemState {
             href: new_item.href,
             uid: uid.clone(),
@@ -113,8 +108,10 @@ async fn create_item<I: Item>(
             hash: hash.clone(),
         },
     )?;
+    // Also save source item.
     status.add_item(
         side.opposite(),
+        &opposite_col_href,
         &ItemState {
             href: from.to_string(),
             uid,
@@ -342,4 +339,19 @@ impl std::error::Error for SynchronizationError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         Some(&self.error)
     }
+}
+
+fn href_for_collection(
+    mapping: &ResolvedMapping,
+    status: &StatusDatabase,
+    side: Side,
+) -> Result<String, ExecutionError> {
+    let collection = mapping.collection(side);
+    let href = match collection {
+        ResolvedCollection::Id { id } => status
+            .get_collection_href(side, id)?
+            .ok_or(ExecutionError::MissingCollection)?,
+        ResolvedCollection::Href { href } => href.clone(),
+    };
+    Ok(href)
 }
