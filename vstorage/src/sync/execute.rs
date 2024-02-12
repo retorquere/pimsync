@@ -272,12 +272,10 @@ async fn create_collection<I: Item>(
     status: &StatusDatabase,
     side: Side,
 ) -> Result<String, ExecutionError> {
-    let creation_result = match collection {
-        ResolvedCollection::Id { id } => storage.create_collection_with_id(id).await,
-        ResolvedCollection::Href { href } => storage.create_collection(href).await,
+    let new_collection = match collection {
+        ResolvedCollection::Id { id } => storage.create_collection_with_id(id).await?,
+        ResolvedCollection::Href { href } => storage.create_collection(href).await?,
     };
-
-    let new_collection = creation_result?;
 
     // FIXME: this probably should never error, but I might need to consider making Id optional for
     // collections. Also, I don't think we should save the Id if the collection won't later show up
