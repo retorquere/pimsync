@@ -19,7 +19,7 @@ pub enum StatusError {
 
 pub type Result<T> = std::result::Result<T, StatusError>;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum Side {
     A,
     B,
@@ -45,6 +45,16 @@ impl BindableWithIndex for Side {
             Side::B => 1,
         }
         .bind(statement, index)
+    }
+}
+
+impl std::fmt::Display for Side {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Side::A => 'a',
+            Side::B => 'b',
+        }
+        .fmt(f)
     }
 }
 
@@ -146,12 +156,16 @@ impl StatusDatabase {
         // TODO: Etag nullable is okay?
         self.conn.execute(
             r#"CREATE TABLE IF NOT EXISTS collections (
-                "id" TEXT NOT NULL,
+                "id" TEXT,
                 "side" BOOLEAN NOT NULL,
                 "href" TEXT NOT NULL,
                 "etag" TEXT
             );"#,
         )?;
+        self.conn
+            .execute("CREATE UNIQUE INDEX IF NOT EXISTS by_href ON collections(href, side)")?;
+        self.conn
+            .execute("CREATE UNIQUE INDEX IF NOT EXISTS by_id ON collections(id, side)")?;
 
         // TODO: table for properties
         Ok(())
@@ -200,23 +214,11 @@ impl StatusDatabase {
     }
 
     pub(super) fn all_uids(&self, mapping: &ResolvedMapping) -> Result<Vec<String>> {
-        let mut collections = Vec::new();
-        if let Some(href) = mapping.collection(Side::A).href() {
-            collections.push(href);
-        }
-        if let Some(href) = mapping.collection(Side::B).href() {
-            collections.push(href);
-        }
-
-        let query = match collections.len() {
-            0 => return Ok(Vec::new()),
-            1 => "SELECT DISTINCT ident FROM items WHERE collection_href = ?",
-            2 => "SELECT DISTINCT ident FROM items WHERE collection_href IN (?, ?)",
-            _ => unreachable!(),
-        };
+        let query = "SELECT DISTINCT ident FROM items WHERE collection_href IN (?, ?)";
 
         let mut statement = self.conn.prepare(query)?;
-        statement.bind(collections.as_slice())?;
+        statement.bind((1, mapping.collection(Side::A).href()))?;
+        statement.bind((2, mapping.collection(Side::B).href()))?;
 
         let mut results = Vec::new();
         while let Ok(State::Row) = statement.next() {
@@ -231,21 +233,19 @@ impl StatusDatabase {
         collection: &ResolvedCollection,
         side: Side,
     ) -> Result<Option<Href>> {
-        let mut statement = match collection {
-            ResolvedCollection::Id { id } => {
-                let query = "SELECT href FROM collections WHERE id = ? AND side = ?";
-                let mut statement = self.conn.prepare(query)?;
-                statement.bind((1, id.as_ref()))?;
-                statement.bind((2, side))?;
-                statement
-            }
-            ResolvedCollection::Href { href } => {
-                let query = "SELECT href FROM collections WHERE href = ? AND side = ?";
-                let mut statement = self.conn.prepare(query)?;
-                statement.bind((1, href.as_str()))?;
-                statement.bind((2, side))?;
-                statement
-            }
+        let mut statement = if let Some(id) = &collection.id {
+            let query = "SELECT href FROM collections WHERE href = ? AND id = ? AND side = ?";
+            let mut statement = self.conn.prepare(query)?;
+            statement.bind((1, collection.href.as_str()))?;
+            statement.bind((2, id.as_ref()))?;
+            statement.bind((3, side))?;
+            statement
+        } else {
+            let query = "SELECT href FROM collections WHERE href = ? AND side = ?";
+            let mut statement = self.conn.prepare(query)?;
+            statement.bind((1, collection.href.as_str()))?;
+            statement.bind((2, side))?;
+            statement
         };
 
         if let State::Row = statement.next()? {
@@ -264,11 +264,16 @@ impl StatusDatabase {
         Ok(())
     }
 
-    pub(super) fn add_collection(&self, side: Side, id: &CollectionId, href: &str) -> Result<()> {
+    pub(super) fn add_collection(
+        &self,
+        side: Side,
+        id: Option<&CollectionId>,
+        href: &str,
+    ) -> Result<()> {
         // TODO: Etag??
         let query = "INSERT INTO collections VALUES (?, ?, ?, ?)";
         let mut statement = self.conn.prepare(query)?;
-        statement.bind((1, id.as_ref()))?;
+        statement.bind((1, id.map(CollectionId::as_ref)))?;
         statement.bind((2, side))?;
         statement.bind((3, href))?;
         statement.bind((4, None::<&str>))?;
