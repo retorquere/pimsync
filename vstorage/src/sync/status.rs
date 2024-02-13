@@ -141,7 +141,7 @@ impl StatusDatabase {
         self.conn
             .execute("CREATE UNIQUE INDEX IF NOT EXISTS by_ident ON items(ident,side)")?;
         self.conn
-            .execute("CREATE UNIQUE INDEX IF NOT EXISTS by_href ON items(ident,href)")?;
+            .execute("CREATE UNIQUE INDEX IF NOT EXISTS by_href ON items(href,side)")?;
 
         // TODO: Etag nullable is okay?
         self.conn.execute(
