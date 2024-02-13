@@ -19,6 +19,15 @@ pub enum CollectionDescription {
     Href { href: Href },
 }
 
+impl CollectionDescription {
+    fn alias(&self) -> String {
+        match self {
+            CollectionDescription::Id { id } => format!("id:{id}"),
+            CollectionDescription::Href { href } => format!("href:{href}"),
+        }
+    }
+}
+
 /// A mapping between of a pair of collections across storages.
 ///
 /// This is an unresolved mapping which may be lacking information on one side.
@@ -50,6 +59,15 @@ impl DeclaredMapping {
     pub fn direct(id: CollectionId) -> Self {
         DeclaredMapping::Direct {
             description: CollectionDescription::Id { id },
+        }
+    }
+
+    pub(super) fn alias(&self) -> String {
+        match self {
+            DeclaredMapping::Direct { description }
+            | DeclaredMapping::FromA { description }
+            | DeclaredMapping::FromB { description } => description.alias(),
+            DeclaredMapping::Mapped { alias, .. } => alias.to_string(),
         }
     }
 }

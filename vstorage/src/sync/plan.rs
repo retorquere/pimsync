@@ -138,6 +138,7 @@ async fn create_mappings_for_pair<I: Item>(
         mappings.reserve(disco_a.collection_count());
         for collection in disco_a.collections() {
             mappings.push(ResolvedMapping {
+                alias: format!("id:{}", collection.id()),
                 a: ResolvedCollection::Href {
                     href: collection.href().to_string(),
                 },
@@ -149,6 +150,7 @@ async fn create_mappings_for_pair<I: Item>(
         mappings.reserve(disco_b.collection_count());
         for collection in disco_b.collections() {
             let mapping = ResolvedMapping {
+                alias: format!("id:{}", collection.id()),
                 a: resolve_mapping_counterpart(collection, &disco_a),
                 b: ResolvedCollection::Href {
                     href: collection.href().to_owned(),
@@ -224,7 +226,7 @@ mod test {
 /// A `ResolvedCollection::Id` variant implies that a collection does not exist on that side.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ResolvedMapping {
-    // TODO: An alias attribute?
+    alias: String,
     a: ResolvedCollection,
     b: ResolvedCollection,
 }
@@ -245,22 +247,25 @@ impl ResolvedMapping {
         discovery_a: &Discovery,
         discovery_b: &Discovery,
     ) -> Result<Self, crate::Error> {
+        let alias = declared.alias();
         match declared {
             DeclaredMapping::Direct { description } => Ok(ResolvedMapping {
+                alias,
                 a: ResolvedCollection::from_declared_collection(description, discovery_a),
                 b: ResolvedCollection::from_declared_collection(description, discovery_b),
             }),
             DeclaredMapping::FromA { description } => {
                 resolve_from_x(description, discovery_a, storage_a, discovery_b)
                     // Note the order of arguments here.
-                    .map(|(a, b)| ResolvedMapping { a, b })
+                    .map(|(a, b)| ResolvedMapping { alias, a, b })
             }
             DeclaredMapping::FromB { description } => {
                 resolve_from_x(description, discovery_b, storage_b, discovery_a)
                     // Note the order of arguments here.
-                    .map(|(b, a)| ResolvedMapping { a, b })
+                    .map(|(b, a)| ResolvedMapping { alias, a, b })
             }
             DeclaredMapping::Mapped { a, b, .. } => Ok(ResolvedMapping {
+                alias,
                 a: ResolvedCollection::from_declared_collection(a, discovery_a),
                 b: ResolvedCollection::from_declared_collection(b, discovery_b),
             }),
