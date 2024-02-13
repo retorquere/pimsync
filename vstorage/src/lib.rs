@@ -61,7 +61,6 @@
 use std::str::FromStr;
 
 pub mod base;
-mod boxed;
 pub mod caldav;
 pub mod carddav;
 mod dav;
