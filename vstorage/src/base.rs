@@ -43,17 +43,7 @@ pub trait Storage<I: Item>: Sync + Send {
     async fn discover_collections(&self) -> Result<Discovery>;
 
     /// Creates a new collection with a specified `href`.
-    ///
-    /// Usage of this method is discouraged, given that is requires taking into account the nuances
-    /// of the specific storage implementation. Generally, [`Storage::create_collection_with_id`]
-    /// should be used instead.
     async fn create_collection(&self, href: &str) -> Result<Collection>;
-
-    /// Creates a new collection with a given id.
-    ///
-    /// The collection SHOULD be created in a way that discovery later yields the collection with a
-    /// `CollectionId` matching the one provided here as input.
-    async fn create_collection_with_id(&self, id: &CollectionId) -> Result<Collection>;
 
     /// Deletes an existing collection.
     ///
@@ -146,6 +136,17 @@ pub trait Storage<I: Item>: Sync + Send {
     ///
     /// This functions returns an `Err` variant if the provided `collection` is invalid.
     fn collection_id(&self, collection_href: &str) -> Result<CollectionId>;
+
+    /// Return the `href` for a collection that would have the given `id`.
+    ///
+    /// Creating a collection under `href` SHOULD result in the collection being available via
+    /// discovery with the provided `id`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if no collection can exist such that it is available via discovery AND its
+    /// `CollectionId` matches the input.
+    fn href_for_collection_id(&self, id: &CollectionId) -> Result<Href>;
 }
 
 /// A collection may, for example, be an address book or a calendar.

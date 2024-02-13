@@ -25,7 +25,7 @@ use crate::base::{
     AddressBookProperty, CalendarProperty, Collection, FetchedItem, Item, ItemRef, Storage,
 };
 use crate::disco::{DiscoveredCollection, Discovery};
-use crate::{CollectionId, Error, ErrorKind, Etag, Result};
+use crate::{CollectionId, Error, ErrorKind, Etag, Href, Result};
 
 // TODO: atomic writes
 
@@ -99,14 +99,6 @@ where
         create_dir(&path).await?;
 
         Ok(Collection::new(href.to_string()))
-    }
-
-    async fn create_collection_with_id(&self, id: &CollectionId) -> Result<Collection> {
-        // TODO: sanitise id
-        let path = self.join_collection_href(id.as_ref())?;
-        create_dir(&path).await?;
-
-        Ok(Collection::new(id.as_ref().to_string()))
     }
 
     async fn destroy_collection(&self, href: &str) -> Result<()> {
@@ -294,6 +286,11 @@ where
             .expect("rsplit always returns at least one item")
             .parse()
             .map_err(|e| Error::new(ErrorKind::InvalidInput, e))
+    }
+
+    fn href_for_collection_id(&self, id: &CollectionId) -> Result<Href> {
+        let path = self.join_collection_href(id.as_ref())?;
+        Ok(path.to_string())
     }
 }
 

@@ -3,6 +3,7 @@ use crate::base::FetchedItem;
 use crate::base::ItemRef;
 use crate::base::{Item, Storage};
 use crate::disco::Discovery;
+use crate::Href;
 use crate::{CollectionId, Etag, Result};
 
 use async_trait::async_trait;
@@ -23,12 +24,6 @@ impl<I: Item> Storage<I> for Box<dyn Storage<I>> {
     async fn create_collection(&self, href: &str) -> Result<Collection> {
         AsRef::<dyn Storage<I>>::as_ref(self)
             .create_collection(href)
-            .await
-    }
-
-    async fn create_collection_with_id(&self, id: &CollectionId) -> Result<Collection> {
-        AsRef::<dyn Storage<I>>::as_ref(self)
-            .create_collection_with_id(id)
             .await
     }
 
@@ -101,5 +96,9 @@ impl<I: Item> Storage<I> for Box<dyn Storage<I>> {
 
     fn collection_id(&self, collection_href: &str) -> Result<CollectionId> {
         AsRef::<dyn Storage<I>>::as_ref(self).collection_id(collection_href)
+    }
+
+    fn href_for_collection_id(&self, id: &CollectionId) -> Result<Href> {
+        AsRef::<dyn Storage<I>>::as_ref(self).href_for_collection_id(id)
     }
 }

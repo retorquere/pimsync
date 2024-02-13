@@ -19,6 +19,7 @@ use crate::base::Item;
 use crate::base::Storage;
 use crate::disco::Discovery;
 use crate::CollectionId;
+use crate::Href;
 use crate::{ErrorKind, Etag, Result};
 
 /// A wrapper around a [`Storage`] that disallows any write operations.
@@ -53,10 +54,6 @@ impl<S: Storage<I>, I: Item> Storage<I> for ReadOnlyStorage<S, I> {
     }
 
     async fn create_collection(&self, _href: &str) -> Result<Collection> {
-        Err(ErrorKind::ReadOnly.into())
-    }
-
-    async fn create_collection_with_id(&self, _id: &CollectionId) -> Result<Collection> {
         Err(ErrorKind::ReadOnly.into())
     }
 
@@ -113,6 +110,10 @@ impl<S: Storage<I>, I: Item> Storage<I> for ReadOnlyStorage<S, I> {
 
     fn collection_id(&self, collection_href: &str) -> Result<CollectionId> {
         self.inner.collection_id(collection_href)
+    }
+
+    fn href_for_collection_id(&self, _id: &CollectionId) -> Result<Href> {
+        Err(ErrorKind::ReadOnly.into())
     }
 }
 

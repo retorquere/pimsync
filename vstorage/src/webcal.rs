@@ -18,7 +18,7 @@ use crate::{
     base::{CalendarProperty, Collection, FetchedItem, IcsItem, Item, ItemRef, Storage},
     disco::{DiscoveredCollection, Discovery},
     simple_component::Component,
-    CollectionId, Error, ErrorKind, Etag, Result,
+    CollectionId, Error, ErrorKind, Etag, Href, Result,
 };
 
 /// A storage which exposes items in remote icalendar resource.
@@ -112,14 +112,6 @@ impl Storage<IcsItem> for WebCalStorage {
 
     /// Unsupported for this storage type.
     async fn create_collection(&self, _: &str) -> Result<Collection> {
-        Err(Error::new(
-            ErrorKind::Unsupported,
-            "creating collections via webcal is not supported",
-        ))
-    }
-
-    /// Unsupported for this storage type.
-    async fn create_collection_with_id(&self, _id: &CollectionId) -> Result<Collection> {
         Err(Error::new(
             ErrorKind::Unsupported,
             "creating collections via webcal is not supported",
@@ -301,6 +293,17 @@ impl Storage<IcsItem> for WebCalStorage {
             Ok(self.collection_name.clone())
         } else {
             Err(ErrorKind::DoesNotExist.into())
+        }
+    }
+
+    fn href_for_collection_id(&self, id: &CollectionId) -> Result<Href> {
+        if id == &self.collection_name {
+            Ok(self.url.path().to_string())
+        } else {
+            Err(Error::new(
+                ErrorKind::Unsupported,
+                "discovery of arbitrary collections is not supported",
+            ))
         }
     }
 }

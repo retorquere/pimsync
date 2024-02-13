@@ -16,7 +16,7 @@ use crate::dav::{
     collection_href_for_item, collection_id_for_href, path_for_collection_in_home_set,
 };
 use crate::disco::{DiscoveredCollection, Discovery};
-use crate::{CollectionId, Error, ErrorKind, Etag, Result};
+use crate::{CollectionId, Error, ErrorKind, Etag, Href, Result};
 
 impl<C> CalDavStorage<C>
 where
@@ -106,29 +106,6 @@ where
             .await
             .map_err(|e| Error::new(ErrorKind::Uncategorised, e))?;
         Ok(Collection::new(href.to_string()))
-    }
-
-    /// Create a new calendar such that its `collection_id` matches the given input.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`ErrorKind::PreconditionFailed`] if a home set was not found in the carddav
-    /// server.
-    async fn create_collection_with_id(&self, id: &CollectionId) -> Result<Collection> {
-        let home_set = self.client.calendar_home_set().ok_or_else(|| {
-            Error::new(
-                ErrorKind::PreconditionFailed,
-                "calendar home set not found in caldav server",
-            )
-        })?;
-
-        let path = path_for_collection_in_home_set(home_set, id.as_ref());
-
-        self.client
-            .create_calendar(path.clone())
-            .await
-            .map_err(|e| Error::new(ErrorKind::Uncategorised, e))?;
-        Ok(Collection::new(path))
     }
 
     /// Deletes a caldav collection.
@@ -362,6 +339,21 @@ where
     fn collection_id(&self, collection_href: &str) -> Result<CollectionId> {
         // TODO: this will need to be different for Google's WebDav.
         collection_id_for_href(collection_href).map_err(|e| Error::new(ErrorKind::InvalidInput, e))
+    }
+
+    /// # Errors
+    ///
+    /// Returns [`ErrorKind::PreconditionFailed`] if a home set was not found in the carddav
+    /// server.
+    fn href_for_collection_id(&self, id: &CollectionId) -> Result<Href> {
+        if let Some(home_set) = self.client.calendar_home_set() {
+            Ok(path_for_collection_in_home_set(home_set, id.as_ref()))
+        } else {
+            Err(Error::new(
+                ErrorKind::PreconditionFailed,
+                "calendar home set not found in caldav server",
+            ))
+        }
     }
 }
 
