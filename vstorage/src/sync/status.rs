@@ -226,26 +226,32 @@ impl StatusDatabase {
         Ok(results)
     }
 
-    pub(super) fn collection_exists(&self, collection: &ResolvedCollection) -> Result<bool> {
+    pub(super) fn get_collection_href(
+        &self,
+        collection: &ResolvedCollection,
+        side: Side,
+    ) -> Result<Option<Href>> {
         let mut statement = match collection {
             ResolvedCollection::Id { id } => {
-                let query = "SELECT EXISTS(SELECT 1 FROM collections WHERE id = ?)";
+                let query = "SELECT href FROM collections WHERE id = ? AND side = ?";
                 let mut statement = self.conn.prepare(query)?;
                 statement.bind((1, id.as_ref()))?;
+                statement.bind((2, side))?;
                 statement
             }
             ResolvedCollection::Href { href } => {
-                let query = "SELECT EXISTS(SELECT 1 FROM collections WHERE href = ?)";
+                let query = "SELECT href FROM collections WHERE href = ? AND side = ?";
                 let mut statement = self.conn.prepare(query)?;
                 statement.bind((1, href.as_str()))?;
+                statement.bind((2, side))?;
                 statement
             }
         };
 
         if let State::Row = statement.next()? {
-            Ok(statement.read::<i64, _>(0)? == 1)
+            Ok(Some(statement.read::<String, _>("href")?))
         } else {
-            unreachable!()
+            Ok(None)
         }
     }
 
@@ -270,27 +276,11 @@ impl StatusDatabase {
         Ok(())
     }
 
-    pub(super) fn get_collection_href(
-        &self,
-        side: Side,
-        id: &CollectionId,
-    ) -> Result<Option<String>> {
-        let query = "SELECT href FROM collections WHERE side = ? AND id = ?";
-        let mut statement = self.conn.prepare(query)?;
-        statement.bind((1, side))?;
-        statement.bind((2, id.as_ref()))?;
-
-        if let State::Row = statement.next()? {
-            Ok(Some(statement.read::<String, _>(0)?))
-        } else {
-            Ok(None)
-        }
-    }
-
     pub(super) fn add_item(
         &self,
         side: Side,
         collection_href: &str,
+        // TODO: take individual fields here so references can be passed.
         item: &ItemState,
     ) -> Result<()> {
         let query = "INSERT OR REPLACE INTO items VALUES (?, ?, ?, ?, ?, ?)";

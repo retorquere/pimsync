@@ -307,6 +307,15 @@ impl ResolvedCollection {
             ResolvedCollection::Href { href } => Some(href),
         }
     }
+
+    fn resolve_href<I: Item>(&self, storage: &dyn Storage<I>) -> Result<Href, PlanError> {
+        match self {
+            ResolvedCollection::Id { id } => storage
+                .href_for_collection_id(id)
+                .map_err(|e| PlanError::NoHrefForId(e, id.clone())),
+            ResolvedCollection::Href { href } => Ok(href.to_string()),
+        }
+    }
 }
 
 impl std::fmt::Display for ResolvedCollection {
@@ -384,7 +393,7 @@ impl ItemAction {
 #[derive(Debug)]
 pub(super) struct CollectionPlan {
     mapping: ResolvedMapping,
-    collection_action: Option<CollectionAction>,
+    collection_action: CollectionAction,
     items: Vec<ItemAction>,
 }
 
@@ -432,20 +441,21 @@ impl CollectionPlan {
             .filter_map(Result::transpose)
             .collect::<Result<Vec<_>, PlanError>>()?;
 
-        let collection_action = CollectionAction::new(&mapping, status, state_a, state_b)?;
+        let collection_action = CollectionAction::new(&mapping, status, state_a, state_b, pair)?;
 
-        if collection_action.is_none() && item_actions.is_empty() {
-            Ok(None)
-        } else {
-            Ok(Some(CollectionPlan {
-                mapping,
-                collection_action,
-                items: item_actions,
-            }))
+        if let CollectionAction::NoAction { .. } = collection_action {
+            if item_actions.is_empty() {
+                return Ok(None);
+            }
         }
+        Ok(Some(CollectionPlan {
+            mapping,
+            collection_action,
+            items: item_actions,
+        }))
     }
 
-    pub(super) fn into_parts(self) -> (ResolvedMapping, Option<CollectionAction>, Vec<ItemAction>) {
+    pub(super) fn into_parts(self) -> (ResolvedMapping, CollectionAction, Vec<ItemAction>) {
         (self.mapping, self.collection_action, self.items)
     }
 }
@@ -594,47 +604,85 @@ impl Action {
 /// An action to executing on a collection when synchronising.
 #[derive(PartialEq, Debug, Clone)]
 pub enum CollectionAction {
-    CreateInA { collection: ResolvedCollection },
-    CreateInB { collection: ResolvedCollection },
-    DeleteInA { href: Href },
-    DeleteInB { href: Href },
+    NoAction { href_a: Href, href_b: Href },
+    SaveToStatus { href_a: Href, href_b: Href },
+    CreateInA { collection: Href, href_b: Href },
+    CreateInB { collection: Href, href_a: Href },
+    DeleteInA { href: Href, deleted_href: Href },
+    DeleteInB { href: Href, deleted_href: Href },
 }
 
 impl CollectionAction {
-    fn new(
+    fn new<I: Item>(
         mapping: &ResolvedMapping,
         status: Option<&StatusDatabase>,
         current_a: Option<CollectionState>,
         current_b: Option<CollectionState>,
-    ) -> Result<Option<CollectionAction>, StatusError> {
+        pair: &StoragePair<I>,
+    ) -> Result<CollectionAction, PlanError> {
         // Test whether the collection previously existed.
         let (previous_a, previous_b) = match status {
             Some(s) => (
-                s.collection_exists(&mapping.a)?,
-                s.collection_exists(&mapping.b)?,
+                s.get_collection_href(&mapping.a, Side::A)?,
+                s.get_collection_href(&mapping.b, Side::B)?,
             ),
-            None => (false, false),
+            None => (None, None),
         };
 
+        // Notes on collection deletion
+        //
+        // Collections should only be deleted if they were found via discovery and discovery is
+        // still enabled. If it was explicitly removed from the configuration, it should remain.
+        //
+        // Right now we're operating on:
+        // - explicitly configured collections
+        // - discovered collections
+        //
+        // So if a collection reaches this point, it was found under one of those circumstances.
+        // Collections that are
         let collection_action = match (current_a, current_b, previous_a, previous_b) {
-            // Deleted on both sides OR exists on both sides.
-            (None, None, _, _) | (Some(_), Some(_), _, _) => None,
+            // Hint on variable names: ac="side a, current", bp = "side b, previous".
+
+            // Deleted or missing on both sides
+            (None, None, _, _) => todo!("create on both sides?"),
+            // New on both sides
+            (Some(a), Some(b), None, None) => CollectionAction::SaveToStatus {
+                href_a: a.href,
+                href_b: b.href,
+            },
+            // Previously seen on one side. Bad input.
+            (Some(_), Some(_), Some(_), None) | (Some(_), Some(_), None, Some(_)) => {
+                unreachable!("collection recorded as existing on only one side")
+            }
+            // No change. We need to keep hrefs in order to sync items.
+            (Some(a), Some(b), Some(_), Some(_)) => CollectionAction::NoAction {
+                href_a: a.href,
+                href_b: b.href,
+            },
             // New or present in B AND missing from A.
-            (None, Some(_), _, false) | (None, Some(_), false, true) => {
-                Some(CollectionAction::CreateInA {
-                    collection: mapping.a.clone(),
-                })
+            (None, Some(b), _, None) | (None, Some(b), None, Some(_)) => {
+                CollectionAction::CreateInA {
+                    collection: mapping.a.resolve_href(pair.storage_a())?,
+                    href_b: b.href,
+                }
             }
             // Deleted from A.
-            (None, Some(c), true, true) => Some(CollectionAction::DeleteInB { href: c.href }),
+            (None, Some(bc), Some(ap), Some(_)) => CollectionAction::DeleteInB {
+                href: bc.href,
+                deleted_href: ap,
+            },
             // New or present in A AND missing from B.
-            (Some(_), None, false, _) | (Some(_), None, true, false) => {
-                Some(CollectionAction::CreateInB {
-                    collection: mapping.b.clone(),
-                })
+            (Some(a), None, None, _) | (Some(a), None, Some(_), None) => {
+                CollectionAction::CreateInB {
+                    collection: mapping.b.resolve_href(pair.storage_b())?,
+                    href_a: a.href,
+                }
             }
             // Deleted from B.
-            (Some(c), None, true, true) => Some(CollectionAction::DeleteInA { href: c.href }),
+            (Some(ac), None, Some(_), Some(bp)) => CollectionAction::DeleteInA {
+                href: ac.href,
+                deleted_href: bp,
+            },
         };
         Ok(collection_action)
     }

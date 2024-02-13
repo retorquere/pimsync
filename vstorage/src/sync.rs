@@ -20,6 +20,8 @@
 //!
 //! [orig]: https://unterwaditzer.net/2016/sync-algorithm.html
 
+use crate::CollectionId;
+
 use self::{plan::ResolvedCollection, status::StatusError};
 
 pub mod declare;
@@ -49,4 +51,7 @@ pub enum PlanError {
 
     #[error("Error querying status database: {0}")]
     StatusDb(#[from] StatusError),
+
+    #[error("Cannot resolve href for collection with id {1}: {0}")]
+    NoHrefForId(#[source] crate::Error, CollectionId),
 }
