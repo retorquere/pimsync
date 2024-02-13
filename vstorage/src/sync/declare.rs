@@ -37,10 +37,6 @@ pub enum DeclaredMapping {
     ///
     /// Usage of [`CollectionDescription::Href`] with this variant is highly discouraged.
     Direct { description: CollectionDescription },
-    /// Copy a collection from storage `a` to another in `b` with the same collection id.
-    FromA { description: CollectionDescription },
-    /// Copy a collection from storage `b` to another in `a` with the same collection id.
-    FromB { description: CollectionDescription },
     /// Copy between two collections with explicit definitions on both sides.
     Mapped {
         /// This is descriptive and only used for logging / display.
@@ -64,9 +60,7 @@ impl DeclaredMapping {
 
     pub(super) fn alias(&self) -> String {
         match self {
-            DeclaredMapping::Direct { description }
-            | DeclaredMapping::FromA { description }
-            | DeclaredMapping::FromB { description } => description.alias(),
+            DeclaredMapping::Direct { description } => description.alias(),
             DeclaredMapping::Mapped { alias, .. } => alias.to_string(),
         }
     }
