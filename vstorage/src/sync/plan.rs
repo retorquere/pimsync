@@ -401,23 +401,22 @@ impl CollectionPlan {
         mapping: ResolvedMapping,
         status: Option<&StatusDatabase>,
     ) -> Result<Option<CollectionPlan>, PlanError> {
+        let items_a =
+            item_for_collection(status, pair.storage_a(), &mapping.a.href, Side::A).await?;
+        let items_b =
+            item_for_collection(status, pair.storage_b(), &mapping.b.href, Side::B).await?;
 
-        let state_a =
-            CollectionItems::new(status, pair.storage_a(), &mapping.a.href, Side::A).await?;
-        let state_b =
-            CollectionItems::new(status, pair.storage_b(), &mapping.b.href, Side::B).await?;
+        let status_uids = status.map_or(Ok(Vec::new()), |s| s.all_uids(&mapping))?;
+        let status_uids = status_uids.iter();
+        let uids_a = items_a.iter();
+        let uids_b = items_b.iter();
 
-        let status_items = status.map_or(Ok(Vec::new()), |s| s.all_uids(&mapping))?;
-        let status_items = status_items.iter();
-        let items_a = state_a.items.iter();
-        let items_b = state_b.items.iter();
+        let all_uids = uids_a.chain(uids_b).map(|i| &i.uid).chain(status_uids);
 
-        let all_items = items_a.chain(items_b).map(|i| &i.uid).chain(status_items);
-
-        let item_actions = all_items
+        let item_actions = all_uids
             .map(|uid| {
-                let item_a = state_a.get_item_by_uid(uid);
-                let item_b = state_b.get_item_by_uid(uid);
+                let item_a = items_a.iter().find(|i| i.uid == *uid);
+                let item_b = items_b.iter().find(|i| i.uid == *uid);
 
                 let (prev_a, prev_b) = match status {
                     Some(s) => (
@@ -660,58 +659,45 @@ impl CollectionAction {
     }
 }
 
-/// The state of a single collection.
-#[derive(Clone, Debug)]
-struct CollectionItems {
-    items: Vec<ItemState>,
-}
+/// Returns the state of all items for a collection.
+async fn item_for_collection<I: Item>(
+    status: Option<&StatusDatabase>,
+    storage: &dyn Storage<I>,
+    collection_href: &str,
+    side: Side,
+) -> Result<Vec<ItemState>, PlanError> {
+    debug!("Resolving state for collection: {}.", collection_href);
+    let mut items = Vec::new();
 
-impl CollectionItems {
-    /// Returns `None` if the collection does not have an `href`.
-    async fn new<I: Item>(
-        status: Option<&StatusDatabase>,
-        storage: &dyn Storage<I>,
-        collection_href: &str,
-        side: Side,
-    ) -> Result<CollectionItems, PlanError> {
-        debug!("Resolving state for collection: {}.", collection_href);
-        let mut items = Vec::new();
+    let prefetched = if let Some(status) = status {
+        let mut to_prefetch = Vec::new();
 
-        let prefetched = if let Some(status) = status {
-            let mut to_prefetch = Vec::new();
+        for item_ref in storage.list_items(collection_href).await? {
+            if let Some(prev_item) = status.get_item_by_href(side, &item_ref.href)? {
+                if prev_item.etag == item_ref.etag {
+                    // Item has not changed; nothing to fetch.
+                    items.push(prev_item);
+                    continue;
+                } // else: item has changed
+            } // else: item is new
+            to_prefetch.push(item_ref.href);
+        }
 
-            for item_ref in storage.list_items(collection_href).await? {
-                if let Some(prev_item) = status.get_item_by_href(side, &item_ref.href)? {
-                    if prev_item.etag == item_ref.etag {
-                        // Item has not changed; nothing to fetch.
-                        items.push(prev_item);
-                        continue;
-                    } // else: item has changed
-                } // else: item is new
-                to_prefetch.push(item_ref.href);
-            }
+        let to_prefetch = to_prefetch.iter().map(String::as_str).collect::<Vec<_>>();
+        storage.get_many_items(&to_prefetch).await?
+    } else {
+        storage.get_all_items(collection_href).await?
+    };
 
-            let to_prefetch = to_prefetch.iter().map(String::as_str).collect::<Vec<_>>();
-            storage.get_many_items(&to_prefetch).await?
-        } else {
-            storage.get_all_items(collection_href).await?
-        };
+    let prefetched = prefetched
+        .into_iter()
+        .map(|FetchedItem { href, item, etag }| ItemState {
+            href,
+            uid: item.ident(),
+            etag,
+            hash: item.hash(),
+        });
+    items.extend(prefetched);
 
-        let prefetched = prefetched
-            .into_iter()
-            .map(|FetchedItem { href, item, etag }| ItemState {
-                href,
-                uid: item.ident(),
-                etag,
-                hash: item.hash(),
-            });
-        items.extend(prefetched);
-
-        Ok(CollectionItems { items })
-    }
-
-    #[inline]
-    pub fn get_item_by_uid(&self, uid: &str) -> Option<&ItemState> {
-        self.items.iter().find(|i| i.uid == *uid)
-    }
+    Ok(items)
 }
