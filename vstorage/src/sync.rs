@@ -20,9 +20,9 @@
 //!
 //! [orig]: https://unterwaditzer.net/2016/sync-algorithm.html
 
-use crate::CollectionId;
+use crate::{CollectionId, Href};
 
-use self::{plan::ResolvedCollection, status::StatusError};
+use self::status::{Side, StatusError};
 
 pub mod declare;
 pub mod execute;
@@ -31,11 +31,8 @@ pub mod status;
 
 #[derive(thiserror::Error, Debug)]
 pub enum PlanError {
-    #[error("Duplicate collection defined for storage A: {0}")]
-    DuplicateCollectionInA(ResolvedCollection),
-
-    #[error("Duplicate collection defined for storage B: {0}")]
-    DuplicateCollectionInB(ResolvedCollection),
+    #[error("Conflicting mappings on side {0} for href {1}.")]
+    ConflictingMappings(Side, Href),
 
     #[error("Discovery failed for storage A: {0}")]
     DiscoveryFailedA(#[source] crate::Error),
