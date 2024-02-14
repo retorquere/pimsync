@@ -531,8 +531,8 @@ impl Action {
                 if ap.hash == bp.hash {
                     // Item used to be in sync
                     if ac.hash == ap.hash {
-                        // Item has not changed in A
-                        Some(Action::DeleteInB {
+                        // A is unchanged
+                        Some(Action::DeleteInA {
                             target: ac.to_item_ref(),
                         })
                     } else {
