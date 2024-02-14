@@ -58,7 +58,7 @@
 //! An `Etag` is a value that changes whenever an item has changed in a collection. It is inspired
 //! on the HTTP header with the same name (used extensively in WebDav). See [`Etag`].
 
-use std::str::FromStr;
+use std::{backtrace::Backtrace, str::FromStr};
 
 pub mod base;
 pub mod caldav;
@@ -131,6 +131,7 @@ impl ErrorKind {
 pub struct Error {
     kind: ErrorKind,
     source: Option<Box<dyn std::error::Error + Send + Sync>>,
+    backtrace: Backtrace,
 }
 
 impl Error {
@@ -141,13 +142,22 @@ impl Error {
         Error {
             kind,
             source: Some(source.into()),
+            backtrace: Backtrace::capture(),
         }
+    }
+
+    pub fn backtrace(&self) -> &Backtrace {
+        &self.backtrace
     }
 }
 
 impl From<ErrorKind> for Error {
     fn from(kind: ErrorKind) -> Self {
-        Error { kind, source: None }
+        Error {
+            kind,
+            source: None,
+            backtrace: Backtrace::capture(),
+        }
     }
 }
 
@@ -163,6 +173,7 @@ impl From<std::io::Error> for Error {
         Error {
             kind,
             source: Some(value.into()),
+            backtrace: Backtrace::capture(),
         }
     }
 }
