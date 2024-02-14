@@ -287,8 +287,7 @@ where
     }
 
     fn href_for_collection_id(&self, id: &CollectionId) -> Result<Href> {
-        let path = self.join_collection_href(id.as_ref())?;
-        Ok(path.to_string())
+        Ok(id.to_string())
     }
 }
 
@@ -415,12 +414,15 @@ impl PropertyWithFilename for AddressBookProperty {
 
 #[cfg(test)]
 mod tests {
-    use std::fs::{create_dir_all, write};
+    use std::{
+        fs::{create_dir_all, write},
+        str::FromStr,
+    };
 
     use crate::{
         base::{CalendarProperty, IcsItem, Storage},
         filesystem::FilesystemStorage,
-        ErrorKind,
+        CollectionId, ErrorKind,
     };
     use tempfile::tempdir;
 
@@ -557,4 +559,17 @@ mod tests {
 
     // TODO: test writing and then checking the file
     // TODO: test writing a file and then getting
+    //
+    #[tokio::test]
+    async fn test_href_for_collection_id() {
+        let dir = tempdir().unwrap();
+        let storage = FilesystemStorage::<IcsItem>::new(
+            dir.path().to_path_buf().try_into().unwrap(),
+            "ics".to_string(),
+        );
+
+        let collection_id = CollectionId::from_str("one").unwrap();
+        let href = storage.href_for_collection_id(&collection_id).unwrap();
+        assert_eq!(href, "one");
+    }
 }
