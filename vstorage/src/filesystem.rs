@@ -217,9 +217,7 @@ where
             .collect::<String>();
 
         let filename = format!("{}.{}", basename, self.extension);
-        let relpath = Utf8PathBuf::try_from(collection_href)
-            .map_err(|e| Error::new(ErrorKind::InvalidInput, e))?
-            .join(filename);
+        let relpath = Utf8PathBuf::from(collection_href).join(filename);
 
         let absolute_path = self.path.join(&relpath);
         OpenOptions::new()
