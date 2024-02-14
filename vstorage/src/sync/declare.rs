@@ -22,7 +22,7 @@ pub enum CollectionDescription {
 impl CollectionDescription {
     fn alias(&self) -> String {
         match self {
-            CollectionDescription::Id { id } => format!("id:{id}"),
+            CollectionDescription::Id { id } => id.to_string(),
             CollectionDescription::Href { href } => format!("href:{href}"),
         }
     }
@@ -35,11 +35,12 @@ impl CollectionDescription {
 pub enum DeclaredMapping {
     /// Copy between two collections with the same definition on both sides.
     ///
-    /// Usage of [`CollectionDescription::Href`] with this variant is highly discouraged.
+    /// Usage of [`CollectionDescription::Href`] between different storage implementations is
+    /// discouraged.
     Direct { description: CollectionDescription },
     /// Copy between two collections with explicit definitions on both sides.
     Mapped {
-        /// This is descriptive and only used for logging / display.
+        /// A descriptive name used for logging and display.
         alias: String,
         a: CollectionDescription,
         b: CollectionDescription,
@@ -50,7 +51,7 @@ impl DeclaredMapping {
     /// Create a direct mapping.
     ///
     /// This creates the simplest kind of mapping: it maps two collections with the same
-    /// `CollectionId`.
+    /// [`CollectionId`].
     #[must_use]
     pub fn direct(id: CollectionId) -> Self {
         DeclaredMapping::Direct {
@@ -58,6 +59,7 @@ impl DeclaredMapping {
         }
     }
 
+    /// Return the alias for this mapping.
     pub(super) fn alias(&self) -> String {
         match self {
             DeclaredMapping::Direct { description } => description.alias(),
