@@ -653,7 +653,11 @@ async fn item_for_collection<I: Item>(
         let to_prefetch = to_prefetch.iter().map(String::as_str).collect::<Vec<_>>();
         storage.get_many_items(&to_prefetch).await?
     } else {
-        storage.get_all_items(collection_href).await?
+        match storage.get_all_items(collection_href).await {
+            Ok(items) => items,
+            Err(err) if err.kind == ErrorKind::DoesNotExist => Vec::new(),
+            Err(err) => return Err(PlanError::from(err)),
+        }
     };
 
     let prefetched = prefetched
