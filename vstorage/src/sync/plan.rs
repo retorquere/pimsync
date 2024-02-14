@@ -366,21 +366,6 @@ fn resolve_mapping_counterpart<I: Item>(
     }
 }
 
-#[derive(Debug)]
-pub struct ItemAction {
-    uid: String,
-    action: Action,
-}
-
-impl ItemAction {
-    pub(super) fn uid(&self) -> &str {
-        &self.uid
-    }
-    pub(super) fn action(&self) -> &Action {
-        &self.action
-    }
-}
-
 /// A set of actions required to sync a collection between two storages.
 #[derive(Debug)]
 pub(super) struct CollectionPlan {
@@ -426,12 +411,7 @@ impl CollectionPlan {
                     None => (None, None),
                 };
 
-                Ok(
-                    Action::for_item(item_a, prev_a, item_b, prev_b).map(|action| ItemAction {
-                        uid: uid.to_string(),
-                        action,
-                    }),
-                )
+                Ok(ItemAction::for_item(item_a, prev_a, item_b, prev_b, uid))
             })
             .filter_map(Result::transpose)
             .collect::<Result<Vec<_>, PlanError>>()?;
@@ -466,23 +446,23 @@ fn get_item_by_uid(
 
 /// An action to executing when synchronising.
 #[derive(PartialEq, Debug, Clone)]
-pub enum Action {
+pub enum ItemAction {
     // Item is identical on both sides but are missing from state.
     // This mostly happens during the first run.
     SaveToState { a: ItemState, b: ItemState },
     // State is stale and item is gone on both sides.
-    ClearState,
+    ClearState { uid: String },
     // TODO: details on target collection should be included here.
-    CreateInA { source: Href },
-    CreateInB { source: Href },
-    UpdateInA { source: Href, target: ItemRef },
-    UpdateInB { source: Href, target: ItemRef },
-    DeleteInA { target: ItemRef },
-    DeleteInB { target: ItemRef },
-    Conflict,
+    CreateInA { source: ItemState },
+    CreateInB { source: ItemState },
+    UpdateInA { source: ItemState, target: ItemRef },
+    UpdateInB { source: ItemState, target: ItemRef },
+    DeleteInA { target: ItemState },
+    DeleteInB { target: ItemState },
+    Conflict { uid: String },
 }
 
-impl Action {
+impl ItemAction {
     #[must_use]
     #[allow(clippy::match_same_arms)] // Merging branches hurts readability here.
     #[allow(clippy::too_many_lines)]
@@ -491,60 +471,43 @@ impl Action {
         previous_a: Option<ItemState>,
         current_b: Option<&ItemState>,
         previous_b: Option<ItemState>,
-    ) -> Option<Action> {
+        uid: &str,
+    ) -> Option<ItemAction> {
         match (current_a, previous_a, current_b, previous_b) {
-            (None, _, None, _) => Some(Action::ClearState),
-            (None, None, Some(b), _) => Some(Action::CreateInA {
-                source: b.href.clone(),
+            (None, _, None, _) => Some(ItemAction::ClearState {
+                uid: uid.to_string(),
             }),
-            (None, Some(_), Some(b), None) => Some(Action::CreateInA {
-                source: b.href.clone(),
-            }),
+            (None, None, Some(b), _) => Some(ItemAction::CreateInA { source: b.clone() }),
+            (None, Some(_), Some(b), None) => Some(ItemAction::CreateInA { source: b.clone() }),
             (None, Some(ap), Some(bc), Some(bp)) => {
                 if ap.hash == bp.hash {
                     // Item used to be in sync
                     if bc.hash == bp.hash {
                         // B is unchanged
-                        Some(Action::DeleteInB {
-                            target: bc.to_item_ref(),
-                        })
+                        Some(ItemAction::DeleteInB { target: bc.clone() })
                     } else {
                         warn!("Item deleted in A but changed B: {}.", bc.uid);
-                        Some(Action::CreateInA {
-                            source: bc.href.clone(),
-                        })
+                        Some(ItemAction::CreateInA { source: bc.clone() })
                     }
                 } else {
                     // Item used to be in conflict
-                    Some(Action::CreateInA {
-                        source: bc.href.clone(),
-                    })
+                    Some(ItemAction::CreateInA { source: bc.clone() })
                 }
             }
-            (Some(a), None, None, _) => Some(Action::CreateInB {
-                source: a.href.clone(),
-            }),
-            (Some(a), Some(_), None, None) => Some(Action::CreateInB {
-                source: a.href.clone(),
-            }),
+            (Some(a), None, None, _) => Some(ItemAction::CreateInB { source: a.clone() }),
+            (Some(a), Some(_), None, None) => Some(ItemAction::CreateInB { source: a.clone() }),
             (Some(ac), Some(ap), None, Some(bp)) => {
                 if ap.hash == bp.hash {
                     // Item used to be in sync
                     if ac.hash == ap.hash {
                         // A is unchanged
-                        Some(Action::DeleteInA {
-                            target: ac.to_item_ref(),
-                        })
+                        Some(ItemAction::DeleteInA { target: ac.clone() })
                     } else {
                         warn!("Item deleted in B but changed A: {}.", ac.uid);
-                        Some(Action::CreateInB {
-                            source: ac.href.clone(),
-                        })
+                        Some(ItemAction::CreateInB { source: ac.clone() })
                     }
                 } else {
-                    Some(Action::CreateInB {
-                        source: ac.href.clone(),
-                    })
+                    Some(ItemAction::CreateInB { source: ac.clone() })
                 }
             }
             (Some(ac), Some(ap), Some(bc), Some(bp)) => {
@@ -554,38 +517,42 @@ impl Action {
                         // Status is up to date
                         None
                     } else {
-                        Some(Action::SaveToState {
+                        Some(ItemAction::SaveToState {
                             a: ac.clone(),
                             b: bc.clone(),
                         })
                     }
                 } else if ac.hash == ap.hash {
                     // Side A has not changed
-                    Some(Action::UpdateInA {
-                        source: bc.href.clone(),
+                    Some(ItemAction::UpdateInA {
+                        source: bc.clone(),
                         target: ac.to_item_ref(),
                     })
                 } else if bc.hash == bp.hash {
                     // Side A has not changed
-                    Some(Action::UpdateInB {
-                        source: ac.href.clone(),
+                    Some(ItemAction::UpdateInB {
+                        source: ac.clone(),
                         target: bc.to_item_ref(),
                     })
                 } else {
                     // Both sides have changed
-                    Some(Action::Conflict)
+                    Some(ItemAction::Conflict {
+                        uid: uid.to_string(),
+                    })
                 }
             }
             (Some(a), _, Some(b), _) => {
                 // This is a fall through: (Some, Some, Some, Some) MUST be above this.
                 // This covers the three cases where previous is None.
                 if a.hash == b.hash {
-                    Some(Action::SaveToState {
+                    Some(ItemAction::SaveToState {
                         a: a.clone(),
                         b: b.clone(),
                     })
                 } else {
-                    Some(Action::Conflict)
+                    Some(ItemAction::Conflict {
+                        uid: uid.to_string(),
+                    })
                 }
             }
         }

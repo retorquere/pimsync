@@ -9,7 +9,7 @@ use log::{debug, error};
 use crate::{
     base::{Item, ItemRef, Storage},
     disco::DiscoveredCollection,
-    sync::{plan::Action, status::ItemState},
+    sync::status::ItemState,
     CollectionId, Href,
 };
 
@@ -33,34 +33,34 @@ impl ItemAction {
         status: &StatusDatabase,
     ) -> Result<(), ExecutionError> {
         {
-            match self.action() {
-                Action::SaveToState { a, b } => {
+            match self {
+                ItemAction::SaveToState { a, b } => {
                     status.add_item(Side::A, col_a, a)?;
                     status.add_item(Side::B, col_b, b)?;
                 }
-                Action::ClearState => {
-                    status.delete_item(self.uid())?;
+                ItemAction::ClearState { uid } => {
+                    status.delete_item(uid)?;
                 }
-                Action::CreateInB { source } => {
+                ItemAction::CreateInB { source } => {
                     create_item(source, status, col_a, col_b, a, b, Side::B).await?;
                 }
-                Action::UpdateInB { source, target } => {
+                ItemAction::UpdateInB { source, target } => {
                     update_item(source, target, status, a, b, Side::B).await?;
                 }
-                Action::CreateInA { source } => {
+                ItemAction::CreateInA { source } => {
                     create_item(source, status, col_b, col_a, b, a, Side::A).await?;
                 }
-                Action::UpdateInA { source, target } => {
+                ItemAction::UpdateInA { source, target } => {
                     update_item(source, target, status, b, a, Side::A).await?;
                 }
-                Action::DeleteInA { target } => {
-                    delete_item(target, status, a, self.uid()).await?;
+                ItemAction::DeleteInA { target } => {
+                    delete_item(target, status, a).await?;
                 }
-                Action::DeleteInB { target } => {
-                    delete_item(target, status, b, self.uid()).await?;
+                ItemAction::DeleteInB { target } => {
+                    delete_item(target, status, b).await?;
                 }
-                Action::Conflict => {
-                    error!("Conflict for items {}. Skipping.", self.uid());
+                ItemAction::Conflict { uid } => {
+                    error!("Conflict for items {}. Skipping.", uid);
                 }
             };
             Ok(())
@@ -81,7 +81,7 @@ pub enum ExecutionError {
 }
 
 async fn create_item<I: Item>(
-    from: &Href,
+    source: &ItemState,
     status: &StatusDatabase,
     source_collection: &str,
     target_collection: &str,
@@ -89,9 +89,9 @@ async fn create_item<I: Item>(
     dst_storage: &dyn Storage<I>,
     side: Side,
 ) -> Result<(), ExecutionError> {
-    debug!("Creating item from {from}");
+    debug!("Creating item from {}", source.href);
 
-    let (item_data, source_etag) = src_storage.get_item(from).await?;
+    let (item_data, source_etag) = src_storage.get_item(&source.href).await?;
     let uid = item_data.ident();
     let new_item = dst_storage.add_item(target_collection, &item_data).await?;
     let hash = item_data.hash();
@@ -112,7 +112,7 @@ async fn create_item<I: Item>(
         side.opposite(),
         source_collection,
         &ItemState {
-            href: from.to_string(),
+            href: source.href.clone(),
             uid,
             etag: source_etag,
             hash,
@@ -123,7 +123,7 @@ async fn create_item<I: Item>(
 }
 
 async fn update_item<I: Item>(
-    src_href: &Href,
+    source: &ItemState,
     target: &ItemRef,
     status: &StatusDatabase,
     src_storage: &dyn Storage<I>,
@@ -131,7 +131,7 @@ async fn update_item<I: Item>(
     side: Side,
 ) -> Result<(), ExecutionError> {
     debug!("Updating {}", target.href);
-    let (item, source_etag) = src_storage.get_item(src_href).await?;
+    let (item, source_etag) = src_storage.get_item(&source.href).await?;
 
     let new_etag = dst_storage
         .update_item(&target.href, &target.etag, &item)
@@ -139,20 +139,19 @@ async fn update_item<I: Item>(
 
     let hash = item.hash();
     status.update_item(side, &new_etag, &hash, &target.href)?;
-    status.update_item(side.opposite(), &source_etag, &hash, src_href)?;
+    status.update_item(side.opposite(), &source_etag, &hash, &source.href)?;
 
     Ok(())
 }
 
 async fn delete_item<I: Item>(
-    item_ref: &ItemRef,
+    target: &ItemState,
     status: &StatusDatabase,
     storage: &dyn Storage<I>,
-    uid: &str,
 ) -> Result<(), ExecutionError> {
-    debug!("Deleting {}", item_ref.href);
-    storage.delete_item(&item_ref.href, &item_ref.etag).await?;
-    status.delete_item(uid)?;
+    debug!("Deleting {}", target.href);
+    storage.delete_item(&target.href, &target.etag).await?;
+    status.delete_item(&target.uid)?;
 
     Ok(())
 }
@@ -393,6 +392,7 @@ async fn create_both_collections<I: Item>(
 #[derive(Debug)]
 pub enum SomeAction {
     Item(Box<ItemAction>),
+    // TODO: this is missing the details of the collection itself (e.g.: alias?).
     Collection(CollectionAction),
 }
 
