@@ -17,7 +17,7 @@ use super::declare::{CollectionDescription, DeclaredMapping};
 use super::status::{ItemState, MappingUid, Side, StatusDatabase};
 use super::PlanError;
 
-/// A series of actions that would synchronise a pair of storages.
+/// Actions that would synchronise a pair of storages.
 pub struct Plan<I: Item> {
     pub(super) storage_a: Arc<dyn Storage<I>>,
     pub(super) storage_b: Arc<dyn Storage<I>>,
@@ -130,6 +130,7 @@ async fn create_mappings_for_pair<I: Item>(
                     exists: true,
                 },
             };
+            // A mapping might already be present if we used `from_a`.
             if mappings.iter().any(|m| *m == mapping) {
                 debug!("Skipping mapping; already present.");
             } else {
