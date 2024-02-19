@@ -314,8 +314,6 @@ mod test {
 }
 
 /// A mapping resolved based on the storage's current state.
-///
-/// A `ResolvedCollection::Id` variant implies that a collection does not exist on that side.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct ResolvedMapping {
     alias: String,
@@ -338,19 +336,16 @@ impl ResolvedMapping {
         disco_a: &Discovery,
         disco_b: &Discovery,
     ) -> Result<Self, crate::Error> {
-        let alias = declared.alias();
         match declared {
             DeclaredMapping::Direct { description } => Ok(ResolvedMapping {
-                alias,
-                a: ResolvedCollection::from_declared_collection(description, disco_a, storage_a)
-                    .await?,
-                b: ResolvedCollection::from_declared_collection(description, disco_b, storage_b)
-                    .await?,
+                alias: description.alias(),
+                a: ResolvedCollection::from_declaration(description, disco_a, storage_a).await?,
+                b: ResolvedCollection::from_declaration(description, disco_b, storage_b).await?,
             }),
-            DeclaredMapping::Mapped { a, b, .. } => Ok(ResolvedMapping {
-                alias,
-                a: ResolvedCollection::from_declared_collection(a, disco_a, storage_a).await?,
-                b: ResolvedCollection::from_declared_collection(b, disco_b, storage_b).await?,
+            DeclaredMapping::Mapped { a, b, alias } => Ok(ResolvedMapping {
+                alias: alias.to_string(),
+                a: ResolvedCollection::from_declaration(a, disco_a, storage_a).await?,
+                b: ResolvedCollection::from_declaration(b, disco_b, storage_b).await?,
             }),
         }
     }
@@ -367,7 +362,7 @@ pub struct ResolvedCollection {
 
 impl ResolvedCollection {
     /// Resolve the collection based on a storage and its collections.
-    async fn from_declared_collection<I: Item>(
+    async fn from_declaration<I: Item>(
         declared: &CollectionDescription,
         discovery: &Discovery,
         storage: &dyn Storage<I>,

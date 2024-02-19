@@ -20,7 +20,7 @@ pub enum CollectionDescription {
 }
 
 impl CollectionDescription {
-    fn alias(&self) -> String {
+    pub(crate) fn alias(&self) -> String {
         match self {
             CollectionDescription::Id { id } => id.to_string(),
             CollectionDescription::Href { href } => format!("href:{href}"),
@@ -56,14 +56,6 @@ impl DeclaredMapping {
     pub fn direct(id: CollectionId) -> Self {
         DeclaredMapping::Direct {
             description: CollectionDescription::Id { id },
-        }
-    }
-
-    /// Return the alias for this mapping.
-    pub(super) fn alias(&self) -> String {
-        match self {
-            DeclaredMapping::Direct { description } => description.alias(),
-            DeclaredMapping::Mapped { alias, .. } => alias.to_string(),
         }
     }
 }
