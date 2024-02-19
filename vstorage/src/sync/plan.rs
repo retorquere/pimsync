@@ -14,7 +14,7 @@ use crate::{base::Item, sync::declare::StoragePair};
 use crate::{CollectionId, ErrorKind, Href};
 
 use super::declare::{CollectionDescription, DeclaredMapping};
-use super::status::{ItemState, Side, StatusDatabase, StatusError};
+use super::status::{ItemState, MappingUid, Side, StatusDatabase};
 use super::PlanError;
 
 /// A series of actions that would synchronise a pair of storages.
@@ -144,13 +144,13 @@ async fn create_mappings_for_pair<I: Item>(
 }
 
 fn check_for_duplicate_mappings(mappings: &[ResolvedMapping]) -> Result<(), PlanError> {
-    let mut seen = Vec::<(&str, &str)>::new(); // Contains (href_a, href_b)
+    let mut seen = Vec::<(&Href, &Href)>::new(); // Contains (href_a, href_b)
 
     for mapping in mappings {
         if let Some(conflict) = seen.iter().find_map(|s| {
-            if s.0 == mapping.a.href {
+            if s.0 == &mapping.a.href {
                 Some(PlanError::ConflictingMappings(Side::A, s.0.to_string()))
-            } else if s.1 == mapping.b.href {
+            } else if s.1 == &mapping.b.href {
                 Some(PlanError::ConflictingMappings(Side::B, s.1.to_string()))
             } else {
                 None
@@ -322,7 +322,7 @@ mod test {
 ///
 /// A `ResolvedCollection::Id` variant implies that a collection does not exist on that side.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ResolvedMapping {
+pub(super) struct ResolvedMapping {
     alias: String,
     a: ResolvedCollection,
     b: ResolvedCollection,
@@ -412,7 +412,7 @@ impl ResolvedCollection {
         }
     }
 
-    pub(super) fn href(&self) -> &str {
+    pub(super) fn href(&self) -> &Href {
         &self.href
     }
 }
@@ -469,7 +469,7 @@ fn resolve_mapping_counterpart<I: Item>(
 /// A set of actions required to sync a collection between two storages.
 #[derive(Debug)]
 pub(super) struct CollectionPlan {
-    pub(super) collection_action: Option<CollectionAction>,
+    pub(super) collection_action: CollectionAction,
     pub(super) item_actions: Vec<ItemAction>,
     pub(super) href_a: Href,
     pub(super) href_b: Href,
@@ -497,21 +497,22 @@ impl CollectionPlan {
         let uids_b = items_b.iter();
 
         let all_uids = uids_a.chain(uids_b).map(|i| &i.uid).chain(status_uids);
+        let mapping_uid = status
+            .map(|s| s.get_mapping_uid(&mapping))
+            .transpose()?
+            .flatten();
 
         let item_actions = all_uids
             .map(|uid| {
                 let item_a = items_a.iter().find(|i| i.uid == *uid);
                 let item_b = items_b.iter().find(|i| i.uid == *uid);
 
-                let (prev_a, prev_b) = match status {
-                    Some(s) => (
-                        get_item_by_uid(s, Side::A, &mapping, uid)?,
-                        get_item_by_uid(s, Side::B, &mapping, uid)?,
-                    ),
-                    None => (None, None),
+                let previous = match (status, &mapping_uid) {
+                    (Some(s), Some(m)) => { s.get_items_by_uid(m, uid) }?,
+                    _ => None,
                 };
 
-                Ok(ItemAction::for_item(item_a, prev_a, item_b, prev_b, uid))
+                Ok(ItemAction::for_item(item_a, item_b, previous, uid))
             })
             .filter_map(Result::transpose)
             .collect::<Result<Vec<_>, PlanError>>()?;
@@ -519,7 +520,7 @@ impl CollectionPlan {
         let collection_action =
             CollectionAction::new(&mapping, status, mapping.a.exists, mapping.b.exists)?;
 
-        if collection_action.is_none() && item_actions.is_empty() {
+        if matches!(collection_action, CollectionAction::NoAction(_)) && item_actions.is_empty() {
             return Ok(None);
         }
 
@@ -532,16 +533,8 @@ impl CollectionPlan {
             href_b: mapping.b.href,
         }))
     }
-}
 
-fn get_item_by_uid(
-    status: &StatusDatabase,
-    side: Side,
-    mapping: &ResolvedMapping,
-    uid: &str,
-) -> Result<Option<ItemState>, StatusError> {
-    let collection_href = mapping.collection(side).href();
-    status.get_item_by_uid(side, collection_href, uid)
+    // a hash is an overkill. just keep all the data in the collections table.
 }
 
 /// An action to executing when synchronising.
@@ -568,71 +561,60 @@ impl ItemAction {
     #[allow(clippy::too_many_lines)]
     fn for_item(
         current_a: Option<&ItemState>,
-        previous_a: Option<ItemState>,
         current_b: Option<&ItemState>,
-        previous_b: Option<ItemState>,
+        previous: Option<(ItemState, ItemState)>,
         uid: &str,
     ) -> Option<ItemAction> {
-        match (current_a, previous_a, current_b, previous_b) {
-            (None, _, None, _) => Some(ItemAction::ClearState {
+        match (current_a, current_b, previous) {
+            (None, None, None) => unreachable!("no action for item that doesn't exist anywhere"),
+            (None, None, Some(_)) => Some(ItemAction::ClearState {
                 uid: uid.to_string(),
             }),
-            (None, None, Some(b), _) => Some(ItemAction::CreateInA { source: b.clone() }),
-            (None, Some(_), Some(b), None) => Some(ItemAction::CreateInA { source: b.clone() }),
-            (None, Some(ap), Some(bc), Some(bp)) => {
-                if ap.hash == bp.hash {
-                    // Item used to be in sync
-                    if bc.hash == bp.hash {
-                        // B is unchanged
-                        Some(ItemAction::DeleteInB { target: bc.clone() })
-                    } else {
-                        warn!("Item deleted in A but changed B: {}.", bc.uid);
-                        Some(ItemAction::CreateInA { source: bc.clone() })
-                    }
+            (None, Some(b), None) => Some(ItemAction::CreateInA { source: b.clone() }),
+            (None, Some(b), Some((prev_a, prev_b))) => {
+                assert_eq!(prev_a.hash, prev_b.hash);
+                if b.hash == prev_b.hash {
+                    Some(ItemAction::DeleteInB { target: b.clone() })
                 } else {
-                    // Item used to be in conflict
-                    Some(ItemAction::CreateInA { source: bc.clone() })
+                    warn!("Item deleted in A but changed B: {}.", b.uid);
+                    Some(ItemAction::CreateInA { source: b.clone() })
                 }
             }
-            (Some(a), None, None, _) => Some(ItemAction::CreateInB { source: a.clone() }),
-            (Some(a), Some(_), None, None) => Some(ItemAction::CreateInB { source: a.clone() }),
-            (Some(ac), Some(ap), None, Some(bp)) => {
-                if ap.hash == bp.hash {
-                    // Item used to be in sync
-                    if ac.hash == ap.hash {
-                        // A is unchanged
-                        Some(ItemAction::DeleteInA { target: ac.clone() })
-                    } else {
-                        warn!("Item deleted in B but changed A: {}.", ac.uid);
-                        Some(ItemAction::CreateInB { source: ac.clone() })
-                    }
+            (Some(a), None, None) => Some(ItemAction::CreateInB { source: a.clone() }),
+            (Some(a), None, Some((prev_a, prev_b))) => {
+                assert_eq!(prev_a.hash, prev_b.hash);
+                if a.hash == prev_a.hash {
+                    Some(ItemAction::DeleteInA { target: a.clone() })
                 } else {
-                    Some(ItemAction::CreateInB { source: ac.clone() })
+                    warn!("Item deleted in B but changed A: {}.", a.uid);
+                    Some(ItemAction::CreateInB { source: a.clone() })
                 }
             }
-            (Some(ac), Some(ap), Some(bc), Some(bp)) => {
-                if ac.hash == bc.hash {
+            (Some(a), Some(b), Some((prev_a, prev_b))) => {
+                assert_eq!(prev_a.hash, prev_b.hash);
+                if a.hash == b.hash {
                     // Item are in sync
-                    if ac.hash == ap.hash && ap.hash == bp.hash {
-                        // Status is up to date
+                    if a.hash == prev_a.hash {
+                        // Item has not changed on either side.
                         None
                     } else {
+                        // Item has changed on both sides, but is identical.
                         Some(ItemAction::SaveToState {
-                            a: ac.clone(),
-                            b: bc.clone(),
+                            a: a.clone(),
+                            b: b.clone(),
                         })
                     }
-                } else if ac.hash == ap.hash {
+                } else if a.hash == prev_a.hash {
                     // Side A has not changed
                     Some(ItemAction::UpdateInA {
-                        source: bc.clone(),
-                        target: ac.to_item_ref(),
+                        source: b.clone(),
+                        target: a.to_item_ref(),
                     })
-                } else if bc.hash == bp.hash {
-                    // Side A has not changed
+                } else if b.hash == prev_b.hash {
+                    // Side B has not changed
                     Some(ItemAction::UpdateInB {
-                        source: ac.clone(),
-                        target: bc.to_item_ref(),
+                        source: a.clone(),
+                        target: b.to_item_ref(),
                     })
                 } else {
                     // Both sides have changed
@@ -641,9 +623,7 @@ impl ItemAction {
                     })
                 }
             }
-            (Some(a), _, Some(b), _) => {
-                // This is a fall through: (Some, Some, Some, Some) MUST be above this.
-                // This covers the three cases where previous is None.
+            (Some(a), Some(b), None) => {
                 if a.hash == b.hash {
                     Some(ItemAction::SaveToState {
                         a: a.clone(),
@@ -662,12 +642,12 @@ impl ItemAction {
 /// An action to executing on a collection when synchronising.
 #[derive(PartialEq, Debug, Clone)]
 pub enum CollectionAction {
+    NoAction(MappingUid),
     SaveToStatus,
     CreateInA,
     CreateInB,
     CreateInBoth,
-    DeleteInA,
-    DeleteInB,
+    Delete(MappingUid, Side),
 }
 
 impl CollectionAction {
@@ -676,15 +656,11 @@ impl CollectionAction {
         status: Option<&StatusDatabase>,
         current_a: bool,
         current_b: bool,
-    ) -> Result<Option<CollectionAction>, PlanError> {
+    ) -> Result<CollectionAction, PlanError> {
         // Test whether the collection previously existed.
-        let (previous_a, previous_b) = match status {
-            Some(s) => (
-                // TODO: replace `get_collection_href` with `collection_exists`
-                s.get_collection_href(&mapping.a, Side::A)?.is_some(),
-                s.get_collection_href(&mapping.b, Side::B)?.is_some(),
-            ),
-            None => (false, false),
+        let mapping_uid = match status {
+            Some(s) => s.get_mapping_uid(mapping)?,
+            None => None,
         };
 
         // Note on collection deletion
@@ -695,32 +671,24 @@ impl CollectionAction {
         // Right now we're operating on:
         // - explicitly configured collections
         // - discovered collections
-        //
-        // So if a collection reaches this point, it was found under one of those circumstances.
-        // Collections that are
-        let collection_action = match (current_a, current_b, previous_a, previous_b) {
+        let collection_action = match (current_a, current_b, mapping_uid) {
             // Deleted or missing on both sides
-            (false, false, _, _) => Some(CollectionAction::CreateInBoth),
+            // Note that collections previously auto-discovered and deleted should never reach this
+            // stage.
+            // FIXME: stale collections need to be flushed from status.
+            (false, false, _) => CollectionAction::CreateInBoth,
             // New on both sides
-            (true, true, false, false) => Some(CollectionAction::SaveToStatus),
-            // Previously seen on one side. Bad input.
-            (true, true, true, false) | (true, true, false, true) => {
-                unreachable!("collection recorded as existing on only one side")
-            }
+            (true, true, None) => CollectionAction::SaveToStatus,
             // No change.
-            (true, true, true, true) => None,
-            // New or present in B AND missing from A.
-            (false, true, _, false) | (false, true, false, true) => {
-                Some(CollectionAction::CreateInA)
-            }
-            // Deleted from A.
-            (false, true, true, true) => Some(CollectionAction::DeleteInB),
-            // New or present in A AND missing from B.
-            (true, false, false, _) | (true, false, true, false) => {
-                Some(CollectionAction::CreateInB)
-            }
+            (true, true, Some(m)) => CollectionAction::NoAction(m),
+            // Deleted from A
+            (false, true, Some(m)) => CollectionAction::Delete(m, Side::B),
+            // New in B
+            (false, true, None) => CollectionAction::CreateInA,
+            // New in A
+            (true, false, None) => CollectionAction::CreateInB,
             // Deleted from B.
-            (true, false, true, true) => Some(CollectionAction::DeleteInA),
+            (true, false, Some(m)) => CollectionAction::Delete(m, Side::A),
         };
         Ok(collection_action)
     }
@@ -730,7 +698,7 @@ impl CollectionAction {
 async fn item_for_collection<I: Item>(
     status: Option<&StatusDatabase>,
     storage: &dyn Storage<I>,
-    collection_href: &str,
+    collection_href: &Href,
     side: Side,
 ) -> Result<Vec<ItemState>, PlanError> {
     debug!("Resolving state for collection: {}.", collection_href);

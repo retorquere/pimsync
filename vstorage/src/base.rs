@@ -159,7 +159,7 @@ pub trait Storage<I: Item>: Sync + Send {
 /// `Collection` instance across different storages is disallowed.
 #[derive(Debug)]
 pub struct Collection {
-    href: String,
+    href: Href,
 }
 
 impl Collection {
@@ -171,7 +171,7 @@ impl Collection {
     /// The exact meaning of this value is storage-specific, but should be remain consistent with a
     /// storage.
     #[must_use]
-    pub fn href(&self) -> &str {
+    pub fn href(&self) -> &Href {
         &self.href
     }
 

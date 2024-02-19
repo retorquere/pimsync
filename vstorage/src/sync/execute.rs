@@ -15,7 +15,7 @@ use crate::{
 
 use super::{
     plan::{CollectionAction, CollectionPlan, ItemAction, Plan},
-    status::{Side, StatusDatabase, StatusError},
+    status::{MappingUid, Side, StatusDatabase, StatusError},
 };
 
 impl ItemAction {
@@ -28,27 +28,33 @@ impl ItemAction {
         &self,
         a: &dyn Storage<I>,
         b: &dyn Storage<I>,
-        col_a: &str,
-        col_b: &str,
+        col_a: &Href,
+        col_b: &Href,
         status: &StatusDatabase,
+        mapping_uid: &MappingUid,
     ) -> Result<(), ExecutionError> {
         {
             match self {
                 ItemAction::SaveToState { a, b } => {
-                    status.add_item(Side::A, col_a, a)?;
-                    status.add_item(Side::B, col_b, b)?;
+                    status.insert_item(
+                        mapping_uid,
+                        &a.uid,
+                        &a.hash,
+                        &a.to_item_ref(),
+                        &b.to_item_ref(),
+                    )?;
                 }
                 ItemAction::ClearState { uid } => {
                     status.delete_item(uid)?;
                 }
                 ItemAction::CreateInB { source } => {
-                    create_item(source, status, col_a, col_b, a, b, Side::B).await?;
+                    create_item(source, status, col_b, a, b, mapping_uid, Side::B).await?;
                 }
                 ItemAction::UpdateInB { source, target } => {
                     update_item(source, target, status, a, b, Side::B).await?;
                 }
                 ItemAction::CreateInA { source } => {
-                    create_item(source, status, col_b, col_a, b, a, Side::A).await?;
+                    create_item(source, status, col_a, b, a, mapping_uid, Side::A).await?;
                 }
                 ItemAction::UpdateInA { source, target } => {
                     update_item(source, target, status, b, a, Side::A).await?;
@@ -83,10 +89,10 @@ pub enum ExecutionError {
 async fn create_item<I: Item>(
     source: &ItemState,
     status: &StatusDatabase,
-    source_collection: &str,
-    target_collection: &str,
+    target_collection: &Href,
     src_storage: &dyn Storage<I>,
     dst_storage: &dyn Storage<I>,
+    mapping_uid: &MappingUid,
     side: Side,
 ) -> Result<(), ExecutionError> {
     debug!("Creating item from {}", source.href);
@@ -94,30 +100,17 @@ async fn create_item<I: Item>(
     let (item_data, source_etag) = src_storage.get_item(&source.href).await?;
     let uid = item_data.ident();
     let new_item = dst_storage.add_item(target_collection, &item_data).await?;
-    let hash = item_data.hash();
 
-    // Save new item.
-    status.add_item(
-        side,
-        target_collection,
-        &ItemState {
-            href: new_item.href,
-            uid: uid.clone(),
-            etag: new_item.etag.clone(),
-            hash: hash.clone(),
-        },
-    )?;
-    // Also save source item.
-    status.add_item(
-        side.opposite(),
-        source_collection,
-        &ItemState {
-            href: source.href.clone(),
-            uid,
-            etag: source_etag,
-            hash,
-        },
-    )?;
+    // The original Etag MAY have changed.
+    let source_ref = ItemRef {
+        href: source.href.clone(),
+        etag: source_etag,
+    };
+
+    match side {
+        Side::A => status.insert_item(mapping_uid, &uid, &item_data.hash(), &new_item, &source_ref),
+        Side::B => status.insert_item(mapping_uid, &uid, &item_data.hash(), &source_ref, &new_item),
+    }?;
 
     Ok(())
 }
@@ -138,8 +131,10 @@ async fn update_item<I: Item>(
         .await?;
 
     let hash = item.hash();
-    status.update_item(side, &new_etag, &hash, &target.href)?;
-    status.update_item(side.opposite(), &source_etag, &hash, &source.href)?;
+    match side {
+        Side::A => status.update_item(&hash, &new_etag, &target.href, &source_etag, &source.href),
+        Side::B => status.update_item(&hash, &source_etag, &source.href, &new_etag, &target.href),
+    }?;
 
     Ok(())
 }
@@ -160,12 +155,10 @@ async fn delete_collection<I: Item>(
     href: &Href,
     status: &StatusDatabase,
     storage: &dyn Storage<I>,
-    side: Side,
-    opposite_href: &Href,
+    mapping_uid: &MappingUid,
 ) -> Result<(), ExecutionError> {
     storage.destroy_collection(href).await?;
-    status.remove_collection(side, href)?;
-    status.remove_collection(side.opposite(), opposite_href)?;
+    status.remove_collection(mapping_uid)?;
 
     Ok(())
 }
@@ -186,7 +179,7 @@ impl<I: Item> Plan<I> {
         let storage_b = self.storage_b.as_ref();
 
         for plan in self.collection_plans {
-            let mut deletion_action = None;
+            let mut side_to_delete = None;
             let CollectionPlan {
                 collection_action,
                 item_actions,
@@ -194,132 +187,119 @@ impl<I: Item> Plan<I> {
                 href_b,
                 id_a,
                 id_b,
-                ..
             } = plan;
 
-            if let Some(action) = collection_action {
-                match action {
-                    CollectionAction::SaveToStatus => {
-                        if let Err(err) = save_collection_to_status(
-                            &href_a,
-                            &href_b,
-                            id_a.as_ref(),
-                            id_b.as_ref(),
-                            status,
-                        ) {
-                            errors.push(SynchronizationError::new(action, err));
+            let mapping_uid = match collection_action {
+                CollectionAction::NoAction(mapping_uid) => mapping_uid,
+                CollectionAction::SaveToStatus => {
+                    match status.get_or_add_collection(
+                        &href_a,
+                        &href_b,
+                        id_a.as_ref(),
+                        id_b.as_ref(),
+                    ) {
+                        Ok(mapping_uid) => mapping_uid,
+                        Err(err) => {
+                            errors.push(SynchronizationError::new(collection_action, err.into()));
                             continue;
-                        };
+                        }
                     }
-                    CollectionAction::CreateInB => {
-                        match create_collection(
-                            storage_b,
-                            &href_b,
-                            &href_a,
-                            status,
-                            Side::B,
-                            id_b.as_ref(),
-                            id_a.as_ref(),
-                        )
-                        .await
-                        {
-                            Ok(href) => href,
-                            Err(e) => {
-                                errors.push(SynchronizationError::new(action, e));
-                                continue;
-                            }
-                        };
+                }
+                CollectionAction::CreateInB => {
+                    match create_collection(
+                        storage_b,
+                        &href_b,
+                        &href_a,
+                        status,
+                        Side::B,
+                        id_b.as_ref(),
+                        id_a.as_ref(),
+                    )
+                    .await
+                    {
+                        Ok(mapping_uid) => mapping_uid,
+                        Err(e) => {
+                            errors.push(SynchronizationError::new(collection_action, e));
+                            continue;
+                        }
                     }
-                    CollectionAction::CreateInA => {
-                        match create_collection(
-                            storage_a,
-                            &href_a,
-                            &href_b,
-                            status,
-                            Side::A,
-                            id_a.as_ref(),
-                            id_b.as_ref(),
-                        )
-                        .await
-                        {
-                            Ok(href) => href,
-                            Err(e) => {
-                                errors.push(SynchronizationError::new(action, e));
-                                continue;
-                            }
-                        };
+                }
+                CollectionAction::CreateInA => {
+                    match create_collection(
+                        storage_a,
+                        &href_a,
+                        &href_b,
+                        status,
+                        Side::A,
+                        id_a.as_ref(),
+                        id_b.as_ref(),
+                    )
+                    .await
+                    {
+                        Ok(mapping_uid) => mapping_uid,
+                        Err(e) => {
+                            errors.push(SynchronizationError::new(collection_action, e));
+                            continue;
+                        }
                     }
-                    CollectionAction::CreateInBoth => {
-                        match create_both_collections(
-                            storage_a,
-                            storage_b,
-                            &href_a,
-                            &href_b,
-                            status,
-                            id_a.as_ref(),
-                            id_b.as_ref(),
-                        )
-                        .await
-                        {
-                            Ok(href) => href,
-                            Err(e) => {
-                                errors.push(SynchronizationError::new(action, e));
-                                continue;
-                            }
-                        };
+                }
+                CollectionAction::CreateInBoth => {
+                    match create_both_collections(
+                        storage_a,
+                        storage_b,
+                        &href_a,
+                        &href_b,
+                        status,
+                        id_a.as_ref(),
+                        id_b.as_ref(),
+                    )
+                    .await
+                    {
+                        Ok(mapping_uid) => mapping_uid,
+                        Err(e) => {
+                            errors.push(SynchronizationError::new(collection_action, e));
+                            continue;
+                        }
                     }
-                    CollectionAction::DeleteInA | CollectionAction::DeleteInB => {
-                        deletion_action = Some(action);
-                    }
-                };
+                }
+                CollectionAction::Delete(mapping, side) => {
+                    side_to_delete = Some(side);
+                    mapping
+                }
             };
 
             for item_action in item_actions {
                 if let Err(err) = item_action
-                    .execute(storage_a, storage_b, &href_a, &href_b, status)
+                    .execute(storage_a, storage_b, &href_a, &href_b, status, &mapping_uid)
                     .await
                 {
                     errors.push(SynchronizationError::new(item_action, err));
                 };
             }
 
-            if let Some(action) = deletion_action {
-                match action {
-                    CollectionAction::DeleteInA => {
-                        if let Err(e) =
-                            delete_collection(&href_a, status, storage_a, Side::A, &href_b).await
-                        {
-                            errors.push(SynchronizationError::new(action, e));
-                        };
-                    }
-                    CollectionAction::DeleteInB => {
-                        if let Err(e) =
-                            delete_collection(&href_b, status, storage_b, Side::B, &href_a).await
-                        {
-                            errors.push(SynchronizationError::new(action, e));
-                        };
-                    }
-                    _ => unreachable!(),
+            match side_to_delete {
+                None => {}
+                Some(Side::A) => {
+                    if let Err(err) =
+                        delete_collection(&href_a, status, storage_a, &mapping_uid).await
+                    {
+                        let action = CollectionAction::Delete(mapping_uid, Side::A);
+                        errors.push(SynchronizationError::new(action, err));
+                    };
                 }
-            }
+                Some(Side::B) => {
+                    if let Err(err) =
+                        delete_collection(&href_b, status, storage_b, &mapping_uid).await
+                    {
+                        let action = CollectionAction::Delete(mapping_uid, Side::B);
+                        errors.push(SynchronizationError::new(action, err));
+                    };
+                }
+            };
         }
 
         SyncResult { errors }
     }
-}
-
-fn save_collection_to_status(
-    href_a: &str,
-    href_b: &str,
-    id_a: Option<&CollectionId>,
-    id_b: Option<&CollectionId>,
-    status: &StatusDatabase,
-) -> Result<(), ExecutionError> {
-    // FIXME: I should save the hash of the resolved mapping.
-    //        If it ever changes, it means the config has changed, and should bail.
-    status.add_collection(Side::A, id_a, href_a)?;
-    status.add_collection(Side::B, id_b, href_b)?;
-    Ok(())
 }
 
 /// The result of executing a synchronisation.
@@ -348,8 +328,6 @@ impl SyncResult {
 }
 
 /// Creates a collection and updates the state and error list accordingly.
-///
-/// Returns the `href` of the collection.
 async fn create_collection<I: Item>(
     storage: &dyn Storage<I>,
     href: &Href,
@@ -358,35 +336,35 @@ async fn create_collection<I: Item>(
     side: Side,
     expected_id: Option<&CollectionId>,
     opposite_id: Option<&CollectionId>,
-) -> Result<String, ExecutionError> {
+) -> Result<MappingUid, ExecutionError> {
     let new_collection = storage.create_collection(href).await?;
-    let collection = new_collection.href();
+    let new_href = new_collection.href();
 
-    check_id_matches_expected(expected_id, storage, collection, side).await?;
-    status.add_collection(side, expected_id, collection)?;
-    status.add_collection(side.opposite(), opposite_id, opposite_href)?;
-
-    Ok(new_collection.into_href())
+    check_id_matches_expected(expected_id, storage, new_href, side).await?;
+    let mapping_uid = match side {
+        Side::A => status.get_or_add_collection(href, opposite_href, expected_id, opposite_id),
+        Side::B => status.get_or_add_collection(opposite_href, href, opposite_id, expected_id),
+    }?;
+    Ok(mapping_uid)
 }
 
 async fn create_both_collections<I: Item>(
     storage_a: &dyn Storage<I>,
     storage_b: &dyn Storage<I>,
-    href_a: &str,
-    href_b: &str,
+    href_a: &Href,
+    href_b: &Href,
     status: &StatusDatabase,
     id_a: Option<&CollectionId>,
     id_b: Option<&CollectionId>,
-) -> Result<(String, String), ExecutionError> {
+) -> Result<MappingUid, ExecutionError> {
     let new_a = storage_a.create_collection(href_a).await?;
     check_id_matches_expected(id_a, storage_a, new_a.href(), Side::A).await?;
-    status.add_collection(Side::A, id_a, new_a.href())?;
-
     let new_b = storage_b.create_collection(href_b).await?;
     check_id_matches_expected(id_b, storage_b, new_b.href(), Side::B).await?;
-    status.add_collection(Side::B, id_b, new_b.href())?;
 
-    Ok((new_a.into_href(), new_b.into_href()))
+    status
+        .get_or_add_collection(href_a, href_b, id_a, id_b)
+        .map_err(ExecutionError::StatusDb)
 }
 
 #[derive(Debug)]
@@ -452,7 +430,7 @@ impl std::error::Error for SynchronizationError {
 async fn check_id_matches_expected<I: Item>(
     expected_id: Option<&CollectionId>,
     storage: &dyn Storage<I>,
-    collection: &str,
+    collection: &Href,
     side: Side,
 ) -> Result<(), ExecutionError> {
     if let Some(expected_id) = expected_id {
