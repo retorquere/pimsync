@@ -49,7 +49,6 @@ impl<I: Item> Plan<I> {
         status: Option<&StatusDatabase>,
     ) -> Result<Plan<I>, PlanError> {
         let mappings = create_mappings_for_pair(pair).await?;
-        check_for_duplicate_mappings(&mappings)?;
 
         let mut collection_plans = Vec::with_capacity(mappings.len());
         for m in mappings {
@@ -138,6 +137,7 @@ async fn create_mappings_for_pair<I: Item>(
             }
         }
     }
+    check_for_duplicate_mappings(&mappings)?;
     Ok(mappings)
 }
 
@@ -174,6 +174,7 @@ mod test {
         sync::{
             declare::{CollectionDescription, DeclaredMapping, StoragePair},
             plan::{create_mappings_for_pair, Plan},
+            PlanError,
         },
         CollectionId,
     };
@@ -239,15 +240,13 @@ mod test {
 
         // Duplicate mapping
         let collection = CollectionId::from_str("test").unwrap();
-        let mut pair = StoragePair::builder(storage_a.clone(), storage_b.clone())
+        let pair = StoragePair::builder(storage_a.clone(), storage_b.clone())
             .with_mapping(DeclaredMapping::direct(collection.clone()))
             .with_mapping(DeclaredMapping::direct(collection))
             .build();
 
-        let mappings = create_mappings_for_pair(&pair).await.unwrap();
-        assert_eq!(mappings.len(), 2);
-
-        Plan::new(&mut pair, None).await.unwrap_err();
+        let err = create_mappings_for_pair(&pair).await.unwrap_err();
+        assert!(matches!(err, PlanError::ConflictingMappings(..)));
     }
 
     #[tokio::test]
@@ -265,7 +264,7 @@ mod test {
         ));
         // This sync has duplicate items.
         let collection = CollectionId::from_str("test").unwrap();
-        let mut pair = StoragePair::builder(storage_a.clone(), storage_b.clone())
+        let pair = StoragePair::builder(storage_a.clone(), storage_b.clone())
             .with_mapping(DeclaredMapping::direct(collection.clone()))
             .with_mapping(DeclaredMapping::Mapped {
                 alias: "test".to_string(),
@@ -276,10 +275,8 @@ mod test {
             })
             .build();
 
-        let mappings = create_mappings_for_pair(&pair).await.unwrap();
-        assert_eq!(mappings.len(), 2);
-
-        assert!(Plan::new(&mut pair, None).await.is_err());
+        let err = create_mappings_for_pair(&pair).await.unwrap_err();
+        assert!(matches!(err, PlanError::ConflictingMappings(..)));
     }
 
     #[tokio::test]
