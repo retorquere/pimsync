@@ -298,6 +298,8 @@ impl<I: Item> Plan<I> {
             };
         }
 
+        // TODO: should flush state for any collections that are stale.
+
         SyncResult { errors }
     }
 }

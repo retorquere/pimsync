@@ -51,11 +51,9 @@ impl<I: Item> Plan<I> {
         let mappings = create_mappings_for_pair(pair).await?;
         check_for_duplicate_mappings(&mappings)?;
 
-        let mut collection_plans = Vec::new();
+        let mut collection_plans = Vec::with_capacity(mappings.len());
         for m in mappings {
-            if let Some(plan) = CollectionPlan::new(pair, m, status).await? {
-                collection_plans.push(plan);
-            }
+            collection_plans.push(CollectionPlan::new(pair, m, status).await?);
         }
 
         Ok(Plan {
@@ -485,7 +483,7 @@ impl CollectionPlan {
         pair: &StoragePair<I>,
         mapping: ResolvedMapping,
         status: Option<&StatusDatabase>,
-    ) -> Result<Option<CollectionPlan>, PlanError> {
+    ) -> Result<CollectionPlan, PlanError> {
         let items_a =
             item_for_collection(status, pair.storage_a(), &mapping.a.href, Side::A).await?;
         let items_b =
@@ -520,18 +518,14 @@ impl CollectionPlan {
         let collection_action =
             CollectionAction::new(&mapping, status, mapping.a.exists, mapping.b.exists)?;
 
-        if matches!(collection_action, CollectionAction::NoAction(_)) && item_actions.is_empty() {
-            return Ok(None);
-        }
-
-        Ok(Some(CollectionPlan {
+        Ok(CollectionPlan {
             collection_action,
             item_actions,
             id_a: mapping.a.id,
             href_a: mapping.a.href,
             id_b: mapping.b.id,
             href_b: mapping.b.href,
-        }))
+        })
     }
 
     // a hash is an overkill. just keep all the data in the collections table.
