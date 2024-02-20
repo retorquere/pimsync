@@ -18,6 +18,7 @@ pub enum StatusError {
     NoUpdate,
 }
 
+/// Storages are synchronised between two "sides", 'a' or 'b'.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Side {
     A,
