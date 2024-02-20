@@ -656,16 +656,16 @@ impl CollectionAction {
 async fn items_for_collection<I: Item>(
     status: Option<&StatusDatabase>,
     storage: &dyn Storage<I>,
-    collection_href: &Href,
+    collection: &Href,
     side: Side,
 ) -> Result<Vec<ItemState>, PlanError> {
-    debug!("Resolving state for collection: {}.", collection_href);
+    debug!("Resolving state for collection: {}.", collection);
     let mut items = Vec::new();
 
     let prefetched = if let Some(status) = status {
         let mut to_prefetch = Vec::new();
 
-        for item_ref in storage.list_items(collection_href).await? {
+        for item_ref in storage.list_items(collection).await? {
             if let Some(prev_item) = status.get_item_by_href(side, &item_ref.href)? {
                 if prev_item.etag == item_ref.etag {
                     // Item has not changed; nothing to fetch.
@@ -679,7 +679,7 @@ async fn items_for_collection<I: Item>(
         let to_prefetch = to_prefetch.iter().map(String::as_str).collect::<Vec<_>>();
         storage.get_many_items(&to_prefetch).await?
     } else {
-        match storage.get_all_items(collection_href).await {
+        match storage.get_all_items(collection).await {
             Ok(items) => items,
             Err(err) if err.kind == ErrorKind::DoesNotExist => Vec::new(),
             Err(err) => return Err(PlanError::from(err)),
