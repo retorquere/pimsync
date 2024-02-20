@@ -323,13 +323,6 @@ pub(super) struct ResolvedMapping {
 }
 
 impl ResolvedMapping {
-    pub(super) fn collection(&self, side: Side) -> &ResolvedCollection {
-        match side {
-            Side::A => &self.a,
-            Side::B => &self.b,
-        }
-    }
-
     async fn from_declared_mapping<I: Item>(
         declared: &DeclaredMapping,
         storage_a: &dyn Storage<I>,
@@ -478,7 +471,7 @@ impl CollectionPlan {
         status: Option<&StatusDatabase>,
     ) -> Result<CollectionPlan, PlanError> {
         let mapping_uid = status
-            .map(|s| s.get_mapping_uid(&mapping))
+            .map(|s| s.get_mapping_uid(mapping.a.href(), mapping.b.href()))
             .transpose()?
             .flatten();
 

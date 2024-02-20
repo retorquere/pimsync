@@ -6,8 +6,6 @@ use sqlite::{Connection, ConnectionThreadSafe, OpenFlags, State};
 
 use crate::{base::ItemRef, CollectionId, Etag, Href};
 
-use super::plan::ResolvedMapping;
-
 const SCHEMA_VERSION: i64 = 2;
 
 /// Error interacting with status database.
@@ -243,12 +241,13 @@ impl StatusDatabase {
 
     pub(super) fn get_mapping_uid(
         &self,
-        mapping: &ResolvedMapping,
+        href_a: &Href,
+        href_b: &Href,
     ) -> Result<Option<MappingUid>, StatusError> {
         let query = "SELECT uid FROM collections WHERE href_a = ? AND href_b = ?";
         let mut statement = self.conn.prepare(query)?;
-        statement.bind((1, mapping.collection(Side::A).href().as_str()))?;
-        statement.bind((2, mapping.collection(Side::B).href().as_str()))?;
+        statement.bind((1, href_a.as_str()))?;
+        statement.bind((2, href_b.as_str()))?;
 
         if let State::Row = statement.next()? {
             Ok(Some(MappingUid(statement.read::<String, _>("href")?)))
