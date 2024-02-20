@@ -45,7 +45,7 @@ impl ItemAction {
                     )?;
                 }
                 ItemAction::ClearState { uid } => {
-                    status.delete_item(uid)?;
+                    status.delete_item(mapping_uid, uid)?;
                 }
                 ItemAction::CreateInB { source } => {
                     create_item(source, status, col_b, a, b, mapping_uid, Side::B).await?;
@@ -60,10 +60,10 @@ impl ItemAction {
                     update_item(source, target, status, b, a, Side::A).await?;
                 }
                 ItemAction::DeleteInA { target } => {
-                    delete_item(target, status, a).await?;
+                    delete_item(target, status, a, mapping_uid).await?;
                 }
                 ItemAction::DeleteInB { target } => {
-                    delete_item(target, status, b).await?;
+                    delete_item(target, status, b, mapping_uid).await?;
                 }
                 ItemAction::Conflict { uid } => {
                     error!("Conflict for items {}. Skipping.", uid);
@@ -143,10 +143,11 @@ async fn delete_item<I: Item>(
     target: &ItemState,
     status: &StatusDatabase,
     storage: &dyn Storage<I>,
+    mapping_uid: &MappingUid,
 ) -> Result<(), ExecutionError> {
     debug!("Deleting {}", target.href);
     storage.delete_item(&target.href, &target.etag).await?;
-    status.delete_item(&target.uid)?;
+    status.delete_item(mapping_uid, &target.uid)?;
 
     Ok(())
 }

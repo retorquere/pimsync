@@ -343,10 +343,15 @@ impl StatusDatabase {
         Ok(())
     }
 
-    pub(super) fn delete_item(&self, uid: &str) -> Result<(), StatusError> {
-        let query = "DELETE FROM items WHERE uid = ?";
+    pub(super) fn delete_item(
+        &self,
+        mapping_uid: &MappingUid,
+        uid: &str,
+    ) -> Result<(), StatusError> {
+        let query = "DELETE FROM items WHERE mapping_uid = ? AND ident = ?";
         let mut statement = self.conn.prepare(query)?;
-        statement.bind((1, uid))?;
+        statement.bind((1, mapping_uid.0.as_str()))?;
+        statement.bind((2, uid))?;
         statement.next()?;
         Ok(())
     }
