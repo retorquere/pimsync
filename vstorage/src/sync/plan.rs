@@ -456,15 +456,14 @@ impl CollectionPlan {
         mapping: ResolvedMapping,
         status: Option<&StatusDatabase>,
     ) -> Result<CollectionPlan, PlanError> {
+        let (href_a, href_b) = (mapping.a.href, mapping.b.href);
         let mapping_uid = status
-            .map(|s| s.get_mapping_uid(&mapping.a.href, &mapping.b.href))
+            .map(|s| s.get_mapping_uid(&href_a, &href_b))
             .transpose()?
             .flatten();
 
-        let items_a =
-            items_for_collection(status, pair.storage_a(), &mapping.a.href, Side::A).await?;
-        let items_b =
-            items_for_collection(status, pair.storage_b(), &mapping.b.href, Side::B).await?;
+        let items_a = items_for_collection(status, pair.storage_a(), &href_a, Side::A).await?;
+        let items_b = items_for_collection(status, pair.storage_b(), &href_b, Side::B).await?;
 
         let status_uids = match (status, &mapping_uid) {
             (Some(s), Some(m)) => s.all_uids(m)?,
@@ -501,9 +500,9 @@ impl CollectionPlan {
             collection_action,
             item_actions,
             id_a: mapping.a.id,
-            href_a: mapping.a.href,
+            href_a,
             id_b: mapping.b.id,
-            href_b: mapping.b.href,
+            href_b,
         })
     }
 
