@@ -127,26 +127,6 @@ impl StatusDatabase {
             .prepare("INSERT OR IGNORE INTO meta (version) VALUES (?)")?;
         q.bind((1, SCHEMA_VERSION))?;
         q.next()?;
-        drop(q);
-
-        self.conn.execute(concat!(
-            "CREATE TABLE IF NOT EXISTS items (",
-            " ident TEXT NOT NULL,",
-            // TODO: should be foreign key to collections(uid).
-            " mapping_uid TEXT NOT NULL,",
-            " hash TEXT NOT NULL,",
-            " href_a TEXT NOT NULL,",
-            " etag_a TEXT NOT NULL,",
-            " href_b TEXT NOT NULL,",
-            " etag_b TEXT NOT NULL",
-            ")"
-        ))?;
-        self.conn
-            .execute("CREATE UNIQUE INDEX IF NOT EXISTS by_ident ON items(ident, mapping_uid)")?;
-        self.conn
-            .execute("CREATE UNIQUE INDEX IF NOT EXISTS by_href ON items(href_a)")?;
-        self.conn
-            .execute("CREATE UNIQUE INDEX IF NOT EXISTS by_href ON items(href_b)")?;
 
         self.conn.execute(concat!(
             "CREATE TABLE IF NOT EXISTS collections (",
@@ -161,6 +141,25 @@ impl StatusDatabase {
             .execute("CREATE UNIQUE INDEX IF NOT EXISTS href_a ON collections(href_a)")?;
         self.conn
             .execute("CREATE UNIQUE INDEX IF NOT EXISTS href_b ON collections(href_b)")?;
+
+        self.conn.execute(concat!(
+            "CREATE TABLE IF NOT EXISTS items (",
+            " ident TEXT NOT NULL,",
+            " mapping_uid TEXT NOT NULL,",
+            " hash TEXT NOT NULL,",
+            " href_a TEXT NOT NULL,",
+            " etag_a TEXT NOT NULL,",
+            " href_b TEXT NOT NULL,",
+            " etag_b TEXT NOT NULL,",
+            " FOREIGN KEY(mapping_uid) REFERENCES collections(uid)",
+            ")"
+        ))?;
+        self.conn
+            .execute("CREATE UNIQUE INDEX IF NOT EXISTS by_ident ON items(ident, mapping_uid)")?;
+        self.conn
+            .execute("CREATE UNIQUE INDEX IF NOT EXISTS by_href ON items(href_a)")?;
+        self.conn
+            .execute("CREATE UNIQUE INDEX IF NOT EXISTS by_href ON items(href_b)")?;
 
         // TODO: table for properties
         Ok(())
