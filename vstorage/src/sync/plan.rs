@@ -477,21 +477,26 @@ impl CollectionPlan {
         mapping: ResolvedMapping,
         status: Option<&StatusDatabase>,
     ) -> Result<CollectionPlan, PlanError> {
+        let mapping_uid = status
+            .map(|s| s.get_mapping_uid(&mapping))
+            .transpose()?
+            .flatten();
+
         let items_a =
             item_for_collection(status, pair.storage_a(), &mapping.a.href, Side::A).await?;
         let items_b =
             item_for_collection(status, pair.storage_b(), &mapping.b.href, Side::B).await?;
 
-        let status_uids = status.map_or(Ok(Vec::new()), |s| s.all_uids(&mapping))?;
+        let status_uids = match (status, &mapping_uid) {
+            (Some(s), Some(m)) => s.all_uids(m)?,
+            _ => Vec::new(),
+        };
+
         let status_uids = status_uids.iter();
         let uids_a = items_a.iter();
         let uids_b = items_b.iter();
 
         let all_uids = uids_a.chain(uids_b).map(|i| &i.uid).chain(status_uids);
-        let mapping_uid = status
-            .map(|s| s.get_mapping_uid(&mapping))
-            .transpose()?
-            .flatten();
 
         let item_actions = all_uids
             .map(|uid| {

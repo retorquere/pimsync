@@ -227,12 +227,11 @@ impl StatusDatabase {
         }
     }
 
-    pub(super) fn all_uids(&self, mapping: &ResolvedMapping) -> Result<Vec<String>, StatusError> {
-        let query = "SELECT DISTINCT ident FROM items WHERE mapping_uid IN (?, ?)";
+    pub(super) fn all_uids(&self, mapping: &MappingUid) -> Result<Vec<String>, StatusError> {
+        let query = "SELECT DISTINCT ident FROM items WHERE mapping_uid = ?";
 
         let mut statement = self.conn.prepare(query)?;
-        statement.bind((1, mapping.collection(Side::A).href().as_str()))?;
-        statement.bind((2, mapping.collection(Side::B).href().as_str()))?;
+        statement.bind((1, mapping.0.as_str()))?;
 
         let mut results = Vec::new();
         while let Ok(State::Row) = statement.next() {
