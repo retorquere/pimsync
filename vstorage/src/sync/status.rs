@@ -10,7 +10,6 @@ const SCHEMA_VERSION: i64 = 2;
 
 /// Error interacting with status database.
 #[derive(thiserror::Error, Debug)]
-#[allow(clippy::module_name_repetitions)]
 pub enum StatusError {
     #[error("IO error operating with status database: {0}")]
     Io(#[from] sqlite::Error),
@@ -51,7 +50,6 @@ impl std::fmt::Display for Side {
 
 /// State for an item at some point in time in a single collection.
 #[derive(PartialEq, Clone, Debug)]
-#[allow(clippy::module_name_repetitions)]
 pub struct ItemState {
     pub(super) href: Href,
     pub(super) uid: String,
@@ -75,7 +73,6 @@ impl ItemState {
 pub(super) struct MappingUid(i64);
 
 /// Connection to an on-disk status database.
-#[allow(clippy::module_name_repetitions)]
 pub struct StatusDatabase {
     conn: ConnectionThreadSafe,
 }

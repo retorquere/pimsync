@@ -8,8 +8,6 @@
 //! - The `href` for a collection is its absolute path. This may change in future.
 //!
 //! [`vdir`]: https://vdirsyncer.pimutils.org/en/stable/vdir.html
-#![allow(clippy::module_name_repetitions)]
-
 use async_trait::async_trait;
 use camino::{Utf8Path, Utf8PathBuf};
 use std::ffi::OsStr;

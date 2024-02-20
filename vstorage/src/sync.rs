@@ -28,6 +28,5 @@ pub mod plan;
 pub mod status;
 
 pub use error::SomeAction;
-#[allow(clippy::module_name_repetitions)]
 pub use error::SyncError;
 pub use execute::ExecutionError;

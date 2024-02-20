@@ -17,7 +17,6 @@ use super::{
 /// contains enough data to provide a meaningful description of what has gone wrong.
 ///
 /// Use the [`std::fmt::Display`] implementation for a quick description.
-#[allow(clippy::module_name_repetitions)]
 #[derive(Debug)]
 pub struct SyncError {
     action: SomeAction,

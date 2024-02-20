@@ -18,7 +18,6 @@ use super::declare::{CollectionDescription, DeclaredMapping};
 use super::status::{ItemState, MappingUid, Side, StatusDatabase, StatusError};
 
 /// Error that occurs when creating a [`Plan`].
-#[allow(clippy::module_name_repetitions)]
 #[derive(thiserror::Error, Debug)]
 pub enum PlanError {
     /// Conflicting mapping haves been defined.
