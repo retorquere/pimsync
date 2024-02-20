@@ -30,20 +30,30 @@ pub mod execute;
 pub mod plan;
 pub mod status;
 
+/// An error that occurs when creating a [`plan::Plan`].
 #[derive(thiserror::Error, Debug)]
 pub enum PlanError {
+    /// Conflicting mapping haves been defined.
+    ///
+    /// Two (or more) collections on one side would be synchronised to the same collection on the
+    /// other side. The `Side` and `Href` parameters refer to the collection that has multiple
+    /// counterparts.
     #[error("Conflicting mappings on side {0} for href {1}.")]
     ConflictingMappings(Side, Href),
 
+    /// Discovering collections on storage A failed.
     #[error("Discovery failed for storage A: {0}")]
     DiscoveryFailedA(#[source] crate::Error),
 
+    /// Discovering collections on storage B failed.
     #[error("Discovery failed for storage B: {0}")]
     DiscoveryFailedB(#[source] crate::Error),
 
+    /// An error occurred interacting with a storage.
     #[error("Error interacting with underlying storage: {0}")]
     Storage(#[from] crate::Error),
 
+    /// An error occurred reading the status database.
     #[error("Error querying status database: {0}")]
     StatusDb(#[from] StatusError),
 }
