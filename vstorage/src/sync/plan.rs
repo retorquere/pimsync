@@ -462,9 +462,9 @@ impl CollectionPlan {
             .flatten();
 
         let items_a =
-            item_for_collection(status, pair.storage_a(), &mapping.a.href, Side::A).await?;
+            items_for_collection(status, pair.storage_a(), &mapping.a.href, Side::A).await?;
         let items_b =
-            item_for_collection(status, pair.storage_b(), &mapping.b.href, Side::B).await?;
+            items_for_collection(status, pair.storage_b(), &mapping.b.href, Side::B).await?;
 
         let status_uids = match (status, &mapping_uid) {
             (Some(s), Some(m)) => s.all_uids(m)?,
@@ -653,7 +653,7 @@ impl CollectionAction {
 }
 
 /// Returns the state of all items for a collection.
-async fn item_for_collection<I: Item>(
+async fn items_for_collection<I: Item>(
     status: Option<&StatusDatabase>,
     storage: &dyn Storage<I>,
     collection_href: &Href,
