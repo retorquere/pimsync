@@ -48,7 +48,7 @@ impl std::fmt::Display for Side {
     }
 }
 
-/// State for an item at some point in time.
+/// State for an item at some point in time in a single collection.
 #[derive(PartialEq, Clone, Debug)]
 #[allow(clippy::module_name_repetitions)]
 pub struct ItemState {
@@ -194,35 +194,18 @@ impl StatusDatabase {
         }
     }
 
-    pub(super) fn get_items_by_uid(
+    pub(super) fn get_item_hash_by_uid(
         &self,
         mapping_uid: &MappingUid,
         uid: &str,
-    ) -> Result<Option<(ItemState, ItemState)>, StatusError> {
-        let query = concat!(
-            "SELECT ident, hash, href_a, etag_a, href_b, etag_b",
-            " FROM items",
-            " WHERE ident = ? AND mapping_uid = ?"
-        );
+    ) -> Result<Option<String>, StatusError> {
+        let query = concat!("SELECT hash FROM items WHERE ident = ? AND mapping_uid = ?");
         let mut statement = self.conn.prepare(query)?;
         statement.bind((1, uid))?;
         statement.bind((2, mapping_uid.0))?;
 
         if let Ok(State::Row) = statement.next() {
-            Ok(Some((
-                ItemState {
-                    href: statement.read::<String, _>("href_a")?,
-                    uid: statement.read::<String, _>("ident")?,
-                    etag: statement.read::<String, _>("etag_a")?.into(),
-                    hash: statement.read::<String, _>("hash")?,
-                },
-                ItemState {
-                    href: statement.read::<String, _>("href_b")?,
-                    uid: statement.read::<String, _>("ident")?,
-                    etag: statement.read::<String, _>("etag_b")?.into(),
-                    hash: statement.read::<String, _>("hash")?,
-                },
-            )))
+            Ok(Some(statement.read::<String, _>("hash")?))
         } else {
             Ok(None)
         }
@@ -396,25 +379,22 @@ mod test {
             .unwrap();
 
         let item_a_fetched = db.get_item_by_href(Side::A, &item_a.href).unwrap().unwrap();
-        assert_eq!(item_a_fetched.to_item_ref(), item_a);
         assert_eq!(item_a_fetched.uid, uid);
         assert_eq!(item_a_fetched.hash, hash);
+        assert_eq!(item_a_fetched.href, item_a.href);
+        assert_eq!(item_a_fetched.etag, item_a.etag);
 
         let item_b_fetched = db.get_item_by_href(Side::B, &item_b.href).unwrap().unwrap();
-        assert_eq!(item_b_fetched.to_item_ref(), item_b);
         assert_eq!(item_b_fetched.uid, uid);
         assert_eq!(item_b_fetched.hash, hash);
+        assert_eq!(item_b_fetched.href, item_b.href);
+        assert_eq!(item_b_fetched.etag, item_b.etag);
 
-        let (item_a_fetched, item_b_fetched) = db
-            .get_items_by_uid(&mapping_uid, uid)
+        let fetched_hash = db
+            .get_item_hash_by_uid(&mapping_uid, uid)
             .unwrap()
             .expect("status should return items that were just inserted");
-        assert_eq!(item_a_fetched.to_item_ref(), item_a);
-        assert_eq!(item_a_fetched.uid, uid);
-        assert_eq!(item_a_fetched.hash, hash);
-        assert_eq!(item_b_fetched.to_item_ref(), item_b);
-        assert_eq!(item_b_fetched.uid, uid);
-        assert_eq!(item_b_fetched.hash, hash);
+        assert_eq!(fetched_hash, hash);
 
         let all = db.all_uids(&mapping_uid).unwrap();
         let all_expected = vec![uid];
@@ -429,7 +409,10 @@ mod test {
             .get_item_by_href(Side::B, &item_b.href)
             .unwrap()
             .is_none());
-        assert!(db.get_items_by_uid(&mapping_uid, uid).unwrap().is_none());
+        assert!(db
+            .get_item_hash_by_uid(&mapping_uid, uid)
+            .unwrap()
+            .is_none());
         assert!(db.all_uids(&mapping_uid).unwrap().is_empty());
     }
     #[test]
@@ -462,29 +445,22 @@ mod test {
         .unwrap();
 
         let item_a_fetched = db.get_item_by_href(Side::A, &item_a.href).unwrap().unwrap();
-        assert_eq!(item_a_fetched.href, item_a.href);
-        assert_eq!(item_a_fetched.etag, updated_etag_a);
         assert_eq!(item_a_fetched.uid, uid);
         assert_eq!(item_a_fetched.hash, updated_hash);
+        assert_eq!(item_a_fetched.href, item_a.href);
+        assert_eq!(item_a_fetched.etag, updated_etag_a);
 
         let item_b_fetched = db.get_item_by_href(Side::B, &item_b.href).unwrap().unwrap();
-        assert_eq!(item_b_fetched.href, item_b.href);
-        assert_eq!(item_b_fetched.etag, updated_etag_b);
         assert_eq!(item_b_fetched.uid, uid);
         assert_eq!(item_b_fetched.hash, updated_hash);
+        assert_eq!(item_b_fetched.href, item_b.href);
+        assert_eq!(item_b_fetched.etag, updated_etag_b);
 
-        let (item_a_fetched, item_b_fetched) = db
-            .get_items_by_uid(&mapping_uid, uid)
+        let fetched_hash = db
+            .get_item_hash_by_uid(&mapping_uid, uid)
             .unwrap()
             .expect("status should return items that were just inserted");
-        assert_eq!(item_a_fetched.href, item_a.href);
-        assert_eq!(item_a_fetched.etag, updated_etag_a);
-        assert_eq!(item_a_fetched.uid, uid);
-        assert_eq!(item_a_fetched.hash, updated_hash);
-        assert_eq!(item_b_fetched.href, item_b.href);
-        assert_eq!(item_b_fetched.etag, updated_etag_b);
-        assert_eq!(item_b_fetched.uid, uid);
-        assert_eq!(item_b_fetched.hash, updated_hash);
+        assert_eq!(fetched_hash, updated_hash);
 
         let all = db.all_uids(&mapping_uid).unwrap();
         let all_expected = vec![uid];

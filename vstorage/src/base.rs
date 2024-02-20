@@ -188,7 +188,7 @@ impl Collection {
 /// A reference to an [`Item`] inside a collection.
 #[derive(PartialEq, Debug, Clone)]
 pub struct ItemRef {
-    pub href: String, // TODO: This should be parametrized, or I should document the restriction.
+    pub href: Href,
     pub etag: Etag,
 }
 

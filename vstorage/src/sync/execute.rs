@@ -9,13 +9,12 @@ use log::{debug, error};
 use crate::{
     base::{Item, ItemRef, Storage},
     disco::DiscoveredCollection,
-    sync::status::ItemState,
     CollectionId, Href,
 };
 
 use super::{
     plan::{CollectionAction, CollectionPlan, ItemAction, Plan},
-    status::{MappingUid, Side, StatusDatabase, StatusError},
+    status::{ItemState, MappingUid, Side, StatusDatabase, StatusError},
 };
 
 impl ItemAction {

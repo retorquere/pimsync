@@ -485,7 +485,7 @@ impl CollectionPlan {
                 let item_b = items_b.iter().find(|i| i.uid == *uid);
 
                 let previous = match (status, &mapping_uid) {
-                    (Some(s), Some(m)) => { s.get_items_by_uid(m, uid) }?,
+                    (Some(s), Some(m)) => { s.get_item_hash_by_uid(m, uid) }?,
                     _ => None,
                 };
 
@@ -535,18 +535,17 @@ impl ItemAction {
     fn for_item(
         current_a: Option<&ItemState>,
         current_b: Option<&ItemState>,
-        previous: Option<(ItemState, ItemState)>,
+        previous_hash: Option<String>,
         uid: &str,
     ) -> Option<ItemAction> {
-        match (current_a, current_b, previous) {
+        match (current_a, current_b, previous_hash) {
             (None, None, None) => unreachable!("no action for item that doesn't exist anywhere"),
             (None, None, Some(_)) => Some(ItemAction::ClearState {
                 uid: uid.to_string(),
             }),
             (None, Some(b), None) => Some(ItemAction::CreateInA { source: b.clone() }),
-            (None, Some(b), Some((prev_a, prev_b))) => {
-                assert_eq!(prev_a.hash, prev_b.hash);
-                if b.hash == prev_b.hash {
+            (None, Some(b), Some(prev_hash)) => {
+                if b.hash == prev_hash {
                     Some(ItemAction::DeleteInB { target: b.clone() })
                 } else {
                     warn!("Item deleted in A but changed B: {}.", b.uid);
@@ -554,20 +553,18 @@ impl ItemAction {
                 }
             }
             (Some(a), None, None) => Some(ItemAction::CreateInB { source: a.clone() }),
-            (Some(a), None, Some((prev_a, prev_b))) => {
-                assert_eq!(prev_a.hash, prev_b.hash);
-                if a.hash == prev_a.hash {
+            (Some(a), None, Some(prev_hash)) => {
+                if a.hash == prev_hash {
                     Some(ItemAction::DeleteInA { target: a.clone() })
                 } else {
                     warn!("Item deleted in B but changed A: {}.", a.uid);
                     Some(ItemAction::CreateInB { source: a.clone() })
                 }
             }
-            (Some(a), Some(b), Some((prev_a, prev_b))) => {
-                assert_eq!(prev_a.hash, prev_b.hash);
+            (Some(a), Some(b), Some(prev_hash)) => {
                 if a.hash == b.hash {
                     // Item are in sync
-                    if a.hash == prev_a.hash {
+                    if a.hash == prev_hash {
                         // Item has not changed on either side.
                         None
                     } else {
@@ -577,13 +574,13 @@ impl ItemAction {
                             b: b.clone(),
                         })
                     }
-                } else if a.hash == prev_a.hash {
+                } else if a.hash == prev_hash {
                     // Side A has not changed
                     Some(ItemAction::UpdateInA {
                         source: b.clone(),
                         target: a.to_item_ref(),
                     })
-                } else if b.hash == prev_b.hash {
+                } else if b.hash == prev_hash {
                     // Side B has not changed
                     Some(ItemAction::UpdateInB {
                         source: a.clone(),
