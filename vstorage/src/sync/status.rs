@@ -14,6 +14,8 @@ const SCHEMA_VERSION: i64 = 2;
 pub enum StatusError {
     #[error("IO error operating with status database: {0}")]
     Io(#[from] sqlite::Error),
+    #[error("UPDATE did no affect any rows")]
+    NoUpdate,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -339,7 +341,12 @@ impl StatusDatabase {
         statement.bind((4, href_a))?;
         statement.bind((5, href_b))?;
         statement.next()?;
-        Ok(())
+
+        if self.conn.change_count() == 0 {
+            Err(StatusError::NoUpdate)
+        } else {
+            Ok(())
+        }
     }
 
     pub(super) fn delete_item(
