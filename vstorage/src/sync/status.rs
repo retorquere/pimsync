@@ -88,7 +88,7 @@ impl StatusDatabase {
     ///
     /// # Errors
     ///
-    /// Returns `Error::Io` if sqlite fails to open the database.
+    /// Returns [`StatusError::Io`] if sqlite fails to open the database.
     pub fn open_readonly(path: impl AsRef<Path>) -> Result<Option<StatusDatabase>, StatusError> {
         let flags = OpenFlags::new().with_read_only().with_full_mutex();
         match Connection::open_thread_safe_with_flags(path, flags) {
@@ -102,7 +102,7 @@ impl StatusDatabase {
     ///
     /// # Errors
     ///
-    /// Returns `Error::Io` if sqlite fails to open or create the database.
+    /// Returns [`StatusError::Io`] if sqlite fails to open or create the database.
     pub fn open_or_create(path: impl AsRef<Path>) -> Result<StatusDatabase, StatusError> {
         let db = StatusDatabase {
             conn: Connection::open_thread_safe(path)?,
@@ -148,7 +148,6 @@ impl StatusDatabase {
         self.conn
             .execute("CREATE UNIQUE INDEX IF NOT EXISTS by_href ON items(href_b)")?;
 
-        // TODO: Etag nullable is okay?
         self.conn.execute(concat!(
             "CREATE TABLE IF NOT EXISTS collections (",
             " uid INTEGER PRIMARY KEY AUTOINCREMENT,",
