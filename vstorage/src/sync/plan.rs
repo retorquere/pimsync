@@ -606,52 +606,6 @@ impl ItemAction {
         }
     }
 }
-impl std::fmt::Display for ItemAction {
-    /// This function is mostly implemented to be used for error reporting.
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ItemAction::SaveToStatus { a, .. } => write!(f, "save to status (uid: {})", a.uid),
-            ItemAction::ClearStatus { uid } => write!(f, "clear from status (uid: {uid})"),
-            ItemAction::CreateInA { source } => write!(
-                f,
-                "create in storage a (uid: {}, from: {})",
-                source.uid, source.href
-            ),
-            ItemAction::CreateInB { source } => write!(
-                f,
-                "create in storage b (uid: {}, from: {})",
-                source.uid, source.href
-            ),
-            ItemAction::UpdateInA { source, target } => write!(
-                f,
-                "update in storage a (uid: {}, into: {})",
-                source.uid, target.href
-            ),
-            ItemAction::UpdateInB { source, target } => write!(
-                f,
-                "update in storage b (uid: {}, into: {})",
-                source.uid, target.href
-            ),
-            ItemAction::DeleteInA { target } => {
-                write!(
-                    f,
-                    "delete in storage a (uid: {}, href: {})",
-                    target.uid, target.href
-                )
-            }
-            ItemAction::DeleteInB { target } => {
-                write!(
-                    f,
-                    "delete in storage b (uid: {}, href: {})",
-                    target.uid, target.href
-                )
-            }
-            ItemAction::Conflict { uid } => {
-                write!(f, "conflict (uid: {uid})")
-            }
-        }
-    }
-}
 
 /// An action to executing on a collection when synchronising.
 #[derive(PartialEq, Debug, Clone)]
@@ -690,22 +644,6 @@ impl CollectionAction {
             (false, true, None) => CollectionAction::CreateInA,  // New in B
             (true, false, None) => CollectionAction::CreateInB,  // New in A
             (true, false, Some(m)) => CollectionAction::Delete(m, Side::A), // Deleted from B.
-        }
-    }
-}
-
-impl std::fmt::Display for CollectionAction {
-    /// Only the action itself is displayed.
-    ///
-    /// This function is mostly implemented to be used for error reporting.
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            CollectionAction::NoAction(_) => write!(f, "no action"),
-            CollectionAction::SaveToStatus => write!(f, "save to status"),
-            CollectionAction::CreateInA => write!(f, "create in storage a"),
-            CollectionAction::CreateInB => write!(f, "create in storage b"),
-            CollectionAction::CreateInBoth => write!(f, "create in both storages"),
-            CollectionAction::Delete(_, side) => write!(f, "delete from {side}"),
         }
     }
 }

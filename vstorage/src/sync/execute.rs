@@ -13,6 +13,7 @@ use crate::{
 };
 
 use super::{
+    error::SyncError,
     plan::{CollectionAction, CollectionPlan, ItemAction, Plan},
     status::{ItemState, MappingUid, Side, StatusDatabase, StatusError},
 };
@@ -350,66 +351,6 @@ async fn create_both_collections<I: Item>(
         .map_err(ExecutionError::StatusDb)
 }
 
-#[derive(Debug)]
-pub enum SomeAction {
-    Item(Box<ItemAction>),
-    // TODO: this is missing the details of the collection itself (e.g.: alias?).
-    Collection {
-        action: CollectionAction,
-        alias: String,
-    },
-}
-
-impl std::fmt::Display for SomeAction {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            SomeAction::Item(action) => {
-                write!(f, "item action '{action}'")
-            }
-            SomeAction::Collection { action, alias } => {
-                write!(f, "collection action '{action}' for '{alias}'")
-            }
-        }
-    }
-}
-
-/// An error synchronising two items between storages.
-#[derive(Debug)]
-pub struct SyncError {
-    action: SomeAction,
-    error: ExecutionError,
-}
-
-impl SyncError {
-    #[must_use]
-    pub fn item(action: ItemAction, error: ExecutionError) -> Self {
-        Self {
-            action: SomeAction::Item(Box::from(action)),
-            error,
-        }
-    }
-
-    #[must_use]
-    pub fn collection(action: CollectionAction, alias: String, error: ExecutionError) -> Self {
-        Self {
-            action: SomeAction::Collection { action, alias },
-            error,
-        }
-    }
-}
-
-impl std::fmt::Display for SyncError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Error executing {}: {}", self.action, self.error)
-    }
-}
-
-impl std::error::Error for SyncError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        Some(&self.error)
-    }
-}
-
 async fn check_id_matches_expected<I: Item>(
     expected_id: Option<&CollectionId>,
     storage: &dyn Storage<I>,
@@ -432,73 +373,4 @@ async fn check_id_matches_expected<I: Item>(
         }
     }
     Ok(())
-}
-
-#[cfg(test)]
-mod test {
-    use std::backtrace::Backtrace;
-
-    use crate::sync::{
-        execute::{ExecutionError, SomeAction},
-        plan::{CollectionAction, ItemAction},
-        status::ItemState,
-    };
-
-    use super::SyncError;
-
-    #[test]
-    fn test_syncerror_item_display() {
-        let err = SyncError {
-            action: SomeAction::Item(Box::from(ItemAction::CreateInA {
-                source: ItemState {
-                    href: "/path/to/some/file.vcf".into(),
-                    uid: "d99ed506-dceb-49f2-a1c9-efa63c68acd0".into(),
-                    etag: "123890".into(),
-                    hash: "AAAAAZZZZZ".into(),
-                },
-            })),
-            error: ExecutionError::Storage(crate::Error {
-                kind: crate::ErrorKind::AccessDenied,
-                source: Some(Box::from(std::io::Error::new(
-                    std::io::ErrorKind::PermissionDenied,
-                    "Not enough mana",
-                ))),
-                backtrace: Backtrace::capture(),
-            }),
-        };
-        let msg = err.to_string();
-        let expected = concat!(
-            "Error executing item action 'create in storage a (uid: d99ed506-dceb-49f2-a1c9-efa63c68acd0, from: /path/to/some/file.vcf)': ",
-            "storage operation returned error: ",
-            "access to the resource was denied: ",
-            "Not enough mana"
-        );
-        assert_eq!(msg, expected);
-    }
-
-    #[test]
-    fn test_syncerror_collection_display() {
-        let err = SyncError {
-            action: SomeAction::Collection {
-                action: CollectionAction::CreateInB,
-                alias: "guests".into(),
-            },
-            error: ExecutionError::Storage(crate::Error {
-                kind: crate::ErrorKind::AccessDenied,
-                source: Some(Box::from(std::io::Error::new(
-                    std::io::ErrorKind::PermissionDenied,
-                    "Creating new collections is forbidden",
-                ))),
-                backtrace: Backtrace::capture(),
-            }),
-        };
-        let msg = err.to_string();
-        let expected = concat!(
-            "Error executing collection action 'create in storage b' for 'guests': ",
-            "storage operation returned error: ",
-            "access to the resource was denied: ",
-            "Creating new collections is forbidden"
-        );
-        assert_eq!(msg, expected);
-    }
 }

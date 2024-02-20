@@ -12,7 +12,7 @@ use clap::Parser;
 use log::{debug, error, info, warn};
 use vstorage::{
     base::{IcsItem, Item, Storage, VcardItem},
-    sync::{declare::StoragePair, execute::SyncError, plan::Plan, status::StatusDatabase},
+    sync::{declare::StoragePair, error::SyncError, plan::Plan, status::StatusDatabase},
 };
 
 use crate::cli::{Command, Vdirsyncer};

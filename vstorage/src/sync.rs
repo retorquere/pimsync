@@ -25,6 +25,7 @@ use crate::{CollectionId, Href};
 use self::status::{Side, StatusError};
 
 pub mod declare;
+pub mod error;
 pub mod execute;
 pub mod plan;
 pub mod status;
