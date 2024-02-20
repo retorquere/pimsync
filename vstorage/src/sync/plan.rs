@@ -529,7 +529,6 @@ pub enum ItemAction {
 
 impl ItemAction {
     #[must_use]
-    #[allow(clippy::match_same_arms)] // Merging branches hurts readability here.
     #[allow(clippy::too_many_lines)]
     fn for_item(
         current_a: Option<&ItemState>,
