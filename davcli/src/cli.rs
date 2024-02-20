@@ -5,7 +5,7 @@
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use http::Uri;
 
-use crate::{caldav::CalDavArgs, carddav::CardDavArgs};
+use crate::{caldav, carddav};
 
 #[derive(Clone, ValueEnum)]
 enum Verbosity {
@@ -29,19 +29,26 @@ pub(crate) struct Server {
     pub(crate) username: String,
 }
 
-#[derive(Subcommand)]
-pub(crate) enum Command {
+#[derive(Args)]
+#[group(required = true, multiple = false)]
+struct Proto {
     /// Operate on a CalDav server.
-    Caldav(CalDavArgs),
+    #[arg(long)]
+    caldav: bool,
+
     /// Operate on a CardDav server.
-    Carddav(CardDavArgs),
+    #[arg(long)]
+    carddav: bool,
 }
 
 #[derive(Parser)]
 #[clap(author, version = env!("DAVCLI_VERSION"), about, long_about = None)]
 pub(crate) struct Cli {
+    #[command(flatten)]
+    proto: Proto,
+
     #[command(subcommand)]
-    pub(crate) command: Command,
+    pub(crate) command: ServerCommand,
 
     /// Change logging verbosity
     ///
@@ -50,11 +57,37 @@ pub(crate) struct Cli {
     verbose: Option<Verbosity>,
 }
 
+#[derive(Subcommand)]
+pub(crate) enum ServerCommand {
+    /// Perform discovery and print results
+    Discover,
+    /// Find collections under the home set.
+    FindCollections,
+    /// List items in a given collection.
+    ListItems { collection_href: String },
+    /// List all collections and items recursively.
+    Tree,
+    /// Fetches a single item.
+    Get { resource_href: String },
+    /// Create a new item.
+    ///
+    /// Data is read from stdin.
+    Create { resource_href: String },
+    /// Delete an item or collection.
+    Delete {
+        #[arg(long)]
+        force: bool,
+        href: String,
+    },
+}
+
 impl Cli {
     pub(crate) fn execute(self) -> anyhow::Result<()> {
-        match self.command {
-            Command::Caldav(cmd) => cmd.execute(),
-            Command::Carddav(cmd) => cmd.execute(),
+        assert_ne!(self.proto.carddav, self.proto.caldav);
+        if self.proto.caldav {
+            caldav::execute(self.command)
+        } else {
+            carddav::execute(self.command)
         }
     }
 

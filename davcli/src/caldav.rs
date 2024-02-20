@@ -5,105 +5,69 @@
 use std::io::Read;
 
 use anyhow::{bail, Context};
-use clap::{Parser, Subcommand};
 use hyper::client::HttpConnector;
 use hyper_rustls::{HttpsConnector, HttpsConnectorBuilder};
 use libdav::{auth::Auth, CalDavClient};
 use log::info;
 
-use crate::cli::Server;
+use crate::cli::ServerCommand;
 
 type Client = CalDavClient<HttpsConnector<HttpConnector>>;
 
-#[derive(Parser)]
-pub struct CalDavArgs {
-    #[command(flatten)]
-    pub(crate) server: Server,
+async fn caldav_client() -> anyhow::Result<Client> {
+    let base_url = std::env::var("DAVCLI_BASE_URL")
+        .context("failed to determine password")?
+        .try_into()
+        .context("parsing DAVCLI_BASE_URL")?;
+    let username = std::env::var("DAVCLI_USERNAME").context("failed to determine password")?;
+    let password = std::env::var("DAVCLI_PASSWORD")
+        .context("failed to determine password")?
+        .into();
 
-    #[command(subcommand)]
-    command: CalDavCommand,
+    let https = HttpsConnectorBuilder::new()
+        .with_native_roots()?
+        .https_or_http()
+        .enable_http1()
+        .build();
+    let builder = CalDavClient::builder()
+        .with_uri(base_url)
+        .with_auth(Auth::Basic {
+            username,
+            password: Some(password),
+        })
+        .bootstrap(https)
+        .await
+        .map_err(anyhow::Error::from)?;
+    Ok(builder.build())
 }
 
-#[derive(Subcommand)]
-pub(crate) enum CalDavCommand {
-    /// Perform discovery and print results
-    Discover,
-    /// Find calendars under the calendar home set.
-    FindCalendars,
-    /// List calendar components under a given calendar collection.
-    ListCalendarComponents {
-        collection_href: String,
-    },
-    Tree,
-    /// Fetches a single calendar component.
-    Get {
-        resource_href: String,
-    },
-    /// Create a new calendar component.
-    ///
-    /// Data is read from stdin.
-    Create {
-        resource_href: String,
-    },
-    Delete {
-        #[arg(long)]
-        force: bool,
-        href: String,
-    },
-}
+#[tokio::main(flavor = "current_thread")]
+pub(crate) async fn execute(command: ServerCommand) -> anyhow::Result<()> {
+    let client = caldav_client().await?;
 
-impl Server {
-    async fn caldav_client(&self) -> anyhow::Result<Client> {
-        let password = std::env::var("DAVCLI_PASSWORD")
-            .context("failed to determine password")?
-            .into();
-        let https = HttpsConnectorBuilder::new()
-            .with_native_roots()?
-            .https_or_http()
-            .enable_http1()
-            .build();
-        let builder = CalDavClient::builder()
-            .with_uri(self.server_url.clone())
-            .with_auth(Auth::Basic {
-                username: self.username.clone(),
-                password: Some(password),
-            })
-            .bootstrap(https)
-            .await
-            .map_err(anyhow::Error::from)?;
-        Ok(builder.build())
-    }
-}
-
-impl CalDavArgs {
-    #[tokio::main(flavor = "current_thread")]
-    pub(crate) async fn execute(self) -> anyhow::Result<()> {
-        let client = self.server.caldav_client().await?;
-
-        match self.command {
-            CalDavCommand::Discover => discover(&client),
-            CalDavCommand::FindCalendars => list_collections(client).await?,
-            CalDavCommand::ListCalendarComponents { collection_href } => {
-                list_resources(&client, collection_href).await?;
+    match command {
+        ServerCommand::Discover => discover(&client),
+        ServerCommand::FindCollections => list_collections(client).await?,
+        ServerCommand::ListItems { collection_href } => {
+            list_resources(&client, collection_href).await?;
+        }
+        ServerCommand::Tree => tree(client).await?,
+        ServerCommand::Get { resource_href } => get(client, resource_href).await?,
+        ServerCommand::Create { resource_href } => create(client, resource_href).await?,
+        ServerCommand::Delete { force, href } => {
+            if !force {
+                bail!("Must force deletion (no etag support in davcli)");
             }
-            CalDavCommand::Tree => tree(client).await?,
-            CalDavCommand::Get { resource_href } => get(client, resource_href).await?,
-            CalDavCommand::Create { resource_href } => create(client, resource_href).await?,
-            CalDavCommand::Delete { force, href } => {
-                if !force {
-                    bail!("Must force deletion (no etag support in davcli)");
-                }
-                delete(&client, href).await?;
-            }
-        };
+            delete(&client, href).await?;
+        }
+    };
 
-        Ok(())
-    }
+    Ok(())
 }
 
 fn discover(client: &Client) {
     println!("Discovery successful.");
-    println!("- Context path: {}", &client.base_url());
+    println!("- Context path: {}", client.base_url());
     match client.calendar_home_set() {
         Some(home_set) => println!("- Calendar home set: {home_set}"),
         None => println!("- Calendar home set not found."),

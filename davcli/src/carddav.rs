@@ -3,81 +3,63 @@
 // SPDX-License-Identifier: EUPL-1.2
 
 use anyhow::Context;
-use clap::{Parser, Subcommand};
 use hyper::client::HttpConnector;
 use hyper_rustls::{HttpsConnector, HttpsConnectorBuilder};
 use libdav::{auth::Auth, CardDavClient};
 use log::info;
 
-use crate::cli::Server;
+use crate::cli::ServerCommand;
 
 type Client = CardDavClient<HttpsConnector<HttpConnector>>;
 
-#[derive(Parser)]
-pub struct CardDavArgs {
-    #[command(flatten)]
-    pub(crate) server: Server,
-
-    #[command(subcommand)]
-    command: CardDavCommand,
+async fn carddav_client() -> anyhow::Result<Client> {
+    let base_url = std::env::var("DAVCLI_BASE_URL")
+        .context("failed to determine password")?
+        .try_into()
+        .context("parsing DAVCLI_BASE_URL")?;
+    let username = std::env::var("DAVCLI_USERNAME").context("failed to determine password")?;
+    let password = std::env::var("DAVCLI_PASSWORD")
+        .context("failed to determine password")?
+        .into();
+    let https = HttpsConnectorBuilder::new()
+        .with_native_roots()?
+        .https_or_http()
+        .enable_http1()
+        .build();
+    let builder = CardDavClient::builder()
+        .with_uri(base_url)
+        .with_auth(Auth::Basic {
+            username,
+            password: Some(password),
+        })
+        .bootstrap(https)
+        .await
+        .map_err(anyhow::Error::from)?;
+    Ok(builder.build())
 }
 
-#[derive(Subcommand)]
-pub(crate) enum CardDavCommand {
-    /// Perform discovery and print results
-    Discover,
-    /// List address book components under a given calendar collection.
-    ListAddressBookComponents { collection_href: String },
-    /// Find address books under the address book home set.
-    FindAddressBooks,
-    /// Fetches a single address book component.
-    Get { resource_href: String },
-}
+#[tokio::main(flavor = "current_thread")]
+pub(crate) async fn execute(command: ServerCommand) -> anyhow::Result<()> {
+    let client = carddav_client().await?;
 
-impl Server {
-    async fn carddav_client(&self) -> anyhow::Result<Client> {
-        let password = std::env::var("DAVCLI_PASSWORD")
-            .context("failed to determine password")?
-            .into();
-        let https = HttpsConnectorBuilder::new()
-            .with_native_roots()?
-            .https_or_http()
-            .enable_http1()
-            .build();
-        let builder = CardDavClient::builder()
-            .with_uri(self.server_url.clone())
-            .with_auth(Auth::Basic {
-                username: self.username.clone(),
-                password: Some(password),
-            })
-            .bootstrap(https)
-            .await
-            .map_err(anyhow::Error::from)?;
-        Ok(builder.build())
-    }
-}
+    match command {
+        ServerCommand::Discover => discover(&client),
+        ServerCommand::FindCollections => list_collections(client).await?,
+        ServerCommand::ListItems { collection_href } => {
+            list_resources(&client, collection_href).await?;
+        }
+        ServerCommand::Get { resource_href } => get(client, resource_href).await?,
+        ServerCommand::Delete { .. } => todo!(),
+        ServerCommand::Tree { .. } => todo!(),
+        ServerCommand::Create { .. } => todo!(),
+    };
 
-impl CardDavArgs {
-    #[tokio::main(flavor = "current_thread")]
-    pub(crate) async fn execute(self) -> anyhow::Result<()> {
-        let client = self.server.carddav_client().await?;
-
-        match self.command {
-            CardDavCommand::Discover => discover(&client),
-            CardDavCommand::FindAddressBooks => list_collections(client).await?,
-            CardDavCommand::ListAddressBookComponents { collection_href } => {
-                list_resources(&client, collection_href).await?;
-            }
-            CardDavCommand::Get { resource_href } => get(client, resource_href).await?,
-        };
-
-        Ok(())
-    }
+    Ok(())
 }
 
 fn discover(client: &Client) {
     println!("Discovery successful.");
-    println!("- Context path: {}", &client.base_url());
+    println!("- Context path: {}", client.base_url());
     match client.addressbook_home_set() {
         Some(home_set) => println!("- Address book home set: {home_set}"),
         None => println!("- Address book home set not found."),

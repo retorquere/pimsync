@@ -15,8 +15,8 @@ The main goal of this project is to provide a simple command line interface to
 expose simple caldav and carddav operations; essentially equivalents to `ls`,
 `cat`, `mkdir`, etc (plus discovery).
 
-Output is printed to `stdout` in a very clean format (e.g.: so you can use this
-in shell scripts) and all logging is printed to `stderr`.
+Output is printed to `stdout` in a clean format (e.g.: so you can use this in
+shell scripts) and all logging is printed to `stderr`.
 
 The output of `--help` should be sufficient to find the basic subcommands, and
 appending `--help` to any of these should provide enough information to
@@ -33,7 +33,10 @@ if DNS is correctly configured for a publicly hosted service:
 [rfc6764]: https://www.rfc-editor.org/rfc/rfc6764
 
 ```console
-> DAVCLI_PASSWORD=XXX davcli caldav --server-url https://fastmail.com --username vdirsyncer@fastmail.com discover
+> export DAVCLI_BASE_URL=https://fastmail.com
+> export DAVCLI_USERNAME=vdirsyncer@fastmail.com
+> export DAVCLI_PASSWORD=XXX
+> davcli --caldav discover
 Discovery successful.
 - Context path: https://d277161.caldav.fastmail.com/dav/calendars
 - Calendar home set: https://d277161.caldav.fastmail.com/dav/calendars/user/vdirsyncer@fastmail.com/
@@ -43,7 +46,10 @@ Errors should generally be useful (please report an issue if you find an
 obscure error where the underlying root cause is not clear):
 
 ```console
-> DAVCLI_PASSWORD=wrong_password davcli --base-uri https://fastmail.com --username wronguser@fastmail.com discover
+> export DAVCLI_BASE_URL=https://fastmail.com
+> export DAVCLI_USERNAME=wronguser@fastmail.com
+> export DAVCLI_PASSWORD=wrong_password
+> davcli --caldav discover
 Error: error querying current user principal
 
 Caused by:
