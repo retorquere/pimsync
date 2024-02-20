@@ -20,7 +20,7 @@
 //!
 //! [orig]: https://unterwaditzer.net/2016/sync-algorithm.html
 
-use crate::{CollectionId, Href};
+use crate::Href;
 
 use self::status::{Side, StatusError};
 
@@ -49,7 +49,4 @@ pub enum PlanError {
 
     #[error("Error querying status database: {0}")]
     StatusDb(#[from] StatusError),
-
-    #[error("Cannot resolve href for collection with id {1}: {0}")]
-    NoHrefForId(#[source] crate::Error, CollectionId),
 }
