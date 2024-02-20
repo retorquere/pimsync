@@ -41,9 +41,6 @@ pub enum PlanError {
     #[error("Discovery failed for storage B: {0}")]
     DiscoveryFailedB(#[source] crate::Error),
 
-    #[error("Invalid collection mappings provided: {0}")]
-    BadCollectionMappings(#[source] crate::Error),
-
     #[error("Error interacting with underlying storage: {0}")]
     Storage(#[from] crate::Error),
 

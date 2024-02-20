@@ -100,8 +100,7 @@ async fn create_mappings_for_pair<I: Item>(
                 &disco_a,
                 &disco_b,
             )
-            .await
-            .map_err(PlanError::BadCollectionMappings)?,
+            .await?,
         );
     }
 
