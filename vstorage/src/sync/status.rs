@@ -201,7 +201,7 @@ impl StatusDatabase {
         let query = concat!(
             "SELECT ident, hash, href_a, etag_a, href_b, etag_b",
             " FROM items",
-            " WHERE AND ident = ? AND mapping_uid = ?"
+            " WHERE ident = ? AND mapping_uid = ?"
         );
         let mut statement = self.conn.prepare(query)?;
         statement.bind((1, uid))?;
