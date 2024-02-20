@@ -12,6 +12,11 @@ use super::{
 };
 
 /// An error synchronising two items between storages.
+///
+/// This error contains details on a non-fatal error that occurred during synchronisation. It
+/// contains enough data to provide a meaningful description of what has gone wrong.
+///
+/// Use the [`std::fmt::Display`] implementation for a quick description.
 #[allow(clippy::module_name_repetitions)]
 #[derive(Debug)]
 pub struct SyncError {
@@ -49,6 +54,7 @@ impl std::error::Error for SyncError {
     }
 }
 
+/// An action that has failed to execute. See [`SyncError`].
 #[derive(Debug)]
 pub enum SomeAction {
     Item(Box<ItemAction>),

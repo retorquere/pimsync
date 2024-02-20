@@ -74,10 +74,12 @@ impl ItemAction {
     }
 }
 
+/// Error during execution of a synchronisation [`Plan`]. See [`SyncError`].
 #[derive(thiserror::Error, Debug)]
 pub enum ExecutionError {
     #[error("collection missing from status when creating item")]
     MissingCollection,
+    // FIXME: this variant is never actually returned.
     #[error("error querying status database: {0}")]
     StatusDb(#[from] StatusError),
     #[error("storage operation returned error: {0}")]

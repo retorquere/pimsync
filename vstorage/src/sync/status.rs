@@ -72,7 +72,7 @@ impl ItemState {
 
 /// A unique ID used for a collection mapping.
 #[derive(Clone, Debug, PartialEq)]
-pub struct MappingUid(i64);
+pub(super) struct MappingUid(i64);
 
 /// Connection to an on-disk status database.
 #[allow(clippy::module_name_repetitions)]

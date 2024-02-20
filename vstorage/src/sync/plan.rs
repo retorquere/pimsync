@@ -15,10 +15,41 @@ use crate::{base::Item, sync::declare::StoragePair};
 use crate::{CollectionId, ErrorKind, Href};
 
 use super::declare::{CollectionDescription, DeclaredMapping};
-use super::status::{ItemState, MappingUid, Side, StatusDatabase};
-use super::PlanError;
+use super::status::{ItemState, MappingUid, Side, StatusDatabase, StatusError};
 
-/// Actions that would synchronise a pair of storages.
+/// Error that occurs when creating a [`Plan`].
+#[allow(clippy::module_name_repetitions)]
+#[derive(thiserror::Error, Debug)]
+pub enum PlanError {
+    /// Conflicting mapping haves been defined.
+    ///
+    /// Two (or more) collections on one side would be synchronised to the same collection on the
+    /// other side. The `Side` and `Href` parameters refer to the collection that has multiple
+    /// counterparts.
+    #[error("Conflicting mappings on side {0} for href {1}.")]
+    ConflictingMappings(Side, Href),
+
+    /// Discovering collections on storage A failed.
+    #[error("Discovery failed for storage A: {0}")]
+    DiscoveryFailedA(#[source] crate::Error),
+
+    /// Discovering collections on storage B failed.
+    #[error("Discovery failed for storage B: {0}")]
+    DiscoveryFailedB(#[source] crate::Error),
+
+    /// Error occurred interacting with a storage.
+    #[error("Error interacting with underlying storage: {0}")]
+    Storage(#[from] crate::Error),
+
+    /// Error occurred reading the status database.
+    #[error("Error querying status database: {0}")]
+    StatusDb(#[from] StatusError),
+}
+
+/// A set of actions that would synchronise a pair of storages.
+///
+/// This type can be executed (in which case the storages would then be in-sync) or can be
+/// inspected to provide an overview of the operations which would be executed.
 pub struct Plan<I: Item> {
     pub(super) storage_a: Arc<dyn Storage<I>>,
     pub(super) storage_b: Arc<dyn Storage<I>>,
@@ -174,8 +205,7 @@ mod test {
         filesystem::FilesystemStorage,
         sync::{
             declare::{CollectionDescription, DeclaredMapping, StoragePair},
-            plan::{create_mappings_for_pair, Plan},
-            PlanError,
+            plan::{create_mappings_for_pair, Plan, PlanError},
         },
         CollectionId,
     };
@@ -510,7 +540,7 @@ impl CollectionPlan {
     // a hash is an overkill. just keep all the data in the collections table.
 }
 
-/// An action to executing when synchronising.
+/// Operation to execute on an item during synchronising.
 #[derive(PartialEq, Debug, Clone)]
 pub enum ItemAction {
     // Item is identical on both sides but are missing from state.
@@ -606,7 +636,8 @@ impl ItemAction {
     }
 }
 
-/// An action to executing on a collection when synchronising.
+/// Operation to execute on a collection during synchronising.
+#[allow(private_interfaces)]
 #[derive(PartialEq, Debug, Clone)]
 pub enum CollectionAction {
     NoAction(MappingUid),
