@@ -33,15 +33,19 @@ impl Side {
             Side::B => Side::A,
         }
     }
-}
 
-impl std::fmt::Display for Side {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    #[must_use]
+    pub fn as_char(self) -> char {
         match self {
             Side::A => 'a',
             Side::B => 'b',
         }
-        .fmt(f)
+    }
+}
+
+impl std::fmt::Display for Side {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.as_char().fmt(f)
     }
 }
 
