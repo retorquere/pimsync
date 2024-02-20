@@ -12,7 +12,7 @@ use clap::Parser;
 use log::{debug, error, info, warn};
 use vstorage::{
     base::{IcsItem, Item, Storage, VcardItem},
-    sync::{declare::StoragePair, plan::Plan, status::StatusDatabase},
+    sync::{declare::StoragePair, execute::SyncError, plan::Plan, status::StatusDatabase},
 };
 
 use crate::cli::{Command, Vdirsyncer};
@@ -36,6 +36,12 @@ pub(crate) struct NamedPair<I: Item> {
     name: String,
     inner: StoragePair<I>,
     status_path: Utf8PathBuf,
+}
+
+/// Simply log non-fatal errors.
+#[allow(clippy::needless_pass_by_value)]
+pub fn log_error(error: SyncError) {
+    error!("{error}");
 }
 
 impl<I: Item> NamedPair<I> {
@@ -79,10 +85,7 @@ impl<I: Item> NamedPair<I> {
             debug!("Dry run: not synchronising.");
         } else {
             let status = self.open_status_rw()?;
-            let sync_result = plan.execute(&status).await;
-            for err in sync_result.errors() {
-                error!("Error during syncrhonisation: {err}");
-            }
+            plan.execute(&status, log_error).await?;
         }
 
         Ok(())

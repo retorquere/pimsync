@@ -107,11 +107,7 @@ async fn test_sync_simple_case() {
     // dbg!(&plan);
     // TODO: I'll need to trace! the point where each actions is decided.
     let status = StatusDatabase::open_or_create(":memory:").unwrap();
-    let result = plan.execute(&status).await;
-    for error in result.errors().iter() {
-        dbg!("Error during test sync: {}", error);
-    }
-    assert_eq!(result.errors().len(), 0);
+    plan.execute(&status, drop).await.unwrap();
 
     let first = std::fs::read_dir(empty_path.join("first-calendar"))
         .unwrap()

@@ -77,9 +77,9 @@ impl ItemAction {
 pub enum ExecutionError {
     #[error("collection missing from status when creating item")]
     MissingCollection,
-    #[error("error querying status database")]
+    #[error("error querying status database: {0}")]
     StatusDb(#[from] StatusError),
-    #[error("error interacting with storage")]
+    #[error("storage operation returned error: {0}")]
     Storage(#[from] crate::Error),
     #[error("created collection {1} on side {0:?} does not have the expected id, it has: {2:?}")]
     IdMismatch(Side, Href, Option<CollectionId>),
@@ -166,21 +166,26 @@ async fn delete_collection<I: Item>(
 impl<I: Item> Plan<I> {
     /// Executes a synchronization plan.
     ///
-    /// Always returns a final state, regardless of what changes were applied. The returned value
-    /// will include any errors that occurred during synchronisation. If any errors exist, then
-    /// both storage may still be  out of sync.
+    /// # Non-fatal errors
+    ///
+    /// When a non-fatal error occurs (e.g.: an item being uploaded is rejected), the `on_error`
+    /// function will be called with details on the exact error.
+    ///
+    /// # Errors
+    ///
+    /// A [`StatusError`] is returned in case writing to the status database fails.
     #[allow(clippy::too_many_lines)]
-    // TODO: should take a channel/sender where errors can be sent.
-    //       implementations can handle this as they prefer
-    pub async fn execute(self, status: &StatusDatabase) -> SyncResult {
-        // FIXME: shouldn't we bail immediately if status fails to write?
-        let mut errors = Vec::new();
+    pub async fn execute(
+        self,
+        status: &StatusDatabase,
+        on_error: impl Fn(SyncError),
+    ) -> Result<(), StatusError> {
         let storage_a = self.storage_a.as_ref();
         let storage_b = self.storage_b.as_ref();
 
         for plan in self.collection_plans {
-            let mut side_to_delete = None;
             let CollectionPlan {
+                alias,
                 collection_action,
                 item_actions,
                 href_a,
@@ -189,82 +194,16 @@ impl<I: Item> Plan<I> {
                 id_b,
             } = plan;
 
-            let mapping_uid = match collection_action {
-                CollectionAction::NoAction(mapping_uid) => mapping_uid,
-                CollectionAction::SaveToStatus => {
-                    match status.get_or_add_collection(
-                        &href_a,
-                        &href_b,
-                        id_a.as_ref(),
-                        id_b.as_ref(),
-                    ) {
-                        Ok(mapping_uid) => mapping_uid,
-                        Err(err) => {
-                            errors.push(SynchronizationError::new(collection_action, err.into()));
-                            continue;
-                        }
-                    }
-                }
-                CollectionAction::CreateInB => {
-                    match create_collection(
-                        storage_b,
-                        &href_b,
-                        &href_a,
-                        status,
-                        Side::B,
-                        id_b.as_ref(),
-                        id_a.as_ref(),
-                    )
-                    .await
-                    {
-                        Ok(mapping_uid) => mapping_uid,
-                        Err(e) => {
-                            errors.push(SynchronizationError::new(collection_action, e));
-                            continue;
-                        }
-                    }
-                }
-                CollectionAction::CreateInA => {
-                    match create_collection(
-                        storage_a,
-                        &href_a,
-                        &href_b,
-                        status,
-                        Side::A,
-                        id_a.as_ref(),
-                        id_b.as_ref(),
-                    )
-                    .await
-                    {
-                        Ok(mapping_uid) => mapping_uid,
-                        Err(e) => {
-                            errors.push(SynchronizationError::new(collection_action, e));
-                            continue;
-                        }
-                    }
-                }
-                CollectionAction::CreateInBoth => {
-                    match create_both_collections(
-                        storage_a,
-                        storage_b,
-                        &href_a,
-                        &href_b,
-                        status,
-                        id_a.as_ref(),
-                        id_b.as_ref(),
-                    )
-                    .await
-                    {
-                        Ok(mapping_uid) => mapping_uid,
-                        Err(e) => {
-                            errors.push(SynchronizationError::new(collection_action, e));
-                            continue;
-                        }
-                    }
-                }
-                CollectionAction::Delete(mapping, side) => {
-                    side_to_delete = Some(side);
-                    mapping
+            let (mapping_uid, side_to_delete) = match collection_action
+                .clone() // FIXME: cloning is a bit of a hack here
+                .execute(status, &href_a, &href_b, id_a, id_b, storage_a, storage_b)
+                .await
+            {
+                Ok((m, s)) => (m, s),
+                Err(ExecutionError::StatusDb(err)) => return Err(err),
+                Err(err) => {
+                    on_error(SyncError::collection(collection_action, alias, err));
+                    continue;
                 }
             };
 
@@ -273,7 +212,7 @@ impl<I: Item> Plan<I> {
                     .execute(storage_a, storage_b, &href_a, &href_b, status, &mapping_uid)
                     .await
                 {
-                    errors.push(SynchronizationError::new(item_action, err));
+                    on_error(SyncError::item(item_action, err));
                 };
             }
 
@@ -284,7 +223,7 @@ impl<I: Item> Plan<I> {
                         delete_collection(&href_a, status, storage_a, &mapping_uid).await
                     {
                         let action = CollectionAction::Delete(mapping_uid, Side::A);
-                        errors.push(SynchronizationError::new(action, err));
+                        on_error(SyncError::collection(action, alias, err));
                     };
                 }
                 Some(Side::B) => {
@@ -292,7 +231,7 @@ impl<I: Item> Plan<I> {
                         delete_collection(&href_b, status, storage_b, &mapping_uid).await
                     {
                         let action = CollectionAction::Delete(mapping_uid, Side::B);
-                        errors.push(SynchronizationError::new(action, err));
+                        on_error(SyncError::collection(action, alias, err));
                     };
                 }
             };
@@ -300,32 +239,74 @@ impl<I: Item> Plan<I> {
 
         // TODO: should flush state for any collections that are stale.
 
-        SyncResult { errors }
+        Ok(())
     }
 }
 
-/// The result of executing a synchronisation.
-///
-/// Storages may have been mutated before an error occurred, so the final state for both is always
-/// returned, even in case of an error.
-#[must_use]
-#[derive(Debug)]
-pub struct SyncResult {
-    /// Any errors that may have occurred during synchronisation.
-    errors: Vec<SynchronizationError>,
-}
-
-impl SyncResult {
-    /// Returns `true` if both storages are in sync.
-    #[must_use]
-    pub fn synchronised_ok(&self) -> bool {
-        self.errors.is_empty()
-    }
-
-    /// Errors that occurred during synchronisation, if any.
-    #[must_use]
-    pub fn errors(&self) -> &[SynchronizationError] {
-        &self.errors
+impl CollectionAction {
+    /// Execute this collection's action.
+    ///
+    /// Returns the [`MappingUid`] for this collection and the side that needs to be deleted, if
+    /// any.
+    #[allow(clippy::too_many_arguments)]
+    async fn execute<I: Item>(
+        self,
+        status: &StatusDatabase,
+        href_a: &Href,
+        href_b: &Href,
+        id_a: Option<CollectionId>,
+        id_b: Option<CollectionId>,
+        storage_a: &dyn Storage<I>,
+        storage_b: &dyn Storage<I>,
+    ) -> Result<(MappingUid, Option<Side>), ExecutionError> {
+        match self {
+            CollectionAction::NoAction(mapping_uid) => Ok((mapping_uid, None)),
+            CollectionAction::SaveToStatus => {
+                let mapping_uid =
+                    status.get_or_add_collection(href_a, href_b, id_a.as_ref(), id_b.as_ref())?;
+                Ok((mapping_uid, None))
+            }
+            CollectionAction::CreateInB => {
+                let mapping_uid = create_collection(
+                    storage_b,
+                    href_b,
+                    href_a,
+                    status,
+                    Side::B,
+                    id_b.as_ref(),
+                    id_a.as_ref(),
+                )
+                .await?;
+                Ok((mapping_uid, None))
+            }
+            CollectionAction::CreateInA => {
+                let mapping_uid = create_collection(
+                    storage_a,
+                    href_a,
+                    href_b,
+                    status,
+                    Side::A,
+                    id_a.as_ref(),
+                    id_b.as_ref(),
+                )
+                .await?;
+                Ok((mapping_uid, None))
+            }
+            CollectionAction::CreateInBoth => {
+                let mapping_uid = create_both_collections(
+                    storage_a,
+                    storage_b,
+                    href_a,
+                    href_b,
+                    status,
+                    id_a.as_ref(),
+                    id_b.as_ref(),
+                )
+                .await?;
+                Ok((mapping_uid, None))
+            }
+            CollectionAction::Delete(mapping, side) => Ok((mapping, Some(side))),
+        }
     }
 }
 
@@ -373,57 +354,57 @@ async fn create_both_collections<I: Item>(
 pub enum SomeAction {
     Item(Box<ItemAction>),
     // TODO: this is missing the details of the collection itself (e.g.: alias?).
-    Collection(CollectionAction),
+    Collection {
+        action: CollectionAction,
+        alias: String,
+    },
 }
 
-impl From<ItemAction> for SomeAction {
-    fn from(item: ItemAction) -> Self {
-        SomeAction::Item(Box::new(item))
-    }
-}
-
-impl From<CollectionAction> for SomeAction {
-    fn from(collection: CollectionAction) -> Self {
-        SomeAction::Collection(collection)
+impl std::fmt::Display for SomeAction {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SomeAction::Item(action) => {
+                write!(f, "item action '{action}'")
+            }
+            SomeAction::Collection { action, alias } => {
+                write!(f, "collection action '{action}' for '{alias}'")
+            }
+        }
     }
 }
 
 /// An error synchronising two items between storages.
 #[derive(Debug)]
-pub struct SynchronizationError {
+pub struct SyncError {
     action: SomeAction,
     error: ExecutionError,
 }
 
-impl SynchronizationError {
+impl SyncError {
     #[must_use]
-    pub fn new(action: impl Into<SomeAction>, error: ExecutionError) -> Self {
+    pub fn item(action: ItemAction, error: ExecutionError) -> Self {
         Self {
-            action: action.into(),
+            action: SomeAction::Item(Box::from(action)),
             error,
         }
     }
 
-    /// Action that failed to execute.
     #[must_use]
-    pub fn action(&self) -> &SomeAction {
-        &self.action
-    }
-
-    /// Underlying error during the operation.
-    #[must_use]
-    pub fn error(&self) -> &ExecutionError {
-        &self.error
+    pub fn collection(action: CollectionAction, alias: String, error: ExecutionError) -> Self {
+        Self {
+            action: SomeAction::Collection { action, alias },
+            error,
+        }
     }
 }
 
-impl std::fmt::Display for SynchronizationError {
+impl std::fmt::Display for SyncError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Error executing {:?}: {}", self.action, self.error)
+        write!(f, "Error executing {}: {}", self.action, self.error)
     }
 }
 
-impl std::error::Error for SynchronizationError {
+impl std::error::Error for SyncError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         Some(&self.error)
     }
@@ -451,4 +432,73 @@ async fn check_id_matches_expected<I: Item>(
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod test {
+    use std::backtrace::Backtrace;
+
+    use crate::sync::{
+        execute::{ExecutionError, SomeAction},
+        plan::{CollectionAction, ItemAction},
+        status::ItemState,
+    };
+
+    use super::SyncError;
+
+    #[test]
+    fn test_syncerror_item_display() {
+        let err = SyncError {
+            action: SomeAction::Item(Box::from(ItemAction::CreateInA {
+                source: ItemState {
+                    href: "/path/to/some/file.vcf".into(),
+                    uid: "d99ed506-dceb-49f2-a1c9-efa63c68acd0".into(),
+                    etag: "123890".into(),
+                    hash: "AAAAAZZZZZ".into(),
+                },
+            })),
+            error: ExecutionError::Storage(crate::Error {
+                kind: crate::ErrorKind::AccessDenied,
+                source: Some(Box::from(std::io::Error::new(
+                    std::io::ErrorKind::PermissionDenied,
+                    "Not enough mana",
+                ))),
+                backtrace: Backtrace::capture(),
+            }),
+        };
+        let msg = err.to_string();
+        let expected = concat!(
+            "Error executing item action 'create in storage a (uid: d99ed506-dceb-49f2-a1c9-efa63c68acd0, from: /path/to/some/file.vcf)': ",
+            "storage operation returned error: ",
+            "access to the resource was denied: ",
+            "Not enough mana"
+        );
+        assert_eq!(msg, expected);
+    }
+
+    #[test]
+    fn test_syncerror_collection_display() {
+        let err = SyncError {
+            action: SomeAction::Collection {
+                action: CollectionAction::CreateInB,
+                alias: "guests".into(),
+            },
+            error: ExecutionError::Storage(crate::Error {
+                kind: crate::ErrorKind::AccessDenied,
+                source: Some(Box::from(std::io::Error::new(
+                    std::io::ErrorKind::PermissionDenied,
+                    "Creating new collections is forbidden",
+                ))),
+                backtrace: Backtrace::capture(),
+            }),
+        };
+        let msg = err.to_string();
+        let expected = concat!(
+            "Error executing collection action 'create in storage b' for 'guests': ",
+            "storage operation returned error: ",
+            "access to the resource was denied: ",
+            "Creating new collections is forbidden"
+        );
+        assert_eq!(msg, expected);
+    }
 }
