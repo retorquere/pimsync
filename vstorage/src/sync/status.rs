@@ -71,7 +71,7 @@ impl ItemState {
 
 /// A unique ID used for a collection mapping.
 #[derive(Clone, Debug, PartialEq)]
-pub struct MappingUid(String);
+pub struct MappingUid(i64);
 
 /// Connection to an on-disk status database.
 #[allow(clippy::module_name_repetitions)]
@@ -205,7 +205,7 @@ impl StatusDatabase {
         );
         let mut statement = self.conn.prepare(query)?;
         statement.bind((1, uid))?;
-        statement.bind((2, mapping_uid.0.as_str()))?;
+        statement.bind((2, mapping_uid.0))?;
 
         if let Ok(State::Row) = statement.next() {
             Ok(Some((
@@ -231,7 +231,7 @@ impl StatusDatabase {
         let query = "SELECT DISTINCT ident FROM items WHERE mapping_uid = ?";
 
         let mut statement = self.conn.prepare(query)?;
-        statement.bind((1, mapping.0.as_str()))?;
+        statement.bind((1, mapping.0))?;
 
         let mut results = Vec::new();
         while let Ok(State::Row) = statement.next() {
@@ -252,7 +252,7 @@ impl StatusDatabase {
         statement.bind((2, href_b.as_str()))?;
 
         if let State::Row = statement.next()? {
-            Ok(Some(MappingUid(statement.read::<String, _>("href")?)))
+            Ok(Some(MappingUid(statement.read::<i64, _>("uid")?)))
         } else {
             Ok(None)
         }
@@ -261,7 +261,7 @@ impl StatusDatabase {
     pub(super) fn remove_collection(&self, mapping_uid: &MappingUid) -> Result<(), StatusError> {
         let query = "DELETE FROM collections WHERE uid = ?";
         let mut statement = self.conn.prepare(query)?;
-        statement.bind((1, mapping_uid.0.as_str()))?;
+        statement.bind((1, mapping_uid.0))?;
         statement.next()?;
         Ok(())
     }
@@ -290,7 +290,7 @@ impl StatusDatabase {
         statement.bind((2, href_b))?;
 
         if let State::Row = statement.next()? {
-            Ok(MappingUid(statement.read::<String, _>("uid")?))
+            Ok(MappingUid(statement.read::<i64, _>("uid")?))
         } else {
             unreachable!("uid missing for mapping immediately after INSERT");
         }
@@ -310,7 +310,7 @@ impl StatusDatabase {
         );
         let mut statement = self.conn.prepare(query)?;
         statement.bind((1, uid))?;
-        statement.bind((2, mapping_uid.0.as_str()))?;
+        statement.bind((2, mapping_uid.0))?;
         statement.bind((3, hash))?;
 
         statement.bind((4, ref_a.href.as_str()))?;
@@ -356,7 +356,7 @@ impl StatusDatabase {
     ) -> Result<(), StatusError> {
         let query = "DELETE FROM items WHERE mapping_uid = ? AND ident = ?";
         let mut statement = self.conn.prepare(query)?;
-        statement.bind((1, mapping_uid.0.as_str()))?;
+        statement.bind((1, mapping_uid.0))?;
         statement.bind((2, uid))?;
         statement.next()?;
         Ok(())
