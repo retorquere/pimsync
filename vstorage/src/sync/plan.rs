@@ -517,7 +517,6 @@ pub enum ItemAction {
     SaveToState { a: ItemState, b: ItemState },
     // State is stale and item is gone on both sides.
     ClearState { uid: String },
-    // TODO: details on target collection should be included here.
     CreateInA { source: ItemState },
     CreateInB { source: ItemState },
     UpdateInA { source: ItemState, target: ItemRef },
@@ -618,33 +617,31 @@ pub enum CollectionAction {
 }
 
 impl CollectionAction {
+    /// Calculate action for a given collection
+    ///
+    /// # Note on collection deletion
+    ///
+    /// Collections should only be deleted if they were found via discovery and discovery is
+    /// still enabled. If it was explicitly removed from the configuration, it should remain.
+    ///
+    /// Therefore, this function should only take as input:
+    ///
+    /// - Explicitly configured collections
+    /// - Discovered collections
+    ///
+    /// It SHOULD NOT be called with collections that only exist in the status database.
+    ///
+    /// Collections previously auto-discovered and deleted on both sides should never reach this
+    /// stage. Explicit collections removed from configuration will also not reach this stage.
     fn new(current_a: bool, current_b: bool, mapping_uid: Option<MappingUid>) -> CollectionAction {
-        // Note on collection deletion
-        //
-        // Collections should only be deleted if they were found via discovery and discovery is
-        // still enabled. If it was explicitly removed from the configuration, it should remain.
-        //
-        // Right now we're operating on:
-        // - explicitly configured collections
-        // - discovered collections
-        //
-        // Collections previously auto-discovered and deleted on both sides should never reach this
-        // stage.
         match (current_a, current_b, mapping_uid) {
-            // Deleted or missing on both sides
-            (false, false, _) => CollectionAction::CreateInBoth,
-            // New on both sides
-            (true, true, None) => CollectionAction::SaveToStatus,
-            // No change.
-            (true, true, Some(m)) => CollectionAction::NoAction(m),
-            // Deleted from A
-            (false, true, Some(m)) => CollectionAction::Delete(m, Side::B),
-            // New in B
-            (false, true, None) => CollectionAction::CreateInA,
-            // New in A
-            (true, false, None) => CollectionAction::CreateInB,
-            // Deleted from B.
-            (true, false, Some(m)) => CollectionAction::Delete(m, Side::A),
+            (false, false, _) => CollectionAction::CreateInBoth, // Deleted or missing on both sides.
+            (true, true, None) => CollectionAction::SaveToStatus, // New on both sides.
+            (true, true, Some(m)) => CollectionAction::NoAction(m), // No change.
+            (false, true, Some(m)) => CollectionAction::Delete(m, Side::B), // Deleted from A
+            (false, true, None) => CollectionAction::CreateInA,  // New in B
+            (true, false, None) => CollectionAction::CreateInB,  // New in A
+            (true, false, Some(m)) => CollectionAction::Delete(m, Side::A), // Deleted from B.
         }
     }
 }
