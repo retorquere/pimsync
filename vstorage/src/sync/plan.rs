@@ -514,9 +514,9 @@ impl CollectionPlan {
 pub enum ItemAction {
     // Item is identical on both sides but are missing from state.
     // This mostly happens during the first run.
-    SaveToState { a: ItemState, b: ItemState },
+    SaveToStatus { a: ItemState, b: ItemState },
     // State is stale and item is gone on both sides.
-    ClearState { uid: String },
+    ClearStatus { uid: String },
     CreateInA { source: ItemState },
     CreateInB { source: ItemState },
     UpdateInA { source: ItemState, target: ItemRef },
@@ -536,7 +536,7 @@ impl ItemAction {
     ) -> Option<ItemAction> {
         match (current_a, current_b, previous_hash) {
             (None, None, None) => unreachable!("no action for item that doesn't exist anywhere"),
-            (None, None, Some(_)) => Some(ItemAction::ClearState {
+            (None, None, Some(_)) => Some(ItemAction::ClearStatus {
                 uid: uid.to_string(),
             }),
             (None, Some(b), None) => Some(ItemAction::CreateInA { source: b.clone() }),
@@ -565,7 +565,7 @@ impl ItemAction {
                         None
                     } else {
                         // Item has changed on both sides, but is identical.
-                        Some(ItemAction::SaveToState {
+                        Some(ItemAction::SaveToStatus {
                             a: a.clone(),
                             b: b.clone(),
                         })
@@ -591,7 +591,7 @@ impl ItemAction {
             }
             (Some(a), Some(b), None) => {
                 if a.hash == b.hash {
-                    Some(ItemAction::SaveToState {
+                    Some(ItemAction::SaveToStatus {
                         a: a.clone(),
                         b: b.clone(),
                     })

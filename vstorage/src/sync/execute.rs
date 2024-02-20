@@ -34,7 +34,7 @@ impl ItemAction {
     ) -> Result<(), ExecutionError> {
         {
             match self {
-                ItemAction::SaveToState { a, b } => {
+                ItemAction::SaveToStatus { a, b } => {
                     status.insert_item(
                         mapping_uid,
                         &a.uid,
@@ -43,7 +43,7 @@ impl ItemAction {
                         &b.to_item_ref(),
                     )?;
                 }
-                ItemAction::ClearState { uid } => {
+                ItemAction::ClearStatus { uid } => {
                     status.delete_item(mapping_uid, uid)?;
                 }
                 ItemAction::CreateInB { source } => {
