@@ -633,11 +633,11 @@ impl CollectionAction {
         // Right now we're operating on:
         // - explicitly configured collections
         // - discovered collections
+        //
+        // Collections previously auto-discovered and deleted on both sides should never reach this
+        // stage.
         match (current_a, current_b, mapping_uid) {
             // Deleted or missing on both sides
-            // Note that collections previously auto-discovered and deleted should never reach this
-            // stage.
-            // FIXME: stale collections need to be flushed from status.
             (false, false, _) => CollectionAction::CreateInBoth,
             // New on both sides
             (true, true, None) => CollectionAction::SaveToStatus,

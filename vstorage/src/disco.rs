@@ -23,6 +23,7 @@ impl DiscoveredCollection {
 
     #[must_use]
     pub fn id(&self) -> &CollectionId {
+        // FIXME: duplicate ids?
         &self.id
     }
 }

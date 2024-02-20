@@ -141,6 +141,8 @@ impl StatusDatabase {
             .execute("CREATE UNIQUE INDEX IF NOT EXISTS href_a ON collections(href_a)")?;
         self.conn
             .execute("CREATE UNIQUE INDEX IF NOT EXISTS href_b ON collections(href_b)")?;
+        // TODO: duplicate ids are not allowed.
+        // FIXME: this also needs to be addressed in the discovery layer.
 
         self.conn.execute(concat!(
             "CREATE TABLE IF NOT EXISTS items (",
