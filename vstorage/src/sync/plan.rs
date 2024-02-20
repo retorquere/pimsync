@@ -514,7 +514,7 @@ impl CollectionPlan {
             .collect::<Result<Vec<_>, PlanError>>()?;
 
         let collection_action =
-            CollectionAction::new(&mapping, status, mapping.a.exists, mapping.b.exists)?;
+            CollectionAction::new(mapping.a.exists, mapping.b.exists, mapping_uid);
 
         Ok(CollectionPlan {
             collection_action,
@@ -643,18 +643,7 @@ pub enum CollectionAction {
 }
 
 impl CollectionAction {
-    fn new(
-        mapping: &ResolvedMapping,
-        status: Option<&StatusDatabase>,
-        current_a: bool,
-        current_b: bool,
-    ) -> Result<CollectionAction, PlanError> {
-        // Test whether the collection previously existed.
-        let mapping_uid = match status {
-            Some(s) => s.get_mapping_uid(mapping)?,
-            None => None,
-        };
-
+    fn new(current_a: bool, current_b: bool, mapping_uid: Option<MappingUid>) -> CollectionAction {
         // Note on collection deletion
         //
         // Collections should only be deleted if they were found via discovery and discovery is
@@ -663,7 +652,7 @@ impl CollectionAction {
         // Right now we're operating on:
         // - explicitly configured collections
         // - discovered collections
-        let collection_action = match (current_a, current_b, mapping_uid) {
+        match (current_a, current_b, mapping_uid) {
             // Deleted or missing on both sides
             // Note that collections previously auto-discovered and deleted should never reach this
             // stage.
@@ -681,8 +670,7 @@ impl CollectionAction {
             (true, false, None) => CollectionAction::CreateInB,
             // Deleted from B.
             (true, false, Some(m)) => CollectionAction::Delete(m, Side::A),
-        };
-        Ok(collection_action)
+        }
     }
 }
 
