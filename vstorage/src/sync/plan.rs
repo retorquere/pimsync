@@ -396,10 +396,6 @@ impl ResolvedCollection {
             }
         }
     }
-
-    pub(super) fn href(&self) -> &Href {
-        &self.href
-    }
 }
 
 async fn storage_exists<I: Item>(
@@ -462,7 +458,7 @@ impl CollectionPlan {
         status: Option<&StatusDatabase>,
     ) -> Result<CollectionPlan, PlanError> {
         let mapping_uid = status
-            .map(|s| s.get_mapping_uid(mapping.a.href(), mapping.b.href()))
+            .map(|s| s.get_mapping_uid(&mapping.a.href, &mapping.b.href))
             .transpose()?
             .flatten();
 
