@@ -315,8 +315,8 @@ mod test {
 }
 
 /// A mapping resolved based on the storage's current state.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(super) struct ResolvedMapping {
+#[derive(Debug, PartialEq)]
+struct ResolvedMapping {
     alias: String,
     a: ResolvedCollection,
     b: ResolvedCollection,
@@ -346,8 +346,8 @@ impl ResolvedMapping {
 }
 
 /// A collection as resolved based on existing data.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct ResolvedCollection {
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ResolvedCollection {
     pub(super) id: Option<CollectionId>,
     pub(super) href: Href,
     exists: bool,
@@ -416,16 +416,6 @@ async fn storage_exists<I: Item>(
                 Err(e)
             }
         }
-    }
-}
-
-impl std::fmt::Display for ResolvedCollection {
-    fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            fmt,
-            "id: {:?}, href: {}, exists: {}",
-            self.id, self.href, self.exists
-        )
     }
 }
 
