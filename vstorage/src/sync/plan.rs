@@ -4,6 +4,7 @@
 
 //! Plan for a synchronisation.
 
+use std::collections::HashSet;
 use std::sync::Arc;
 
 use log::{debug, warn};
@@ -475,13 +476,15 @@ impl CollectionPlan {
             _ => Vec::new(),
         };
 
-        let status_uids = status_uids.iter();
-        let uids_a = items_a.iter();
-        let uids_b = items_b.iter();
-
-        let all_uids = uids_a.chain(uids_b).map(|i| &i.uid).chain(status_uids);
+        let all_uids = items_a
+            .iter()
+            .chain(items_b.iter())
+            .map(|i| &i.uid)
+            .chain(status_uids.iter())
+            .collect::<HashSet<_>>(); // Collecting into HashSet removes duplicates.
 
         let item_actions = all_uids
+            .into_iter()
             .map(|uid| {
                 let item_a = items_a.iter().find(|i| i.uid == *uid);
                 let item_b = items_b.iter().find(|i| i.uid == *uid);
