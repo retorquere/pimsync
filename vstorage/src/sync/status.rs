@@ -18,8 +18,6 @@ pub enum StatusError {
     Io(#[from] sqlite::Error),
 }
 
-pub type Result<T> = std::result::Result<T, StatusError>;
-
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Side {
     A,
@@ -91,7 +89,7 @@ impl StatusDatabase {
     /// # Errors
     ///
     /// Returns `Error::Io` if sqlite fails to open the database.
-    pub fn open_readonly(path: impl AsRef<Path>) -> Result<Option<StatusDatabase>> {
+    pub fn open_readonly(path: impl AsRef<Path>) -> Result<Option<StatusDatabase>, StatusError> {
         let flags = OpenFlags::new().with_read_only().with_full_mutex();
         match Connection::open_thread_safe_with_flags(path, flags) {
             Ok(conn) => Ok(Some(StatusDatabase { conn })),
@@ -105,7 +103,7 @@ impl StatusDatabase {
     /// # Errors
     ///
     /// Returns `Error::Io` if sqlite fails to open or create the database.
-    pub fn open_or_create(path: impl AsRef<Path>) -> Result<StatusDatabase> {
+    pub fn open_or_create(path: impl AsRef<Path>) -> Result<StatusDatabase, StatusError> {
         let db = StatusDatabase {
             conn: Connection::open_thread_safe(path)?,
         };
@@ -119,7 +117,7 @@ impl StatusDatabase {
     ///
     /// In case of interruption during the first initialisation, later attempts will finalise
     /// creating tables and indexes.
-    fn init_schema(&self) -> Result<()> {
+    fn init_schema(&self) -> Result<(), StatusError> {
         debug!("Initialising status database");
         self.conn
             .execute("CREATE TABLE IF NOT EXISTS meta (version INTEGER PRIMARY KEY)")?;
@@ -169,7 +167,11 @@ impl StatusDatabase {
         Ok(())
     }
 
-    pub(super) fn get_item_by_href(&self, side: Side, href: &str) -> Result<Option<ItemState>> {
+    pub(super) fn get_item_by_href(
+        &self,
+        side: Side,
+        href: &str,
+    ) -> Result<Option<ItemState>, StatusError> {
         let query = vec![
             &format!("SELECT ident, href_{side} AS href, hash, etag_{side} AS etag"),
             " FROM items",
@@ -196,7 +198,7 @@ impl StatusDatabase {
         &self,
         mapping_uid: &MappingUid,
         uid: &str,
-    ) -> Result<Option<(ItemState, ItemState)>> {
+    ) -> Result<Option<(ItemState, ItemState)>, StatusError> {
         let query = concat!(
             "SELECT ident, hash, href_a, etag_a, href_b, etag_b",
             " FROM items",
@@ -226,7 +228,7 @@ impl StatusDatabase {
         }
     }
 
-    pub(super) fn all_uids(&self, mapping: &ResolvedMapping) -> Result<Vec<String>> {
+    pub(super) fn all_uids(&self, mapping: &ResolvedMapping) -> Result<Vec<String>, StatusError> {
         let query = "SELECT DISTINCT ident FROM items WHERE mapping_uid IN (?, ?)";
 
         let mut statement = self.conn.prepare(query)?;
@@ -241,7 +243,10 @@ impl StatusDatabase {
         Ok(results)
     }
 
-    pub(super) fn get_mapping_uid(&self, mapping: &ResolvedMapping) -> Result<Option<MappingUid>> {
+    pub(super) fn get_mapping_uid(
+        &self,
+        mapping: &ResolvedMapping,
+    ) -> Result<Option<MappingUid>, StatusError> {
         let query = "SELECT uid FROM collections WHERE href_a = ? AND href_b = ?";
         let mut statement = self.conn.prepare(query)?;
         statement.bind((1, mapping.collection(Side::A).href().as_str()))?;
@@ -254,7 +259,7 @@ impl StatusDatabase {
         }
     }
 
-    pub(super) fn remove_collection(&self, mapping_uid: &MappingUid) -> Result<()> {
+    pub(super) fn remove_collection(&self, mapping_uid: &MappingUid) -> Result<(), StatusError> {
         let query = "DELETE FROM collections WHERE uid = ?";
         let mut statement = self.conn.prepare(query)?;
         statement.bind((1, mapping_uid.0.as_str()))?;
@@ -268,7 +273,7 @@ impl StatusDatabase {
         href_b: &str,
         id_a: Option<&CollectionId>,
         id_b: Option<&CollectionId>,
-    ) -> Result<MappingUid> {
+    ) -> Result<MappingUid, StatusError> {
         let query = concat!(
             "INSERT OR IGNORE INTO collections(id_a, href_a, id_b, href_b)",
             " VALUES (?, ?, ?, ?)"
@@ -299,7 +304,7 @@ impl StatusDatabase {
         hash: &str,
         ref_a: &ItemRef,
         ref_b: &ItemRef,
-    ) -> Result<()> {
+    ) -> Result<(), StatusError> {
         let query = concat!(
             "INSERT INTO items(ident, mapping_uid, hash, href_a, etag_a, href_b, etag_b)",
             " VALUES (?, ?, ?, ?, ?, ?, ?)"
@@ -324,7 +329,7 @@ impl StatusDatabase {
         href_a: &str,
         etag_b: &Etag,
         href_b: &str,
-    ) -> Result<()> {
+    ) -> Result<(), StatusError> {
         // Here we update by href to avoid issue with items in other collections with matching UID.
         let query = concat!(
             "UPDATE items SET hash = ?, etag_a = ?, etag_b = ?",
@@ -340,7 +345,7 @@ impl StatusDatabase {
         Ok(())
     }
 
-    pub(super) fn delete_item(&self, uid: &str) -> Result<()> {
+    pub(super) fn delete_item(&self, uid: &str) -> Result<(), StatusError> {
         let query = "DELETE FROM items WHERE uid = ?";
         let mut statement = self.conn.prepare(query)?;
         statement.bind((1, uid))?;
