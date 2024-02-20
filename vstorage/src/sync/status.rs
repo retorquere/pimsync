@@ -362,3 +362,186 @@ impl StatusDatabase {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod test {
+    use crate::{base::ItemRef, sync::status::StatusError, CollectionId};
+
+    use super::{MappingUid, Side, StatusDatabase};
+
+    #[test]
+    fn test_writing_in_readonly_mode() {
+        let db = StatusDatabase::open_readonly(":memory:").unwrap();
+        let err = db.unwrap().init_schema().unwrap_err();
+        let err_msg = err.to_string();
+        assert!(err_msg.contains("attempt to write a readonly database"));
+    }
+
+    #[test]
+    fn test_insert_and_get_item() {
+        let db = StatusDatabase::open_or_create(":memory:").unwrap();
+        let mapping_uid = MappingUid(1);
+        let uid = "07da74e5-0a32-482a-bbdd-13fd1e45cce3";
+        let hash = "HASH";
+        let item_a = ItemRef {
+            href: "/collections/work/item.ics".into(),
+            etag: "123".into(),
+        };
+        let item_b = ItemRef {
+            href: "work/item.ics".into(),
+            etag: "abc000".into(),
+        };
+        db.insert_item(&mapping_uid, uid, hash, &item_a, &item_b)
+            .unwrap();
+
+        let item_a_fetched = db.get_item_by_href(Side::A, &item_a.href).unwrap().unwrap();
+        assert_eq!(item_a_fetched.to_item_ref(), item_a);
+        assert_eq!(item_a_fetched.uid, uid);
+        assert_eq!(item_a_fetched.hash, hash);
+
+        let item_b_fetched = db.get_item_by_href(Side::B, &item_b.href).unwrap().unwrap();
+        assert_eq!(item_b_fetched.to_item_ref(), item_b);
+        assert_eq!(item_b_fetched.uid, uid);
+        assert_eq!(item_b_fetched.hash, hash);
+
+        let (item_a_fetched, item_b_fetched) = db
+            .get_items_by_uid(&mapping_uid, uid)
+            .unwrap()
+            .expect("status should return items that were just inserted");
+        assert_eq!(item_a_fetched.to_item_ref(), item_a);
+        assert_eq!(item_a_fetched.uid, uid);
+        assert_eq!(item_a_fetched.hash, hash);
+        assert_eq!(item_b_fetched.to_item_ref(), item_b);
+        assert_eq!(item_b_fetched.uid, uid);
+        assert_eq!(item_b_fetched.hash, hash);
+
+        let all = db.all_uids(&mapping_uid).unwrap();
+        let all_expected = vec![uid];
+        assert_eq!(all, all_expected);
+
+        db.delete_item(&mapping_uid, uid).unwrap();
+        assert!(db
+            .get_item_by_href(Side::A, &item_a.href)
+            .unwrap()
+            .is_none());
+        assert!(db
+            .get_item_by_href(Side::B, &item_b.href)
+            .unwrap()
+            .is_none());
+        assert!(db.get_items_by_uid(&mapping_uid, uid).unwrap().is_none());
+        assert!(db.all_uids(&mapping_uid).unwrap().is_empty());
+    }
+    #[test]
+    fn test_insert_update_and_get_item() {
+        let db = StatusDatabase::open_or_create(":memory:").unwrap();
+        let mapping_uid = MappingUid(1);
+        let uid = "07da74e5-0a32-482a-bbdd-13fd1e45cce3";
+        let hash = "HASH";
+        let item_a = ItemRef {
+            href: "/collections/work/item.ics".into(),
+            etag: "123".into(),
+        };
+        let item_b = ItemRef {
+            href: "work/item.ics".into(),
+            etag: "abc000".into(),
+        };
+        db.insert_item(&mapping_uid, uid, hash, &item_a, &item_b)
+            .unwrap();
+
+        let updated_hash = "ANOTHERHASH";
+        let updated_etag_a = "456".into();
+        let updated_etag_b = "def111".into();
+        db.update_item(
+            updated_hash,
+            &updated_etag_a,
+            &item_a.href,
+            &updated_etag_b,
+            &item_b.href,
+        )
+        .unwrap();
+
+        let item_a_fetched = db.get_item_by_href(Side::A, &item_a.href).unwrap().unwrap();
+        assert_eq!(item_a_fetched.href, item_a.href);
+        assert_eq!(item_a_fetched.etag, updated_etag_a);
+        assert_eq!(item_a_fetched.uid, uid);
+        assert_eq!(item_a_fetched.hash, updated_hash);
+
+        let item_b_fetched = db.get_item_by_href(Side::B, &item_b.href).unwrap().unwrap();
+        assert_eq!(item_b_fetched.href, item_b.href);
+        assert_eq!(item_b_fetched.etag, updated_etag_b);
+        assert_eq!(item_b_fetched.uid, uid);
+        assert_eq!(item_b_fetched.hash, updated_hash);
+
+        let (item_a_fetched, item_b_fetched) = db
+            .get_items_by_uid(&mapping_uid, uid)
+            .unwrap()
+            .expect("status should return items that were just inserted");
+        assert_eq!(item_a_fetched.href, item_a.href);
+        assert_eq!(item_a_fetched.etag, updated_etag_a);
+        assert_eq!(item_a_fetched.uid, uid);
+        assert_eq!(item_a_fetched.hash, updated_hash);
+        assert_eq!(item_b_fetched.href, item_b.href);
+        assert_eq!(item_b_fetched.etag, updated_etag_b);
+        assert_eq!(item_b_fetched.uid, uid);
+        assert_eq!(item_b_fetched.hash, updated_hash);
+
+        let all = db.all_uids(&mapping_uid).unwrap();
+        let all_expected = vec![uid];
+        assert_eq!(all, all_expected);
+    }
+    #[test]
+    fn test_wrong_update() {
+        let db = StatusDatabase::open_or_create(":memory:").unwrap();
+        let mapping_uid = MappingUid(1);
+        let uid = "07da74e5-0a32-482a-bbdd-13fd1e45cce3";
+        let hash = "HASH";
+        let item_a = ItemRef {
+            href: "/collections/work/item.ics".into(),
+            etag: "123".into(),
+        };
+        let item_b = ItemRef {
+            href: "work/item.ics".into(),
+            etag: "abc000".into(),
+        };
+        db.insert_item(&mapping_uid, uid, hash, &item_a, &item_b)
+            .unwrap();
+
+        let updated_hash = "ANOTHERHASH";
+        let updated_etag_a = "456".into();
+        let updated_etag_b = "def111".into();
+        let err = db
+            .update_item(
+                updated_hash,
+                &updated_etag_a,
+                &"not/correct.ics",
+                &updated_etag_b,
+                &item_b.href,
+            )
+            .unwrap_err();
+        assert!(matches!(err, StatusError::NoUpdate));
+    }
+
+    #[test]
+    fn test_add_and_get_collection() {
+        let db = StatusDatabase::open_or_create(":memory:").unwrap();
+        let collection_id = "guests".parse::<CollectionId>().unwrap();
+        let href_a = "/collections/guests";
+        let href_b = "guests";
+        let mapping_uid = db
+            .get_or_add_collection(href_a, href_b, Some(&collection_id), Some(&collection_id))
+            .unwrap();
+
+        let gotten_uid = db
+            .get_mapping_uid(&href_a.to_string(), &href_b.to_string())
+            .unwrap()
+            .expect("should obtain mapping that was just inserted");
+        assert_eq!(mapping_uid, gotten_uid);
+
+        db.remove_collection(&mapping_uid).unwrap();
+
+        let gotten_uid = db
+            .get_mapping_uid(&href_a.to_string(), &href_b.to_string())
+            .unwrap();
+        assert!(gotten_uid.is_none());
+    }
+}
