@@ -349,10 +349,9 @@ impl ResolvedMapping {
 /// A collection as resolved based on existing data.
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct ResolvedCollection {
-    pub(super) id: Option<CollectionId>,
-    pub(super) href: Href,
+    id: Option<CollectionId>,
+    href: Href,
     exists: bool,
-    // discoverable?
 }
 
 impl ResolvedCollection {
