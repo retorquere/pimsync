@@ -51,7 +51,7 @@ impl std::fmt::Display for Side {
 pub struct ItemState {
     pub(super) href: Href,
     pub(super) uid: String,
-    pub(super) etag: Etag, // TODO: optional?
+    pub(super) etag: Etag,
     pub(super) hash: String,
 }
 
@@ -116,11 +116,8 @@ impl StatusDatabase {
     /// creating tables and indexes.
     fn init_schema(&self) -> Result<()> {
         debug!("Initialising status database");
-        self.conn.execute(
-            r#"CREATE TABLE IF NOT EXISTS meta (
-                "version" INTEGER PRIMARY KEY
-            )"#,
-        )?;
+        self.conn
+            .execute("CREATE TABLE IF NOT EXISTS meta (version INTEGER PRIMARY KEY)")?;
 
         let mut q = self
             .conn
@@ -129,19 +126,18 @@ impl StatusDatabase {
         q.next()?;
         drop(q);
 
-        self.conn.execute(
-            r#"CREATE TABLE IF NOT EXISTS items (
-                "ident" TEXT NOT NULL,
-                "mapping_uid" TEXT NOT NULL,
-                "hash" TEXT NOT NULL,
-
-                "href_a" TEXT NOT NULL,
-                "etag_a" TEXT NOT NULL,
-
-                "href_b" TEXT NOT NULL,
-                "etag_b" TEXT NOT NULL
-            );"#,
-        )?;
+        self.conn.execute(concat!(
+            "CREATE TABLE IF NOT EXISTS items (",
+            " ident TEXT NOT NULL,",
+            // TODO: should be foreign key to collections(uid).
+            " mapping_uid TEXT NOT NULL,",
+            " hash TEXT NOT NULL,",
+            " href_a TEXT NOT NULL,",
+            " etag_a TEXT NOT NULL,",
+            " href_b TEXT NOT NULL,",
+            " etag_b TEXT NOT NULL",
+            ")"
+        ))?;
         self.conn
             .execute("CREATE UNIQUE INDEX IF NOT EXISTS by_ident ON items(ident, mapping_uid)")?;
         self.conn
@@ -150,17 +146,15 @@ impl StatusDatabase {
             .execute("CREATE UNIQUE INDEX IF NOT EXISTS by_href ON items(href_b)")?;
 
         // TODO: Etag nullable is okay?
-        self.conn.execute(
-            r#"CREATE TABLE IF NOT EXISTS collections (
-                "uid" INTEGER PRIMARY KEY AUTOINCREMENT,
-
-                "id_a" TEXT,
-                "href_a" TEXT NOT NULL,
-
-                "id_b" TEXT,
-                "href_b" TEXT NOT NULL
-            );"#,
-        )?;
+        self.conn.execute(concat!(
+            "CREATE TABLE IF NOT EXISTS collections (",
+            " uid INTEGER PRIMARY KEY AUTOINCREMENT,",
+            " id_a TEXT,",
+            " href_a TEXT NOT NULL,",
+            " id_b TEXT,",
+            " href_b TEXT NOT NULL",
+            ")",
+        ))?;
         self.conn
             .execute("CREATE UNIQUE INDEX IF NOT EXISTS href_a ON collections(href_a)")?;
         self.conn
