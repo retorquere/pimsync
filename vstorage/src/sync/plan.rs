@@ -529,7 +529,6 @@ pub enum ItemAction {
 
 impl ItemAction {
     #[must_use]
-    #[allow(clippy::too_many_lines)]
     fn for_item(
         current_a: Option<&ItemState>,
         current_b: Option<&ItemState>,
