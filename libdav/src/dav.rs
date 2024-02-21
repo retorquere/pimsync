@@ -88,7 +88,7 @@ pub enum ResolveContextPathError {
 
 #[derive(thiserror::Error, Debug)]
 pub enum FindCurrentUserPrincipalError {
-    #[error("error sending or parsing request")]
+    #[error("error querying server")]
     RequestError(#[from] DavError),
 
     // XXX: This should not really happen, but the API for `http` won't let us validate this
