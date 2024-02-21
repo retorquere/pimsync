@@ -22,6 +22,19 @@ The output of `--help` should be sufficient to find the basic subcommands, and
 appending `--help` to any of these should provide enough information to
 understand their usage. If anything is not clear, please open a ticket.
 
+# Configuration
+
+Server details are provided via environment variables. Please take care not to
+leave passwords in your shell history.
+
+```console
+> export DAVCLI_BASE_URL=https://fastmail.com
+> export DAVCLI_USERNAME=vdirsyncer@fastmail.com
+> export DAVCLI_PASSWORD=XXX
+```
+
+The examples below assume that these variables are properly set.
+
 # Discovery
 
 The `discover` subcommand can be used to test if a server publishes its context
@@ -33,9 +46,6 @@ if DNS is correctly configured for a publicly hosted service:
 [rfc6764]: https://www.rfc-editor.org/rfc/rfc6764
 
 ```console
-> export DAVCLI_BASE_URL=https://fastmail.com
-> export DAVCLI_USERNAME=vdirsyncer@fastmail.com
-> export DAVCLI_PASSWORD=XXX
 > davcli --caldav discover
 Discovery successful.
 - Context path: https://d277161.caldav.fastmail.com/dav/calendars
@@ -46,10 +56,7 @@ Errors should generally be useful (please report an issue if you find an
 obscure error where the underlying root cause is not clear):
 
 ```console
-> export DAVCLI_BASE_URL=https://fastmail.com
-> export DAVCLI_USERNAME=wronguser@fastmail.com
-> export DAVCLI_PASSWORD=wrong_password
-> davcli --caldav discover
+> DAVCLI_PASSWORD=wrong_password davcli --caldav discover
 Error: error querying current user principal
 
 Caused by:
