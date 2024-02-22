@@ -6,13 +6,11 @@
 
 use crate::{
     dav::{check_status, DavError, FoundCollection, WebDavClient},
-    dns::{find_context_path_via_txt_records, resolve_srv_record, DiscoverableService},
     names,
     xmlutils::get_unquoted_href,
-    BootstrapError, CheckSupportError, InvalidUrl, Property,
+    CheckSupportError, Property,
 };
 
-use domain::base::Dname;
 use http::{Method, Request};
 use hyper::{client::connect::Connect, Body, Uri};
 use log::debug;
@@ -95,74 +93,4 @@ where
     } else {
         Err(CheckSupportError::NotAdvertised)
     }
-}
-
-/// Find a CalDav or CardDav context path via client bootstrap sequence.
-///
-/// Determines the server's real host and the context path of the resources for a server,
-/// following the discovery mechanism described in [rfc6764].
-///
-/// [rfc6764]: https://www.rfc-editor.org/rfc/rfc6764
-///
-/// This resolves from "user friendly" URLs to the real URL where the CalDav or CardDav server is
-/// advertised as running. For example, a user may understand their CalDav server as being
-/// `https://example.com` but bootstrapping would reveal it to actually run under
-/// `https://instance31.example.com/users/john@example.com/calendars`.
-///
-/// # Errors
-///
-/// If any of the underlying DNS or HTTP requests fail, or if any of the responses fail to
-/// parse.
-///
-/// Does not return an error if DNS records are missing, only if they contain invalid data.
-pub async fn find_context_path_via_bootstrap<C>(
-    client: &WebDavClient<C>,
-    service: DiscoverableService,
-) -> Result<Option<Uri>, BootstrapError>
-where
-    C: Connect + Clone + Sync + Send,
-{
-    let domain = client.base_url.host().ok_or(InvalidUrl::MissingHost)?;
-    let port = client.base_url.port_u16().unwrap_or(service.default_port());
-
-    let dname = Dname::bytes_from_str(domain).map_err(InvalidUrl::InvalidDomain)?;
-    let host_candidates = resolve_srv_record(service, &dname, port)
-        .await?
-        .ok_or(BootstrapError::NotAvailable)?;
-
-    let mut context_path = None;
-    if let Some(path) = find_context_path_via_txt_records(service, &dname).await? {
-        for candidate in &host_candidates {
-            let test_uri = Uri::builder()
-                .scheme(service.scheme())
-                .authority(format!("{}:{}", candidate.0, candidate.1))
-                .path_and_query(&path)
-                .build()
-                .map_err(BootstrapError::UnusableSrv)?;
-
-            match check_support(client, &test_uri, service.access_field()).await {
-                Ok(()) | Err(CheckSupportError::NotAdvertised) => {
-                    // NotAdvertised implies that the server does not advertise support for this
-                    // protocol. We ignore this because NextCloud reports a lack of support for
-                    // CalDav and CardDav. See https://github.com/nextcloud/server/issues/37374
-                    context_path = Some(test_uri);
-                    break;
-                }
-                Err(_) => continue,
-            };
-        }
-    }
-    if context_path.is_none() {
-        for candidate in host_candidates {
-            if let Ok(Some(url)) = client
-                .find_context_path(service, &candidate.0, candidate.1)
-                .await
-            {
-                context_path = Some(url);
-                break;
-            }
-        }
-    };
-
-    Ok(context_path)
 }

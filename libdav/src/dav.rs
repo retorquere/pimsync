@@ -15,8 +15,8 @@ use hyper::{body::Bytes, client::connect::Connect, Body, Client};
 use percent_encoding::percent_decode_str;
 
 use crate::{
-    dns::DiscoverableService,
     names,
+    sd::DiscoverableService,
     xmlutils::{
         check_multistatus, get_newline_corrected_text, get_unquoted_href, quote_href, render_xml,
         render_xml_with_text,

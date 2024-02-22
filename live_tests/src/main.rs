@@ -8,7 +8,7 @@ use hyper::client::HttpConnector;
 use hyper_rustls::{HttpsConnector, HttpsConnectorBuilder};
 use libdav::{
     auth::Auth, caldav_service_for_url, carddav_service_for_url, dav::WebDavClient,
-    find_context_path_via_bootstrap, CalDavClient, CardDavClient,
+    sd::find_context_path_via_bootstrap, CalDavClient, CardDavClient,
 };
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
 use std::{fs::File, io::Read, path::Path};

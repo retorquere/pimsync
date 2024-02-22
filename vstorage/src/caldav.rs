@@ -9,6 +9,7 @@ use http::Uri;
 use hyper::client::connect::Connect;
 use libdav::auth::Auth;
 use libdav::dav::{mime_types, WebDavClient};
+use libdav::sd::BootstrapError;
 use libdav::CalDavClient;
 
 use crate::base::{CalendarProperty, Collection, FetchedItem, IcsItem, Item, ItemRef, Storage};
@@ -47,8 +48,8 @@ where
     }
 }
 
-impl From<libdav::BootstrapError> for Error {
-    fn from(value: libdav::BootstrapError) -> Self {
+impl From<BootstrapError> for Error {
+    fn from(value: BootstrapError) -> Self {
         // TODO: not implemented
         Error::new(ErrorKind::Uncategorised, value)
     }

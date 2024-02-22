@@ -9,7 +9,7 @@ use http::Uri;
 use hyper::client::HttpConnector;
 use hyper_rustls::{HttpsConnector, HttpsConnectorBuilder};
 use libdav::{
-    auth::Auth, caldav_service_for_url, dav::WebDavClient, find_context_path_via_bootstrap,
+    auth::Auth, caldav_service_for_url, dav::WebDavClient, sd::find_context_path_via_bootstrap,
     CalDavClient,
 };
 use log::info;

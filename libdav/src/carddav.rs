@@ -10,9 +10,9 @@ use hyper::Uri;
 use crate::common::{check_support, parse_find_multiple_collections};
 use crate::dav::WebDavClient;
 use crate::dav::{check_status, DavError, FoundCollection};
-use crate::dns::DiscoverableService;
+use crate::sd::{find_context_path_via_bootstrap, BootstrapError, DiscoverableService};
 use crate::xmlutils::quote_href;
-use crate::{find_context_path_via_bootstrap, names, BootstrapError, FindHomeSetError, InvalidUrl};
+use crate::{names, FindHomeSetError, InvalidUrl};
 use crate::{CheckSupportError, FetchedResource};
 
 /// Client to communicate with a carddav server.

@@ -22,8 +22,6 @@
 use crate::auth::Auth;
 use dav::DavError;
 use dav::RequestError;
-use dns::TxtError;
-use domain::resolv::lookup::srv::SrvError;
 use http::StatusCode;
 
 pub mod auth;
@@ -31,15 +29,14 @@ mod caldav;
 mod carddav;
 mod common;
 pub mod dav;
-pub mod dns;
 pub mod names;
+pub mod sd;
 pub mod xmlutils;
 
 pub use caldav::service_for_url as caldav_service_for_url;
 pub use caldav::CalDavClient;
 pub use carddav::service_for_url as carddav_service_for_url;
 pub use carddav::CardDavClient;
-pub use common::find_context_path_via_bootstrap;
 
 /// A WebDav property with a `namespace` and `name`.
 ///
@@ -60,28 +57,6 @@ pub enum InvalidUrl {
 
     #[error("the host is not a valid domain: {0}")]
     InvalidDomain(domain::base::name::FromStrError),
-}
-
-/// An error automatically bootstrapping a new client.
-#[derive(thiserror::Error, Debug)]
-pub enum BootstrapError {
-    #[error("the input URL is not valid: {0}")]
-    InvalidUrl(#[from] InvalidUrl),
-
-    #[error("error resolving DNS SRV records: {0}")]
-    DnsError(#[from] SrvError),
-
-    #[error("SRV records returned domain/port pair that could not be parsed: {0}")]
-    UnusableSrv(http::Error),
-
-    #[error("error resolving context path via TXT records: {0}")]
-    TxtError(#[from] TxtError),
-
-    /// The service is decidedly not available.
-    ///
-    /// See <https://www.rfc-editor.org/rfc/rfc2782>, page 4
-    #[error("the service is decidedly not available")]
-    NotAvailable,
 }
 
 /// Error finding home set.
