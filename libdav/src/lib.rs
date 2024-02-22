@@ -58,7 +58,7 @@ pub enum InvalidUrl {
     #[error("missing host")]
     MissingHost,
 
-    #[error("the host is not a valid domain")]
+    #[error("the host is not a valid domain: {0}")]
     InvalidDomain(domain::base::name::FromStrError),
 }
 
@@ -68,13 +68,13 @@ pub enum BootstrapError {
     #[error("the input URL is not valid: {0}")]
     InvalidUrl(#[from] InvalidUrl),
 
-    #[error("error resolving DNS SRV records")]
+    #[error("error resolving DNS SRV records: {0}")]
     DnsError(#[from] SrvError),
 
-    #[error("SRV records returned domain/port pair that could not be parsed")]
+    #[error("SRV records returned domain/port pair that could not be parsed: {0}")]
     UnusableSrv(http::Error),
 
-    #[error("error resolving context path via TXT records")]
+    #[error("error resolving context path via TXT records: {0}")]
     TxtError(#[from] TxtError),
 
     /// The service is decidedly not available.
@@ -86,7 +86,7 @@ pub enum BootstrapError {
 
 /// Error finding home set.
 #[derive(thiserror::Error, Debug)]
-#[error("error finding home set collection")]
+#[error("error finding home set collection: {0}")]
 pub struct FindHomeSetError(#[source] pub DavError);
 
 /// See [`FetchedResource`]
@@ -114,13 +114,13 @@ pub enum CheckSupportError {
     #[error("the requested support is not advertised by the server")]
     NotAdvertised,
 
-    #[error("the DAV header is not a valid string")]
+    #[error("the DAV header is not a valid string: {0}")]
     HeaderNotAscii(#[from] http::header::ToStrError),
 
-    #[error("error performing http request")]
+    #[error("error performing http request: {0}: {0}")]
     Request(#[from] RequestError),
 
-    #[error("invalid input URL")]
+    #[error("invalid input URL: {0}")]
     InvalidInput(#[from] http::Error),
 
     #[error("http request returned {0}")]

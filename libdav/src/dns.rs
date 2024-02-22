@@ -121,16 +121,17 @@ pub async fn resolve_srv_record(
 /// Error returned by [`find_context_path_via_txt_records`].
 #[derive(thiserror::Error, Debug)]
 pub enum TxtError {
-    #[error("I/O error performing DNS request")]
+    #[error("I/O error performing DNS request: {0}")]
     Network(#[from] io::Error),
 
-    #[error("the domain name is too long and cannot be queried")]
+    #[error("the domain name is too long and cannot be queried: {0}")]
     DomainTooLong(#[from] LongChainError),
 
-    #[error("error parsing DNS response")]
+    #[error("error parsing DNS response: {0}")]
     ParseError(#[from] ParseError),
 
-    #[error("txt record does not contain a valid utf-8 string")]
+    // FIXME: in theory, there's no reason why this should happen.
+    #[error("txt record does not contain a valid utf-8 string: {0}")]
     NotUtf8Error(#[from] FromUtf8Error),
 
     #[error("data in txt record does no have the right syntax")]

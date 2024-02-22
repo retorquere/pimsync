@@ -26,8 +26,8 @@ use crate::{
 
 #[derive(thiserror::Error, Debug)]
 pub enum RequestError {
-    #[error("http error executing request")]
-    Network(#[from] hyper::Error),
+    #[error("error executing http request: {0}")]
+    Http(#[from] hyper::Error),
 
     #[error("error resolving authentication")]
     BadAuth(#[from] std::io::Error),
@@ -37,31 +37,31 @@ pub enum RequestError {
 #[derive(thiserror::Error, Debug)]
 #[allow(clippy::module_name_repetitions)]
 pub enum DavError {
-    #[error("error performing http request")]
+    #[error("error executing http request: {0}")]
     Request(#[from] RequestError),
 
     #[error("missing field '{0}' in response XML")]
     MissingData(&'static str),
 
-    #[error("invalid status code in response")]
+    #[error("invalid status code in response: {0}")]
     InvalidStatusCode(#[from] InvalidStatusCode),
 
-    #[error("could not parse XML response")]
+    #[error("could not parse XML response: {0}")]
     Xml(#[from] roxmltree::Error),
 
     #[error("http request returned {0}")]
     BadStatusCode(http::StatusCode),
 
-    #[error("failed to build URL with the given input")]
+    #[error("failed to build URL with the given input: {0}")]
     InvalidInput(#[from] http::Error),
 
-    #[error("the server returned an response with an invalid etag header")]
+    #[error("the server returned an response with an invalid etag header: {0}")]
     InvalidEtag(#[from] FromUtf8Error),
 
     #[error("the server returned an invalid response: {0}")]
     InvalidResponse(Box<dyn std::error::Error + Send + Sync>),
 
-    #[error("could not decode response as utf-8")]
+    #[error("could not decode response as utf-8: {0}")]
     NotUtf8(#[from] std::str::Utf8Error),
 }
 
@@ -73,27 +73,27 @@ impl From<StatusCode> for DavError {
 
 #[derive(thiserror::Error, Debug)]
 pub enum ResolveContextPathError {
-    #[error("failed to create uri and request with given parameters")]
+    #[error("failed to create uri and request with given parameters: {0}")]
     BadInput(#[from] http::Error),
 
-    #[error("error performing http request")]
+    #[error("error performing http request: {0}")]
     Request(#[from] RequestError),
 
     #[error("missing Location header in response")]
     MissingLocation,
 
-    #[error("error building new Uri with Location from response")]
+    #[error("error building new Uri with Location from response: {0}")]
     BadLocation(#[from] http::uri::InvalidUri),
 }
 
 #[derive(thiserror::Error, Debug)]
 pub enum FindCurrentUserPrincipalError {
-    #[error("error querying server")]
+    #[error("error performing http request: {0}")]
     RequestError(#[from] DavError),
 
     // XXX: This should not really happen, but the API for `http` won't let us validate this
     // earlier with a clear approach.
-    #[error("cannot use base_url to build request uri")]
+    #[error("cannot use base_url to build request uri: {0}")]
     InvalidInput(#[from] http::Error),
 }
 
