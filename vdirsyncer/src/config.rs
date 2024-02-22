@@ -176,7 +176,7 @@ impl PairSection {
     ) -> NamedPair<I> {
         let status_path = status_dir.join(format!("{name}.status"));
 
-        let mut pair = StoragePair::builder(a, b);
+        let mut pair = StoragePair::new(a, b);
 
         match self.collections {
             Collections::All => {
@@ -203,7 +203,7 @@ impl PairSection {
 
         NamedPair {
             name,
-            inner: pair.build(),
+            inner: pair,
             status_path,
         }
     }

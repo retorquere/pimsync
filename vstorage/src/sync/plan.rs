@@ -224,7 +224,7 @@ mod test {
         ));
 
         // This sync would be a no-op, but it's not "wrong".
-        let mut pair = StoragePair::builder(storage_a.clone(), storage_b.clone()).build();
+        let mut pair = StoragePair::new(storage_a.clone(), storage_b.clone());
         assert!(Plan::new(&mut pair, None).await.is_ok());
     }
 
@@ -243,9 +243,8 @@ mod test {
         ));
         // This sync is okay.
         let collection = CollectionId::from_str("test").unwrap();
-        let mut pair = StoragePair::builder(storage_a.clone(), storage_b.clone())
-            .with_mapping(DeclaredMapping::direct(collection))
-            .build();
+        let mut pair = StoragePair::new(storage_a.clone(), storage_b.clone())
+            .with_mapping(DeclaredMapping::direct(collection));
 
         let mappings = create_mappings_for_pair(&pair).await.unwrap();
         assert_eq!(mappings.len(), 1);
@@ -270,10 +269,9 @@ mod test {
 
         // Duplicate mapping
         let collection = CollectionId::from_str("test").unwrap();
-        let pair = StoragePair::builder(storage_a.clone(), storage_b.clone())
+        let pair = StoragePair::new(storage_a.clone(), storage_b.clone())
             .with_mapping(DeclaredMapping::direct(collection.clone()))
-            .with_mapping(DeclaredMapping::direct(collection))
-            .build();
+            .with_mapping(DeclaredMapping::direct(collection));
 
         let err = create_mappings_for_pair(&pair).await.unwrap_err();
         assert!(matches!(err, PlanError::ConflictingMappings(..)));
@@ -294,7 +292,7 @@ mod test {
         ));
         // This sync has duplicate items.
         let collection = CollectionId::from_str("test").unwrap();
-        let pair = StoragePair::builder(storage_a.clone(), storage_b.clone())
+        let pair = StoragePair::new(storage_a.clone(), storage_b.clone())
             .with_mapping(DeclaredMapping::direct(collection.clone()))
             .with_mapping(DeclaredMapping::Mapped {
                 alias: "test".to_string(),
@@ -302,8 +300,7 @@ mod test {
                 b: CollectionDescription::Id {
                     id: CollectionId::from_str("test_2").unwrap(),
                 },
-            })
-            .build();
+            });
 
         let err = create_mappings_for_pair(&pair).await.unwrap_err();
         assert!(matches!(err, PlanError::ConflictingMappings(..)));
@@ -330,10 +327,9 @@ mod test {
         let disco = storage_a.discover_collections().await.unwrap();
         assert_eq!(disco.collections().len(), 1);
 
-        let mut pair = StoragePair::builder(storage_a.clone(), storage_b.clone())
+        let mut pair = StoragePair::new(storage_a.clone(), storage_b.clone())
             .with_all_from_a()
-            .with_all_from_b()
-            .build();
+            .with_all_from_b();
 
         let mappings = create_mappings_for_pair(&pair).await.unwrap();
         assert_eq!(mappings.len(), 1);

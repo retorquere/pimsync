@@ -60,18 +60,38 @@ impl DeclaredMapping {
     }
 }
 
-/// A builder for the [`StoragePair`] type.
+/// A pair of storage that are to be synchronised.
 ///
-/// Use [`StoragePair::builder`] as a starting point.
-pub struct StoragePairBuilder<I: Item> {
-    storage_a: Arc<dyn Storage<I>>,
-    storage_b: Arc<dyn Storage<I>>,
-    mappings: Vec<DeclaredMapping>,
-    all_from_a: bool,
-    all_from_b: bool,
+/// This type merely wraps around the declaration of what shall be synchronised. It can be
+/// constructed offline and is the entry point to create a [`Plan`] and then execute it.
+///
+/// New pairs can be created via [`StoragePair::new`].
+///
+/// [`Plan`]: crate::sync::plan::Plan
+pub struct StoragePair<I: Item> {
+    pub(super) storage_a: Arc<dyn Storage<I>>,
+    pub(super) storage_b: Arc<dyn Storage<I>>,
+    pub(super) mappings: Vec<DeclaredMapping>,
+    pub(super) all_from_a: bool,
+    pub(super) all_from_b: bool,
 }
 
-impl<I: Item> StoragePairBuilder<I> {
+impl<I: Item> StoragePair<I> {
+    /// Create a new instance.
+    ///
+    /// By default, no collections are to be synchronised. See other associated functions for
+    /// details con configuring additional collections.
+    #[must_use]
+    pub fn new(storage_a: Arc<dyn Storage<I>>, storage_b: Arc<dyn Storage<I>>) -> StoragePair<I> {
+        StoragePair {
+            storage_a,
+            storage_b,
+            mappings: Vec::new(),
+            all_from_a: false,
+            all_from_b: false,
+        }
+    }
+
     /// Include the specified mapping when synchronising.
     #[must_use]
     pub fn with_mapping(mut self, mapping: DeclaredMapping) -> Self {
@@ -97,55 +117,13 @@ impl<I: Item> StoragePairBuilder<I> {
         self
     }
 
-    /// Build the `StoragePair` instance, which can no longer be mutated.
-    #[must_use]
-    pub fn build(self) -> StoragePair<I> {
-        StoragePair {
-            storage_a: self.storage_a,
-            storage_b: self.storage_b,
-            mappings: self.mappings,
-            all_from_a: self.all_from_a,
-            all_from_b: self.all_from_b,
-        }
-    }
-}
-
-/// A pair of storage that are to be synchronised.
-///
-/// This type merely wraps around the declaration of what shall be synchronised. It can be
-/// constructed offline and is the entry point to create a [`Plan`] and then execute it.
-///
-/// For details on creating a new instance, see [`StoragePairBuilder`].
-///
-/// [`Plan`]: crate::sync::plan::Plan
-pub struct StoragePair<I: Item> {
-    pub(super) storage_a: Arc<dyn Storage<I>>,
-    pub(super) storage_b: Arc<dyn Storage<I>>,
-    pub(super) mappings: Vec<DeclaredMapping>,
-    pub(super) all_from_a: bool,
-    pub(super) all_from_b: bool,
-}
-
-impl<I: Item> StoragePair<I> {
-    /// Build a pair defining how to synchronise two storages.
-    pub fn builder(
-        storage_a: Arc<dyn Storage<I>>,
-        storage_b: Arc<dyn Storage<I>>,
-    ) -> StoragePairBuilder<I> {
-        StoragePairBuilder {
-            storage_a,
-            storage_b,
-            mappings: Vec::new(),
-            all_from_a: false,
-            all_from_b: false,
-        }
-    }
-
+    /// Returns a reference to storage a.
     #[must_use]
     pub fn storage_a(&self) -> &dyn Storage<I> {
         self.storage_a.as_ref()
     }
 
+    /// Returns a reference to storage a.
     #[must_use]
     pub fn storage_b(&self) -> &dyn Storage<I> {
         self.storage_b.as_ref()

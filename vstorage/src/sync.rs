@@ -6,10 +6,9 @@
 //!
 //! The general gist behind synchronising is:
 //!
-//! - [`declare::StoragePair::builder`] is used to create a new [`declare::StoragePair`]. This type
-//!   specifies which storages and which collections are to be synchronised. A
-//!   [`status::StatusDatabase`] instance with details of the previous synchronisation should be
-//!   provided, if it exists.
+//! - Create a new [`declare::StoragePair`]. This type specifies which storages and which
+//!   collections are to be synchronised. A [`status::StatusDatabase`] instance with details of the
+//!   previous synchronisation should be provided, if it exists.
 //! - [`plan::Plan::new`] is used to create a [`Plan`](plan::Plan). This contains a list of actions
 //!   to be executed to synchronise both storages. This instance can also be inspected before
 //!   executing any actions (e.g.: as a from of dry-run).

@@ -99,10 +99,9 @@ async fn test_sync_simple_case() {
 
     let first_mapping = DeclaredMapping::direct("first-calendar".parse().unwrap());
     let second_mapping = DeclaredMapping::direct("second-calendar".parse().unwrap());
-    let mut pair = StoragePair::<IcsItem>::builder(populated, empty)
+    let mut pair = StoragePair::<IcsItem>::new(populated, empty)
         .with_mapping(first_mapping)
-        .with_mapping(second_mapping)
-        .build();
+        .with_mapping(second_mapping);
     let plan = Plan::new(&mut pair, None).await.unwrap();
     // dbg!(&plan);
     // TODO: I'll need to trace! the point where each actions is decided.
