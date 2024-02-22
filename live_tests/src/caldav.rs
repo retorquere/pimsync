@@ -4,7 +4,7 @@
 
 use anyhow::{bail, ensure, Context};
 use http::StatusCode;
-use libdav::dav::{mime_types, DavError};
+use libdav::dav::{mime_types, WebDavError};
 use std::fmt::Write;
 
 use crate::{random_string, TestData};
@@ -254,7 +254,7 @@ pub(crate) async fn test_create_and_delete_resource(test_data: &TestData) -> any
         .await
         .unwrap_err()
     {
-        DavError::BadStatusCode(StatusCode::PRECONDITION_FAILED) => {}
+        WebDavError::BadStatusCode(StatusCode::PRECONDITION_FAILED) => {}
         _ => panic!("updating entry with the wrong etag did not return the wrong error type"),
     }
 

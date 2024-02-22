@@ -36,7 +36,7 @@ pub enum RequestError {
 /// A generic error for WebDav operations.
 #[derive(thiserror::Error, Debug)]
 #[allow(clippy::module_name_repetitions)]
-pub enum DavError {
+pub enum WebDavError {
     #[error("error executing http request: {0}")]
     Request(#[from] RequestError),
 
@@ -65,9 +65,9 @@ pub enum DavError {
     NotUtf8(#[from] std::str::Utf8Error),
 }
 
-impl From<StatusCode> for DavError {
+impl From<StatusCode> for WebDavError {
     fn from(status: StatusCode) -> Self {
-        DavError::BadStatusCode(status)
+        WebDavError::BadStatusCode(status)
     }
 }
 
@@ -89,7 +89,7 @@ pub enum ResolveContextPathError {
 #[derive(thiserror::Error, Debug)]
 pub enum FindCurrentUserPrincipalError {
     #[error("error performing http request: {0}")]
-    RequestError(#[from] DavError),
+    RequestError(#[from] WebDavError),
 
     // XXX: This should not really happen, but the API for `http` won't let us validate this
     // earlier with a clear approach.
@@ -169,7 +169,7 @@ where
             .await;
 
         match maybe_principal {
-            Err(DavError::BadStatusCode(StatusCode::NOT_FOUND)) | Ok(None) => {}
+            Err(WebDavError::BadStatusCode(StatusCode::NOT_FOUND)) | Ok(None) => {}
             Err(err) => return Err(FindCurrentUserPrincipalError::RequestError(err)),
             Ok(Some(p)) => return Ok(Some(p)),
         };
@@ -191,7 +191,7 @@ where
         &self,
         url: &Uri,
         property: &Property<'_, '_>,
-    ) -> Result<Option<Uri>, DavError> {
+    ) -> Result<Option<Uri>, WebDavError> {
         let (head, body) = self.propfind(url, &[property], 0).await?;
         check_status(head.status)?;
 
@@ -210,7 +210,7 @@ where
         url: &Uri,
         properties: &[&Property<'_, '_>],
         depth: u8,
-    ) -> Result<(Parts, Bytes), DavError> {
+    ) -> Result<(Parts, Bytes), WebDavError> {
         let mut body = String::from(r#"<propfind xmlns="DAV:"><prop>"#);
         for prop in properties {
             body.push_str(&render_xml(prop));
@@ -224,7 +224,7 @@ where
             .header("Depth", depth.to_string())
             .body(Body::from(body))?;
 
-        self.request(request).await.map_err(DavError::Request)
+        self.request(request).await.map_err(WebDavError::Request)
     }
 
     /// Send a request to the server.
@@ -255,7 +255,10 @@ where
     /// # Errors
     ///
     /// If there are any network errors or the response could not be parsed.
-    pub async fn get_collection_displayname(&self, href: &str) -> Result<Option<String>, DavError> {
+    pub async fn get_collection_displayname(
+        &self,
+        href: &str,
+    ) -> Result<Option<String>, WebDavError> {
         let url = self.relative_uri(href)?;
 
         let (head, body) = self.propfind(&url, &[&names::DISPLAY_NAME], 0).await?;
@@ -275,7 +278,7 @@ where
         url: &Uri,
         property: &Property<'_, '_>,
         value: Option<&str>,
-    ) -> Result<(), DavError> {
+    ) -> Result<(), WebDavError> {
         let action = match value {
             Some(_) => "set",
             None => "remove",
@@ -313,7 +316,7 @@ where
 
         check_multistatus(root)?;
 
-        Err(DavError::InvalidResponse(
+        Err(WebDavError::InvalidResponse(
             "missing property in response but no error".into(),
         ))
     }
@@ -329,7 +332,7 @@ where
         &self,
         href: &str,
         displayname: Option<&str>,
-    ) -> Result<(), DavError> {
+    ) -> Result<(), WebDavError> {
         let url = self.relative_uri(href)?;
         self.propupdate(&url, &names::DISPLAY_NAME, displayname)
             .await
@@ -413,7 +416,7 @@ where
     pub async fn list_resources(
         &self,
         collection_href: &str,
-    ) -> Result<Vec<ListedResource>, DavError> {
+    ) -> Result<Vec<ListedResource>, WebDavError> {
         let url = self.relative_uri(collection_href)?;
 
         let (head, body) = self
@@ -439,7 +442,7 @@ where
         data: Vec<u8>,
         etag: Option<impl AsRef<str>>,
         mime_type: impl AsRef<[u8]>,
-    ) -> Result<Option<String>, DavError> {
+    ) -> Result<Option<String>, WebDavError> {
         let mut builder = Request::builder()
             .method(Method::PUT)
             .uri(self.relative_uri(href)?)
@@ -477,7 +480,7 @@ where
         href: impl AsRef<str>,
         data: Vec<u8>,
         mime_type: impl AsRef<[u8]>,
-    ) -> Result<Option<String>, DavError> {
+    ) -> Result<Option<String>, WebDavError> {
         self.put(href, data, Option::<&str>::None, mime_type).await
     }
 
@@ -494,7 +497,7 @@ where
         data: Vec<u8>,
         etag: impl AsRef<str>,
         mime_type: impl AsRef<[u8]>,
-    ) -> Result<Option<String>, DavError> {
+    ) -> Result<Option<String>, WebDavError> {
         self.put(href, data, Some(etag.as_ref()), mime_type).await
     }
 
@@ -517,7 +520,7 @@ where
         &self,
         href: impl AsRef<str>,
         resourcetypes: &[&Property<'_, '_>],
-    ) -> Result<(), DavError> {
+    ) -> Result<(), WebDavError> {
         let mut rendered_resource_types = String::new();
         for resource_type in resourcetypes {
             rendered_resource_types.push_str(&render_xml(resource_type));
@@ -567,7 +570,7 @@ where
         &self,
         href: impl AsRef<str>,
         etag: impl AsRef<str>,
-    ) -> Result<(), DavError> {
+    ) -> Result<(), WebDavError> {
         let request = Request::builder()
             .method(Method::DELETE)
             .uri(self.relative_uri(href.as_ref())?)
@@ -577,7 +580,7 @@ where
 
         let (head, _body) = self.request(request).await?;
 
-        check_status(head.status).map_err(DavError::BadStatusCode)
+        check_status(head.status).map_err(WebDavError::BadStatusCode)
     }
 
     /// Force deletion of the resource at `href`.
@@ -591,7 +594,7 @@ where
     /// # Errors
     ///
     /// If there are any network errors or the response could not be parsed.
-    pub async fn force_delete(&self, href: impl AsRef<str>) -> Result<(), DavError> {
+    pub async fn force_delete(&self, href: impl AsRef<str>) -> Result<(), WebDavError> {
         let request = Request::builder()
             .method(Method::DELETE)
             .uri(self.relative_uri(href.as_ref())?)
@@ -600,7 +603,7 @@ where
 
         let (head, _body) = self.request(request).await?;
 
-        check_status(head.status).map_err(DavError::BadStatusCode)
+        check_status(head.status).map_err(WebDavError::BadStatusCode)
     }
 
     pub(crate) async fn multi_get(
@@ -608,7 +611,7 @@ where
         collection_href: &str,
         body: String,
         property: &Property<'_, '_>,
-    ) -> Result<Vec<FetchedResource>, DavError> {
+    ) -> Result<Vec<FetchedResource>, WebDavError> {
         let request = Request::builder()
             .method("REPORT")
             .uri(self.relative_uri(collection_href)?)
@@ -665,7 +668,7 @@ pub(crate) fn parse_prop_href(
     body: impl AsRef<[u8]>,
     url: &Uri,
     property: &Property<'_, '_>,
-) -> Result<Option<Uri>, DavError> {
+) -> Result<Option<Uri>, WebDavError> {
     let body = std::str::from_utf8(body.as_ref())?;
     let doc = roxmltree::Document::parse(body)?;
     let root = doc.root_element();
@@ -688,19 +691,19 @@ pub(crate) fn parse_prop_href(
                 return Ok(None);
             };
             let path = PathAndQuery::from_str(&href)
-                .map_err(|e| DavError::InvalidResponse(Box::from(e)))?;
+                .map_err(|e| WebDavError::InvalidResponse(Box::from(e)))?;
 
             let mut parts = url.clone().into_parts();
             parts.path_and_query = Some(path);
             return Some(Uri::from_parts(parts))
                 .transpose()
-                .map_err(|e| DavError::InvalidResponse(Box::from(e)));
+                .map_err(|e| WebDavError::InvalidResponse(Box::from(e)));
         }
     }
 
     check_multistatus(root)?;
 
-    Err(DavError::InvalidResponse(
+    Err(WebDavError::InvalidResponse(
         "missing property in response but no error".into(),
     ))
 }
@@ -708,7 +711,7 @@ pub(crate) fn parse_prop_href(
 fn parse_prop(
     body: impl AsRef<[u8]>,
     property: &Property<'_, '_>,
-) -> Result<Option<String>, DavError> {
+) -> Result<Option<String>, WebDavError> {
     let body = std::str::from_utf8(body.as_ref())?;
     let doc = roxmltree::Document::parse(body)?;
     let root = doc.root_element();
@@ -724,7 +727,7 @@ fn parse_prop(
 
     check_multistatus(root)?;
 
-    Err(DavError::InvalidResponse(
+    Err(WebDavError::InvalidResponse(
         "missing property in response but no error".into(),
     ))
 }
@@ -732,7 +735,7 @@ fn parse_prop(
 fn list_resources_parse(
     body: impl AsRef<[u8]>,
     collection_href: &str,
-) -> Result<Vec<ListedResource>, DavError> {
+) -> Result<Vec<ListedResource>, WebDavError> {
     let body = std::str::from_utf8(body.as_ref())?;
     let doc = roxmltree::Document::parse(body)?;
     let root = doc.root_element();
@@ -787,7 +790,7 @@ fn list_resources_parse(
 fn multi_get_parse(
     body: impl AsRef<[u8]>,
     property: &Property<'_, '_>,
-) -> Result<Vec<FetchedResource>, DavError> {
+) -> Result<Vec<FetchedResource>, WebDavError> {
     let body = std::str::from_utf8(body.as_ref())?;
     let doc = roxmltree::Document::parse(body)?;
     let responses = doc
@@ -799,7 +802,7 @@ fn multi_get_parse(
     for response in responses {
         let status = match check_multistatus(response) {
             Ok(()) => None,
-            Err(DavError::BadStatusCode(status)) => Some(status),
+            Err(WebDavError::BadStatusCode(status)) => Some(status),
             Err(e) => return Err(e),
         };
 
@@ -821,9 +824,11 @@ fn multi_get_parse(
             let etag = response
                 .descendants()
                 .find(|node| node.tag_name() == crate::names::GETETAG)
-                .ok_or(DavError::InvalidResponse("missing etag in response".into()))?
+                .ok_or(WebDavError::InvalidResponse(
+                    "missing etag in response".into(),
+                ))?
                 .text()
-                .ok_or(DavError::InvalidResponse("missing text in etag".into()))?
+                .ok_or(WebDavError::InvalidResponse("missing text in etag".into()))?
                 .to_string();
             let data = get_newline_corrected_text(&response, property)?;
 
@@ -840,10 +845,10 @@ fn multi_get_parse(
                 let href = href
                     .text()
                     .map(percent_decode_str)
-                    .ok_or(DavError::InvalidResponse("missing text in href".into()))?
+                    .ok_or(WebDavError::InvalidResponse("missing text in href".into()))?
                     .decode_utf8()?
                     .to_string();
-                let status = status.ok_or(DavError::InvalidResponse(
+                let status = status.ok_or(WebDavError::InvalidResponse(
                     "missing props but no error status code".into(),
                 ))?;
                 items.push(FetchedResource {

@@ -9,7 +9,7 @@ use hyper::Uri;
 
 use crate::common::{check_support, parse_find_multiple_collections};
 use crate::dav::WebDavClient;
-use crate::dav::{check_status, DavError, FoundCollection};
+use crate::dav::{check_status, FoundCollection, WebDavError};
 use crate::sd::{find_context_path_via_bootstrap, BootstrapError, DiscoverableService};
 use crate::xmlutils::quote_href;
 use crate::{names, FindHomeSetError, InvalidUrl};
@@ -136,7 +136,7 @@ where
     pub async fn find_addressbooks(
         &self,
         address_book_home_set: &Uri,
-    ) -> Result<Vec<FoundCollection>, DavError> {
+    ) -> Result<Vec<FoundCollection>, WebDavError> {
         let props = [
             &names::RESOURCETYPE,
             &names::GETETAG,
@@ -161,7 +161,7 @@ where
         &self,
         addressbook_href: impl AsRef<str>,
         hrefs: impl IntoIterator<Item = impl AsRef<str>>,
-    ) -> Result<Vec<FetchedResource>, DavError> {
+    ) -> Result<Vec<FetchedResource>, WebDavError> {
         let mut body = String::from(
             r#"
             <C:addressbook-multiget xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:carddav">
@@ -199,7 +199,7 @@ where
     /// # Errors
     ///
     /// Returns an error in case of network errors or if the server returns a failure status code.
-    pub async fn create_addressbook(&self, href: impl AsRef<str>) -> Result<(), DavError> {
+    pub async fn create_addressbook(&self, href: impl AsRef<str>) -> Result<(), WebDavError> {
         self.dav_client
             .create_collection(href, &[&names::ADDRESSBOOK])
             .await

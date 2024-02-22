@@ -20,8 +20,8 @@
 //! their input to NOT be URL-encoded. I.e.: you do not need to perform any quoting.
 
 use crate::auth::Auth;
-use dav::DavError;
 use dav::RequestError;
+use dav::WebDavError;
 use http::StatusCode;
 
 pub mod auth;
@@ -62,7 +62,7 @@ pub enum InvalidUrl {
 /// Error finding home set.
 #[derive(thiserror::Error, Debug)]
 #[error("error finding home set collection: {0}")]
-pub struct FindHomeSetError(#[source] pub DavError);
+pub struct FindHomeSetError(#[source] pub WebDavError);
 
 /// See [`FetchedResource`]
 #[derive(Debug, PartialEq, Eq)]

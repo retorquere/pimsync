@@ -5,7 +5,7 @@
 //! Common bits shared between caldav and carddav clients.
 
 use crate::{
-    dav::{check_status, DavError, FoundCollection, WebDavClient},
+    dav::{check_status, FoundCollection, WebDavClient, WebDavError},
     names,
     xmlutils::get_unquoted_href,
     CheckSupportError, Property,
@@ -18,7 +18,7 @@ use log::debug;
 pub(crate) fn parse_find_multiple_collections(
     body: impl AsRef<[u8]>,
     only: &Property<'_, '_>,
-) -> Result<Vec<FoundCollection>, DavError> {
+) -> Result<Vec<FoundCollection>, WebDavError> {
     let body = std::str::from_utf8(body.as_ref())?;
     let doc = roxmltree::Document::parse(body)?;
     let root = doc.root_element();

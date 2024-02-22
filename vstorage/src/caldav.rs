@@ -55,8 +55,8 @@ impl From<BootstrapError> for Error {
     }
 }
 
-impl From<libdav::dav::DavError> for Error {
-    fn from(value: libdav::dav::DavError) -> Self {
+impl From<libdav::dav::WebDavError> for Error {
+    fn from(value: libdav::dav::WebDavError) -> Self {
         // TODO: not implemented
         Error::new(ErrorKind::Uncategorised, value)
     }

@@ -12,7 +12,7 @@ use percent_encoding::percent_encode;
 use percent_encoding::{percent_decode_str, AsciiSet, NON_ALPHANUMERIC};
 use roxmltree::Node;
 
-use crate::dav::{check_status, DavError};
+use crate::dav::{check_status, WebDavError};
 use crate::names;
 use crate::Property;
 
@@ -30,12 +30,12 @@ pub const DISALLOWED_FOR_HREF: &AsciiSet = &NON_ALPHANUMERIC.remove(b'/').remove
 /// [`DavError::InvalidStatusCode`].
 ///
 /// - If any of the statuses are non-success, returns [`DavError::BadStatusCode`].
-pub fn check_multistatus(root: Node) -> Result<(), DavError> {
+pub fn check_multistatus(root: Node) -> Result<(), WebDavError> {
     let statuses = root
         .descendants()
         .filter(|node| node.tag_name() == names::STATUS);
     for status in statuses {
-        let status = status.text().ok_or(DavError::InvalidResponse(
+        let status = status.text().ok_or(WebDavError::InvalidResponse(
             "missing text inside 'DAV:status'".into(),
         ))?;
         check_status(parse_statusline(status)?)?;
@@ -184,14 +184,16 @@ mod tests {
 }
 
 /// Find an `href` node and return its unescaped text value.
-pub(crate) fn get_unquoted_href<'a>(node: &'a Node) -> Result<Cow<'a, str>, DavError> {
+pub(crate) fn get_unquoted_href<'a>(node: &'a Node) -> Result<Cow<'a, str>, WebDavError> {
     Ok(node
         .descendants()
         .find(|node| node.tag_name() == crate::names::HREF)
-        .ok_or(DavError::InvalidResponse("missing href in response".into()))?
+        .ok_or(WebDavError::InvalidResponse(
+            "missing href in response".into(),
+        ))?
         .text()
         .map(percent_decode_str)
-        .ok_or(DavError::InvalidResponse("missing text in href".into()))?
+        .ok_or(WebDavError::InvalidResponse("missing text in href".into()))?
         .decode_utf8()?)
 }
 
@@ -206,15 +208,17 @@ pub(crate) fn quote_href(href: &[u8]) -> Cow<'_, str> {
 pub(crate) fn get_newline_corrected_text(
     node: &Node,
     property: &Property<'_, '_>,
-) -> Result<String, DavError> {
+) -> Result<String, WebDavError> {
     let raw_data = node
         .descendants()
         .find(|node| node.tag_name() == *property)
-        .ok_or(DavError::InvalidResponse(
+        .ok_or(WebDavError::InvalidResponse(
             format!("missing {} in response", property.name()).into(),
         ))?
         .text()
-        .ok_or(DavError::InvalidResponse("missing text in property".into()))?;
+        .ok_or(WebDavError::InvalidResponse(
+            "missing text in property".into(),
+        ))?;
 
     // "\r\n" is usually converted into "\n" during. This needs to be undone.
     //

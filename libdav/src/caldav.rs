@@ -9,7 +9,7 @@ use hyper::Uri;
 
 use crate::common::{check_support, parse_find_multiple_collections};
 use crate::dav::WebDavClient;
-use crate::dav::{check_status, DavError, FoundCollection};
+use crate::dav::{check_status, FoundCollection, WebDavError};
 use crate::sd::{find_context_path_via_bootstrap, BootstrapError, DiscoverableService};
 use crate::xmlutils::{check_multistatus, quote_href};
 use crate::{names, FindHomeSetError, InvalidUrl};
@@ -136,7 +136,7 @@ where
     pub async fn find_calendars(
         &self,
         calendar_home_set: &Uri,
-    ) -> Result<Vec<FoundCollection>, DavError> {
+    ) -> Result<Vec<FoundCollection>, WebDavError> {
         let props = [
             &names::RESOURCETYPE,
             &names::GETETAG,
@@ -162,7 +162,7 @@ where
     /// # Errors
     ///
     /// If the network request fails, or if the response cannot be parsed.
-    pub async fn get_calendar_colour(&self, href: &str) -> Result<Option<String>, DavError> {
+    pub async fn get_calendar_colour(&self, href: &str) -> Result<Option<String>, WebDavError> {
         let url = self.relative_uri(href)?;
 
         let (head, body) = self.propfind(&url, &[&names::CALENDAR_COLOUR], 0).await?;
@@ -186,7 +186,7 @@ where
 
         check_multistatus(root)?;
 
-        Err(DavError::InvalidResponse(
+        Err(WebDavError::InvalidResponse(
             "missing property in response with no error".into(),
         ))
     }
@@ -205,7 +205,7 @@ where
         &self,
         href: &str,
         colour: Option<&str>,
-    ) -> Result<(), DavError> {
+    ) -> Result<(), WebDavError> {
         let url = self.relative_uri(href)?;
         self.propupdate(&url, &names::CALENDAR_COLOUR, colour).await
     }
@@ -230,7 +230,7 @@ where
         &self,
         calendar_href: impl AsRef<str>,
         hrefs: impl IntoIterator<Item = impl AsRef<str>>,
-    ) -> Result<Vec<FetchedResource>, DavError> {
+    ) -> Result<Vec<FetchedResource>, WebDavError> {
         let mut body = String::from(
             r#"
             <C:calendar-multiget xmlns="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">
@@ -274,7 +274,7 @@ where
     /// # Errors
     ///
     /// Returns an error in case of network errors or if the server returns a failure status code.
-    pub async fn create_calendar(&self, href: impl AsRef<str>) -> Result<(), DavError> {
+    pub async fn create_calendar(&self, href: impl AsRef<str>) -> Result<(), WebDavError> {
         self.dav_client
             .create_collection(href, &[&names::CALENDAR])
             .await
