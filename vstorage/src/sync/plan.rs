@@ -394,13 +394,10 @@ impl ResolvedCollection {
                         exists: true,
                     })
                 } else {
-                    let href = storage.href_for_collection_id(id)?;
-                    let exists = storage_exists(storage, &href).await?;
-
                     Ok(ResolvedCollection {
                         id: Some(id.clone()),
-                        href,
-                        exists, // TODO: won't this always be false?
+                        href: storage.href_for_collection_id(id)?,
+                        exists: false,
                     })
                 }
             }
@@ -455,7 +452,7 @@ fn resolve_mapping_counterpart<I: Item>(
         None => Ok(ResolvedCollection {
             id: Some(id.clone()),
             href: target_storage.href_for_collection_id(id)?,
-            exists: false, //FIXME: are you sure?
+            exists: false,
         }),
     }
 }
