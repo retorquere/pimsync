@@ -53,7 +53,7 @@ where
     C: Connect + Clone + Sync + Send + 'static,
 {
     /// A WebDav client used to send requests.
-    pub dav_client: WebDavClient<C>,
+    pub webdav_client: WebDavClient<C>,
 }
 
 impl<C> Deref for CalDavClient<C>
@@ -63,7 +63,7 @@ where
     type Target = WebDavClient<C>;
 
     fn deref(&self) -> &Self::Target {
-        &self.dav_client
+        &self.webdav_client
     }
 }
 
@@ -73,9 +73,7 @@ where
 {
     /// Create a new client instance.
     pub fn new(webdav_client: WebDavClient<C>) -> CalDavClient<C> {
-        CalDavClient {
-            dav_client: webdav_client,
-        }
+        CalDavClient { webdav_client }
     }
 
     /// Create a new client instance.
@@ -95,9 +93,7 @@ where
         {
             webdav_client.base_url = context_path;
         }
-        Ok(CalDavClient {
-            dav_client: webdav_client,
-        })
+        Ok(CalDavClient { webdav_client })
     }
 
     /// Queries the server for the calendar home set.
@@ -266,7 +262,7 @@ where
     /// If there are any network issues or if the server does not explicitly advertise caldav
     /// support.
     pub async fn check_support(&self, url: &Uri) -> Result<(), CheckSupportError> {
-        check_support(&self.dav_client, url, "calendar-access").await
+        check_support(&self.webdav_client, url, "calendar-access").await
     }
 
     /// Create an calendar collection.
@@ -275,7 +271,7 @@ where
     ///
     /// Returns an error in case of network errors or if the server returns a failure status code.
     pub async fn create_calendar(&self, href: impl AsRef<str>) -> Result<(), WebDavError> {
-        self.dav_client
+        self.webdav_client
             .create_collection(href, &[&names::CALENDAR])
             .await
     }

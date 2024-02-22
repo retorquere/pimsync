@@ -73,7 +73,7 @@ async fn discover(mut client: Client) -> anyhow::Result<()> {
     match find_context_path_via_bootstrap(&client, service).await? {
         Some(context_path) => {
             println!("- Resolved context path: {context_path}");
-            client.dav_client.base_url = context_path;
+            client.webdav_client.base_url = context_path;
         }
         None => {
             println!("- Context path not found; using given URL");
