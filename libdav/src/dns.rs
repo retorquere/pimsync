@@ -138,18 +138,6 @@ pub enum TxtError {
     BadTxt,
 }
 
-impl From<TxtError> for io::Error {
-    fn from(value: TxtError) -> Self {
-        match value {
-            TxtError::Network(err) => err,
-            TxtError::DomainTooLong(_) => io::Error::new(io::ErrorKind::InvalidInput, value),
-            TxtError::ParseError(_) | TxtError::NotUtf8Error(_) | TxtError::BadTxt => {
-                io::Error::new(io::ErrorKind::InvalidData, value)
-            }
-        }
-    }
-}
-
 /// Resolves a context path via TXT records.
 ///
 /// This returns a path where the default context path should be used for a given domain.
