@@ -26,7 +26,10 @@ pub(crate) async fn test_create_and_delete_addressbook(test_data: &TestData) -> 
 
     // Get the etag of the newly created addressbook:
     // ASSERTION: this validates that a collection with a matching href was created.
-    let addressbook = test_data.carddav.find_addressbooks(None).await?;
+    let addressbook = test_data
+        .carddav
+        .find_addressbooks(&test_data.address_home_set)
+        .await?;
     let etag = addressbook
         .into_iter()
         .find(|collection| collection.href == new_collection)

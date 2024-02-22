@@ -5,16 +5,21 @@
 use std::io::Read;
 
 use anyhow::{bail, Context};
+use http::Uri;
 use hyper::client::HttpConnector;
 use hyper_rustls::{HttpsConnector, HttpsConnectorBuilder};
-use libdav::{auth::Auth, CalDavClient};
+use libdav::{
+    auth::Auth, caldav_service_for_url, dav::WebDavClient, find_context_path_via_bootstrap,
+    CalDavClient,
+};
 use log::info;
 
 use crate::cli::ServerCommand;
 
 type Client = CalDavClient<HttpsConnector<HttpConnector>>;
 
-async fn caldav_client() -> anyhow::Result<Client> {
+/// Create a new client. Note that bootstrap is not performed implicitly.
+fn caldav_client() -> anyhow::Result<Client> {
     let base_url = std::env::var("DAVCLI_BASE_URL")
         .context("failed to determine password")?
         .try_into()
@@ -29,24 +34,21 @@ async fn caldav_client() -> anyhow::Result<Client> {
         .https_or_http()
         .enable_http1()
         .build();
-    let builder = CalDavClient::builder()
-        .with_uri(base_url)
-        .with_auth(Auth::Basic {
-            username,
-            password: Some(password),
-        })
-        .bootstrap(https)
-        .await
-        .map_err(anyhow::Error::from)?;
-    Ok(builder.build())
+    let auth = Auth::Basic {
+        username,
+        password: Some(password),
+    };
+    let webdav = WebDavClient::new(base_url, auth, https);
+    let client = CalDavClient::new(webdav);
+    Ok(client)
 }
 
 #[tokio::main(flavor = "current_thread")]
 pub(crate) async fn execute(command: ServerCommand) -> anyhow::Result<()> {
-    let client = caldav_client().await?;
+    let client = caldav_client()?;
 
     match command {
-        ServerCommand::Discover => discover(&client),
+        ServerCommand::Discover => discover(client).await?,
         ServerCommand::FindCollections => list_collections(client).await?,
         ServerCommand::ListItems { collection_href } => {
             list_resources(&client, collection_href).await?;
@@ -65,13 +67,29 @@ pub(crate) async fn execute(command: ServerCommand) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn discover(client: &Client) {
-    println!("Discovery successful.");
-    println!("- Context path: {}", client.base_url());
-    match client.calendar_home_set() {
-        Some(home_set) => println!("- Calendar home set: {home_set}"),
-        None => println!("- Calendar home set not found."),
-    }
+async fn discover(mut client: Client) -> anyhow::Result<()> {
+    let service = caldav_service_for_url(client.base_url())?;
+    println!("- Base url: {}", client.base_url());
+    match find_context_path_via_bootstrap(&client, service).await? {
+        Some(context_path) => {
+            println!("- Resolved context path: {context_path}");
+            client.dav_client.base_url = context_path;
+        }
+        None => {
+            println!("- Context path not found; using given URL");
+        }
+    };
+    match client.find_current_user_principal().await? {
+        Some(principal) => {
+            println!("- Current user principal: {principal}");
+            match client.find_calendar_home_set(&principal).await? {
+                Some(home_set) => println!("- Calendar home set: {home_set}"),
+                None => println!("- Calendar home set not found."),
+            }
+        }
+        None => println!("- Curent user principal not found."),
+    };
+    Ok(())
 }
 
 async fn get(client: Client, href: String) -> anyhow::Result<()> {
@@ -118,8 +136,20 @@ async fn create(client: Client, href: String) -> anyhow::Result<()> {
     Ok(())
 }
 
+async fn url_for_finding_calendars(client: &Client) -> anyhow::Result<Uri> {
+    let url = match client.find_current_user_principal().await? {
+        Some(principal) => {
+            let home_set = client.find_calendar_home_set(&principal).await?;
+            home_set.unwrap_or(client.base_url().clone())
+        }
+        None => client.base_url().clone(),
+    };
+    Ok(url)
+}
+
 async fn tree(client: Client) -> anyhow::Result<()> {
-    let response = client.find_calendars(None).await?;
+    let url = url_for_finding_calendars(&client).await?;
+    let response = client.find_calendars(&url).await?;
     for collection in response {
         println!("{}", collection.href);
         list_resources(&client, collection.href).await?;
@@ -129,7 +159,8 @@ async fn tree(client: Client) -> anyhow::Result<()> {
 }
 
 async fn list_collections(client: Client) -> anyhow::Result<()> {
-    let response = client.find_calendars(None).await?;
+    let url = url_for_finding_calendars(&client).await?;
+    let response = client.find_calendars(&url).await?;
     for collection in response {
         println!("{}", collection.href);
     }

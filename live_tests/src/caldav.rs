@@ -25,7 +25,10 @@ pub(crate) async fn test_create_and_delete_collection(test_data: &TestData) -> a
 
     // Get the etag of the newly created calendar:
     // ASSERTION: this validates that a collection with a matching href was created.
-    let calendars = test_data.caldav.find_calendars(None).await?;
+    let calendars = test_data
+        .caldav
+        .find_calendars(&test_data.calendar_home_set)
+        .await?;
     let etag = calendars
         .into_iter()
         .find(|collection| collection.href == new_collection)

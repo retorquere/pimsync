@@ -21,6 +21,7 @@
 use http::Uri;
 use hyper_rustls::HttpsConnectorBuilder;
 use libdav::auth::Auth;
+use libdav::dav::WebDavClient;
 use libdav::CalDavClient;
 
 #[tokio::main(flavor = "current_thread")]
@@ -43,20 +44,25 @@ async fn main() {
         .https_or_http()
         .enable_http1()
         .build();
-    let caldav_client = CalDavClient::builder()
-        .with_uri(base_url)
-        .with_auth(Auth::Basic {
-            username,
-            password: Some(password),
-        })
-        .bootstrap(https)
-        .await
-        .unwrap()
-        .build();
+    let auth = Auth::Basic {
+        username,
+        password: Some(password),
+    };
+    let webdav = WebDavClient::new(base_url, auth, https);
+    let caldav_client = CalDavClient::new_via_bootstrap(webdav).await.unwrap();
 
-    println!("Resolved server URL to: {}", caldav_client.base_url());
+    let url = match caldav_client.find_current_user_principal().await.unwrap() {
+        Some(principal) => {
+            let home_set = caldav_client
+                .find_calendar_home_set(&principal)
+                .await
+                .unwrap();
+            home_set.unwrap_or(caldav_client.base_url().clone())
+        }
+        None => caldav_client.base_url().clone(),
+    };
 
-    let calendars = caldav_client.find_calendars(None).await.unwrap();
+    let calendars = caldav_client.find_calendars(&url).await.unwrap();
 
     println!("found {} calendars...", calendars.len());
 

@@ -25,7 +25,8 @@ understand their usage. If anything is not clear, please open a ticket.
 # Configuration
 
 Server details are provided via environment variables. Please take care not to
-leave passwords in your shell history.
+leave sensitive credentials in your shell history. Some terminals don't record
+commands into history if they're preceded by an empty <kbd>Space</kbd>.
 
 ```console
 > export DAVCLI_BASE_URL=https://fastmail.com
@@ -48,7 +49,9 @@ if DNS is correctly configured for a publicly hosted service:
 ```console
 > davcli --caldav discover
 Discovery successful.
-- Context path: https://d277161.caldav.fastmail.com/dav/calendars
+- Base url: https://fastmail.com/
+- Resolved context path: https://d277161.caldav.fastmail.com/dav/calendars
+- Current user principal: https://d277161.caldav.fastmail.com/dav/principals/user/vdirsyncer@fastmail.com/
 - Calendar home set: https://d277161.caldav.fastmail.com/dav/calendars/user/vdirsyncer@fastmail.com/
 ```
 
@@ -57,16 +60,54 @@ obscure error where the underlying root cause is not clear):
 
 ```console
 > DAVCLI_PASSWORD=wrong_password davcli --caldav discover
-Error: error querying current user principal
+- Base url: https://fastmail.com/
+- Resolved context path: https://d277161.caldav.fastmail.com/dav/calendars
+Error: error querying server
 
 Caused by:
-    0: error during http request
-    1: http request returned 401 Unauthorized
+    http request returned 401 Unauthorized
 ```
 
 [The introductory article for davcli][intro] for more details.
 
 [intro]: https://whynothugo.nl/journal/2023/05/01/introducing-davcli/
+
+# Listing and reading items
+
+In order to perform other operations, the context path (obtained via discovery
+as shown above) should be speficied as `DAVCLI_BASE_URL`.
+
+Following the example above, this would be:
+
+```console
+> export DAVCLI_BASE_URL=https://d277161.caldav.fastmail.com/dav/calendars
+```
+
+Previous versions of davcli performed discovery/bootstrap sequence
+automatically on each execution. This resulted in slow operations. Discovery
+now needs to be done once, manually (it can only be skipped in cases where the
+BASE_URL points directly to the final server).
+
+With the above variable set, `find-collections` will list collections belonging
+to the current user:
+
+```console
+> davcli --caldav find-collections
+/dav/calendars/user/vdirsyncer@fastmail.com/00fsWMCvxPHGbMWw/
+/dav/calendars/user/vdirsyncer@fastmail.com/031sSQFuFJZXhZ8E/
+/dav/calendars/user/vdirsyncer@fastmail.com/07pqbROw8tUg9xcZ/
+/dav/calendars/user/vdirsyncer@fastmail.com/0BzTEecb6x69Igdj/
+/dav/calendars/user/vdirsyncer@fastmail.com/0CGYH7P3bClmkf3C/
+...
+```
+
+Items inside these collections can be listed with:
+
+```sh
+davcli --caldav list-items /dav/calendars/user/vdirsyncer@fastmail.com/00fsWMCvxPHGbMWw/
+```
+
+See `davcli --help` for further details.
 
 # Authentication
 

@@ -8,7 +8,7 @@ use async_trait::async_trait;
 use http::Uri;
 use hyper::client::connect::Connect;
 use libdav::auth::Auth;
-use libdav::dav::mime_types;
+use libdav::dav::{mime_types, WebDavClient};
 use libdav::CardDavClient;
 
 use crate::base::{
@@ -30,14 +30,23 @@ where
     ///
     /// If there are errors discovering the CardDav server.
     pub async fn new(url: Uri, auth: Auth, connector: C) -> Result<CardDavStorage<C>> {
-        let client = CardDavClient::builder()
-            .with_uri(url)
-            .with_auth(auth)
-            .bootstrap(connector)
-            .await?
-            .build();
+        let webdav = WebDavClient::new(url, auth, connector);
+        let client = CardDavClient::new_via_bootstrap(webdav).await?;
 
-        Ok(CardDavStorage { client })
+        let principal = client
+            .find_current_user_principal()
+            .await
+            .map_err(|e| Error::new(ErrorKind::Io, e))?
+            .ok_or_else(|| Error::new(ErrorKind::Unavailable, "no user principal found"))?;
+        let address_book_home_set = client
+            .find_address_book_home_set(&principal)
+            .await
+            .map_err(|e| Error::new(ErrorKind::Io, e))?;
+
+        Ok(CardDavStorage {
+            client,
+            address_book_home_set,
+        })
     }
 }
 
@@ -46,6 +55,7 @@ where
 /// A single storage represents a single server with a specific set of credentials.
 pub struct CardDavStorage<C: Connect + Clone + Sync + Send + 'static> {
     client: CardDavClient<C>,
+    address_book_home_set: Option<Uri>,
 }
 
 #[async_trait]
@@ -54,12 +64,12 @@ where
     C: Connect + Clone + Sync + Send,
 {
     async fn check(&self) -> Result<()> {
-        let uri = &self
-            .client
-            .addressbook_home_set()
-            .unwrap_or(self.client.base_url());
+        let url = self
+            .address_book_home_set
+            .as_ref()
+            .unwrap_or(&self.client.base_url);
         self.client
-            .check_support(uri)
+            .check_support(url)
             .await
             .map_err(|e| Error::new(ErrorKind::Uncategorised, e))
     }
@@ -72,8 +82,15 @@ where
     ///
     /// Collections outside the principal's home can be referenced by using an absolute path.
     async fn discover_collections(&self) -> Result<Discovery> {
+        let Some(home_set) = &self.address_book_home_set else {
+            return Err(Error::new(
+                ErrorKind::PreconditionFailed,
+                "calendar home set was not found",
+            ));
+        };
+
         self.client
-            .find_addressbooks(None)
+            .find_addressbooks(home_set)
             .await?
             .into_iter()
             .map(|collection| {
@@ -324,7 +341,7 @@ where
     /// Returns [`ErrorKind::PreconditionFailed`] if a home set was not found in the carddav
     /// server.
     fn href_for_collection_id(&self, id: &CollectionId) -> Result<Href> {
-        if let Some(home_set) = self.client.addressbook_home_set() {
+        if let Some(home_set) = &self.address_book_home_set {
             Ok(path_for_collection_in_home_set(home_set, id.as_ref()))
         } else {
             Err(Error::new(

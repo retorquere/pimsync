@@ -6,7 +6,10 @@ use anyhow::Context;
 use http::Uri;
 use hyper::client::HttpConnector;
 use hyper_rustls::{HttpsConnector, HttpsConnectorBuilder};
-use libdav::{auth::Auth, CalDavClient, CardDavClient};
+use libdav::{
+    auth::Auth, caldav_service_for_url, carddav_service_for_url, dav::WebDavClient,
+    find_context_path_via_bootstrap, CalDavClient, CardDavClient,
+};
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
 use std::{fs::File, io::Read, path::Path};
 
@@ -24,6 +27,8 @@ struct Profile {
     password: String,
     /// The name of the server implementation.
     server: String,
+    /// Whether to perform rfc6764 bootstrap sequence.
+    bootstrap: bool,
 }
 
 impl Profile {
@@ -54,33 +59,52 @@ impl TestData {
             .https_or_http()
             .enable_http1()
             .build();
-        let caldav = CalDavClient::builder()
-            .with_uri(profile.host.parse()?)
-            .with_auth(Auth::Basic {
-                username: profile.username.clone(),
-                password: Some(profile.password.clone().into()),
-            })
-            .bootstrap(https.clone())
-            .await
-            .context("could not initialise test client")?
-            .build();
+        let base_url = profile.host.parse::<Uri>()?;
+
+        let auth = Auth::Basic {
+            username: profile.username.clone(),
+            password: Some(profile.password.clone().into()),
+        };
+
+        let (caldav, user_principal) = {
+            let mut webdav = WebDavClient::new(base_url.clone(), auth.clone(), https.clone());
+            if profile.bootstrap {
+                let service = caldav_service_for_url(&base_url)?;
+                webdav.base_url = find_context_path_via_bootstrap(&webdav, service)
+                    .await?
+                    .context("determining context path via bootstrap sequence")?;
+            }
+            let user_principal = webdav
+                .find_current_user_principal()
+                .await?
+                .context("finding current user pricinpal")?;
+
+            (CalDavClient::new(webdav), user_principal)
+        };
         let calendar_home_set = caldav
-            .calendar_home_set()
+            .find_calendar_home_set(&user_principal)
+            .await?
             .context("no calendar home set found")?
             .clone();
 
-        let carddav = CardDavClient::builder()
-            .with_uri(profile.host.parse()?)
-            .with_auth(Auth::Basic {
-                username: profile.username.clone(),
-                password: Some(profile.password.clone().into()),
-            })
-            .bootstrap(https)
-            .await
-            .context("could not initialise test client")?
-            .build();
+        let (carddav, user_principal) = {
+            let mut webdav = WebDavClient::new(base_url.clone(), auth.clone(), https.clone());
+            if profile.bootstrap {
+                let service = carddav_service_for_url(&base_url)?;
+                webdav.base_url = find_context_path_via_bootstrap(&webdav, service)
+                    .await?
+                    .context("determining context path via bootstrap sequence")?;
+            }
+            let user_principal = webdav
+                .find_current_user_principal()
+                .await?
+                .context("finding current user pricinpal")?;
+
+            (CardDavClient::new(webdav), user_principal)
+        };
         let address_home_set = carddav
-            .addressbook_home_set()
+            .find_address_book_home_set(&user_principal)
+            .await?
             .context("no calendar home set found")?
             .clone();
 
@@ -95,7 +119,7 @@ impl TestData {
 
     async fn calendar_count(&self) -> anyhow::Result<usize> {
         self.caldav
-            .find_calendars(None)
+            .find_calendars(&self.calendar_home_set)
             .await
             .map(|calendars| calendars.len())
             .context("fetch calendar count")
@@ -103,7 +127,7 @@ impl TestData {
 
     async fn addressbook_count(&self) -> anyhow::Result<usize> {
         self.carddav
-            .find_addressbooks(None)
+            .find_addressbooks(&self.address_home_set)
             .await
             .map(|a| a.len())
             .context("fetching addressbook count")

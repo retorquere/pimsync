@@ -88,6 +88,8 @@ pub enum ErrorKind {
     ReadOnly,
     CollectionNotEmpty,
     PreconditionFailed,
+    /// The requested operation is not possible on this specific instance.
+    Unavailable,
     /// This storage implementation does not support a required feature.
     Unsupported,
     // #[deprecated]
@@ -118,6 +120,7 @@ impl ErrorKind {
             ErrorKind::ReadOnly => "the resource is read-only",
             ErrorKind::CollectionNotEmpty => "the collection is not empty",
             ErrorKind::PreconditionFailed => "a required condition was not met",
+            ErrorKind::Unavailable => "the operation is not possible on this instance",
             ErrorKind::Unsupported => "the operation is not supported",
             ErrorKind::Uncategorised => "uncategorised error",
         }

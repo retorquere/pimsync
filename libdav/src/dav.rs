@@ -107,20 +107,9 @@ where
     ///
     /// This is composed of the domain+port used for the server, plus the context path where Dav
     /// requests are served.
-    pub(crate) base_url: Uri,
+    pub base_url: Uri,
     auth: Auth,
     http_client: Client<C>,
-    /// URL to a principal resource corresponding to the currently authenticated user.
-    ///
-    /// In order to determine the principal, see [`find_current_user_principal`].
-    ///
-    /// [`find_current_user_principal`]: (DavClient::find_current_user_principal).
-    ///
-    /// # See also
-    ///
-    /// - <https://www.rfc-editor.org/rfc/rfc5397#section-3>
-    // TODO: read-only accessor; only configurable via the builder
-    pub(crate) principal: Option<Uri>,
 }
 
 impl<C> WebDavClient<C>
@@ -136,7 +125,6 @@ where
             base_url,
             auth,
             http_client: Client::builder().build(connector),
-            principal: None,
         }
     }
 
@@ -171,7 +159,7 @@ where
     ///
     /// # See also
     ///
-    /// - <https://www.rfc-editor.org/rfc/rfc5397>
+    /// - <https://www.rfc-editor.org/rfc/rfc5397#section-3>
     pub async fn find_current_user_principal(
         &self,
     ) -> Result<Option<Uri>, FindCurrentUserPrincipalError> {

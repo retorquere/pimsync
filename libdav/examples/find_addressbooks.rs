@@ -22,6 +22,7 @@
 use http::Uri;
 use hyper_rustls::HttpsConnectorBuilder;
 use libdav::auth::Auth;
+use libdav::dav::WebDavClient;
 use libdav::CardDavClient;
 
 #[tokio::main(flavor = "current_thread")]
@@ -44,20 +45,27 @@ async fn main() {
         .https_or_http()
         .enable_http1()
         .build();
-    let carddav_client = CardDavClient::builder()
-        .with_uri(base_url)
-        .with_auth(Auth::Basic {
-            username,
-            password: Some(password),
-        })
-        .bootstrap(https)
-        .await
-        .unwrap()
-        .build();
+    let auth = Auth::Basic {
+        username,
+        password: Some(password),
+    };
+    let webdav = WebDavClient::new(base_url, auth, https);
+    let carddav_client = CardDavClient::new_via_bootstrap(webdav).await.unwrap();
 
     println!("Resolved server URL to: {}", carddav_client.base_url());
 
-    let addressbooks = carddav_client.find_addressbooks(None).await.unwrap();
+    let url = match carddav_client.find_current_user_principal().await.unwrap() {
+        Some(principal) => {
+            let home_set = carddav_client
+                .find_address_book_home_set(&principal)
+                .await
+                .unwrap();
+            home_set.unwrap_or(carddav_client.base_url().clone())
+        }
+        None => carddav_client.base_url().clone(),
+    };
+
+    let addressbooks = carddav_client.find_addressbooks(&url).await.unwrap();
 
     println!("found {} addressbooks...", addressbooks.len());
 

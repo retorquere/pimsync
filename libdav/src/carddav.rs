@@ -7,22 +7,21 @@ use std::ops::Deref;
 use hyper::client::connect::Connect;
 use hyper::Uri;
 
-use crate::builder::{ClientBuilder, NeedsUri};
-use crate::common::{check_support, parse_find_multiple_collections, Rfc6764Protocol};
+use crate::common::{check_support, parse_find_multiple_collections};
 use crate::dav::WebDavClient;
 use crate::dav::{check_status, DavError, FoundCollection};
 use crate::dns::DiscoverableService;
 use crate::xmlutils::quote_href;
-use crate::{names, InvalidUrl};
+use crate::{find_context_path_via_bootstrap, names, BootstrapError, FindHomeSetError, InvalidUrl};
 use crate::{CheckSupportError, FetchedResource};
 
 /// Client to communicate with a carddav server.
 ///
-/// Instances are usually created via a [`ClientBuilder`], which can also automatically bootstrap
-/// the exact host and context path.
+/// Instances are usually created via [`CardDavClient::new`].
 ///
 /// ```rust,no_run
 /// # use libdav::CardDavClient;
+/// # use libdav::dav::WebDavClient;
 /// use http::Uri;
 /// use libdav::auth::{Auth, Password};
 /// use hyper_rustls::HttpsConnectorBuilder;
@@ -40,28 +39,21 @@ use crate::{CheckSupportError, FetchedResource};
 ///     .https_or_http()
 ///     .enable_http1()
 ///     .build();
-/// let client = CardDavClient::builder()
-///     .with_uri(uri)
-///     .with_auth(auth)
-///     .bootstrap(https)
-///     .await
-///     .unwrap()
-///     .build();
+/// let webdav = WebDavClient::new(uri, auth, https);
+/// // Optionally, perform bootstrap sequence here.
+/// let client = CardDavClient::new(webdav);
 /// # })
 /// ```
+///
+/// If the real CardDav server needs to be resolved via bootstrapping, see
+/// [`find_context_path_via_bootstrap`].
 #[derive(Debug)]
 pub struct CardDavClient<C>
 where
     C: Connect + Clone + Sync + Send + 'static,
 {
-    /// The `base_url` may be (due to bootstrapping discovery) different to the one provided as input.
-    ///
-    /// See: <https://www.rfc-editor.org/rfc/rfc6764#section-1>
-    dav_client: WebDavClient<C>,
-    /// URL of collections that are either address book collections or ordinary collections
-    /// that have child or descendant address book collections owned by the principal.
-    /// See: <https://www.rfc-editor.org/rfc/rfc6352#section-7.1.1>
-    addressbook_home_set: Option<Uri>,
+    /// A WebDav client used to send requests.
+    pub dav_client: WebDavClient<C>,
 }
 
 impl<C> Deref for CardDavClient<C>
@@ -75,52 +67,58 @@ where
     }
 }
 
-impl<C> Rfc6764Protocol for CardDavClient<C>
-where
-    C: Connect + Clone + Sync + Send,
-{
-    fn service(uri: &Uri) -> Result<DiscoverableService, InvalidUrl> {
-        match uri.scheme().ok_or(InvalidUrl::MissingScheme)?.as_ref() {
-            "https" | "carddavs" => Ok(DiscoverableService::CardDavs),
-            "http" | "carddav" => Ok(DiscoverableService::CardDav),
-            _ => Err(InvalidUrl::InvalidScheme),
-        }
-    }
-
-    fn home_set_property() -> &'static crate::Property<'static, 'static> {
-        &names::ADDRESSBOOK_HOME_SET
-    }
-}
-
-impl<C> ClientBuilder<CardDavClient<C>, crate::builder::Ready<C>>
-where
-    C: Connect + Clone + Sync + Send,
-{
-    /// Builds a carddav client
-    pub fn build(self) -> CardDavClient<C> {
-        let (dav_client, addressbook_home_set) = self.into_parts();
-        CardDavClient {
-            dav_client,
-            addressbook_home_set,
-        }
-    }
-}
-
 impl<C> CardDavClient<C>
 where
     C: Connect + Clone + Sync + Send,
 {
-    /// Creates a new builder. See [`CardDavClient`] and [`ClientBuilder`] for details.
-    #[must_use]
-    pub fn builder() -> ClientBuilder<Self, NeedsUri> {
-        ClientBuilder::new()
+    /// Create a new client instance.
+    pub fn new(webdav_client: WebDavClient<C>) -> CardDavClient<C> {
+        CardDavClient {
+            dav_client: webdav_client,
+        }
     }
 
-    /// The home set found during discovery (if any) or explicitly provided during client creation.
+    /// Create a new client instance.
     ///
-    /// This function does not perform any network operations; it merely returns the already-known URL.
-    pub fn addressbook_home_set(&self) -> Option<&Uri> {
-        self.addressbook_home_set.as_ref()
+    /// Creates a new client, with its `base_url` set to the context path automatically discovered
+    /// via [`find_context_path_via_bootstrap`].
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if and only if the underlying call to [`find_context_path_via_bootstrap`]
+    /// returns an error.
+    pub async fn new_via_bootstrap(
+        mut webdav_client: WebDavClient<C>,
+    ) -> Result<CardDavClient<C>, BootstrapError> {
+        let service = service_for_url(&webdav_client.base_url)?;
+        if let Some(context_path) = find_context_path_via_bootstrap(&webdav_client, service).await?
+        {
+            webdav_client.base_url = context_path;
+        }
+        Ok(CardDavClient {
+            dav_client: webdav_client,
+        })
+    }
+
+    /// Queries the server for the address book home set.
+    ///
+    /// See: <https://www.rfc-editor.org/rfc/rfc4791#section-6.2.1>
+    ///
+    /// # Errors
+    ///
+    /// If there are any network errors or the response could not be parsed.
+    pub async fn find_address_book_home_set(
+        &self,
+        principal: &Uri,
+    ) -> Result<Option<Uri>, FindHomeSetError>
+    where
+        C: Connect + Clone + Sync + Send,
+    {
+        // If obtaining a principal fails, the specification says we should query the user. This
+        // tries to use the `base_url` first, since the user might have provided it for a reason.
+        self.find_href_prop_as_uri(principal, &names::ADDRESSBOOK_HOME_SET)
+            .await
+            .map_err(FindHomeSetError)
     }
 
     // TODO: methods to serialise and deserialise (mostly to cache all discovery data).
@@ -137,18 +135,14 @@ where
     /// If the HTTP call fails or parsing the XML response fails.
     pub async fn find_addressbooks(
         &self,
-        url: Option<&Uri>,
+        address_book_home_set: &Uri,
     ) -> Result<Vec<FoundCollection>, DavError> {
-        let url = url
-            .or(self.addressbook_home_set.as_ref())
-            .unwrap_or(&self.base_url);
-
         let props = [
             &names::RESOURCETYPE,
             &names::GETETAG,
             &names::SUPPORTED_REPORT_SET,
         ];
-        let (head, body) = self.propfind(url, &props, 1).await?;
+        let (head, body) = self.propfind(address_book_home_set, &props, 1).await?;
         check_status(head.status)?;
 
         parse_find_multiple_collections(body, &names::ADDRESSBOOK)
@@ -209,5 +203,18 @@ where
         self.dav_client
             .create_collection(href, &[&names::ADDRESSBOOK])
             .await
+    }
+}
+
+/// Return the service type based on a URL's scheme.
+///
+/// # Errors
+///
+/// If `url` is missing a scheme or has a scheme invalid for CardDav usage.
+pub fn service_for_url(url: &Uri) -> Result<DiscoverableService, InvalidUrl> {
+    match url.scheme().ok_or(InvalidUrl::MissingScheme)?.as_ref() {
+        "https" | "carddavs" => Ok(DiscoverableService::CardDavs),
+        "http" | "carddav" => Ok(DiscoverableService::CardDav),
+        _ => Err(InvalidUrl::InvalidScheme),
     }
 }

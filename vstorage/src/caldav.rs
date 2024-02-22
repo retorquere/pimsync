@@ -8,7 +8,7 @@ use async_trait::async_trait;
 use http::Uri;
 use hyper::client::connect::Connect;
 use libdav::auth::Auth;
-use libdav::dav::mime_types;
+use libdav::dav::{mime_types, WebDavClient};
 use libdav::CalDavClient;
 
 use crate::base::{CalendarProperty, Collection, FetchedItem, IcsItem, Item, ItemRef, Storage};
@@ -28,14 +28,22 @@ where
     ///
     /// If there are errors discovering the CalDav server.
     pub async fn new(url: Uri, auth: Auth, connector: C) -> Result<CalDavStorage<C>> {
-        let client = CalDavClient::builder()
-            .with_uri(url)
-            .with_auth(auth)
-            .bootstrap(connector)
-            .await?
-            .build();
+        let webdav = WebDavClient::new(url, auth, connector);
+        let client = CalDavClient::new_via_bootstrap(webdav).await?;
+        let principal = client
+            .find_current_user_principal()
+            .await
+            .map_err(|e| Error::new(ErrorKind::Io, e))?
+            .ok_or_else(|| Error::new(ErrorKind::Unavailable, "no user principal found"))?;
+        let calendar_home_set = client
+            .find_calendar_home_set(&principal)
+            .await
+            .map_err(|e| Error::new(ErrorKind::Io, e))?;
 
-        Ok(CalDavStorage { client })
+        Ok(CalDavStorage {
+            client,
+            calendar_home_set,
+        })
     }
 }
 
@@ -56,11 +64,9 @@ impl From<libdav::dav::DavError> for Error {
 /// A storage backed by a caldav server.
 ///
 /// A single storage represents a single server with a specific set of credentials.
-pub struct CalDavStorage<C>
-where
-    C: Connect + Sync + Send + Clone + 'static,
-{
+pub struct CalDavStorage<C: Connect + Clone + Sync + Send + 'static> {
     client: CalDavClient<C>,
+    calendar_home_set: Option<Uri>,
 }
 
 #[async_trait]
@@ -69,12 +75,12 @@ where
     C: Connect + Sync + Send + Clone,
 {
     async fn check(&self) -> Result<()> {
-        let uri = &self
-            .client
-            .calendar_home_set()
-            .unwrap_or(self.client.base_url());
+        let url = self
+            .calendar_home_set
+            .as_ref()
+            .unwrap_or(&self.client.base_url);
         self.client
-            .check_support(uri)
+            .check_support(url)
             .await
             .map_err(|e| Error::new(ErrorKind::Uncategorised, e))
     }
@@ -87,8 +93,15 @@ where
     ///
     /// Collections outside the principal's home can be referenced by using an absolute path.
     async fn discover_collections(&self) -> Result<Discovery> {
+        let Some(home_set) = &self.calendar_home_set else {
+            return Err(Error::new(
+                ErrorKind::PreconditionFailed,
+                "calendar home set was not found",
+            ));
+        };
+
         self.client
-            .find_calendars(None)
+            .find_calendars(home_set)
             .await?
             .into_iter()
             .map(|collection| {
@@ -346,7 +359,7 @@ where
     /// Returns [`ErrorKind::PreconditionFailed`] if a home set was not found in the carddav
     /// server.
     fn href_for_collection_id(&self, id: &CollectionId) -> Result<Href> {
-        if let Some(home_set) = self.client.calendar_home_set() {
+        if let Some(home_set) = &self.calendar_home_set {
             Ok(path_for_collection_in_home_set(home_set, id.as_ref()))
         } else {
             Err(Error::new(
@@ -360,7 +373,7 @@ where
 #[cfg(test)]
 mod test {
     use hyper_rustls::HttpsConnectorBuilder;
-    use libdav::{auth::Auth, CalDavClient};
+    use libdav::{auth::Auth, dav::WebDavClient, CalDavClient};
 
     use crate::{base::Storage, caldav::CalDavStorage};
 
@@ -373,13 +386,14 @@ mod test {
                 .https_or_http()
                 .enable_http1()
                 .build();
-            let client = CalDavClient::builder()
-                .with_uri("https://example.com".parse().unwrap())
-                .with_auth(Auth::None)
-                .without_discovery(https)
-                .build();
+            let base_url = "https://example.com".parse().unwrap();
+            let webdav = WebDavClient::new(base_url, Auth::None, https);
+            let client = CalDavClient::new(webdav);
 
-            CalDavStorage { client }
+            CalDavStorage {
+                client,
+                calendar_home_set: None,
+            }
         };
 
         let samples = &[

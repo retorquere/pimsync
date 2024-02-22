@@ -71,6 +71,20 @@ impl DiscoverableService {
             DiscoverableService::CalDav | DiscoverableService::CardDav => 80,
         }
     }
+
+    /// Value that must be present in the `DAV:` header when checking for support.
+    ///
+    /// # See also
+    ///
+    /// - <https://www.rfc-editor.org/rfc/rfc4791#section-5.1>
+    /// - <https://www.rfc-editor.org/rfc/rfc6352#section-6.1>
+    #[must_use]
+    pub fn access_field(self) -> &'static str {
+        match self {
+            DiscoverableService::CalDavs | DiscoverableService::CardDavs => "calendar-access",
+            DiscoverableService::CalDav | DiscoverableService::CardDav => "addressbook",
+        }
+    }
 }
 
 /// Resolves SRV to locate the caldav server.

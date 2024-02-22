@@ -21,14 +21,12 @@
 
 use crate::auth::Auth;
 use dav::DavError;
-use dav::FindCurrentUserPrincipalError;
 use dav::RequestError;
 use dns::TxtError;
 use domain::resolv::lookup::srv::SrvError;
 use http::StatusCode;
 
 pub mod auth;
-pub mod builder;
 mod caldav;
 mod carddav;
 mod common;
@@ -37,8 +35,11 @@ pub mod dns;
 pub mod names;
 pub mod xmlutils;
 
+pub use caldav::service_for_url as caldav_service_for_url;
 pub use caldav::CalDavClient;
+pub use carddav::service_for_url as carddav_service_for_url;
 pub use carddav::CardDavClient;
+pub use common::find_context_path_via_bootstrap;
 
 /// A WebDav property with a `namespace` and `name`.
 ///
@@ -70,20 +71,11 @@ pub enum BootstrapError {
     #[error("error resolving DNS SRV records")]
     DnsError(#[from] SrvError),
 
-    #[error("SRV records returned domain/port pair that failed to parse")]
+    #[error("SRV records returned domain/port pair that could not be parsed")]
     UnusableSrv(http::Error),
 
     #[error("error resolving context path via TXT records")]
     TxtError(#[from] TxtError),
-
-    #[error(transparent)]
-    HomeSet(#[from] FindHomeSetError),
-
-    #[error("error querying current user principal")]
-    CurrentPrincipal(#[from] FindCurrentUserPrincipalError),
-
-    #[error(transparent)]
-    DavError(#[from] DavError),
 
     /// The service is decidedly not available.
     ///
