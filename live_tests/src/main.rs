@@ -28,6 +28,7 @@ struct Profile {
     /// The name of the server implementation.
     server: String,
     /// Whether to perform rfc6764 bootstrap sequence.
+    #[serde(default)]
     bootstrap: bool,
 }
 
