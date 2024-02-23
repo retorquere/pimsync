@@ -8,7 +8,7 @@
 This repository contains work-in-progress rewrite of `vdirsyncer` in Rust, as
 well as crates with associated functionality.
 
-For the original Python implementation see https://github.com/pimutils/vdirsyncer.
+For the original Python implementation see: https://github.com/pimutils/vdirsyncer
 
 # Documentation
 
