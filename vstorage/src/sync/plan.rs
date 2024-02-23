@@ -52,7 +52,7 @@ pub enum PlanError {
 pub struct Plan<I: Item> {
     pub(super) storage_a: Arc<dyn Storage<I>>,
     pub(super) storage_b: Arc<dyn Storage<I>>,
-    pub(super) collection_plans: Vec<CollectionPlan>,
+    pub collection_plans: Vec<CollectionPlan>,
 }
 
 /// Show only details of the plan itself; ignore other data.
@@ -459,10 +459,10 @@ fn resolve_mapping_counterpart<I: Item>(
 
 /// A set of actions required to sync a collection between two storages.
 #[derive(Debug)]
-pub(super) struct CollectionPlan {
-    pub(super) alias: String,
-    pub(super) collection_action: CollectionAction,
-    pub(super) item_actions: Vec<ItemAction>,
+pub struct CollectionPlan {
+    pub alias: String,
+    pub collection_action: CollectionAction,
+    pub item_actions: Vec<ItemAction>,
     pub(super) href_a: Href,
     pub(super) href_b: Href,
     pub(super) id_a: Option<CollectionId>,

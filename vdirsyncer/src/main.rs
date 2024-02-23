@@ -77,9 +77,7 @@ impl<I: Item> NamedPair<I> {
         };
         drop(status);
 
-        // FIXME: print this in more human-friendly format
-        // TODO: print with log level INFO
-        dbg!(&plan);
+        info_plan(&plan)?;
 
         if dry_run {
             debug!("Dry run: not synchronising.");
@@ -107,6 +105,23 @@ impl<I: Item> NamedPair<I> {
 
         Ok(())
     }
+}
+
+fn info_plan<I: Item>(plan: &Plan<I>) -> anyhow::Result<()> {
+    for cp in &plan.collection_plans {
+        info!(
+            "collection: {}, action: {}. {} item actions.",
+            cp.alias,
+            cp.collection_action,
+            cp.item_actions.len()
+        );
+        // TODO: somehow print count of no-op items.
+
+        for item in &cp.item_actions {
+            info!("item: {}", item);
+        }
+    }
+    Ok(())
 }
 
 pub(crate) struct App {
