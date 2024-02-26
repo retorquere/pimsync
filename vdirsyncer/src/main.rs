@@ -77,7 +77,7 @@ impl<I: Item> NamedPair<I> {
         };
         drop(status);
 
-        info_plan(&plan)?;
+        info_plan(&plan);
 
         if dry_run {
             debug!("Dry run: not synchronising.");
@@ -107,7 +107,7 @@ impl<I: Item> NamedPair<I> {
     }
 }
 
-fn info_plan<I: Item>(plan: &Plan<I>) -> anyhow::Result<()> {
+fn info_plan<I: Item>(plan: &Plan<I>) {
     for cp in &plan.collection_plans {
         info!(
             "collection: {}, action: {}. {} item actions.",
@@ -121,7 +121,6 @@ fn info_plan<I: Item>(plan: &Plan<I>) -> anyhow::Result<()> {
             info!("item: {}", item);
         }
     }
-    Ok(())
 }
 
 pub(crate) struct App {
