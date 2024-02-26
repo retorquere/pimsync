@@ -24,12 +24,12 @@ pub const DISALLOWED_FOR_HREF: &AsciiSet = &NON_ALPHANUMERIC.remove(b'/').remove
 /// # Errors
 ///
 /// - If any of the `<DAV:status>` nodes is missing the status text, returns
-/// [`DavError::InvalidResponse`].
+///   [`WebDavError::InvalidResponse`].
 ///
 /// - If the text inside a `<DAV:status>` node is not a valid status line, returns
-/// [`DavError::InvalidStatusCode`].
+///   [`WebDavError::InvalidStatusCode`].
 ///
-/// - If any of the statuses are non-success, returns [`DavError::BadStatusCode`].
+/// - If any of the statuses are non-success, returns [`WebDavError::BadStatusCode`].
 pub fn check_multistatus(root: Node) -> Result<(), WebDavError> {
     let statuses = root
         .descendants()
