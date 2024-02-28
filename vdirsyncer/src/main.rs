@@ -57,7 +57,7 @@ impl<I: Item> NamedPair<I> {
     /// Returns an error only if it is fatal.
     ///
     /// If partial errors occurred during synchronisations, returns `Ok(())`.
-    async fn synchronise_pair(self: &NamedPair<I>, dry_run: bool) -> anyhow::Result<()> {
+    async fn synchronise_pair(&self, dry_run: bool) -> anyhow::Result<()> {
         // TODO: lock storages so we can do things in parallel
         let status = match self.open_status_ro() {
             Ok(s) => s,
