@@ -83,39 +83,23 @@ impl std::fmt::Display for ItemAction {
         match self {
             ItemAction::SaveToStatus { a, .. } => write!(f, "save to status (uid: {})", a.uid),
             ItemAction::ClearStatus { uid } => write!(f, "clear from status (uid: {uid})"),
-            ItemAction::CreateInA { source } => write!(
-                f,
-                "create in storage a (uid: {}, from: {})",
-                source.uid, source.href
-            ),
-            ItemAction::CreateInB { source } => write!(
-                f,
-                "create in storage b (uid: {}, from: {})",
-                source.uid, source.href
-            ),
-            ItemAction::UpdateInA { source, target } => write!(
-                f,
-                "update in storage a (uid: {}, into: {})",
-                source.uid, target.href
-            ),
-            ItemAction::UpdateInB { source, target } => write!(
-                f,
-                "update in storage b (uid: {}, into: {})",
-                source.uid, target.href
-            ),
+            ItemAction::CreateInA { source } => {
+                write!(f, "create in storage a (uid: {})", source.uid)
+            }
+            ItemAction::CreateInB { source } => {
+                write!(f, "create in storage b (uid: {})", source.uid)
+            }
+            ItemAction::UpdateInA { source, .. } => {
+                write!(f, "update in storage a (uid: {})", source.uid)
+            }
+            ItemAction::UpdateInB { source, .. } => {
+                write!(f, "update in storage b (uid: {})", source.uid,)
+            }
             ItemAction::DeleteInA { target } => {
-                write!(
-                    f,
-                    "delete in storage a (uid: {}, href: {})",
-                    target.uid, target.href
-                )
+                write!(f, "delete in storage a (uid: {})", target.uid)
             }
             ItemAction::DeleteInB { target } => {
-                write!(
-                    f,
-                    "delete in storage b (uid: {}, href: {})",
-                    target.uid, target.href
-                )
+                write!(f, "delete in storage b (uid: {})", target.uid)
             }
             ItemAction::Conflict { uid } => {
                 write!(f, "conflict (uid: {uid})")

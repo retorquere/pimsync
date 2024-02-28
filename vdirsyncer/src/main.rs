@@ -77,7 +77,7 @@ impl<I: Item> NamedPair<I> {
         };
         drop(status);
 
-        info_plan(&plan);
+        info_plan(self, &plan);
 
         if dry_run {
             debug!("Dry run: not synchronising.");
@@ -107,7 +107,8 @@ impl<I: Item> NamedPair<I> {
     }
 }
 
-fn info_plan<I: Item>(plan: &Plan<I>) {
+fn info_plan<I: Item>(pair: &NamedPair<I>, plan: &Plan<I>) {
+    info!(">>> Plan for storage pair '{}'", pair.name);
     for cp in &plan.collection_plans {
         info!(
             "collection: {}, action: {}. {} item actions.",
@@ -115,6 +116,7 @@ fn info_plan<I: Item>(plan: &Plan<I>) {
             cp.collection_action,
             cp.item_actions.len()
         );
+        // TODO: debug!() each item with full details.
         // TODO: somehow print count of no-op items.
 
         for item in &cp.item_actions {
