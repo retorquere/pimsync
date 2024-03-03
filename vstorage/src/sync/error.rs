@@ -159,7 +159,7 @@ mod test {
         };
         let msg = err.to_string();
         let expected = concat!(
-            "Error executing item action 'create in storage a (uid: d99ed506-dceb-49f2-a1c9-efa63c68acd0, from: /path/to/some/file.vcf)': ",
+            "Error executing item action 'create in storage a (uid: d99ed506-dceb-49f2-a1c9-efa63c68acd0)': ",
             "storage operation returned error: ",
             "access to the resource was denied: ",
             "Not enough mana"
