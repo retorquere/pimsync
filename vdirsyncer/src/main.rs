@@ -10,6 +10,7 @@ use anyhow::{bail, Context};
 use camino::Utf8PathBuf;
 use clap::Parser;
 use log::{debug, error, info, warn};
+use tokio::sync::Mutex;
 use vstorage::{
     base::{IcsItem, Item, Storage, VcardItem},
     sync::{declare::StoragePair, plan::Plan, status::StatusDatabase, SyncError},
@@ -36,6 +37,7 @@ pub(crate) struct NamedPair<I: Item> {
     name: String,
     inner: StoragePair<I>,
     status_path: Utf8PathBuf,
+    plan: Mutex<Option<Plan<I>>>,
 }
 
 /// Simply log non-fatal errors.
@@ -56,35 +58,37 @@ impl<I: Item> NamedPair<I> {
 
     /// Returns an error only if it is fatal.
     ///
-    /// If partial errors occurred during synchronisations, returns `Ok(())`.
-    async fn synchronise_pair(&self, dry_run: bool) -> anyhow::Result<()> {
-        // TODO: lock storages so we can do things in parallel
+    /// If partial errors occurred during synchronisations, returns `Ok(None)`.
+    async fn create_plan(&self) -> anyhow::Result<()> {
+        let mut plan = self.plan.lock().await;
+        if plan.is_some() {
+            bail!("Pair {} already has a plan!", self.name);
+        }
         let status = match self.open_status_ro() {
             Ok(s) => s,
             Err(err) => {
-                error!("Skipping {}; failed to open status db: {}", self.name, err);
+                error!("Skipping {}, failed to open status db: {}", self.name, err);
                 return Ok(());
             }
         };
 
         debug!("Creating plan for storage pair '{}'.", self.name);
-        let plan = match Plan::new(&self.inner, status.as_ref()).await {
-            Ok(p) => p,
-            Err(err) => {
-                error!("Skipping pair {}; planning failed: {}", self.name, err);
-                return Ok(());
-            }
+        match Plan::new(&self.inner, status.as_ref()).await {
+            Ok(p) => *plan = Some(p),
+            Err(err) => error!("Skipping pair {}; planning failed: {}", self.name, err),
         };
-        drop(status);
+        Ok(())
+    }
 
-        info_plan(self, &plan);
-
-        if dry_run {
-            debug!("Dry run: not synchronising.");
-        } else {
+    // Execute and consume the current plan.
+    async fn execute_plan(&self) -> anyhow::Result<()> {
+        let mut plan = self.plan.lock().await;
+        if let Some(plan) = plan.take() {
             let status = self.open_status_rw()?;
             plan.execute(&status, log_error).await?;
-        }
+        } else {
+            debug!("no plan to execute for {}", self.name);
+        };
 
         Ok(())
     }
@@ -105,22 +109,26 @@ impl<I: Item> NamedPair<I> {
 
         Ok(())
     }
-}
 
-fn info_plan<I: Item>(pair: &NamedPair<I>, plan: &Plan<I>) {
-    info!(">>> Plan for storage pair '{}'", pair.name);
-    for cp in &plan.collection_plans {
-        info!(
-            "collection: {}, action: {}. {} item actions.",
-            cp.alias,
-            cp.collection_action,
-            cp.item_actions.len()
-        );
-        // TODO: debug!() each item with full details.
-        // TODO: somehow print count of no-op items.
+    async fn info_plan(&self) {
+        // TODO: need to lock stdout/stderr for concurrent runs.
+        let plan = self.plan.lock().await;
+        if let Some(plan) = plan.as_ref() {
+            info!(">>> Plan for storage pair '{}'", self.name);
+            for cp in &plan.collection_plans {
+                info!(
+                    "collection: {}, action: {}. {} item actions.",
+                    cp.alias,
+                    cp.collection_action,
+                    cp.item_actions.len()
+                );
+                // TODO: debug!() each item with full details.
+                // TODO: somehow print count of no-op items.
 
-        for item in &cp.item_actions {
-            info!("item: {}", item);
+                for item in &cp.item_actions {
+                    info!("item: {}", item);
+                }
+            }
         }
     }
 }
@@ -138,10 +146,28 @@ impl App {
     async fn sync(&self, dry_run: bool) -> anyhow::Result<()> {
         // TODO: protect from concurrent runs!
         for pair in &self.calendar_pairs {
-            pair.synchronise_pair(dry_run).await?;
+            pair.create_plan().await?;
         }
         for pair in &self.contact_pairs {
-            pair.synchronise_pair(dry_run).await?;
+            pair.create_plan().await?;
+        }
+
+        for pair in &self.calendar_pairs {
+            pair.info_plan().await;
+        }
+        for pair in &self.contact_pairs {
+            pair.info_plan().await;
+        }
+
+        if dry_run {
+            info!("Dry run: not synchronising.");
+        } else {
+            for pair in &self.calendar_pairs {
+                pair.execute_plan().await?;
+            }
+            for pair in &self.contact_pairs {
+                pair.execute_plan().await?;
+            }
         }
         info!("Synchronisation complete");
         Ok(())

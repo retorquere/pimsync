@@ -22,6 +22,7 @@ use libdav::auth::Password;
 use log::{debug, error};
 use rustls::{client::danger::DangerousClientConfigBuilder, ClientConfig, RootCertStore};
 use serde::{Deserialize, Deserializer};
+use tokio::sync::Mutex;
 use vstorage::{
     base::{IcsItem, Item, Storage, VcardItem},
     caldav::CalDavStorage,
@@ -205,6 +206,7 @@ impl PairSection {
             name,
             inner: pair,
             status_path,
+            plan: Mutex::new(None),
         }
     }
 }
