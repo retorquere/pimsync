@@ -110,7 +110,7 @@ impl<I: Item> NamedPair<I> {
         Ok(())
     }
 
-    async fn info_plan(&self) {
+    async fn print_plan(&self) {
         // TODO: need to lock stdout/stderr for concurrent runs.
         let plan = self.plan.lock().await;
         if let Some(plan) = plan.as_ref() {
@@ -122,11 +122,10 @@ impl<I: Item> NamedPair<I> {
                     cp.collection_action,
                     cp.item_actions.len()
                 );
-                // TODO: debug!() each item with full details.
-                // TODO: somehow print count of no-op items.
 
                 for item in &cp.item_actions {
                     info!("item: {}", item);
+                    debug!("{item:?}");
                 }
             }
         }
@@ -159,10 +158,10 @@ impl App {
         }
 
         for pair in &self.calendar_pairs {
-            pair.info_plan().await;
+            pair.print_plan().await;
         }
         for pair in &self.contact_pairs {
-            pair.info_plan().await;
+            pair.print_plan().await;
         }
 
         if dry_run {
