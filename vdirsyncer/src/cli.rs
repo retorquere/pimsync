@@ -14,6 +14,9 @@ pub(crate) enum Command {
         /// Only plan changes but don't execute any.
         #[arg(short, long)]
         dry_run: bool,
+        /// Only synchronise this pair
+        #[arg()]
+        pair: Option<String>,
     },
     /// Discover and display remote collections.
     Discover,

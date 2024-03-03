@@ -400,6 +400,7 @@ impl CardDav {
             self.url.parse()?,
             libdav::auth::Auth::Basic {
                 username: self.username.into_string()?,
+                // TODO: don't prompt if won't be sync'ed
                 password: Some(self.password.into_password()?),
             },
             self.network_opts.into_connector()?,
@@ -430,6 +431,7 @@ impl CalDav {
                 .context("parsing caldav URL")?,
             libdav::auth::Auth::Basic {
                 username: self.username.into_string()?,
+                // TODO: don't prompt if won't be sync'ed
                 password: Some(self.password.into_password()?),
             },
             self.network_opts.into_connector()?,

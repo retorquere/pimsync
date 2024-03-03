@@ -142,6 +142,12 @@ pub(crate) struct App {
 }
 
 impl App {
+    // Only retain a pair with the given name.
+    fn only(&mut self, name: &str) {
+        self.calendar_pairs.retain(|p| p.name == name);
+        self.contact_pairs.retain(|p| p.name == name);
+    }
+
     /// Returns an error if a fatal error has ocurred.
     async fn sync(&self, dry_run: bool) -> anyhow::Result<()> {
         // TODO: protect from concurrent runs!
@@ -194,7 +200,7 @@ async fn main() -> anyhow::Result<()> {
     let config = config::load_from_default_path().context("could not load configuration file")?;
     debug!("Parsed configuration: {:?}", &config);
 
-    let app = config
+    let mut app = config
         .into_app()
         .await
         .context("Failed to initialise with given configuration.")?;
@@ -205,7 +211,11 @@ async fn main() -> anyhow::Result<()> {
         Command::Sync {
             continuous,
             dry_run,
+            pair,
         } => {
+            if let Some(name) = pair {
+                app.only(&name);
+            }
             if continuous {
                 if dry_run {
                     bail!("dry-run and continuous are mutually exclusive");
