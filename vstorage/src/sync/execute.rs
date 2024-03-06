@@ -33,6 +33,7 @@ impl ItemAction {
         status: &StatusDatabase,
         mapping_uid: &MappingUid,
     ) -> Result<Result<(), ExecutionError>, StatusError> {
+        debug!("Executing item action: {self}");
         match self {
             ItemAction::SaveToStatus { a, b } => status
                 .insert_item(

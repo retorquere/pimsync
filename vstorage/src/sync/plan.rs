@@ -536,7 +536,7 @@ impl CollectionPlan {
 #[derive(PartialEq, Debug, Clone)]
 pub enum ItemAction {
     // Item is identical on both sides but are missing from state.
-    // This mostly happens during the first run.
+    // This mostly happens during the first run, but can happen when recovering from interruptions.
     SaveToStatus { a: ItemState, b: ItemState },
     // State is stale and item is gone on both sides.
     ClearStatus { uid: String },
