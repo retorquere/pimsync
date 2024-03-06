@@ -116,7 +116,7 @@ impl StatusDatabase {
     /// In case of interruption during the first initialisation, later attempts will finalise
     /// creating tables and indexes.
     fn init_schema(&self) -> Result<(), StatusError> {
-        debug!("Initialising status database");
+        debug!("Ensuring that status database is initialised.");
         self.conn
             .execute("CREATE TABLE IF NOT EXISTS meta (version INTEGER PRIMARY KEY)")?;
 
