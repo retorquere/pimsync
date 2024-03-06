@@ -538,6 +538,7 @@ pub enum ItemAction {
     // Item is identical on both sides but are missing from state.
     // This mostly happens during the first run, but can happen when recovering from interruptions.
     SaveToStatus { a: ItemState, b: ItemState },
+    UpdateStatus { a: ItemState, b: ItemState },
     // State is stale and item is gone on both sides.
     ClearStatus { uid: String },
     CreateInA { source: ItemState },
@@ -588,7 +589,7 @@ impl ItemAction {
                         None
                     } else {
                         // Item has changed on both sides, but is identical.
-                        Some(ItemAction::SaveToStatus {
+                        Some(ItemAction::UpdateStatus {
                             a: a.clone(),
                             b: b.clone(),
                         })

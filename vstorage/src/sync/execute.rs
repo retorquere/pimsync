@@ -44,6 +44,9 @@ impl ItemAction {
                     &b.to_item_ref(),
                 )
                 .map(|()| Ok(())),
+            ItemAction::UpdateStatus { a, b } => status
+                .update_item(&a.hash, &a.etag, &a.href, &b.etag, &b.href)
+                .map(|()| Ok(())),
             ItemAction::ClearStatus { uid } => {
                 status.delete_item(mapping_uid, uid).map(|()| Ok(()))
             }
