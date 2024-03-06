@@ -33,42 +33,36 @@ impl ItemAction {
         status: &StatusDatabase,
         mapping_uid: &MappingUid,
     ) -> Result<Result<(), ExecutionError>, StatusError> {
-        {
-            match self {
-                ItemAction::SaveToStatus { a, b } => status
-                    .insert_item(
-                        mapping_uid,
-                        &a.uid,
-                        &a.hash,
-                        &a.to_item_ref(),
-                        &b.to_item_ref(),
-                    )
-                    .map(|()| Ok(())),
-                ItemAction::ClearStatus { uid } => {
-                    status.delete_item(mapping_uid, uid).map(|()| Ok(()))
-                }
-                ItemAction::CreateInB { source } => {
-                    create_item(source, status, col_b, a, b, mapping_uid, Side::B).await
-                }
-                ItemAction::UpdateInB { source, target } => {
-                    update_item(source, target, status, a, b, Side::B).await
-                }
-                ItemAction::CreateInA { source } => {
-                    create_item(source, status, col_a, b, a, mapping_uid, Side::A).await
-                }
-                ItemAction::UpdateInA { source, target } => {
-                    update_item(source, target, status, b, a, Side::A).await
-                }
-                ItemAction::DeleteInA { target } => {
-                    delete_item(target, status, a, mapping_uid).await
-                }
-                ItemAction::DeleteInB { target } => {
-                    delete_item(target, status, b, mapping_uid).await
-                }
-                ItemAction::Conflict { uid } => {
-                    error!("Conflict for items {}. Skipping.", uid);
-                    Ok(Ok(()))
-                }
+        match self {
+            ItemAction::SaveToStatus { a, b } => status
+                .insert_item(
+                    mapping_uid,
+                    &a.uid,
+                    &a.hash,
+                    &a.to_item_ref(),
+                    &b.to_item_ref(),
+                )
+                .map(|()| Ok(())),
+            ItemAction::ClearStatus { uid } => {
+                status.delete_item(mapping_uid, uid).map(|()| Ok(()))
+            }
+            ItemAction::CreateInB { source } => {
+                create_item(source, status, col_b, a, b, mapping_uid, Side::B).await
+            }
+            ItemAction::UpdateInB { source, target } => {
+                update_item(source, target, status, a, b, Side::B).await
+            }
+            ItemAction::CreateInA { source } => {
+                create_item(source, status, col_a, b, a, mapping_uid, Side::A).await
+            }
+            ItemAction::UpdateInA { source, target } => {
+                update_item(source, target, status, b, a, Side::A).await
+            }
+            ItemAction::DeleteInA { target } => delete_item(target, status, a, mapping_uid).await,
+            ItemAction::DeleteInB { target } => delete_item(target, status, b, mapping_uid).await,
+            ItemAction::Conflict { uid } => {
+                error!("Conflict for items {}. Skipping.", uid);
+                Ok(Ok(()))
             }
         }
     }
