@@ -1,7 +1,7 @@
 //! Types for storing status between synchronisations.
 use std::path::Path;
 
-use log::debug;
+use log::{debug, error};
 use sqlite::{Connection, ConnectionThreadSafe, OpenFlags, State};
 
 use crate::{base::ItemRef, CollectionId, Etag, Href};
@@ -325,6 +325,7 @@ impl StatusDatabase {
         statement.next()?;
 
         if self.conn.change_count() == 0 {
+            error!("update_item did not affect any rows! href_a: {href_a}, href_b: {href_b}");
             Err(StatusError::NoUpdate)
         } else {
             Ok(())
