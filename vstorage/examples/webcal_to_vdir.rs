@@ -19,7 +19,7 @@ use std::sync::Arc;
 use vstorage::base::FetchedItem;
 use vstorage::base::Item;
 use vstorage::base::Storage;
-use vstorage::filesystem::FilesystemStorage;
+use vstorage::vdir::VdirStorage;
 use vstorage::webcal::WebCalStorage;
 
 #[tokio::main]
@@ -37,7 +37,7 @@ async fn main() {
     let webcal = Arc::from(
         WebCalStorage::new(url, "holidays_nl".parse().unwrap()).expect("can create webcal storage"),
     );
-    let fs = Arc::new(FilesystemStorage::new(path, String::from("ics")));
+    let fs = Arc::new(VdirStorage::new(path, String::from("ics")));
 
     let webcal_collection = "holidays_nl";
     let fs_collection = fs

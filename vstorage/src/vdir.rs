@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: EUPL-1.2
 
-//! Implements reading/writing entries from a local filesystem [`vdir`].
+//! Implements reading/writing entries from a local [`vdir`].
 //!
 //! - The `href` for an items is its filename relative to its parent directory.
 //! - The `href` for a collection is its absolute path. This may change in future.
@@ -27,14 +27,15 @@ use crate::{CollectionId, Error, ErrorKind, Etag, Href, Result};
 
 // TODO: atomic writes
 
-/// A filesystem directory containing zero or more directories.
+/// A `vdir` filesystem directory containing zero or more directories.
 ///
 /// Each child directory is treated as [`Collection`]. Nested subdirectories are not supported.
 ///
 /// # Hrefs
 ///
 /// Internally, all `href`s are paths relative to the base directory.
-pub struct FilesystemStorage<I: Item> {
+// TODO: add link to spec here.
+pub struct VdirStorage<I: Item> {
     /// The path to a directory containing a storage.
     ///
     /// Each top-level subdirectory will be treated as a separate collection, and individual files
@@ -47,7 +48,7 @@ pub struct FilesystemStorage<I: Item> {
 }
 
 #[async_trait]
-impl<I: Item> Storage<I> for FilesystemStorage<I>
+impl<I: Item> Storage<I> for VdirStorage<I>
 where
     I::CollectionProperty: PropertyWithFilename,
 {
@@ -289,7 +290,7 @@ where
     }
 }
 
-impl<I: Item> FilesystemStorage<I> {
+impl<I: Item> VdirStorage<I> {
     #[must_use]
     pub fn new(path: Utf8PathBuf, extension: String) -> Self {
         Self {
@@ -382,7 +383,7 @@ fn etag_for_metadata(metadata: &Metadata) -> Etag {
 /// Helper to synchronise collection properties into filesystem.
 ///
 /// This trait should only be required when implementing a new [`Item`] type that should work with
-/// the existing [`FilesystemStorage`] implementation.
+/// the existing [`VdirStorage`] implementation.
 ///
 /// In order for the `Item`'s properties to synchronise to the filesystem, it should implement this
 /// trait.
@@ -419,7 +420,7 @@ mod tests {
 
     use crate::{
         base::{CalendarProperty, IcsItem, Storage},
-        filesystem::FilesystemStorage,
+        vdir::VdirStorage,
         CollectionId, ErrorKind,
     };
     use tempfile::tempdir;
@@ -428,7 +429,7 @@ mod tests {
     async fn test_missing_displayname() {
         let dir = tempdir().unwrap();
 
-        let storage = FilesystemStorage::<IcsItem>::new(
+        let storage = VdirStorage::<IcsItem>::new(
             dir.path().to_path_buf().try_into().unwrap(),
             "ics".to_string(),
         );
@@ -447,7 +448,7 @@ mod tests {
     #[tokio::test]
     async fn test_path_handling() {
         let dir = tempdir().unwrap();
-        let storage = FilesystemStorage::<IcsItem>::new(
+        let storage = VdirStorage::<IcsItem>::new(
             dir.path().to_path_buf().try_into().unwrap(),
             "ics".to_string(),
         );
@@ -497,7 +498,7 @@ mod tests {
     #[tokio::test]
     async fn test_missing_paths() {
         let dir = tempdir().unwrap();
-        let storage = FilesystemStorage::<IcsItem>::new(
+        let storage = VdirStorage::<IcsItem>::new(
             dir.path().to_path_buf().try_into().unwrap(),
             "ics".to_string(),
         );
@@ -515,7 +516,7 @@ mod tests {
     #[tokio::test]
     async fn test_write_read_colour() {
         let dir = tempdir().unwrap();
-        let storage = FilesystemStorage::<IcsItem>::new(
+        let storage = VdirStorage::<IcsItem>::new(
             dir.path().to_path_buf().try_into().unwrap(),
             "ics".to_string(),
         );
@@ -539,7 +540,7 @@ mod tests {
     #[tokio::test]
     async fn test_read_missing_description() {
         let dir = tempdir().unwrap();
-        let storage = FilesystemStorage::<IcsItem>::new(
+        let storage = VdirStorage::<IcsItem>::new(
             dir.path().to_path_buf().try_into().unwrap(),
             "ics".to_string(),
         );
@@ -561,7 +562,7 @@ mod tests {
     #[tokio::test]
     async fn test_href_for_collection_id() {
         let dir = tempdir().unwrap();
-        let storage = FilesystemStorage::<IcsItem>::new(
+        let storage = VdirStorage::<IcsItem>::new(
             dir.path().to_path_buf().try_into().unwrap(),
             "ics".to_string(),
         );

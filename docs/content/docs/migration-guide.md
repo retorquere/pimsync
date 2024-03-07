@@ -127,11 +127,26 @@ without executing it.
 This can be used to audit new configurations and ensure that the planned
 actions make sense.
 
-## Custom encodings for filesystem storage
+## Filesystem storages have been renamed to `vdir/icalendar` and `vdir/vcard`
 
-The filesystem storage saves files as UTF-8, and attempting to use the
-`encoding` setting will fail. If another encoding is required for some
-scenario, please [open an issue].
+Filesystem collections have been renamed to `vdir`. They must now specify what
+type of items they contains. E.g.:
+
+```toml
+type = "vdir/icalendar"
+```
+
+Or:
+
+```toml
+type = "vdir/vcard"
+```
+
+## Custom encodings for vdir storage
+
+The vdir storage saves files as UTF-8, and attempting to use the `encoding`
+setting will fail. If another encoding is required for some scenario, please
+[open an issue].
 
 <!-- TODO: this should be replaced with a link to a page describing issues and lists -->
 
@@ -139,23 +154,9 @@ scenario, please [open an issue].
 
 ## Filesystem `fileext` field
 
-The `fileext` field previously required a leading `.`. This is no longer the
-case; the dot is not considered part of the extensions and should be omitted.
-The current behaviour is backwards compatible and will ignore leading dots.
-
-## Filesystem collections require an explicit subtype
-
-Filesystem collections must now specify what type of items they contains. E.g.:
-
-```toml
-type = "filesystem/icalendar"
-```
-
-Or:
-
-```toml
-type = "filesystem/vcard"
-```
+The `fileext` field for filesystem storages required a leading `.`. This is no
+longer the case; the dot is not considered part of the extensions and should be
+omitted. Remove the leading dot when porting configurations.
 
 ## Collections are declared in a different format
 

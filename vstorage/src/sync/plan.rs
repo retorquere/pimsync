@@ -201,11 +201,11 @@ mod test {
 
     use crate::{
         base::{IcsItem, Storage},
-        filesystem::FilesystemStorage,
         sync::{
             declare::{CollectionDescription, DeclaredMapping, StoragePair},
             plan::{create_mappings_for_pair, Plan, PlanError},
         },
+        vdir::VdirStorage,
         CollectionId,
     };
 
@@ -214,11 +214,11 @@ mod test {
         let dir_a = Builder::new().prefix("vstorage").tempdir().unwrap();
         let dir_b = Builder::new().prefix("vstorage").tempdir().unwrap();
 
-        let storage_a = Arc::new(FilesystemStorage::<IcsItem>::new(
+        let storage_a = Arc::new(VdirStorage::<IcsItem>::new(
             dir_a.path().to_path_buf().try_into().unwrap(),
             "ics".to_string(),
         ));
-        let storage_b = Arc::from(FilesystemStorage::<IcsItem>::new(
+        let storage_b = Arc::from(VdirStorage::<IcsItem>::new(
             dir_b.path().to_path_buf().try_into().unwrap(),
             "ics".to_string(),
         ));
@@ -233,11 +233,11 @@ mod test {
         let dir_a = Builder::new().prefix("vstorage").tempdir().unwrap();
         let dir_b = Builder::new().prefix("vstorage").tempdir().unwrap();
 
-        let storage_a = Arc::new(FilesystemStorage::<IcsItem>::new(
+        let storage_a = Arc::new(VdirStorage::<IcsItem>::new(
             dir_a.path().to_path_buf().try_into().unwrap(),
             "ics".to_string(),
         ));
-        let storage_b = Arc::from(FilesystemStorage::<IcsItem>::new(
+        let storage_b = Arc::from(VdirStorage::<IcsItem>::new(
             dir_b.path().to_path_buf().try_into().unwrap(),
             "ics".to_string(),
         ));
@@ -258,11 +258,11 @@ mod test {
         let dir_a = Builder::new().prefix("vstorage").tempdir().unwrap();
         let dir_b = Builder::new().prefix("vstorage").tempdir().unwrap();
 
-        let storage_a = Arc::new(FilesystemStorage::<IcsItem>::new(
+        let storage_a = Arc::new(VdirStorage::<IcsItem>::new(
             dir_a.path().to_path_buf().try_into().unwrap(),
             "ics".to_string(),
         ));
-        let storage_b = Arc::from(FilesystemStorage::<IcsItem>::new(
+        let storage_b = Arc::from(VdirStorage::<IcsItem>::new(
             dir_b.path().to_path_buf().try_into().unwrap(),
             "ics".to_string(),
         ));
@@ -282,11 +282,11 @@ mod test {
         let dir_a = Builder::new().prefix("vstorage").tempdir().unwrap();
         let dir_b = Builder::new().prefix("vstorage").tempdir().unwrap();
 
-        let storage_a = Arc::new(FilesystemStorage::<IcsItem>::new(
+        let storage_a = Arc::new(VdirStorage::<IcsItem>::new(
             dir_a.path().to_path_buf().try_into().unwrap(),
             "ics".to_string(),
         ));
-        let storage_b = Arc::from(FilesystemStorage::<IcsItem>::new(
+        let storage_b = Arc::from(VdirStorage::<IcsItem>::new(
             dir_b.path().to_path_buf().try_into().unwrap(),
             "ics".to_string(),
         ));
@@ -311,11 +311,11 @@ mod test {
         let dir_a = Builder::new().prefix("vstorage").tempdir().unwrap();
         let dir_b = Builder::new().prefix("vstorage").tempdir().unwrap();
 
-        let storage_a = Arc::new(FilesystemStorage::<IcsItem>::new(
+        let storage_a = Arc::new(VdirStorage::<IcsItem>::new(
             dir_a.path().to_path_buf().try_into().unwrap(),
             "ics".to_string(),
         ));
-        let storage_b = Arc::from(FilesystemStorage::<IcsItem>::new(
+        let storage_b = Arc::from(VdirStorage::<IcsItem>::new(
             dir_b.path().to_path_buf().try_into().unwrap(),
             "ics".to_string(),
         ));

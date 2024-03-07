@@ -27,11 +27,11 @@ use crate::{ErrorKind, Etag, Result};
 /// # Example
 ///
 /// ```
-/// # use vstorage::filesystem::FilesystemStorage;
+/// # use vstorage::vdir::VdirStorage;
 /// # use crate::vstorage::base::IcsItem;
 /// # use camino::Utf8PathBuf;
 /// # use vstorage::readonly::ReadOnlyStorage;
-/// let orig = FilesystemStorage::<IcsItem>::new(
+/// let orig = VdirStorage::<IcsItem>::new(
 ///     Utf8PathBuf::from("/path/to/storage/"),
 ///     String::from("ics"),
 /// );

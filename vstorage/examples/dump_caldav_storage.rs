@@ -9,7 +9,7 @@ use libdav::auth::Auth;
 use vstorage::{
     base::{FetchedItem, IcsItem, Storage},
     caldav::CalDavStorage,
-    filesystem::FilesystemStorage,
+    vdir::VdirStorage,
 };
 
 async fn create_caldav_from_env() -> Arc<dyn Storage<IcsItem>> {
@@ -38,7 +38,7 @@ async fn create_caldav_from_env() -> Arc<dyn Storage<IcsItem>> {
 
 async fn create_vdir_from_env() -> Arc<dyn Storage<IcsItem>> {
     let path = std::env::var("VDIR_PATH").unwrap();
-    let storage = FilesystemStorage::new(path.try_into().unwrap(), "ics".to_string());
+    let storage = VdirStorage::new(path.try_into().unwrap(), "ics".to_string());
     Arc::new(storage)
 }
 #[tokio::main]

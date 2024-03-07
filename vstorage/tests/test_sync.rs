@@ -7,10 +7,10 @@ use rand::{distributions::Alphanumeric, thread_rng, Rng};
 use std::fmt::Write;
 use std::sync::Arc;
 use vstorage::base::{IcsItem, Storage};
-use vstorage::filesystem::FilesystemStorage;
 use vstorage::sync::declare::{DeclaredMapping, StoragePair};
 use vstorage::sync::plan::Plan;
 use vstorage::sync::status::StatusDatabase;
+use vstorage::vdir::VdirStorage;
 
 fn random_string(len: usize) -> String {
     thread_rng()
@@ -40,7 +40,7 @@ fn minimal_icalendar(summary: &str) -> anyhow::Result<String> {
 
 async fn create_populated_storage(path: Utf8PathBuf) -> Arc<dyn Storage<IcsItem>> {
     std::fs::create_dir(&path).unwrap();
-    let storage = FilesystemStorage::<IcsItem>::new(path, "ics".into());
+    let storage = VdirStorage::<IcsItem>::new(path, "ics".into());
 
     let first = storage.create_collection("first-calendar").await.unwrap();
     let item = &minimal_icalendar("First calendar event one")
@@ -78,7 +78,7 @@ async fn create_populated_storage(path: Utf8PathBuf) -> Arc<dyn Storage<IcsItem>
 
 async fn create_empty_storage(path: Utf8PathBuf) -> Arc<dyn Storage<IcsItem>> {
     std::fs::create_dir(&path).unwrap();
-    let storage = FilesystemStorage::<IcsItem>::new(path, "ics".into());
+    let storage = VdirStorage::<IcsItem>::new(path, "ics".into());
     Arc::new(storage)
 }
 

@@ -27,8 +27,8 @@ use vstorage::{
     base::{IcsItem, Item, Storage, VcardItem},
     caldav::CalDavStorage,
     carddav::CardDavStorage,
-    filesystem::FilesystemStorage,
     sync::declare::{CollectionDescription, DeclaredMapping, StoragePair},
+    vdir::VdirStorage,
     webcal::WebCalStorage,
     CollectionId,
 };
@@ -292,11 +292,11 @@ enum StorageSection {
     // - collection: refuses to operate if a non-empty collection would be emptied or deleted.
     // - storage: refuses to operate if ALL collections would be emptied or deleted.
     // TODO: changelog MUST mention the change in default behaviour here.
-    #[serde(rename = "filesystem/icalendar")]
-    FilesystemIcalendar(Filesystem<IcsItem>),
+    #[serde(rename = "vdir/icalendar")]
+    VdirIcalendar(Vdir<IcsItem>),
 
-    #[serde(rename = "filesystem/vcard")]
-    FilesystemVcard(Filesystem<VcardItem>),
+    #[serde(rename = "vdir/vcard")]
+    VdirVcard(Vdir<VcardItem>),
 
     #[serde(rename = "carddav")]
     CardDav(CardDav),
@@ -325,11 +325,11 @@ impl EitherStorage {
 impl StorageSection {
     pub(crate) async fn into_storage(self, name: String) -> anyhow::Result<EitherStorage> {
         Ok(match self {
-            StorageSection::FilesystemIcalendar(def) => {
+            StorageSection::VdirIcalendar(def) => {
                 let inner = Arc::new(def.into_storage()?);
                 EitherStorage::Calendar(NamedStorage { name, inner })
             }
-            StorageSection::FilesystemVcard(def) => {
+            StorageSection::VdirVcard(def) => {
                 let inner = Arc::new(def.into_storage()?);
                 EitherStorage::AddressBook(NamedStorage { name, inner })
             }
@@ -351,7 +351,7 @@ impl StorageSection {
 
 #[derive(Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
-struct Filesystem<I: Item> {
+struct Vdir<I: Item> {
     path: Utf8PathBuf,
     fileext: String,
     /// Not implemented; bails.
@@ -364,14 +364,14 @@ struct Filesystem<I: Item> {
     item: PhantomData<I>,
 }
 
-impl<I: Item> Filesystem<I> {
-    fn into_storage(self) -> anyhow::Result<FilesystemStorage<I>> {
+impl<I: Item> Vdir<I> {
+    fn into_storage(self) -> anyhow::Result<VdirStorage<I>> {
         if self.encoding.is_some() {
             // I don't want to implement a feature that is potentially unused.
             // If someone really needs this, it's doable.
-            error!("Filesystem storage does no implement 'encoding' in v2.0.0.");
+            error!("Vdir storage does no implement 'encoding' in v2.0.0.");
             error!("If you need to define a specific encoding, please open an issue.");
-            bail!("'encoding' is not implemented for filesystem storages.");
+            bail!("'encoding' is not implemented for vdir storages.");
         }
         let path = expand_tilde(self.path).context("error expanding tilde for storage")?;
         // v0.X series expected the leading dot. This is not ideal and should be deprecated.
@@ -380,7 +380,7 @@ impl<I: Item> Filesystem<I> {
             .strip_prefix('.')
             .unwrap_or(&self.fileext)
             .to_string();
-        Ok(FilesystemStorage::new(path, fileext))
+        Ok(VdirStorage::new(path, fileext))
     }
 }
 

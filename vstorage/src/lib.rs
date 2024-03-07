@@ -17,7 +17,7 @@
 //!
 //! - A [`CalDavStorage`] is a caldav server, where each collection is an individual calendar, and
 //! each item is an individual event or todo in a calendar.
-//! - A [`FilesystemStorage`] is a local directory, where each collection is a directory and each
+//! - A [`VdirStorage`] is a local directory, where each collection is a directory and each
 //! item is a file.
 //! - A potential `ImapStorage` instance is a single IMAP account, where each collection is a
 //! mailbox and each item is an individual email message.
@@ -32,7 +32,7 @@
 //!
 //! [`Storage`]: crate::base::Storage
 //! [`CalDavStorage`]: crate::caldav::CalDavStorage
-//! [`FilesystemStorage`]: crate::filesystem::FilesystemStorage
+//! [`VdirStorage`]: crate::vdir::VdirStorage
 //!
 //! ## Collections, Hrefs and Collections Ids
 //!
@@ -66,11 +66,11 @@ pub mod caldav;
 pub mod carddav;
 mod dav;
 pub mod disco;
-pub mod filesystem;
 pub mod readonly;
 mod simple_component;
 pub mod sync;
 mod util;
+pub mod vdir;
 pub mod webcal;
 
 type Result<T, E = crate::Error> = std::result::Result<T, E>;
@@ -240,7 +240,7 @@ impl std::fmt::Display for Etag {
 /// The path to the item inside the collection.
 ///
 /// For example, for carddav collections this is the path of the entry inside the collection. For
-/// Filesystem, this the file's relative path, etc. `Href`s MUST be valid UTF-8 sequences.
+/// [`vdir::VdirStorage`], this the file's relative path, etc. `Href`s MUST be valid UTF-8 sequences.
 /// Implementations MUST define their `Href` in a way that it is possible to infer:
 ///
 /// - Whether an Href belongs to a collection or an item.
@@ -258,13 +258,13 @@ pub type Href = String;
 /// substitute for collection `href`s.
 ///
 /// The following limitations exist, given that such values would produce ambiguous results with
-/// the implementation of [`FilesystemStorage`], [`CalDavStorage`], and [`CardDavStorage`]:
+/// the implementation of [`VdirStorage`], [`CalDavStorage`], and [`CardDavStorage`]:
 ///
 /// - A `CollectionId` cannot contain a `/` (slash)
 /// - A `CollectionId` cannot be exactly `..` (double period).
 /// - A `CollectionId` cannot be exactly `.` (a single period).
 ///
-/// [`FilesystemStorage`]: crate::filesystem::FilesystemStorage
+/// [`VdirStorage`]: crate::vdir::VdirStorage
 /// [`CalDavStorage`]: crate::caldav::CalDavStorage
 /// [`CardDavStorage`]: crate::carddav::CardDavStorage
 ///
