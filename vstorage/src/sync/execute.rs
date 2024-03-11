@@ -192,7 +192,6 @@ impl<I: Item> Plan<I> {
     /// # Errors
     ///
     /// A [`StatusError`] is returned in case writing to the status database fails.
-    #[allow(clippy::too_many_lines)]
     pub async fn execute(
         self,
         status: &StatusDatabase,
