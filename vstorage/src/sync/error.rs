@@ -77,56 +77,6 @@ impl std::fmt::Display for SomeAction {
     }
 }
 
-impl std::fmt::Display for ItemAction {
-    /// This function is mostly implemented to be used for error reporting.
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ItemAction::SaveToStatus { a, .. } => write!(f, "save to status (uid: {})", a.uid),
-            ItemAction::UpdateStatus { ref_a, .. } => {
-                write!(f, "update in status (a.href: {})", ref_a.href)
-            }
-            ItemAction::ClearStatus { uid } => write!(f, "clear from status (uid: {uid})"),
-            ItemAction::CreateInA { source } => {
-                write!(f, "create in storage a (uid: {})", source.uid)
-            }
-            ItemAction::CreateInB { source } => {
-                write!(f, "create in storage b (uid: {})", source.uid)
-            }
-            ItemAction::UpdateInA { source, .. } => {
-                write!(f, "update in storage a (uid: {})", source.uid)
-            }
-            ItemAction::UpdateInB { source, .. } => {
-                write!(f, "update in storage b (uid: {})", source.uid,)
-            }
-            ItemAction::DeleteInA { target } => {
-                write!(f, "delete in storage a (uid: {})", target.uid)
-            }
-            ItemAction::DeleteInB { target } => {
-                write!(f, "delete in storage b (uid: {})", target.uid)
-            }
-            ItemAction::Conflict { uid } => {
-                write!(f, "conflict (uid: {uid})")
-            }
-        }
-    }
-}
-
-impl std::fmt::Display for CollectionAction {
-    /// Only the action itself is displayed.
-    ///
-    /// This function is mostly implemented to be used for error reporting.
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            CollectionAction::NoAction(_) => write!(f, "no action"),
-            CollectionAction::SaveToStatus => write!(f, "save to status"),
-            CollectionAction::CreateInA => write!(f, "create in storage a"),
-            CollectionAction::CreateInB => write!(f, "create in storage b"),
-            CollectionAction::CreateInBoth => write!(f, "create in both storages"),
-            CollectionAction::Delete(_, side) => write!(f, "delete from {side}"),
-        }
-    }
-}
-
 #[cfg(test)]
 mod test {
     use std::backtrace::Backtrace;
