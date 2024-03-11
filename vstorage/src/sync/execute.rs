@@ -44,8 +44,14 @@ impl ItemAction {
                     &b.to_item_ref(),
                 )
                 .map(|()| Ok(())),
-            ItemAction::UpdateStatus { a, b } => status
-                .update_item(&a.hash, &a.etag, &a.href, &b.etag, &b.href)
+            ItemAction::UpdateStatus {
+                hash,
+                ref_a: item_a,
+                ref_b: item_b,
+                new_etag_a,
+                new_etag_b,
+            } => status
+                .update_item(hash, item_a, item_b, new_etag_a, new_etag_b)
                 .map(|()| Ok(())),
             ItemAction::ClearStatus { uid } => {
                 status.delete_item(mapping_uid, uid).map(|()| Ok(()))
@@ -141,9 +147,10 @@ async fn update_item<I: Item>(
     };
 
     let hash = item.hash();
+    let source = source.to_item_ref();
     match side {
-        Side::A => status.update_item(&hash, &new_etag, &target.href, &source_etag, &source.href),
-        Side::B => status.update_item(&hash, &source_etag, &source.href, &new_etag, &target.href),
+        Side::A => status.update_item(&hash, target, &source, &new_etag, &source_etag),
+        Side::B => status.update_item(&hash, &source, target, &source_etag, &new_etag),
     }?;
 
     Ok(Ok(()))

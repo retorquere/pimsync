@@ -305,27 +305,29 @@ impl StatusDatabase {
 
     pub(super) fn update_item(
         &self,
-        hash: &str,
-        etag_a: &Etag,
-        href_a: &str,
-        etag_b: &Etag,
-        href_b: &str,
+        new_hash: &str,
+        ref_a: &ItemRef,
+        ref_b: &ItemRef,
+        new_etag_a: &Etag,
+        new_etag_b: &Etag,
     ) -> Result<(), StatusError> {
-        // Here we update by href to avoid issue with items in other collections with matching UID.
+        // Keep in mind that items in other collections may have the same UID.
         let query = concat!(
             "UPDATE items SET hash = ?, etag_a = ?, etag_b = ?",
-            " WHERE href_a = ? AND href_b = ?"
+            " WHERE href_a = ? AND href_b = ? AND etag_a = ? AND etag_b = ?"
         );
         let mut statement = self.conn.prepare(query)?;
-        statement.bind((1, hash))?;
-        statement.bind((2, etag_a.as_ref()))?;
-        statement.bind((3, etag_b.as_ref()))?;
-        statement.bind((4, href_a))?;
-        statement.bind((5, href_b))?;
+        statement.bind((1, new_hash))?;
+        statement.bind((2, new_etag_a.as_ref()))?;
+        statement.bind((3, new_etag_b.as_ref()))?;
+        statement.bind((4, ref_a.href.as_str()))?;
+        statement.bind((5, ref_b.href.as_str()))?;
+        statement.bind((6, ref_a.etag.as_ref()))?;
+        statement.bind((7, ref_b.etag.as_ref()))?;
         statement.next()?;
 
         if self.conn.change_count() == 0 {
-            error!("update_item did not affect any rows! href_a: {href_a}, href_b: {href_b}");
+            error!("update_item did not affect any rows! ref_a: {ref_a:?}, ref_b: {ref_b:?}");
             Err(StatusError::NoUpdate)
         } else {
             Ok(())
@@ -436,10 +438,10 @@ mod test {
         let updated_etag_b = "def111".into();
         db.update_item(
             updated_hash,
+            &item_a,
+            &item_b,
             &updated_etag_a,
-            &item_a.href,
             &updated_etag_b,
-            &item_b.href,
         )
         .unwrap();
 
@@ -488,10 +490,13 @@ mod test {
         let err = db
             .update_item(
                 updated_hash,
+                &ItemRef {
+                    href: "not/correct.ics".into(),
+                    etag: item_a.etag,
+                },
+                &item_b,
                 &updated_etag_a,
-                &"not/correct.ics",
                 &updated_etag_b,
-                &item_b.href,
             )
             .unwrap_err();
         assert!(matches!(err, StatusError::NoUpdate));

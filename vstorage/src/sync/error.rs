@@ -82,7 +82,9 @@ impl std::fmt::Display for ItemAction {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             ItemAction::SaveToStatus { a, .. } => write!(f, "save to status (uid: {})", a.uid),
-            ItemAction::UpdateStatus { a, .. } => write!(f, "update in status (uid: {})", a.uid),
+            ItemAction::UpdateStatus { ref_a, .. } => {
+                write!(f, "update in status (a.href: {})", ref_a.href)
+            }
             ItemAction::ClearStatus { uid } => write!(f, "clear from status (uid: {uid})"),
             ItemAction::CreateInA { source } => {
                 write!(f, "create in storage a (uid: {})", source.uid)

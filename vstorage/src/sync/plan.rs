@@ -12,7 +12,7 @@ use log::{debug, warn};
 use crate::base::{FetchedItem, ItemRef, Storage};
 use crate::disco::{DiscoveredCollection, Discovery};
 use crate::{base::Item, sync::declare::StoragePair};
-use crate::{CollectionId, ErrorKind, Href};
+use crate::{CollectionId, ErrorKind, Etag, Href};
 
 use super::declare::{CollectionDescription, DeclaredMapping};
 use super::status::{ItemState, MappingUid, Side, StatusDatabase, StatusError};
@@ -536,18 +536,45 @@ impl CollectionPlan {
 #[derive(PartialEq, Debug, Clone)]
 pub enum ItemAction {
     // Item is identical on both sides but are missing from state.
-    // This mostly happens during the first run, but can happen when recovering from interruptions.
-    SaveToStatus { a: ItemState, b: ItemState },
-    UpdateStatus { a: ItemState, b: ItemState },
+    SaveToStatus {
+        a: ItemState,
+        b: ItemState,
+    },
+    // Item is identical on both sides, but was previously seen.
+    UpdateStatus {
+        hash: String,
+        ref_a: ItemRef,
+        ref_b: ItemRef,
+        new_etag_a: Etag,
+        new_etag_b: Etag,
+    },
     // State is stale and item is gone on both sides.
-    ClearStatus { uid: String },
-    CreateInA { source: ItemState },
-    CreateInB { source: ItemState },
-    UpdateInA { source: ItemState, target: ItemRef },
-    UpdateInB { source: ItemState, target: ItemRef },
-    DeleteInA { target: ItemState },
-    DeleteInB { target: ItemState },
-    Conflict { uid: String },
+    ClearStatus {
+        uid: String,
+    },
+    CreateInA {
+        source: ItemState,
+    },
+    CreateInB {
+        source: ItemState,
+    },
+    UpdateInA {
+        source: ItemState,
+        target: ItemRef,
+    },
+    UpdateInB {
+        source: ItemState,
+        target: ItemRef,
+    },
+    DeleteInA {
+        target: ItemState,
+    },
+    DeleteInB {
+        target: ItemState,
+    },
+    Conflict {
+        uid: String,
+    },
 }
 
 impl ItemAction {
@@ -590,8 +617,11 @@ impl ItemAction {
                     } else {
                         // Item has changed on both sides, but is identical.
                         Some(ItemAction::UpdateStatus {
-                            a: a.clone(),
-                            b: b.clone(),
+                            hash: a.hash.clone(),
+                            ref_a: a.to_item_ref(),
+                            ref_b: b.to_item_ref(),
+                            new_etag_a: a.etag.clone(),
+                            new_etag_b: b.etag.clone(),
                         })
                     }
                 } else if a.hash == prev_hash {
