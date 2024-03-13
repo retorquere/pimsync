@@ -48,13 +48,13 @@ impl std::fmt::Display for Side {
     }
 }
 
-/// State for an item at some point in time in a single collection.
+/// State for an item at some point in time.
 #[derive(PartialEq, Clone, Debug)]
 pub struct ItemState {
-    pub(super) href: Href,
-    pub(super) uid: String,
-    pub(super) etag: Etag,
-    pub(super) hash: String,
+    pub href: Href,
+    pub uid: String,
+    pub etag: Etag,
+    pub hash: String,
 }
 
 impl ItemState {
