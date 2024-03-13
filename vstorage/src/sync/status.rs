@@ -68,9 +68,11 @@ impl ItemState {
     }
 }
 
-/// A unique ID used for a collection mapping.
+/// A unique ID used for a mapping between two collections.
+///
+/// This is an opaque identifier, and can only be obtained from a status database.
 #[derive(Clone, Debug, PartialEq)]
-pub(super) struct MappingUid(i64);
+pub struct MappingUid(i64);
 
 /// Connection to an on-disk status database.
 pub struct StatusDatabase {
