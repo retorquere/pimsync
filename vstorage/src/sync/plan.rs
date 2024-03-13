@@ -3,6 +3,8 @@
 // SPDX-License-Identifier: EUPL-1.2
 
 //! Plan for a synchronisation.
+//!
+//! The main entry point of this module is [`Plan`]
 
 use std::collections::HashSet;
 use std::sync::Arc;
@@ -45,19 +47,25 @@ pub enum PlanError {
     StatusDb(#[from] StatusError),
 }
 
-/// A set of actions that would synchronise a pair of storages.
+/// Actions that would synchronise a pair of storages.
 ///
-/// This type can be executed (in which case the storages would then be in-sync) or can be
-/// inspected to provide an overview of the operations which would be executed.
+/// Use [`Plan::new`] to create new instances.
+///
+/// Use [`Plan::collection_plans`]) to inspect the plan and render it into a human-friendly
+/// representation, into a CSV, or into any other format that is necessary.
+///
+/// Use [`Plan::execute`] to execute this plan and apply changes to the provided [`Storage`]
+/// instances.
 pub struct Plan<I: Item> {
     pub(super) storage_a: Arc<dyn Storage<I>>,
     pub(super) storage_b: Arc<dyn Storage<I>>,
     pub collection_plans: Vec<CollectionPlan>,
 }
 
-/// Show only details of the plan itself; ignore other data.
+/// Show details of the plan itself.
 ///
-/// This is partially necessary because storages might not implement `Debug`.
+/// This is partially necessary because storages don't yet implement `Debug` .
+// TODO: they should
 impl<I: Item> std::fmt::Debug for Plan<I> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         std::fmt::Debug::fmt(&self.collection_plans, f)
@@ -457,7 +465,7 @@ fn resolve_mapping_counterpart<I: Item>(
     }
 }
 
-/// A set of actions required to sync a collection between two storages.
+/// Actions required to sync a collection between two storages.
 #[derive(Debug)]
 pub struct CollectionPlan {
     pub alias: String,
@@ -535,12 +543,12 @@ impl CollectionPlan {
 /// Operation to execute on an item during synchronising.
 #[derive(PartialEq, Debug, Clone)]
 pub enum ItemAction {
-    // Item is identical on both sides but are missing from state.
+    /// Item is new and identical on both sides.
     SaveToStatus {
         a: ItemState,
         b: ItemState,
     },
-    // Item is identical on both sides, but was previously seen.
+    /// Item has changed and is identical on both sides.
     UpdateStatus {
         hash: String,
         ref_a: ItemRef,
@@ -548,7 +556,7 @@ pub enum ItemAction {
         new_etag_a: Etag,
         new_etag_b: Etag,
     },
-    // State is stale and item is gone on both sides.
+    /// Item is gone from both sides but still present in status db.
     ClearStatus {
         uid: String,
     },
@@ -572,6 +580,7 @@ pub enum ItemAction {
     DeleteInB {
         target: ItemState,
     },
+    /// Item is in conflict which needs to be resolved externally.
     Conflict {
         uid: String,
     },

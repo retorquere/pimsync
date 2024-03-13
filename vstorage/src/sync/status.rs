@@ -1,4 +1,4 @@
-//! Types for storing status between synchronisations.
+//! Store and query status between synchronisations.
 use std::path::Path;
 
 use log::{debug, error};
