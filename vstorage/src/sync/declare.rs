@@ -10,9 +10,7 @@ use crate::{
     CollectionId, Href,
 };
 
-/// A collection as declared by consumer of this library.
-///
-/// A collection can be declared either via its `href` or `collection_id`.
+/// A collection declared either via its `href` or `collection_id`.
 #[derive(Debug, Clone)]
 pub enum CollectionDescription {
     Id { id: CollectionId },

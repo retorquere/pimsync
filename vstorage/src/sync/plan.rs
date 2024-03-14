@@ -582,7 +582,9 @@ pub enum ItemAction {
     },
     /// Item is in conflict which needs to be resolved externally.
     Conflict {
-        uid: String,
+        a: ItemState,
+        b: ItemState,
+        is_new: bool,
     },
 }
 
@@ -648,7 +650,9 @@ impl ItemAction {
                 } else {
                     // Both sides have changed
                     Some(ItemAction::Conflict {
-                        uid: uid.to_string(),
+                        a: a.clone(),
+                        b: b.clone(),
+                        is_new: false,
                     })
                 }
             }
@@ -660,7 +664,9 @@ impl ItemAction {
                     })
                 } else {
                     Some(ItemAction::Conflict {
-                        uid: uid.to_string(),
+                        a: a.clone(),
+                        b: b.clone(),
+                        is_new: true,
                     })
                 }
             }
@@ -695,8 +701,8 @@ impl std::fmt::Display for ItemAction {
             ItemAction::DeleteInB { target } => {
                 write!(f, "delete in storage b (uid: {})", target.uid)
             }
-            ItemAction::Conflict { uid } => {
-                write!(f, "conflict (uid: {uid})")
+            ItemAction::Conflict { a, .. } => {
+                write!(f, "conflict (uid: {})", a.uid)
             }
         }
     }

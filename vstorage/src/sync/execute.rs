@@ -70,8 +70,8 @@ impl ItemAction {
             }
             ItemAction::DeleteInA { target } => delete_item(target, status, a, mapping_uid).await,
             ItemAction::DeleteInB { target } => delete_item(target, status, b, mapping_uid).await,
-            ItemAction::Conflict { uid } => {
-                error!("Conflict for items {}. Skipping.", uid);
+            ItemAction::Conflict { a, .. } => {
+                error!("Conflict for items {}. Skipping.", a.uid);
                 Ok(Ok(()))
             }
         }

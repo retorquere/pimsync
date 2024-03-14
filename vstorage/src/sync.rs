@@ -12,13 +12,21 @@
 //! - [`plan::Plan::new`] is used to create a [`Plan`](plan::Plan). This contains a list of actions
 //!   to be executed to synchronise both storages. This instance can also be inspected before
 //!   executing any actions (e.g.: as a from of dry-run).
-//! - [`plan::Plan::execute`] executes the plan itself. It updates the status to
-//!   reflect which items exist on both side and their metadata. This will be used on the next
-//!   cycle to understand which items have changed on which sides.
+//! - The plan may have conflicting items (represented as [`ItemAction::Conflict`]). These MAY be
+//!   replaced with different actions (e.g.: [`ItemAction::UpdateInA`] to overwrite storage A with
+//!   the contents of B).
+//!   - If resolving conflicts requires writing a merged file into both storages, this needs to be
+//!     done using the `Storage` APIs directly. The next synchronisation will detect the resolved
+//!     conflict automatically and update the status database.
+//! - Use [`plan::Plan::execute`] to execute the plan itself. It updates the status to reflect
+//!   which items exist on both side and their metadata. This will be used on the next cycle to
+//!   understand which items have changed on which sides.
 //!
 //! The synchronization algorithm is based on [the algorithm from the original vdirsyncer][orig].
 //!
 //! [orig]: https://unterwaditzer.net/2016/sync-algorithm.html
+//! [`ItemAction::Conflict`]: crate::sync::plan::ItemAction::Conflict
+//! [`ItemAction::UpdateInA`]: crate::sync::plan::ItemAction::UpdateInA
 
 pub mod declare;
 mod error;
