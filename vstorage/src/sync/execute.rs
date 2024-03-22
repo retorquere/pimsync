@@ -9,7 +9,7 @@ use log::{debug, error};
 use crate::{
     base::{Item, ItemRef, Storage},
     disco::DiscoveredCollection,
-    CollectionId, Href,
+    CollectionId, Etag, Href,
 };
 
 use super::{
@@ -46,28 +46,30 @@ impl ItemAction {
                 .map(|()| Ok(())),
             ItemAction::UpdateStatus {
                 hash,
-                ref_a: item_a,
-                ref_b: item_b,
-                new_etag_a,
-                new_etag_b,
-            } => status
-                .update_item(hash, item_a, item_b, new_etag_a, new_etag_b)
-                .map(|()| Ok(())),
+                ref_a,
+                ref_b,
+                new_a,
+                new_b,
+            } => status.update_item(hash, ref_a, ref_b, new_a, new_b).map(Ok),
             ItemAction::ClearStatus { uid } => {
                 status.delete_item(mapping_uid, uid).map(|()| Ok(()))
             }
             ItemAction::CreateInB { source } => {
                 create_item(source, status, col_b, a, b, mapping_uid, Side::B).await
             }
-            ItemAction::UpdateInB { source, target } => {
-                update_item(source, target, status, a, b, Side::B).await
-            }
+            ItemAction::UpdateInB {
+                source,
+                target,
+                old_a,
+            } => update_item(source, target, status, a, b, Side::B, old_a).await,
             ItemAction::CreateInA { source } => {
                 create_item(source, status, col_a, b, a, mapping_uid, Side::A).await
             }
-            ItemAction::UpdateInA { source, target } => {
-                update_item(source, target, status, b, a, Side::A).await
-            }
+            ItemAction::UpdateInA {
+                source,
+                target,
+                old_b,
+            } => update_item(source, target, status, b, a, Side::A, old_b).await,
             ItemAction::DeleteInA { target } => delete_item(target, status, a, mapping_uid).await,
             ItemAction::DeleteInB { target } => delete_item(target, status, b, mapping_uid).await,
             ItemAction::Conflict { a, .. } => {
@@ -131,6 +133,7 @@ async fn update_item<I: Item>(
     src_storage: &dyn Storage<I>,
     dst_storage: &dyn Storage<I>,
     side: Side,
+    old_source: &Etag,
 ) -> Result<Result<(), ExecutionError>, StatusError> {
     debug!("Updating {}", target.href);
     let (item, source_etag) = match src_storage.get_item(&source.href).await {
@@ -147,7 +150,10 @@ async fn update_item<I: Item>(
     };
 
     let hash = item.hash();
-    let source = source.to_item_ref();
+    let source = ItemRef {
+        href: source.href.clone(),
+        etag: old_source.clone(),
+    };
     match side {
         Side::A => status.update_item(&hash, target, &source, &new_etag, &source_etag),
         Side::B => status.update_item(&hash, &source, target, &source_etag, &new_etag),

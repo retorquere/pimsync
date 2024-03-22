@@ -68,6 +68,12 @@ impl ItemState {
     }
 }
 
+pub(super) struct HashAndEtags {
+    pub(super) hash: String,
+    pub(super) etag_a: Etag,
+    pub(super) etag_b: Etag,
+}
+
 /// A unique ID used for a mapping between two collections.
 ///
 /// This is an opaque identifier, and can only be obtained from a status database.
@@ -198,14 +204,20 @@ impl StatusDatabase {
         &self,
         mapping_uid: &MappingUid,
         uid: &str,
-    ) -> Result<Option<String>, StatusError> {
-        let query = concat!("SELECT hash FROM items WHERE ident = ? AND mapping_uid = ?");
+    ) -> Result<Option<HashAndEtags>, StatusError> {
+        let query =
+            concat!("SELECT hash, etag_a, etag_b FROM items WHERE ident = ? AND mapping_uid = ?");
         let mut statement = self.conn.prepare(query)?;
         statement.bind((1, uid))?;
         statement.bind((2, mapping_uid.0))?;
 
         if let Ok(State::Row) = statement.next() {
-            Ok(Some(statement.read::<String, _>("hash")?))
+            // Ok(Some())
+            Ok(Some(HashAndEtags {
+                hash: statement.read::<String, _>("hash")?,
+                etag_a: statement.read::<String, _>("etag_a")?.into(),
+                etag_b: statement.read::<String, _>("etag_b")?.into(),
+            }))
         } else {
             Ok(None)
         }
@@ -310,22 +322,22 @@ impl StatusDatabase {
         new_hash: &str,
         ref_a: &ItemRef,
         ref_b: &ItemRef,
-        new_etag_a: &Etag,
-        new_etag_b: &Etag,
+        new_a: &Etag,
+        new_b: &Etag,
     ) -> Result<(), StatusError> {
-        // Keep in mind that items in other collections may have the same UID.
+        // Items in other collections may have the same UID, so update by href.
         let query = concat!(
-            "UPDATE items SET hash = ?, etag_a = ?, etag_b = ?",
-            " WHERE href_a = ? AND href_b = ? AND etag_a = ? AND etag_b = ?"
+            "UPDATE items SET hash = :hash, etag_a = :new_a, etag_b = :new_b",
+            " WHERE href_a = :href_a AND href_b = :href_b AND etag_a = :old_a AND etag_b = :old_b"
         );
         let mut statement = self.conn.prepare(query)?;
-        statement.bind((1, new_hash))?;
-        statement.bind((2, new_etag_a.as_ref()))?;
-        statement.bind((3, new_etag_b.as_ref()))?;
-        statement.bind((4, ref_a.href.as_str()))?;
-        statement.bind((5, ref_b.href.as_str()))?;
-        statement.bind((6, ref_a.etag.as_ref()))?;
-        statement.bind((7, ref_b.etag.as_ref()))?;
+        statement.bind((":hash", new_hash))?;
+        statement.bind((":new_a", new_a.as_ref()))?;
+        statement.bind((":new_b", new_b.as_ref()))?;
+        statement.bind((":href_a", ref_a.href.as_str()))?;
+        statement.bind((":href_b", ref_b.href.as_str()))?;
+        statement.bind((":old_a", ref_a.etag.as_ref()))?;
+        statement.bind((":old_b", ref_b.etag.as_ref()))?;
         statement.next()?;
 
         if self.conn.change_count() == 0 {
@@ -393,11 +405,11 @@ mod test {
         assert_eq!(item_b_fetched.href, item_b.href);
         assert_eq!(item_b_fetched.etag, item_b.etag);
 
-        let fetched_hash = db
+        let item_status = db
             .get_item_hash_by_uid(&mapping_uid, uid)
             .unwrap()
             .expect("status should return items that were just inserted");
-        assert_eq!(fetched_hash, hash);
+        assert_eq!(item_status.hash, hash);
 
         let all = db.all_uids(&mapping_uid).unwrap();
         let all_expected = vec![uid];
@@ -459,11 +471,11 @@ mod test {
         assert_eq!(item_b_fetched.href, item_b.href);
         assert_eq!(item_b_fetched.etag, updated_etag_b);
 
-        let fetched_hash = db
+        let item_status = db
             .get_item_hash_by_uid(&mapping_uid, uid)
             .unwrap()
             .expect("status should return items that were just inserted");
-        assert_eq!(fetched_hash, updated_hash);
+        assert_eq!(item_status.hash, updated_hash);
 
         let all = db.all_uids(&mapping_uid).unwrap();
         let all_expected = vec![uid];

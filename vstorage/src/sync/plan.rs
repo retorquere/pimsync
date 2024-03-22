@@ -17,7 +17,7 @@ use crate::{base::Item, sync::declare::StoragePair};
 use crate::{CollectionId, ErrorKind, Etag, Href};
 
 use super::declare::{CollectionDescription, DeclaredMapping};
-use super::status::{ItemState, MappingUid, Side, StatusDatabase, StatusError};
+use super::status::{HashAndEtags, ItemState, MappingUid, Side, StatusDatabase, StatusError};
 
 /// Error that occurs when creating a [`Plan`].
 #[derive(thiserror::Error, Debug)]
@@ -551,10 +551,12 @@ pub enum ItemAction {
     /// Item has changed and is identical on both sides.
     UpdateStatus {
         hash: String,
+        /// As previously seen on a.
         ref_a: ItemRef,
+        /// As previously seen on b.
         ref_b: ItemRef,
-        new_etag_a: Etag,
-        new_etag_b: Etag,
+        new_a: Etag,
+        new_b: Etag,
     },
     /// Item is gone from both sides but still present in status db.
     ClearStatus {
@@ -568,11 +570,15 @@ pub enum ItemAction {
     },
     UpdateInA {
         source: ItemState,
+        /// As previously seen in a.
         target: ItemRef,
+        old_b: Etag,
     },
     UpdateInB {
         source: ItemState,
+        /// As previously seen in b.
         target: ItemRef,
+        old_a: Etag,
     },
     DeleteInA {
         target: ItemState,
@@ -593,17 +599,17 @@ impl ItemAction {
     fn for_item(
         current_a: Option<&ItemState>,
         current_b: Option<&ItemState>,
-        previous_hash: Option<String>,
+        previous: Option<HashAndEtags>,
         uid: &str,
     ) -> Option<ItemAction> {
-        match (current_a, current_b, previous_hash) {
+        match (current_a, current_b, previous) {
             (None, None, None) => unreachable!("no action for item that doesn't exist anywhere"),
             (None, None, Some(_)) => Some(ItemAction::ClearStatus {
                 uid: uid.to_string(),
             }),
             (None, Some(b), None) => Some(ItemAction::CreateInA { source: b.clone() }),
-            (None, Some(b), Some(prev_hash)) => {
-                if b.hash == prev_hash {
+            (None, Some(b), Some(prev)) => {
+                if b.hash == prev.hash {
                     Some(ItemAction::DeleteInB { target: b.clone() })
                 } else {
                     warn!("Item deleted in A but changed B: {}.", b.uid);
@@ -611,41 +617,49 @@ impl ItemAction {
                 }
             }
             (Some(a), None, None) => Some(ItemAction::CreateInB { source: a.clone() }),
-            (Some(a), None, Some(prev_hash)) => {
-                if a.hash == prev_hash {
+            (Some(a), None, Some(prev)) => {
+                if a.hash == prev.hash {
                     Some(ItemAction::DeleteInA { target: a.clone() })
                 } else {
                     warn!("Item deleted in B but changed A: {}.", a.uid);
                     Some(ItemAction::CreateInB { source: a.clone() })
                 }
             }
-            (Some(a), Some(b), Some(prev_hash)) => {
+            (Some(a), Some(b), Some(prev)) => {
                 if a.hash == b.hash {
                     // Item are in sync
-                    if a.hash == prev_hash {
+                    if a.hash == prev.hash {
                         // Item has not changed on either side.
                         None
                     } else {
                         // Item has changed on both sides, but is identical.
                         Some(ItemAction::UpdateStatus {
                             hash: a.hash.clone(),
-                            ref_a: a.to_item_ref(),
-                            ref_b: b.to_item_ref(),
-                            new_etag_a: a.etag.clone(),
-                            new_etag_b: b.etag.clone(),
+                            ref_a: ItemRef {
+                                href: a.href.clone(),
+                                etag: prev.etag_a,
+                            },
+                            ref_b: ItemRef {
+                                href: b.href.clone(),
+                                etag: prev.etag_b,
+                            },
+                            new_a: a.etag.clone(),
+                            new_b: b.etag.clone(),
                         })
                     }
-                } else if a.hash == prev_hash {
+                } else if a.hash == prev.hash {
                     // Side A has not changed
                     Some(ItemAction::UpdateInA {
                         source: b.clone(),
                         target: a.to_item_ref(),
+                        old_b: prev.etag_b,
                     })
-                } else if b.hash == prev_hash {
+                } else if b.hash == prev.hash {
                     // Side B has not changed
                     Some(ItemAction::UpdateInB {
                         source: a.clone(),
                         target: b.to_item_ref(),
+                        old_a: prev.etag_a,
                     })
                 } else {
                     // Both sides have changed
