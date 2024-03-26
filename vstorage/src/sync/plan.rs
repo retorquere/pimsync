@@ -732,6 +732,7 @@ pub enum CollectionAction {
     CreateInB,
     CreateInBoth,
     Delete(MappingUid, Side),
+    // TODO: FlushState (for collections that are gone)
 }
 
 impl CollectionAction {

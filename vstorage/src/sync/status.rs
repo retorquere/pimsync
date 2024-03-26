@@ -317,6 +317,7 @@ impl StatusDatabase {
         Ok(())
     }
 
+    // TODO: needs to account for movable items (e.g.: maildir).
     pub(super) fn update_item(
         &self,
         new_hash: &str,
