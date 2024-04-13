@@ -81,8 +81,7 @@ password.command = ["sh", "-c", "~/.local/bin/get-my-password | head -n1"]
 
 ### Fetch / prompt
 
-For `prompt` examples, using a wrapper script is a simple approach. E.g.: the
-following script:
+For `prompt` usages the following sequence should work:
 
 ```sh
 read PASSWORD
@@ -90,15 +89,17 @@ export PASSWORD
 vdirsycner sync
 ```
 
-Works with the following configuration:
+Along with this configuration:
 
 ```toml
 password.command = ["printenv", "PASSWORD"]
 ```
 
 Keep in mind that is it possible for other processes of the same user to read
-environment variables. Usage of a password manager with a `command` is
-recommended for best security.
+environment variables.
+
+Usage of a password manager or secret storage with a `command` is the
+recommended approach for best security.
 
 ## Manual discovery is no longer required
 
