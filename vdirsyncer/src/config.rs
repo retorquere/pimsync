@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: EUPL-1.2
 
 use std::{
-    collections::HashMap,
+    collections::{HashMap, VecDeque},
     ffi::OsString,
     fs::File,
     io::Read,
@@ -38,7 +38,7 @@ use crate::{
         cert_and_key_from_pemfile, certs_from_pemfile, key_from_pemfile,
         FingerprintAndWebPkiVerifier, FingerprintVerifier,
     },
-    App, NamedPair, NamedStorage, VERSION,
+    App, NamedPair, NamedStorage, RawCommand, VERSION,
 };
 
 /// A deserialised configuration file.
@@ -74,6 +74,7 @@ impl Config {
         let mut contact_pairs = Vec::new();
 
         for (name, source) in self.pairs {
+            // Cannot pop a from storages; it might needed for another pair.
             let a = storages
                 .iter()
                 .find(|s| s.name() == source.a)
@@ -94,7 +95,7 @@ impl Config {
                         a.inner.clone(),
                         b.inner.clone(),
                         &status_dir,
-                    );
+                    )?;
                     calendar_pairs.push(pair);
                 }
                 (EitherStorage::Calendar(_), EitherStorage::AddressBook(_)) => {
@@ -109,7 +110,7 @@ impl Config {
                         a.inner.clone(),
                         b.inner.clone(),
                         &status_dir,
-                    );
+                    )?;
                     contact_pairs.push(pair);
                 }
             }
@@ -163,7 +164,7 @@ struct PairSection {
     collections: Collections,
     #[allow(dead_code)]
     metadata: Option<Vec<String>>,
-    // TODO: conflict_resolution: Option<Vec<String>>,
+    conflict_resolution: Option<VecDeque<String>>,
     // TODO: partial_sync
 }
 
@@ -174,7 +175,7 @@ impl PairSection {
         a: Arc<dyn Storage<I>>,
         b: Arc<dyn Storage<I>>,
         status_dir: &Utf8Path,
-    ) -> NamedPair<I> {
+    ) -> anyhow::Result<NamedPair<I>> {
         let status_path = status_dir.join(format!("{name}.status"));
 
         let mut pair = StoragePair::new(a, b);
@@ -202,12 +203,26 @@ impl PairSection {
             }
         }
 
-        NamedPair {
+        let conflict_resolution = match self.conflict_resolution {
+            Some(args) => {
+                let mut args: VecDeque<_> = args.into_iter().map(OsString::from).collect();
+                Some(RawCommand {
+                    command: args
+                        .pop_front()
+                        .context("conflict_resolution must specify a command")?,
+                    args: args.into(),
+                })
+            }
+            None => None,
+        };
+
+        Ok(NamedPair {
             name,
             inner: pair,
             status_path,
             plan: Mutex::new(None),
-        }
+            conflict_resolution,
+        })
     }
 }
 

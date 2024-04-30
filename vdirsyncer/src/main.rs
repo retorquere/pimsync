@@ -4,16 +4,29 @@
 #![deny(clippy::pedantic)]
 #![deny(clippy::unwrap_used)]
 
-use std::{sync::Arc, time::Duration};
+use std::{
+    ffi::OsString,
+    io::{read_to_string, Seek, Write},
+    sync::Arc,
+    time::Duration,
+};
 
 use anyhow::{bail, Context};
 use camino::Utf8PathBuf;
 use clap::Parser;
 use log::{debug, error, info, warn};
+use rustix::fs::sync;
+use tempfile::NamedTempFile;
 use tokio::sync::Mutex;
 use vstorage::{
     base::{IcsItem, Item, Storage, VcardItem},
-    sync::{declare::StoragePair, plan::Plan, status::StatusDatabase, SyncError},
+    sync::{
+        declare::StoragePair,
+        plan::{ItemAction, Plan},
+        status::StatusDatabase,
+        SyncError,
+    },
+    Etag,
 };
 
 use crate::cli::{Command, Vdirsyncer};
@@ -35,9 +48,18 @@ pub(crate) struct NamedStorage<I: Item> {
 /// Pair with a name, as defined in the configuration file.
 pub(crate) struct NamedPair<I: Item> {
     name: String,
-    inner: StoragePair<I>,
+    pub(crate) inner: StoragePair<I>,
     status_path: Utf8PathBuf,
     plan: Mutex<Option<Plan<I>>>,
+    conflict_resolution: Option<RawCommand>,
+}
+
+/// Data necessary to create a new `Command` instance.
+///
+/// This helper is used for commands that need to be executed multiple times.
+pub struct RawCommand {
+    command: OsString,
+    args: Vec<OsString>,
 }
 
 /// Simply log non-fatal errors.
@@ -130,6 +152,142 @@ impl<I: Item> NamedPair<I> {
             }
         }
     }
+
+    async fn resolve_conflicts(&self) -> anyhow::Result<()> {
+        let Some(ref raw_cmd) = self.conflict_resolution else {
+            error!("No conflict resolution command for {}.", self.name);
+            return Ok(());
+        };
+
+        let Some(plan) = self.plan.lock().await.take() else {
+            bail!("Attempted to resolve conflicts without a plan.")
+        };
+
+        info!("Resolving conflicts for pair {}.", self.name);
+
+        // TODO: when we parallelise, should take lock on stdin here.
+
+        let conflicts = plan
+            .collection_plans
+            .into_iter()
+            .flat_map(|cp| cp.item_actions)
+            .filter_map(|action| match action {
+                ItemAction::Conflict { a, b, .. } => Some((a, b)),
+                _ => None,
+            })
+            // Collect in order to compute the total amount (for display purposes).
+            .collect::<Vec<_>>();
+
+        let total = conflicts.len();
+
+        for (i, (a, b)) in conflicts.into_iter().enumerate() {
+            info!("Next is item {}/{total}", i + 1);
+            continue_or_abort()?;
+
+            // TODO: improve logging here.
+            // TODO: move duplicated logic into a "read_item_to_tempfile" function.
+            let (mut temp_a, etag_a) = save_item_to_tempfile(self.inner.storage_a(), &a.href)
+                .await
+                .context("fetching conflicted item from A")?;
+            let (mut temp_b, etag_b) = save_item_to_tempfile(self.inner.storage_b(), &b.href)
+                .await
+                .context("fetching conflicted item from B")?;
+
+            info!("Running conflict resolution for item {}", a.uid);
+            let exit_status = std::process::Command::new(&raw_cmd.command)
+                .args(&raw_cmd.args)
+                .arg(temp_a.path())
+                .arg(temp_b.path())
+                .spawn()
+                .context("executing conflict resolution command")?
+                .wait()
+                .context("waiting for conflict resolution command")?;
+
+            if !exit_status.success() {
+                error!("Conflict resolution command failed: {exit_status}");
+                continue;
+            }
+
+            // Ensure that files are committed; otherwise we sometimes read empty data.
+            sync();
+            temp_a.rewind().context("seeking in temporary file for A")?;
+            temp_b.rewind().context("seeking in temporary file for B")?;
+
+            let new_a = read_to_string(temp_a).context("reading resolved item A")?;
+            let new_b = read_to_string(temp_b).context("reading resolved item B")?;
+
+            if new_a.is_empty() {
+                error!("Resolved item A is empty.");
+                continue;
+            }
+            if new_b.is_empty() {
+                error!("Resolved item B is empty.");
+                continue;
+            }
+            if new_a.trim() != new_b.trim() {
+                error!("Conflict resolution yielded mismatching items; skipping");
+                continue;
+            }
+
+            let new = I::from(new_a);
+            drop(new_b);
+
+            self.inner
+                .storage_a()
+                .update_item(&a.href, &etag_a, &new)
+                .await
+                .context("uploading resolved item into A")?;
+            debug!("Uploaded resolved item to A.");
+
+            self.inner
+                .storage_b()
+                .update_item(&b.href, &etag_b, &new)
+                .await
+                .context("uploading resolved item into B")?;
+            debug!("Uploaded resolved item to B.");
+
+            info!("Resolved conflicts for '{}'.", new.ident());
+        }
+
+        Ok(())
+    }
+}
+
+async fn save_item_to_tempfile<I: Item>(
+    storage: &dyn Storage<I>,
+    href: &str,
+) -> anyhow::Result<(NamedTempFile, Etag)> {
+    let mut temp =
+        NamedTempFile::new().context("creating temporary file for conflict resolution")?;
+    debug!("Fetching {href} for conflict resolution...");
+    let (data, etag) = storage
+        .get_item(href)
+        .await
+        .context("fetching conflicting item from a")?;
+    temp.write_all(data.as_str().as_bytes())
+        .context("writing item into temporary file")?;
+
+    Ok((temp, etag))
+}
+
+/// Returns an error if user chooses to abort.
+fn continue_or_abort() -> anyhow::Result<()> {
+    let stdin = std::io::stdin();
+
+    loop {
+        println!("Continue? [Y/n]");
+        // Need to read entire lines because the stdlib implicitly buffers stdin.
+        let mut response = String::new();
+        stdin
+            .read_line(&mut response)
+            .context("Reading response from stdin")?;
+
+        match response.trim().to_lowercase().as_str() {
+            "" | "y" => return Ok(()),
+            "n" => bail!("Aborted by user."),
+            _ => {}
+        };
+    }
 }
 
 pub(crate) struct App {
@@ -148,7 +306,13 @@ impl App {
     }
 
     /// Returns an error if a fatal error has ocurred.
-    async fn sync(&self, dry_run: bool) -> anyhow::Result<()> {
+    async fn sync(&self, dry_run: bool, resolve_conflicts: bool) -> anyhow::Result<()> {
+        // TODO: This needs to be rewritten entirely; duplicating each action for calendars and
+        //       address books is terrible.
+        // TODO: maybe should spawn a task for each pair here.
+        //       the task takes some broadcast channel where events are sent:
+        //       - enum Event: CreatePlan, PrintPlan, ExecutePlan, Monitor
+
         // TODO: protect from concurrent runs!
         for pair in &self.calendar_pairs {
             pair.create_plan().await?;
@@ -162,6 +326,17 @@ impl App {
         }
         for pair in &self.contact_pairs {
             pair.print_plan().await;
+        }
+
+        if resolve_conflicts {
+            for pair in &self.calendar_pairs {
+                pair.resolve_conflicts().await?;
+            }
+            for pair in &self.contact_pairs {
+                pair.resolve_conflicts().await?;
+            }
+            info!("Ran conflict resolution; skipping regular sync.");
+            return Ok(());
         }
 
         if dry_run {
@@ -208,9 +383,11 @@ async fn main() -> anyhow::Result<()> {
     match cli.command {
         Command::Check => Ok(()),
         Command::Sync {
+            // TODO: replace continuous with a Command::SyncOnce?
             continuous,
             dry_run,
             pair,
+            resolve_conflicts,
         } => {
             if let Some(name) = pair {
                 app.only(&name);
@@ -222,12 +399,12 @@ async fn main() -> anyhow::Result<()> {
                 warn!("Storage monitoring is not implemented, will auto-sync every 5 minutes.");
                 // TODO: HTTPS connections are kept open for a while; this should also be configurable.
                 loop {
-                    app.sync(false).await?;
+                    app.sync(false, resolve_conflicts).await?;
                     // TODO: make this interval configurable.
                     tokio::time::sleep(app.interval).await;
                 }
             } else {
-                app.sync(dry_run).await
+                app.sync(dry_run, resolve_conflicts).await
             }
         }
         Command::Discover => app.discover().await,

@@ -17,6 +17,9 @@ pub(crate) enum Command {
         /// Only synchronise this pair
         #[arg()]
         pair: Option<String>,
+        /// Run conflict_resolution command for conflicting items.
+        #[arg(short, long)]
+        resolve_conflicts: bool,
     },
     /// Discover and display remote collections.
     Discover,

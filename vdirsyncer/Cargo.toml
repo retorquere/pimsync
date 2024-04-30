@@ -18,11 +18,13 @@ hyper = "0.14.27"
 hyper-rustls = "0.25.0"
 libdav = { version = "0.2.0", path = "../libdav" }
 log = "0.4.20"
+rustix = { version = "0.38.10", features = ["fs"] }
 rustls = { version = "0.22.1" }
 rustls-pemfile = "2.0.0"
 serde = { version = "1.0.188", features = ["derive"] }
 sha2 = "0.10.2"
 simple_logger = { version = "4.1.0", default-features = false, features = ["colors"] }
+tempfile = "3.3.0"
 tokio = { version = "1.33.0", features = ["macros", "rt"] }
 toml = { version = "0.8.1", features = ["parse"], default-features = false }
 vstorage = { version = "0.1.0", path = "../vstorage" }

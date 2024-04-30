@@ -590,6 +590,7 @@ pub enum ItemAction {
     Conflict {
         a: ItemState,
         b: ItemState,
+        // Indicates that the item is new on both sides.
         is_new: bool,
     },
 }
