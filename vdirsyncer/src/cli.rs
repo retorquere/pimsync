@@ -6,20 +6,28 @@ use crate::VERSION;
 pub(crate) enum Command {
     /// Check configuration file and exit
     Check,
-    /// Sync configured storage pairs.
+    /// Keep configured storages in sync.
     Sync {
-        /// Continuously monitor for changes and re-synchronise.
-        #[arg(short, long)]
-        continuous: bool,
+        /// Only synchronise this pair
+        #[arg()]
+        pair: Option<String>,
+    },
+    /// Sync configured storages once and exit.
+    SyncOnce {
         /// Only plan changes but don't execute any.
         #[arg(short, long)]
         dry_run: bool,
         /// Only synchronise this pair
         #[arg()]
         pair: Option<String>,
-        /// Run conflict_resolution command for conflicting items.
+    },
+    ResolveConflicts {
+        /// Only plan changes but don't execute any.
         #[arg(short, long)]
-        resolve_conflicts: bool,
+        dry_run: bool,
+        /// Only synchronise this pair
+        #[arg()]
+        pair: Option<String>,
     },
     /// Discover and display remote collections.
     Discover,

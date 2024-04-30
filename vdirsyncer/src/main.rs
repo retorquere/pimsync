@@ -328,6 +328,8 @@ impl App {
             pair.print_plan().await;
         }
 
+        // TODO: if conflict resolution is from_a or from_b, rewrite conflicting actions.
+
         if resolve_conflicts {
             for pair in &self.calendar_pairs {
                 pair.resolve_conflicts().await?;
@@ -382,30 +384,29 @@ async fn main() -> anyhow::Result<()> {
 
     match cli.command {
         Command::Check => Ok(()),
-        Command::Sync {
-            // TODO: replace continuous with a Command::SyncOnce?
-            continuous,
-            dry_run,
-            pair,
-            resolve_conflicts,
-        } => {
+        Command::Sync { pair } => {
             if let Some(name) = pair {
                 app.only(&name);
             }
-            if continuous {
-                if dry_run {
-                    bail!("dry-run and continuous are mutually exclusive");
-                }
-                warn!("Storage monitoring is not implemented, will auto-sync every 5 minutes.");
-                // TODO: HTTPS connections are kept open for a while; this should also be configurable.
-                loop {
-                    app.sync(false, resolve_conflicts).await?;
-                    // TODO: make this interval configurable.
-                    tokio::time::sleep(app.interval).await;
-                }
-            } else {
-                app.sync(dry_run, resolve_conflicts).await
+            warn!("Storage monitoring is not implemented, will auto-sync every 5 minutes.");
+            // TODO: HTTPS connections are kept open for a while; this should also be configurable.
+            loop {
+                app.sync(false, false).await?;
+                // TODO: make this interval configurable.
+                tokio::time::sleep(app.interval).await;
             }
+        }
+        Command::SyncOnce { dry_run, pair } => {
+            if let Some(name) = pair {
+                app.only(&name);
+            }
+            app.sync(dry_run, false).await
+        }
+        Command::ResolveConflicts { dry_run, pair } => {
+            if let Some(name) = pair {
+                app.only(&name);
+            }
+            app.sync(dry_run, true).await
         }
         Command::Discover => app.discover().await,
     }
