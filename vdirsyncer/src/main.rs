@@ -330,7 +330,9 @@ impl App {
 
         // TODO: if conflict resolution is from_a or from_b, rewrite conflicting actions.
 
-        if resolve_conflicts {
+        if dry_run {
+            info!("Dry run: not synchronising.");
+        } else if resolve_conflicts {
             for pair in &self.calendar_pairs {
                 pair.resolve_conflicts().await?;
             }
@@ -338,11 +340,6 @@ impl App {
                 pair.resolve_conflicts().await?;
             }
             info!("Ran conflict resolution; skipping regular sync.");
-            return Ok(());
-        }
-
-        if dry_run {
-            info!("Dry run: not synchronising.");
         } else {
             for pair in &self.calendar_pairs {
                 pair.execute_plan().await?;
@@ -350,8 +347,8 @@ impl App {
             for pair in &self.contact_pairs {
                 pair.execute_plan().await?;
             }
+            info!("Synchronisation complete");
         }
-        info!("Synchronisation complete");
         Ok(())
     }
 
