@@ -9,9 +9,15 @@
 //!
 //! See [`Storage`] as an entry point to this module.
 
-use async_trait::async_trait;
+use std::num::NonZeroUsize;
 
-use crate::{disco::Discovery, util::replace_uid, CollectionId, Etag, Href, Result};
+use async_trait::async_trait;
+use tokio::sync::mpsc::Receiver;
+
+use crate::{
+    disco::Discovery, util::replace_uid, watch::Event, CollectionId, Error, ErrorKind, Etag, Href,
+    Result,
+};
 
 /// A storage is the highest level abstraction where items can be stored. It can be a remote CalDav
 /// account, a local filesystem, etc.
@@ -147,6 +153,22 @@ pub trait Storage<I: Item>: Sync + Send {
     /// Returns an error if no collection can exist such that it is available via discovery AND its
     /// `CollectionId` matches the input.
     fn href_for_collection_id(&self, id: &CollectionId) -> Result<Href>;
+
+    /// Monitor the storage for changes.
+    ///
+    /// Returns the [`Receiver`] of a channel which receives [`Event`] instances when changes are
+    /// detected.
+    ///
+    /// # Errors
+    ///
+    /// The default implementation returns [`ErrorKind::Unsupported`].
+    async fn monitor(&self, bufsize: NonZeroUsize) -> Result<Receiver<Event>> {
+        let _ = bufsize;
+        return Err(Error::new(
+            ErrorKind::Unsupported,
+            "Storage implementation does not currently support monitoring.",
+        ));
+    }
 }
 
 /// A collection may, for example, be an address book or a calendar.

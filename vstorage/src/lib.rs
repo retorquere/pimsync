@@ -71,6 +71,7 @@ mod simple_component;
 pub mod sync;
 mod util;
 pub mod vdir;
+pub mod watch;
 pub mod webcal;
 
 type Result<T, E = crate::Error> = std::result::Result<T, E>;
