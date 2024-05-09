@@ -234,7 +234,7 @@ where
         Ok(item_ref)
     }
 
-    async fn update_item(&self, href: &str, etag: &Etag, item: &I) -> Result<Etag> {
+    async fn update_item(&self, href: &str, etag: &Etag, item: &I) -> Result<Option<Etag>> {
         let filename = self.path.join(href);
         self.check_item_href_is_safe(filename.as_str())?;
 
@@ -254,7 +254,7 @@ where
         file.write_all(item.as_str().as_bytes()).await?;
 
         let etag = etag_for_path(&filename).await?;
-        Ok(etag)
+        Ok(Some(etag))
     }
 
     /// # Quirks

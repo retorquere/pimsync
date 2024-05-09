@@ -273,19 +273,18 @@ where
         })
     }
 
-    async fn update_item(&self, href: &str, etag: &Etag, item: &IcsItem) -> Result<Etag> {
+    async fn update_item(&self, href: &str, etag: &Etag, item: &IcsItem) -> Result<Option<Etag>> {
         // TODO: check that href is a sub-path of collection.href?
-        self.client
+        Ok(self
+            .client
             .update_resource(
                 href,
                 item.as_str().as_bytes().to_vec(),
                 etag,
                 mime_types::CALENDAR,
             )
-            .await
-            // FIXME: etag may be missing. In such case, we should fetch it.
-            .map(|opt| opt.ok_or(Error::new(ErrorKind::InvalidData, "No Etag in response")))?
-            .map(Etag::from)
+            .await?
+            .map(Etag::from))
     }
 
     /// # Errors

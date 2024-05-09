@@ -50,7 +50,9 @@ impl ItemAction {
                 ref_b,
                 new_a,
                 new_b,
-            } => status.update_item(hash, ref_a, ref_b, new_a, new_b).map(Ok),
+            } => status
+                .update_item(hash, ref_a, ref_b, Some(new_a), Some(new_b))
+                .map(Ok),
             ItemAction::ClearStatus { uid } => {
                 status.delete_item(mapping_uid, uid).map(|()| Ok(()))
             }
@@ -155,8 +157,20 @@ async fn update_item<I: Item>(
         etag: old_source.clone(),
     };
     match side {
-        Side::A => status.update_item(&hash, target, &source, &new_etag, &source_etag),
-        Side::B => status.update_item(&hash, &source, target, &source_etag, &new_etag),
+        Side::A => status.update_item(
+            &hash,
+            target,
+            &source,
+            new_etag.as_ref(),
+            Some(&source_etag),
+        ),
+        Side::B => status.update_item(
+            &hash,
+            &source,
+            target,
+            Some(&source_etag),
+            new_etag.as_ref(),
+        ),
     }?;
 
     Ok(Ok(()))

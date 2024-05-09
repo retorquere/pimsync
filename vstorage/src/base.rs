@@ -128,7 +128,7 @@ pub trait Storage<I: Item>: Sync + Send {
     async fn add_item(&self, collection: &str, item: &I) -> Result<ItemRef>;
 
     /// Updates the contents of an existing item.
-    async fn update_item(&self, href: &str, etag: &Etag, item: &I) -> Result<Etag>;
+    async fn update_item(&self, href: &str, etag: &Etag, item: &I) -> Result<Option<Etag>>;
 
     /// Deletes an existing item.
     async fn delete_item(&self, href: &str, etag: &Etag) -> Result<()>;

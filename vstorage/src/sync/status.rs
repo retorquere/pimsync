@@ -156,9 +156,9 @@ impl StatusDatabase {
             " mapping_uid TEXT NOT NULL,",
             " hash TEXT NOT NULL,",
             " href_a TEXT NOT NULL,",
-            " etag_a TEXT NOT NULL,",
+            " etag_a TEXT,",
             " href_b TEXT NOT NULL,",
-            " etag_b TEXT NOT NULL,",
+            " etag_b TEXT,",
             " FOREIGN KEY(mapping_uid) REFERENCES collections(uid)",
             ")"
         ))?;
@@ -173,6 +173,7 @@ impl StatusDatabase {
         Ok(())
     }
 
+    /// Returns an `ItemState`, if it exists AND has an Etag.
     pub(super) fn get_item_by_href(
         &self,
         side: Side,
@@ -181,7 +182,7 @@ impl StatusDatabase {
         let query = vec![
             &format!("SELECT ident, href_{side} AS href, hash, etag_{side} AS etag"),
             " FROM items",
-            " WHERE href = ?",
+            &format!(" WHERE href = ? AND etag_{side} IS NOT NULL"),
         ]
         .into_iter()
         .collect::<String>();
@@ -189,10 +190,13 @@ impl StatusDatabase {
         statement.bind((1, href))?;
 
         if let Ok(State::Row) = statement.next() {
+            let Some(etag) = statement.read::<Option<String>, _>("etag")? else {
+                return Ok(None);
+            };
             Ok(Some(ItemState {
                 href: statement.read::<String, _>("href")?,
                 uid: statement.read::<String, _>("ident")?,
-                etag: statement.read::<String, _>("etag")?.into(),
+                etag: Etag::from(etag),
                 hash: statement.read::<String, _>("hash")?,
             }))
         } else {
@@ -323,8 +327,8 @@ impl StatusDatabase {
         new_hash: &str,
         ref_a: &ItemRef,
         ref_b: &ItemRef,
-        new_a: &Etag,
-        new_b: &Etag,
+        new_a: Option<&Etag>,
+        new_b: Option<&Etag>,
     ) -> Result<(), StatusError> {
         // Items in other collections may have the same UID, so update by href.
         let query = concat!(
@@ -333,8 +337,8 @@ impl StatusDatabase {
         );
         let mut statement = self.conn.prepare(query)?;
         statement.bind((":hash", new_hash))?;
-        statement.bind((":new_a", new_a.as_ref()))?;
-        statement.bind((":new_b", new_b.as_ref()))?;
+        statement.bind((":new_a", new_a.as_ref().map(AsRef::as_ref)))?;
+        statement.bind((":new_b", new_b.as_ref().map(AsRef::as_ref)))?;
         statement.bind((":href_a", ref_a.href.as_str()))?;
         statement.bind((":href_b", ref_b.href.as_str()))?;
         statement.bind((":old_a", ref_a.etag.as_ref()))?;
@@ -450,13 +454,15 @@ mod test {
 
         let updated_hash = "ANOTHERHASH";
         let updated_etag_a = "456".into();
+        let updated_etag_a = Some(&updated_etag_a);
         let updated_etag_b = "def111".into();
+        let updated_etag_b = Some(&updated_etag_b);
         db.update_item(
             updated_hash,
             &item_a,
             &item_b,
-            &updated_etag_a,
-            &updated_etag_b,
+            updated_etag_a,
+            updated_etag_b,
         )
         .unwrap();
 
@@ -464,13 +470,13 @@ mod test {
         assert_eq!(item_a_fetched.uid, uid);
         assert_eq!(item_a_fetched.hash, updated_hash);
         assert_eq!(item_a_fetched.href, item_a.href);
-        assert_eq!(item_a_fetched.etag, updated_etag_a);
+        assert_eq!(item_a_fetched.etag, *updated_etag_a.unwrap());
 
         let item_b_fetched = db.get_item_by_href(Side::B, &item_b.href).unwrap().unwrap();
         assert_eq!(item_b_fetched.uid, uid);
         assert_eq!(item_b_fetched.hash, updated_hash);
         assert_eq!(item_b_fetched.href, item_b.href);
-        assert_eq!(item_b_fetched.etag, updated_etag_b);
+        assert_eq!(item_b_fetched.etag, *updated_etag_b.unwrap());
 
         let item_status = db
             .get_item_hash_by_uid(&mapping_uid, uid)
@@ -501,7 +507,9 @@ mod test {
 
         let updated_hash = "ANOTHERHASH";
         let updated_etag_a = "456".into();
+        let updated_etag_a = Some(&updated_etag_a);
         let updated_etag_b = "def111".into();
+        let updated_etag_b = Some(&updated_etag_b);
         let err = db
             .update_item(
                 updated_hash,
@@ -510,8 +518,8 @@ mod test {
                     etag: item_a.etag,
                 },
                 &item_b,
-                &updated_etag_a,
-                &updated_etag_b,
+                updated_etag_a,
+                updated_etag_b,
             )
             .unwrap_err();
         assert!(matches!(err, StatusError::NoUpdate));

@@ -81,7 +81,7 @@ impl<S: Storage<I>, I: Item> Storage<I> for ReadOnlyStorage<S, I> {
         Err(ErrorKind::ReadOnly.into())
     }
 
-    async fn update_item(&self, _: &str, _: &Etag, _: &I) -> Result<Etag> {
+    async fn update_item(&self, _: &str, _: &Etag, _: &I) -> Result<Option<Etag>> {
         Err(ErrorKind::ReadOnly.into())
     }
 
