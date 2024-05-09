@@ -1,5 +1,5 @@
 //! Store and query status between synchronisations.
-use std::path::Path;
+use std::{fs::create_dir_all, path::Path};
 
 use log::{debug, error};
 use sqlite::{Connection, ConnectionThreadSafe, OpenFlags, State};
@@ -15,6 +15,8 @@ pub enum StatusError {
     Io(#[from] sqlite::Error),
     #[error("UPDATE did no affect any rows")]
     NoUpdate,
+    #[error("Could not create parent directories")]
+    ParentDirs(#[source] std::io::Error),
 }
 
 /// Storages are synchronised between two "sides", 'a' or 'b'.
@@ -110,6 +112,11 @@ impl StatusDatabase {
     ///
     /// Returns [`StatusError::Io`] if sqlite fails to open or create the database.
     pub fn open_or_create(path: impl AsRef<Path>) -> Result<StatusDatabase, StatusError> {
+        let path = path.as_ref();
+        if let Some(parent) = path.parent() {
+            create_dir_all(parent).map_err(StatusError::ParentDirs)?;
+        }
+
         let db = StatusDatabase {
             conn: Connection::open_thread_safe(path)?,
         };
