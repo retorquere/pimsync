@@ -84,7 +84,7 @@ impl<I: Item> NamedPair<I> {
     /// Sync this pair indefinitely
     ///
     /// Returns an error if an only if a fatal synchronisation error ocurred.
-    async fn sync(self, interval: Duration /* ui-lock ? */) -> anyhow::Error {
+    async fn daemon(self, interval: Duration /* ui-lock ? */) -> anyhow::Error {
         // TODO: take some broadcast channel where events are sent:
         //       enum Event: CreatePlan, PrintPlan, ExecutePlan, Monitor
         loop {
@@ -344,7 +344,7 @@ async fn main() -> anyhow::Result<()> {
 
     match cli.command {
         Command::Check => Ok(()),
-        Command::Sync { pair } => {
+        Command::Daemon { pair } => {
             if let Some(name) = pair {
                 app.only(&name);
             }
@@ -353,10 +353,10 @@ async fn main() -> anyhow::Result<()> {
 
             let mut set = JoinSet::new();
             for pair in app.calendar_pairs {
-                set.spawn(pair.sync(app.interval));
+                set.spawn(pair.daemon(app.interval));
             }
             for pair in app.contact_pairs {
-                set.spawn(pair.sync(app.interval));
+                set.spawn(pair.daemon(app.interval));
             }
 
             while let Some(res) = set.join_next().await {
@@ -367,7 +367,7 @@ async fn main() -> anyhow::Result<()> {
             }
             anyhow::bail!("All sync tasks exited.");
         }
-        Command::SyncOnce { dry_run, pair } => {
+        Command::Sync { dry_run, pair } => {
             if let Some(name) = pair {
                 app.only(&name);
             }

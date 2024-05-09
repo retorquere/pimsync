@@ -16,8 +16,9 @@ the [migration guide](/docs/migration-guide/).
 
 ## New features in v2.0.0
 
-- `sync` will continuously keep storages in sync. Use `sync-once` for a
-  one-shot synchronisation.
-- Use `resolve-conflicts` to manually resolve conflicts.
+- `daemon` will continuously keep storages in sync.
+- `sync` requires no user intervention.
+- Use `resolve-conflicts` to manually resolve conflicts. Conflict resolution is
+  no longer applied automatically during sync.
 - If a single file fails or results in conflict, the rest of the synchronisation
   process will continue.

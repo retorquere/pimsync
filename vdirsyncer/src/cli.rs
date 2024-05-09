@@ -7,13 +7,13 @@ pub(crate) enum Command {
     /// Check configuration file and exit
     Check,
     /// Keep configured storages in sync.
-    Sync {
+    Daemon {
         /// Only synchronise this pair
         #[arg()]
         pair: Option<String>,
     },
     /// Sync configured storages once and exit.
-    SyncOnce {
+    Sync {
         /// Only plan changes but don't execute any.
         #[arg(short, long)]
         dry_run: bool,
