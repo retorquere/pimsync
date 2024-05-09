@@ -492,8 +492,10 @@ impl CollectionPlan {
             .transpose()?
             .flatten();
 
-        let items_a = items_for_collection(status, pair.storage_a(), &href_a, Side::A).await?;
-        let items_b = items_for_collection(status, pair.storage_b(), &href_b, Side::B).await?;
+        let (items_a, items_b) = tokio::try_join!(
+            items_for_collection(status, pair.storage_a(), &href_a, Side::A),
+            items_for_collection(status, pair.storage_b(), &href_b, Side::B),
+        )?;
 
         let status_uids = match (status, &mapping_uid) {
             (Some(s), Some(m)) => s.all_uids(m)?,
