@@ -16,6 +16,7 @@ use camino::Utf8PathBuf;
 use clap::Parser;
 use log::{debug, error, info, trace, warn};
 use rustix::fs::sync;
+use stdio::{StdIo, StdIoLock};
 use tempfile::NamedTempFile;
 use tokio::task::JoinSet;
 use vstorage::{
@@ -33,6 +34,7 @@ use crate::cli::{Command, Vdirsyncer};
 
 mod cli;
 mod config;
+mod stdio;
 mod tls;
 
 pub const VERSION: &str = "2.0.0-alpha0";
@@ -158,7 +160,7 @@ impl<I: Item> NamedPair<I> {
         }
     }
 
-    async fn resolve_conflicts(self) -> anyhow::Result<()> {
+    async fn resolve_conflicts(self, stdio: Arc<StdIo>) -> anyhow::Result<()> {
         let Some(ref raw_cmd) = self.conflict_resolution else {
             error!("No conflict resolution command for {}.", self.name);
             return Ok(());
@@ -183,9 +185,13 @@ impl<I: Item> NamedPair<I> {
 
         let total = conflicts.len();
 
+        trace!("Taking stdio lock...");
+        let lock = stdio.lock().await;
+        trace!("Stdio lock taken.");
+
         for (i, (a, b)) in conflicts.into_iter().enumerate() {
             info!("Next is item {}/{total}", i + 1);
-            continue_or_abort()?;
+            continue_or_abort(&lock)?;
 
             // TODO: improve logging here.
             // TODO: move duplicated logic into a "read_item_to_tempfile" function.
@@ -274,14 +280,14 @@ async fn save_item_to_tempfile<I: Item>(
 }
 
 /// Returns an error if user chooses to abort.
-fn continue_or_abort() -> anyhow::Result<()> {
-    let stdin = std::io::stdin();
+fn continue_or_abort(stdio: &StdIoLock) -> anyhow::Result<()> {
+    let input = stdio.stdin();
 
     loop {
         println!("Continue? [Y/n]");
         // Need to read entire lines because the stdlib implicitly buffers stdin.
         let mut response = String::new();
-        stdin
+        input
             .read_line(&mut response)
             .context("Reading response from stdin")?;
 
@@ -299,6 +305,7 @@ pub(crate) struct App {
     interval: Duration,
     calendar_pairs: Vec<NamedPair<IcsItem>>,
     contact_pairs: Vec<NamedPair<VcardItem>>,
+    stdio: Arc<StdIo>,
 }
 
 impl App {
@@ -319,7 +326,7 @@ impl App {
     }
 }
 
-#[tokio::main(flavor = "current_thread")]
+#[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let cli = Vdirsyncer::parse();
     let log_level = cli.log_level();
@@ -392,10 +399,10 @@ async fn main() -> anyhow::Result<()> {
 
             let mut set = JoinSet::new();
             for pair in app.calendar_pairs {
-                set.spawn(pair.resolve_conflicts());
+                set.spawn(pair.resolve_conflicts(app.stdio.clone()));
             }
             for pair in app.contact_pairs {
-                set.spawn(pair.resolve_conflicts());
+                set.spawn(pair.resolve_conflicts(app.stdio.clone()));
             }
 
             while let Some(res) = set.join_next().await {

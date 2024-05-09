@@ -33,6 +33,7 @@ use vstorage::{
 };
 
 use crate::{
+    stdio::StdIo,
     tls::{
         cert_and_key_from_pemfile, certs_from_pemfile, key_from_pemfile,
         FingerprintAndWebPkiVerifier, FingerprintVerifier,
@@ -119,6 +120,7 @@ impl Config {
             calendar_pairs,
             contact_pairs,
             interval: Duration::from_secs(self.general.interval),
+            stdio: Arc::new(StdIo::new()),
         })
     }
 }
