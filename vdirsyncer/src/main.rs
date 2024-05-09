@@ -159,15 +159,14 @@ impl<I: Item> NamedPair<I> {
     }
 
     async fn resolve_conflicts(self) -> anyhow::Result<()> {
-        let plan = self.create_plan().await?;
-        self.print_plan(&plan);
-
         let Some(ref raw_cmd) = self.conflict_resolution else {
             error!("No conflict resolution command for {}.", self.name);
             return Ok(());
         };
-
         info!("Resolving conflicts for pair {}.", self.name);
+
+        let plan = self.create_plan().await?;
+        self.print_plan(&plan);
 
         // TODO: when we parallelise, should take lock on stdin here.
 
