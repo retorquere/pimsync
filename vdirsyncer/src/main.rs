@@ -14,7 +14,7 @@ use std::{
 use anyhow::{bail, Context};
 use camino::Utf8PathBuf;
 use clap::Parser;
-use log::{debug, error, info, warn};
+use log::{debug, error, info, trace, warn};
 use rustix::fs::sync;
 use tempfile::NamedTempFile;
 use tokio::task::JoinSet;
@@ -327,12 +327,12 @@ async fn main() -> anyhow::Result<()> {
     info!("Logging enabled with {} level", log_level);
 
     let config = config::load_from_default_path().context("could not load configuration file")?;
-    debug!("Parsed configuration: {:?}", &config);
+    trace!("Parsed configuration: {:?}", &config);
 
     let mut app = config
         .into_app()
         .await
-        .context("Failed to initialise with given configuration.")?;
+        .context("initialising application")?;
     debug!("Initialised application");
 
     match cli.command {
