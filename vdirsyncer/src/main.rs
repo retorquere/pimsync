@@ -17,7 +17,7 @@ use clap::Parser;
 use log::{debug, error, info, warn};
 use rustix::fs::sync;
 use tempfile::NamedTempFile;
-use tokio::sync::Mutex;
+use tokio::task::JoinSet;
 use vstorage::{
     base::{IcsItem, Item, Storage, VcardItem},
     sync::{
@@ -50,7 +50,6 @@ pub(crate) struct NamedPair<I: Item> {
     name: String,
     pub(crate) inner: StoragePair<I>,
     status_path: Utf8PathBuf,
-    plan: Mutex<Option<Plan<I>>>,
     conflict_resolution: Option<RawCommand>,
 }
 
@@ -71,48 +70,57 @@ pub fn log_error(error: SyncError) {
 impl<I: Item> NamedPair<I> {
     /// Returns `None` if the database doesn't exist.
     fn open_status_ro(&self) -> anyhow::Result<Option<StatusDatabase>> {
-        Ok(StatusDatabase::open_readonly(&self.status_path)?)
+        StatusDatabase::open_readonly(&self.status_path)
+            .with_context(|| format!("opening status db for {}", self.name))
     }
 
     fn open_status_rw(&self) -> anyhow::Result<StatusDatabase> {
-        Ok(StatusDatabase::open_or_create(&self.status_path)?)
+        StatusDatabase::open_or_create(&self.status_path)
+            .with_context(|| format!("opening or creating status db for {}", self.name))
+    }
+
+    /// Sync this pair indefinitely
+    ///
+    /// Returns an error if an only if a fatal synchronisation error ocurred.
+    async fn sync(self, interval: Duration /* ui-lock ? */) -> anyhow::Error {
+        // TODO: take some broadcast channel where events are sent:
+        //       enum Event: CreatePlan, PrintPlan, ExecutePlan, Monitor
+        loop {
+            match self.create_plan().await {
+                Ok(plan) => {
+                    self.print_plan(&plan);
+                    if let Err(err) = self.execute_plan(plan).await {
+                        return err;
+                    }
+                }
+                Err(err) => error!("error creating plan for {}: {}", self.name, err),
+            }
+            tokio::time::sleep(interval).await;
+        }
+    }
+
+    async fn sync_once(self, dry_run: bool /* ui-lock ? */) -> anyhow::Result<()> {
+        // TODO: take some broadcast channel where events are sent:
+        //       enum Event: CreatePlan, PrintPlan, ExecutePlan, Monitor
+        let plan = self.create_plan().await?;
+        self.print_plan(&plan);
+        if !dry_run {
+            self.execute_plan(plan).await?;
+        }
+        Ok(())
     }
 
     /// Returns an error only if it is fatal.
     ///
     /// If partial errors occurred during synchronisations, returns `Ok(None)`.
-    async fn create_plan(&self) -> anyhow::Result<()> {
-        let mut plan = self.plan.lock().await;
-        if plan.is_some() {
-            bail!("Pair {} already has a plan!", self.name);
-        }
-        let status = match self.open_status_ro() {
-            Ok(s) => s,
-            Err(err) => {
-                error!("Skipping {}, failed to open status db: {}", self.name, err);
-                return Ok(());
-            }
-        };
-
+    async fn create_plan(&self) -> anyhow::Result<Plan<I>> {
         debug!("Creating plan for storage pair '{}'.", self.name);
-        match Plan::new(&self.inner, status.as_ref()).await {
-            Ok(p) => *plan = Some(p),
-            Err(err) => error!("Skipping pair {}; planning failed: {}", self.name, err),
-        };
-        Ok(())
+        Ok(Plan::new(&self.inner, self.open_status_ro()?.as_ref()).await?)
     }
 
     // Execute and consume the current plan.
-    async fn execute_plan(&self) -> anyhow::Result<()> {
-        let mut plan = self.plan.lock().await;
-        if let Some(plan) = plan.take() {
-            let status = self.open_status_rw()?;
-            plan.execute(&status, log_error).await?;
-        } else {
-            debug!("no plan to execute for {}", self.name);
-        };
-
-        Ok(())
+    async fn execute_plan(&self, plan: Plan<I>) -> anyhow::Result<()> {
+        Ok(plan.execute(&self.open_status_rw()?, log_error).await?)
     }
 
     async fn discover(&self) -> anyhow::Result<()> {
@@ -132,35 +140,31 @@ impl<I: Item> NamedPair<I> {
         Ok(())
     }
 
-    async fn print_plan(&self) {
+    fn print_plan(&self, plan: &Plan<I>) {
         // TODO: need to lock stdout/stderr for concurrent runs.
-        let plan = self.plan.lock().await;
-        if let Some(plan) = plan.as_ref() {
-            info!(">>> Plan for storage pair '{}'", self.name);
-            for cp in &plan.collection_plans {
-                info!(
-                    "collection: {}, action: {}. {} item actions.",
-                    cp.alias,
-                    cp.collection_action,
-                    cp.item_actions.len()
-                );
+        info!(">>> Plan for storage pair '{}'", self.name);
+        for cp in &plan.collection_plans {
+            info!(
+                "collection: {}, action: {}. {} item actions.",
+                cp.alias,
+                cp.collection_action,
+                cp.item_actions.len()
+            );
 
-                for item in &cp.item_actions {
-                    info!("item: {}", item);
-                    debug!("{item:?}");
-                }
+            for item in &cp.item_actions {
+                info!("item: {}", item);
+                debug!("{item:?}");
             }
         }
     }
 
-    async fn resolve_conflicts(&self) -> anyhow::Result<()> {
+    async fn resolve_conflicts(self) -> anyhow::Result<()> {
+        let plan = self.create_plan().await?;
+        self.print_plan(&plan);
+
         let Some(ref raw_cmd) = self.conflict_resolution else {
             error!("No conflict resolution command for {}.", self.name);
             return Ok(());
-        };
-
-        let Some(plan) = self.plan.lock().await.take() else {
-            bail!("Attempted to resolve conflicts without a plan.")
         };
 
         info!("Resolving conflicts for pair {}.", self.name);
@@ -305,53 +309,6 @@ impl App {
         self.contact_pairs.retain(|p| p.name == name);
     }
 
-    /// Returns an error if a fatal error has ocurred.
-    async fn sync(&self, dry_run: bool, resolve_conflicts: bool) -> anyhow::Result<()> {
-        // TODO: This needs to be rewritten entirely; duplicating each action for calendars and
-        //       address books is terrible.
-        // TODO: maybe should spawn a task for each pair here.
-        //       the task takes some broadcast channel where events are sent:
-        //       - enum Event: CreatePlan, PrintPlan, ExecutePlan, Monitor
-
-        // TODO: protect from concurrent runs!
-        for pair in &self.calendar_pairs {
-            pair.create_plan().await?;
-        }
-        for pair in &self.contact_pairs {
-            pair.create_plan().await?;
-        }
-
-        for pair in &self.calendar_pairs {
-            pair.print_plan().await;
-        }
-        for pair in &self.contact_pairs {
-            pair.print_plan().await;
-        }
-
-        // TODO: if conflict resolution is from_a or from_b, rewrite conflicting actions.
-
-        if dry_run {
-            info!("Dry run: not synchronising.");
-        } else if resolve_conflicts {
-            for pair in &self.calendar_pairs {
-                pair.resolve_conflicts().await?;
-            }
-            for pair in &self.contact_pairs {
-                pair.resolve_conflicts().await?;
-            }
-            info!("Ran conflict resolution; skipping regular sync.");
-        } else {
-            for pair in &self.calendar_pairs {
-                pair.execute_plan().await?;
-            }
-            for pair in &self.contact_pairs {
-                pair.execute_plan().await?;
-            }
-            info!("Synchronisation complete");
-        }
-        Ok(())
-    }
-
     async fn discover(&self) -> anyhow::Result<()> {
         for pair in &self.calendar_pairs {
             pair.discover().await?;
@@ -387,23 +344,69 @@ async fn main() -> anyhow::Result<()> {
             }
             warn!("Storage monitoring is not implemented, will auto-sync every 5 minutes.");
             // TODO: HTTPS connections are kept open for a while; this should also be configurable.
-            loop {
-                app.sync(false, false).await?;
-                // TODO: make this interval configurable.
-                tokio::time::sleep(app.interval).await;
+
+            let mut set = JoinSet::new();
+            for pair in app.calendar_pairs {
+                set.spawn(pair.sync(app.interval));
             }
+            for pair in app.contact_pairs {
+                set.spawn(pair.sync(app.interval));
+            }
+
+            while let Some(res) = set.join_next().await {
+                match res {
+                    Ok(err) => error!("Error in sync task: {}.", err),
+                    Err(joinerr) => error!("Sync task aborted: {}.", joinerr),
+                }
+            }
+            anyhow::bail!("All sync tasks exited.");
         }
         Command::SyncOnce { dry_run, pair } => {
             if let Some(name) = pair {
                 app.only(&name);
             }
-            app.sync(dry_run, false).await
+
+            let mut set = JoinSet::new();
+            for pair in app.calendar_pairs {
+                set.spawn(pair.sync_once(dry_run));
+            }
+            for pair in app.contact_pairs {
+                set.spawn(pair.sync_once(dry_run));
+            }
+
+            while let Some(res) = set.join_next().await {
+                match res {
+                    Ok(Ok(())) => {}
+                    Ok(Err(err)) => error!("Error in sync task: {}.", err),
+                    Err(joinerr) => error!("Sync task aborted: {}.", joinerr),
+                }
+            }
+            Ok(())
         }
         Command::ResolveConflicts { dry_run, pair } => {
             if let Some(name) = pair {
                 app.only(&name);
             }
-            app.sync(dry_run, true).await
+            if dry_run {
+                bail!("dry_run is not implemented for resolve-conflicts");
+            }
+
+            let mut set = JoinSet::new();
+            for pair in app.calendar_pairs {
+                set.spawn(pair.resolve_conflicts());
+            }
+            for pair in app.contact_pairs {
+                set.spawn(pair.resolve_conflicts());
+            }
+
+            while let Some(res) = set.join_next().await {
+                match res {
+                    Ok(Ok(())) => {}
+                    Ok(Err(err)) => error!("Error in sync task: {}.", err),
+                    Err(joinerr) => error!("Sync task aborted: {}.", joinerr),
+                }
+            }
+            Ok(())
         }
         Command::Discover => app.discover().await,
     }
