@@ -202,6 +202,7 @@ mod test {
     use crate::simple_component::ComponentError;
 
     #[test]
+    #[allow(clippy::too_many_lines)]
     fn test_parse_and_split_collection() {
         use super::Component;
 
@@ -249,7 +250,7 @@ mod test {
         let serialised_split = Component::into_split_collection(component)
             .unwrap()
             .iter()
-            .map(|c| c.to_string())
+            .map(Component::to_string)
             .collect::<Vec<_>>();
 
         let expected_first = vec![
@@ -324,7 +325,7 @@ mod test {
     fn test_missing_end() {
         use super::Component;
 
-        let calendar = vec![
+        let calendar = [
             "BEGIN:VCALENDAR",
             "BEGIN:VTIMEZONE",
             "TZID:Europe/Rome",
@@ -346,7 +347,7 @@ mod test {
     fn test_unknown_kind() {
         use super::Component;
 
-        let calendar = vec![
+        let calendar = [
             "BEGIN:VCALENDAR",
             "BEGIN:VTIMEZONE",
             "TZID:Europe/Rome",
@@ -371,7 +372,7 @@ mod test {
     fn test_multiline_uid() {
         use super::Component;
 
-        let calendar = vec![
+        let calendar = [
             "BEGIN:VCALENDAR",
             "BEGIN:VTIMEZONE",
             "TZID:Europe/Rome",

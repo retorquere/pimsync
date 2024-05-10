@@ -461,15 +461,13 @@ mod test {
 
         let updated_hash = "ANOTHERHASH";
         let updated_etag_a = "456".into();
-        let updated_etag_a = Some(&updated_etag_a);
         let updated_etag_b = "def111".into();
-        let updated_etag_b = Some(&updated_etag_b);
         db.update_item(
             updated_hash,
             &item_a,
             &item_b,
-            updated_etag_a,
-            updated_etag_b,
+            Some(&updated_etag_a),
+            Some(&updated_etag_b),
         )
         .unwrap();
 
@@ -477,13 +475,13 @@ mod test {
         assert_eq!(item_a_fetched.uid, uid);
         assert_eq!(item_a_fetched.hash, updated_hash);
         assert_eq!(item_a_fetched.href, item_a.href);
-        assert_eq!(item_a_fetched.etag, *updated_etag_a.unwrap());
+        assert_eq!(item_a_fetched.etag, updated_etag_a);
 
         let item_b_fetched = db.get_item_by_href(Side::B, &item_b.href).unwrap().unwrap();
         assert_eq!(item_b_fetched.uid, uid);
         assert_eq!(item_b_fetched.hash, updated_hash);
         assert_eq!(item_b_fetched.href, item_b.href);
-        assert_eq!(item_b_fetched.etag, *updated_etag_b.unwrap());
+        assert_eq!(item_b_fetched.etag, updated_etag_b);
 
         let item_status = db
             .get_item_hash_by_uid(&mapping_uid, uid)

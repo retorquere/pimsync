@@ -370,6 +370,20 @@ where
     }
 }
 
+fn join_hrefs(collection_href: &str, item_href: &str) -> String {
+    if item_href.starts_with('/') {
+        return item_href.to_string();
+    }
+
+    let mut href = collection_href
+        .strip_suffix('/')
+        .unwrap_or(collection_href)
+        .to_string();
+    href.push('/');
+    href.push_str(item_href);
+    href
+}
+
 #[cfg(test)]
 mod test {
     use hyper_rustls::HttpsConnectorBuilder;
@@ -410,18 +424,4 @@ mod test {
             assert_eq!(collection_id, output.parse().unwrap());
         }
     }
-}
-
-fn join_hrefs(collection_href: &str, item_href: &str) -> String {
-    if item_href.starts_with('/') {
-        return item_href.to_string();
-    }
-
-    let mut href = collection_href
-        .strip_suffix('/')
-        .unwrap_or(collection_href)
-        .to_string();
-    href.push('/');
-    href.push_str(item_href);
-    href
 }

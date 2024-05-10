@@ -436,13 +436,13 @@ mod tests {
         let collection = storage.create_collection("test").await.unwrap();
         let displayname = storage
             .get_collection_property(
-                &collection.href(),
+                collection.href(),
                 crate::base::CalendarProperty::DisplayName,
             )
             .await
             .unwrap();
 
-        assert!(displayname.is_none())
+        assert!(displayname.is_none());
     }
 
     #[tokio::test]
@@ -457,7 +457,7 @@ mod tests {
         let collection_path = dir.path().join(collection_name);
         create_dir_all(&collection_path).unwrap();
 
-        let without_prodid = vec![
+        let without_prodid = [
             "BEGIN:VCALENDAR",
             "BEGIN:VEVENT",
             "DTSTART:19970714T170000Z",
@@ -471,11 +471,11 @@ mod tests {
 
         write(collection_path.join("item.ics"), &without_prodid).unwrap();
 
-        let listed_items = storage.list_items(&collection_name).await.unwrap();
+        let listed_items = storage.list_items(collection_name).await.unwrap();
         assert_eq!(listed_items.len(), 1);
         assert_eq!(listed_items[0].href, "one/item.ics");
 
-        let all_items = storage.get_all_items(&collection_name).await.unwrap();
+        let all_items = storage.get_all_items(collection_name).await.unwrap();
         assert_eq!(all_items.len(), 1);
         assert_eq!(all_items[0].href, "one/item.ics");
 
@@ -491,7 +491,7 @@ mod tests {
         let item = IcsItem::from(without_prodid);
         storage.add_item("one", &item).await.unwrap();
 
-        let all_items = storage.get_all_items(&collection_name).await.unwrap();
+        let all_items = storage.get_all_items(collection_name).await.unwrap();
         assert_eq!(all_items.len(), 1);
     }
 
@@ -504,7 +504,7 @@ mod tests {
         );
 
         let missing_collection = "two";
-        let err = match storage.list_items(&missing_collection).await {
+        let err = match storage.list_items(missing_collection).await {
             Ok(items) => panic!("expected error, got {} result.", items.len()),
             Err(e) => e,
         };

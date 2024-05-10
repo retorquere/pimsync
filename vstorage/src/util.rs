@@ -78,7 +78,7 @@ mod test {
 
     #[test]
     fn compare_hashing_with_and_without_prodid() {
-        let without_prodid = vec![
+        let without_prodid = [
             "BEGIN:VCALENDAR",
             "BEGIN:VEVENT",
             "DTSTART:19970714T170000Z",
@@ -89,7 +89,7 @@ mod test {
             "END:VCALENDAR",
         ]
         .join("\r\n");
-        let with_prodid = vec![
+        let with_prodid = [
             "PRODID:test-client",
             "BEGIN:VCALENDAR",
             "BEGIN:VEVENT",
@@ -107,12 +107,12 @@ mod test {
 
     #[test]
     fn compare_hashing_with_different_folding() {
-        let first = vec![
+        let first = [
             "DESCRIPTION:Voor meer informatie zie https://nluug.nl/evenementen/nluug/na",
             " jaarsconferentie-2023/",
         ]
         .join("\r\n");
-        let second = vec![
+        let second = [
             "DESCRIPTION:Voor meer informatie zie https:",
             " //nluug.nl/evenementen/nluug/najaarsconferentie-2023/",
         ]

@@ -35,7 +35,7 @@ fn minimal_icalendar(summary: &str) -> anyhow::Result<String> {
     entry.push_str("END:VEVENT\r\n");
     entry.push_str("END:VCALENDAR\r\n");
 
-    Ok(entry.into())
+    Ok(entry)
 }
 
 async fn create_populated_storage(path: Utf8PathBuf) -> Arc<dyn Storage<IcsItem>> {
@@ -99,10 +99,10 @@ async fn test_sync_simple_case() {
 
     let first_mapping = DeclaredMapping::direct("first-calendar".parse().unwrap());
     let second_mapping = DeclaredMapping::direct("second-calendar".parse().unwrap());
-    let mut pair = StoragePair::<IcsItem>::new(populated, empty)
+    let pair = StoragePair::<IcsItem>::new(populated, empty)
         .with_mapping(first_mapping)
         .with_mapping(second_mapping);
-    let plan = Plan::new(&mut pair, None).await.unwrap();
+    let plan = Plan::new(&pair, None).await.unwrap();
     // dbg!(&plan);
     // TODO: I'll need to trace! the point where each actions is decided.
     let status = StatusDatabase::open_or_create(":memory:").unwrap();

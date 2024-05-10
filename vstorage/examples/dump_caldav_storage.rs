@@ -38,7 +38,7 @@ async fn create_caldav_from_env() -> Arc<dyn Storage<IcsItem>> {
 
 async fn create_vdir_from_env() -> Arc<dyn Storage<IcsItem>> {
     let path = std::env::var("VDIR_PATH").unwrap();
-    let storage = VdirStorage::new(path.try_into().unwrap(), "ics".to_string());
+    let storage = VdirStorage::new(path.into(), "ics".to_string());
     Arc::new(storage)
 }
 #[tokio::main]
@@ -81,7 +81,7 @@ async fn copy_collection(
 ) -> usize {
     let mut count = 0;
     for FetchedItem { item, .. } in source_storage
-        .get_all_items(&source_collection_href)
+        .get_all_items(source_collection_href)
         .await
         .expect("webcal remote has items")
     {

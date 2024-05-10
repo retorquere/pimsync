@@ -1039,7 +1039,7 @@ END:VCALENDAR
         assert!(content.data.contains("西红柿"));
     }
 
-    /// See: https://github.com/RazrFalcon/roxmltree/issues/108
+    /// See: <https://github.com/RazrFalcon/roxmltree/issues/108>
     #[test]
     fn test_multi_get_parse_encoding_another() {
         let b = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<multistatus xmlns=\"DAV:\" xmlns:C=\"urn:ietf:params:xml:ns:caldav\">\n  <response>\n    <href>/dav/calendars/user/hugo@whynothugo.nl/2100F960-2655-4E75-870F-CAA793466105/0F276A13-FBF3-49A1-8369-65EEA9C6F891.ics</href>\n    <propstat>\n      <prop>\n        <getetag>\"4219b87012f42ce7c4db55599aa3b579c70d8795\"</getetag>\n        <C:calendar-data><![CDATA[BEGIN(baño)END\r\n]]></C:calendar-data>\n      </prop>\n      <status>HTTP/1.1 200 OK</status>\n    </propstat>\n  </response>\n</multistatus>\n";
