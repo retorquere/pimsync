@@ -136,11 +136,6 @@ This documentation should move to a man page which can be published.
 
 # Licence
 
-<!--
-Copyright 2023 Hugo Osvaldo Barrera
-
+Copyright 2023-2024 Hugo Osvaldo Barrera  
+Licensed under the EUPL, Version 1.2 only  
 SPDX-License-Identifier: EUPL-1.2
--->
-
-Copyright 2023 Hugo Osvaldo Barrera  
-Licensed under the EUPL, Version 1.2 only

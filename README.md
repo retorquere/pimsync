@@ -68,11 +68,6 @@ from the [NGI Assure] program of the European Commission in early 2023.
 
 # Licence
 
-<!--
-Copyright 2023 Hugo Osvaldo Barrera
-
+Copyright 2023-2024 Hugo Osvaldo Barrera  
+Licensed under the EUPL, Version 1.2 only  
 SPDX-License-Identifier: EUPL-1.2
--->
-
-Copyright 2023 Hugo Osvaldo Barrera  
-Licensed under the EUPL, Version 1.2 only

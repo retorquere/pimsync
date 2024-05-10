@@ -1,4 +1,4 @@
-// Copyright 2023 Hugo Osvaldo Barrera
+// Copyright 2023-2024 Hugo Osvaldo Barrera
 //
 // SPDX-License-Identifier: EUPL-1.2
 #![deny(clippy::pedantic)]
