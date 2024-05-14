@@ -190,7 +190,7 @@ impl<I: Item> NamedPair<I> {
         trace!("Stdio lock taken.");
 
         for (i, (a, b)) in conflicts.into_iter().enumerate() {
-            info!("Next is item {}/{total}", i + 1);
+            println!("Next is item {}/{total}", i + 1);
             continue_or_abort(&lock)?;
 
             // TODO: improve logging here.
