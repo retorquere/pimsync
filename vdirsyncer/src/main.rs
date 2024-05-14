@@ -408,7 +408,7 @@ async fn main() -> anyhow::Result<()> {
             while let Some(res) = set.join_next().await {
                 match res {
                     Ok(Ok(())) => {}
-                    Ok(Err(err)) => error!("Error in sync task: {}.", err),
+                    Ok(Err(err)) => error!("Error resolving conflicts: {}.", err),
                     Err(joinerr) => error!("Sync task aborted: {}.", joinerr),
                 }
             }
