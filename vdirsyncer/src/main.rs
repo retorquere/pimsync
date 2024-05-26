@@ -331,7 +331,7 @@ async fn main() -> anyhow::Result<()> {
         Ok(cli) => cli,
         Err(err) => {
             eprintln!("Bad usage: {err}\n");
-            eprintln!("Usage: vdirsyncer [-v] COMMAND [ARGS...]");
+            eprintln!("Usage: vdirsyncer [-v LOGLEVEL] COMMAND [ARGS...]");
             eprintln!("Commands:");
             eprintln!("\tcheck\t\t\t\tcheck configuration and exit");
             eprintln!("\tdaemon [PAIR]\t\t\tkeep storages in sync");
