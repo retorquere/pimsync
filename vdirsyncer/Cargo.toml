@@ -13,9 +13,9 @@ license = "EUPL-1.2"
 [dependencies]
 anyhow = "1.0.75"
 camino = { version = "1.1.6", features = ["serde1"] }
-clap = { version = "4.0.0", features = ["derive"] }
 hyper = "0.14.27"
 hyper-rustls = "0.25.0"
+lexopt = "0.3.0"
 libdav = { version = "0.2.0", path = "../libdav" }
 log = "0.4.20"
 rustix = { version = "0.38.10", features = ["fs"] }

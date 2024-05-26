@@ -13,7 +13,6 @@ use std::{
 
 use anyhow::{bail, Context};
 use camino::Utf8PathBuf;
-use clap::Parser;
 use log::{debug, error, info, trace, warn};
 use rustix::fs::sync;
 use stdio::{StdIo, StdIoLock};
@@ -30,7 +29,7 @@ use vstorage::{
     Etag,
 };
 
-use crate::cli::{Command, Vdirsyncer};
+use crate::cli::{Cli, Command};
 
 mod cli;
 mod config;
@@ -328,10 +327,29 @@ impl App {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let cli = Vdirsyncer::parse();
-    let log_level = cli.log_level();
-    simple_logger::init_with_level(log_level).expect("logger should initialise");
-    info!("Logging enabled with {} level", log_level);
+    let cli = match Cli::parse(std::env::args()) {
+        Ok(cli) => cli,
+        Err(err) => {
+            eprintln!("Bad usage: {err}\n");
+            eprintln!("Usage: vdirsyncer [-v] COMMAND [ARGS...]");
+            eprintln!("Commands:");
+            eprintln!("\tcheck\t\t\t\tcheck configuration and exit");
+            eprintln!("\tdaemon [PAIR]\t\t\tkeep storages in sync");
+            eprintln!("\tsync [-d] [PAIR]\t\tsync storages once");
+            eprintln!("\tresolve-conflicts [-d] [PAIR]\tmanually resolve conflicts");
+            eprintln!("\tdiscover\t\t\tprint discovered collections");
+            eprintln!("\tversion\t\t\t\tprint version");
+            eprintln!("See 'man vdirsyncer' for details");
+            std::process::exit(100);
+        }
+    };
+
+    if let Command::Version = cli.command {
+        println!("vdirsyncer {VERSION}");
+    };
+
+    simple_logger::init_with_level(cli.log_level).expect("logger should initialise");
+    info!("Logging enabled with {} level", cli.log_level);
 
     let config = config::load_from_default_path().context("could not load configuration file")?;
     trace!("Parsed configuration: {:?}", &config);
@@ -415,6 +433,7 @@ async fn main() -> anyhow::Result<()> {
             Ok(())
         }
         Command::Discover => app.discover().await,
+        Command::Version => unreachable!(),
     }
 
     // TODO: turn storages into lockables
