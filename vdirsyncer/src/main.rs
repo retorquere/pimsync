@@ -348,7 +348,10 @@ async fn main() -> anyhow::Result<()> {
         println!("vdirsyncer {VERSION}");
     };
 
-    simple_logger::init_with_level(cli.log_level).expect("logger should initialise");
+    simple_logger::SimpleLogger::new()
+        .with_level(cli.log_level)
+        .init()
+        .expect("logger should initialise");
     info!("Logging enabled with {} level", cli.log_level);
 
     let config = config::load_from_default_path().context("could not load configuration file")?;

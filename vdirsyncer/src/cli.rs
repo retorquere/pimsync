@@ -11,13 +11,13 @@ pub(crate) enum Command {
 
 pub(crate) struct Cli {
     pub command: Command,
-    pub log_level: log::Level,
+    pub log_level: log::LevelFilter,
 }
 
 impl Cli {
     pub fn parse(mut args: impl Iterator<Item = String>) -> Result<Cli, lexopt::Error> {
         let mut command = None;
-        let mut log_level = log::Level::Warn;
+        let mut log_level = log::LevelFilter::Warn;
 
         args.next(); // Skip arg0
         let mut parser = lexopt::Parser::from_args(args);
