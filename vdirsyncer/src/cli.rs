@@ -1,4 +1,3 @@
-use anyhow::{bail, Context as _};
 use lexopt::ValueExt as _;
 
 pub(crate) enum Command {
@@ -16,7 +15,7 @@ pub(crate) struct Cli {
 }
 
 impl Cli {
-    pub fn parse(mut args: impl Iterator<Item = String>) -> anyhow::Result<Cli> {
+    pub fn parse(mut args: impl Iterator<Item = String>) -> Result<Cli, lexopt::Error> {
         let mut verbose = 0;
         let mut command = None;
 
@@ -25,8 +24,6 @@ impl Cli {
         while let Some(arg) = parser.next()? {
             match arg {
                 lexopt::Arg::Short('v') => verbose += 1,
-                lexopt::Arg::Short(short) => bail!("Unexpected -{}", short),
-                lexopt::Arg::Long(long) => bail!("Unexpected --{}", long),
                 lexopt::Arg::Value(raw_cmd) => {
                     command = match raw_cmd.string()?.as_str() {
                         "check" => Some(Command::Check),
@@ -35,9 +32,8 @@ impl Cli {
                             while let Some(arg) = parser.next()? {
                                 match arg {
                                     lexopt::Arg::Short('v') => verbose += 1,
-                                    lexopt::Arg::Short(short) => bail!("Unexpected -{}", short),
-                                    lexopt::Arg::Long(long) => bail!("Unexpected --{}", long),
                                     lexopt::Arg::Value(raw_pair) => pair = Some(raw_pair.string()?),
+                                    _ => return Err(arg.unexpected()),
                                 };
                             }
                             Some(Command::Daemon { pair })
@@ -49,9 +45,8 @@ impl Cli {
                                 match arg {
                                     lexopt::Arg::Short('v') => verbose += 1,
                                     lexopt::Arg::Short('d') => dry_run = true,
-                                    lexopt::Arg::Short(short) => bail!("Unexpected -{}", short),
-                                    lexopt::Arg::Long(long) => bail!("Unexpected --{}", long),
                                     lexopt::Arg::Value(raw_pair) => pair = Some(raw_pair.string()?),
+                                    _ => return Err(arg.unexpected()),
                                 };
                             }
                             Some(Command::Sync { pair, dry_run })
@@ -63,19 +58,19 @@ impl Cli {
                                 match arg {
                                     lexopt::Arg::Short('v') => verbose += 1,
                                     lexopt::Arg::Short('d') => dry_run = true,
-                                    lexopt::Arg::Short(short) => bail!("Unexpected -{}", short),
-                                    lexopt::Arg::Long(long) => bail!("Unexpected --{}", long),
                                     lexopt::Arg::Value(raw_pair) => pair = Some(raw_pair.string()?),
+                                    _ => return Err(arg.unexpected()),
                                 };
                             }
                             Some(Command::ResolveConflicts { pair, dry_run })
                         }
                         "discover" => Some(Command::Discover),
                         "version" => Some(Command::Version),
-                        cmd => bail!("Unknown command: {}", cmd),
+                        cmd => return Err(format!("Unknown command: {cmd}").into()),
                     };
                     break;
                 }
+                _ => return Err(arg.unexpected()),
             };
         }
 
@@ -88,7 +83,7 @@ impl Cli {
         };
 
         Ok(Cli {
-            command: command.context("no command specified")?,
+            command: command.ok_or(lexopt::Error::from("No command specified"))?,
             log_level,
         })
     }
