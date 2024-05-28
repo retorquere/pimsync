@@ -70,10 +70,12 @@ impl ItemState {
     }
 }
 
-pub(super) struct HashAndEtags {
+pub(super) struct StatusForItem {
     pub(super) hash: String,
     pub(super) etag_a: Etag,
     pub(super) etag_b: Etag,
+    pub(super) href_a: Etag,
+    pub(super) href_b: Etag,
 }
 
 /// A unique ID used for a mapping between two collections.
@@ -215,19 +217,22 @@ impl StatusDatabase {
         &self,
         mapping_uid: &MappingUid,
         uid: &str,
-    ) -> Result<Option<HashAndEtags>, StatusError> {
-        let query =
-            concat!("SELECT hash, etag_a, etag_b FROM items WHERE ident = ? AND mapping_uid = ?");
+    ) -> Result<Option<StatusForItem>, StatusError> {
+        let query = concat!(
+            "SELECT hash, etag_a, etag_b, href_a, href_b",
+            " FROM items WHERE ident = ? AND mapping_uid = ?"
+        );
         let mut statement = self.conn.prepare(query)?;
         statement.bind((1, uid))?;
         statement.bind((2, mapping_uid.0))?;
 
         if let Ok(State::Row) = statement.next() {
-            // Ok(Some())
-            Ok(Some(HashAndEtags {
+            Ok(Some(StatusForItem {
                 hash: statement.read::<String, _>("hash")?,
                 etag_a: statement.read::<String, _>("etag_a")?.into(),
                 etag_b: statement.read::<String, _>("etag_b")?.into(),
+                href_a: statement.read::<String, _>("href_a")?.into(),
+                href_b: statement.read::<String, _>("href_b")?.into(),
             }))
         } else {
             Ok(None)

@@ -17,7 +17,7 @@ use crate::{base::Item, sync::declare::StoragePair};
 use crate::{CollectionId, ErrorKind, Etag, Href};
 
 use super::declare::{CollectionDescription, DeclaredMapping};
-use super::status::{HashAndEtags, ItemState, MappingUid, Side, StatusDatabase, StatusError};
+use super::status::{ItemState, MappingUid, Side, StatusDatabase, StatusError, StatusForItem};
 
 /// Error that occurs when creating a [`Plan`].
 #[derive(thiserror::Error, Debug)]
@@ -602,7 +602,7 @@ impl ItemAction {
     fn for_item(
         current_a: Option<&ItemState>,
         current_b: Option<&ItemState>,
-        previous: Option<HashAndEtags>,
+        previous: Option<StatusForItem>,
         uid: &str,
     ) -> Option<ItemAction> {
         match (current_a, current_b, previous) {
@@ -631,11 +631,14 @@ impl ItemAction {
             (Some(a), Some(b), Some(prev)) => {
                 if a.hash == b.hash {
                     // Item are in sync
-                    if a.hash == prev.hash {
+                    if a.hash == prev.hash
+                        && a.href.as_str() == prev.href_a.as_ref()
+                        && b.href.as_str() == prev.href_b.as_ref()
+                    {
                         // Item has not changed on either side.
                         None
                     } else {
-                        // Item has changed on both sides, but is identical.
+                        // Item is identical on both sides (but has changes or moved).
                         Some(ItemAction::UpdateStatus {
                             hash: a.hash.clone(),
                             ref_a: ItemRef {
@@ -785,6 +788,8 @@ impl std::fmt::Display for CollectionAction {
 }
 
 /// Returns the state of all items for a collection.
+///
+/// If an item has changed `href`, the updated `href` is returned.
 async fn items_for_collection<I: Item>(
     status: Option<&StatusDatabase>,
     storage: &dyn Storage<I>,
@@ -804,7 +809,7 @@ async fn items_for_collection<I: Item>(
                     items.push(prev_item);
                     continue;
                 } // else: item has changed
-            } // else: item is new
+            } // else: item is new OR item has moved
             to_prefetch.push(item_ref.href);
         }
 
