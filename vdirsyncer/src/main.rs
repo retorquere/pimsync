@@ -323,6 +323,83 @@ impl App {
         }
         Ok(())
     }
+
+    async fn daemon(mut self, pair: Option<String>) -> anyhow::Result<()> {
+        if let Some(name) = pair {
+            self.only(&name);
+        }
+        warn!("Storage monitoring is not implemented, will auto-sync every 5 minutes.");
+        // TODO: HTTPS connections are kept open for a while; this should also be configurable.
+
+        let mut set = JoinSet::new();
+        for pair in self.calendar_pairs {
+            set.spawn(pair.daemon(self.interval));
+        }
+        for pair in self.contact_pairs {
+            set.spawn(pair.daemon(self.interval));
+        }
+
+        while let Some(res) = set.join_next().await {
+            match res {
+                Ok(err) => error!("Error in sync task: {}.", err),
+                Err(joinerr) => error!("Sync task aborted: {}.", joinerr),
+            }
+        }
+        anyhow::bail!("All sync tasks exited.");
+    }
+
+    async fn sync(mut self, dry_run: bool, pair: Option<String>) -> anyhow::Result<()> {
+        if let Some(name) = pair {
+            self.only(&name);
+        }
+
+        let mut set = JoinSet::new();
+        for pair in self.calendar_pairs {
+            set.spawn(pair.sync_once(dry_run));
+        }
+        for pair in self.contact_pairs {
+            set.spawn(pair.sync_once(dry_run));
+        }
+
+        while let Some(res) = set.join_next().await {
+            match res {
+                Ok(Ok(())) => {}
+                Ok(Err(err)) => error!("Error in sync task: {}.", err),
+                Err(joinerr) => error!("Sync task aborted: {}.", joinerr),
+            }
+        }
+        Ok(())
+    }
+
+    async fn resolve_conflicts(
+        mut self,
+        dry_run: bool,
+        pair: Option<String>,
+    ) -> anyhow::Result<()> {
+        if let Some(name) = pair {
+            self.only(&name);
+        }
+        if dry_run {
+            bail!("dry_run is not implemented for resolve-conflicts");
+        }
+
+        let mut set = JoinSet::new();
+        for pair in self.calendar_pairs {
+            set.spawn(pair.resolve_conflicts(self.stdio.clone()));
+        }
+        for pair in self.contact_pairs {
+            set.spawn(pair.resolve_conflicts(self.stdio.clone()));
+        }
+
+        while let Some(res) = set.join_next().await {
+            match res {
+                Ok(Ok(())) => {}
+                Ok(Err(err)) => error!("Error resolving conflicts: {}.", err),
+                Err(joinerr) => error!("Sync task aborted: {}.", joinerr),
+            }
+        }
+        Ok(())
+    }
 }
 
 #[tokio::main]
@@ -357,7 +434,7 @@ async fn main() -> anyhow::Result<()> {
     let config = config::load_from_default_path().context("could not load configuration file")?;
     trace!("Parsed configuration: {:?}", &config);
 
-    let mut app = config
+    let app = config
         .into_app()
         .await
         .context("initialising application")?;
@@ -365,76 +442,9 @@ async fn main() -> anyhow::Result<()> {
 
     match cli.command {
         Command::Check => Ok(()),
-        Command::Daemon { pair } => {
-            if let Some(name) = pair {
-                app.only(&name);
-            }
-            warn!("Storage monitoring is not implemented, will auto-sync every 5 minutes.");
-            // TODO: HTTPS connections are kept open for a while; this should also be configurable.
-
-            let mut set = JoinSet::new();
-            for pair in app.calendar_pairs {
-                set.spawn(pair.daemon(app.interval));
-            }
-            for pair in app.contact_pairs {
-                set.spawn(pair.daemon(app.interval));
-            }
-
-            while let Some(res) = set.join_next().await {
-                match res {
-                    Ok(err) => error!("Error in sync task: {}.", err),
-                    Err(joinerr) => error!("Sync task aborted: {}.", joinerr),
-                }
-            }
-            anyhow::bail!("All sync tasks exited.");
-        }
-        Command::Sync { dry_run, pair } => {
-            if let Some(name) = pair {
-                app.only(&name);
-            }
-
-            let mut set = JoinSet::new();
-            for pair in app.calendar_pairs {
-                set.spawn(pair.sync_once(dry_run));
-            }
-            for pair in app.contact_pairs {
-                set.spawn(pair.sync_once(dry_run));
-            }
-
-            while let Some(res) = set.join_next().await {
-                match res {
-                    Ok(Ok(())) => {}
-                    Ok(Err(err)) => error!("Error in sync task: {}.", err),
-                    Err(joinerr) => error!("Sync task aborted: {}.", joinerr),
-                }
-            }
-            Ok(())
-        }
-        Command::ResolveConflicts { dry_run, pair } => {
-            if let Some(name) = pair {
-                app.only(&name);
-            }
-            if dry_run {
-                bail!("dry_run is not implemented for resolve-conflicts");
-            }
-
-            let mut set = JoinSet::new();
-            for pair in app.calendar_pairs {
-                set.spawn(pair.resolve_conflicts(app.stdio.clone()));
-            }
-            for pair in app.contact_pairs {
-                set.spawn(pair.resolve_conflicts(app.stdio.clone()));
-            }
-
-            while let Some(res) = set.join_next().await {
-                match res {
-                    Ok(Ok(())) => {}
-                    Ok(Err(err)) => error!("Error resolving conflicts: {}.", err),
-                    Err(joinerr) => error!("Sync task aborted: {}.", joinerr),
-                }
-            }
-            Ok(())
-        }
+        Command::Daemon { pair } => app.daemon(pair).await,
+        Command::Sync { dry_run, pair } => app.sync(dry_run, pair).await,
+        Command::ResolveConflicts { dry_run, pair } => app.resolve_conflicts(dry_run, pair).await,
         Command::Discover => app.discover().await,
         Command::Version => unreachable!(),
     }
