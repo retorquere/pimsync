@@ -411,7 +411,7 @@ async fn main() -> anyhow::Result<()> {
             eprintln!("Usage: vdirsyncer [-v LOGLEVEL] COMMAND [ARGS...]");
             eprintln!("Commands:");
             eprintln!("\tcheck\t\t\t\tcheck configuration and exit");
-            eprintln!("\tdaemon [PAIR]\t\t\tkeep storages in sync");
+            eprintln!("\tdaemon -[r] [PAIR]\t\t\tkeep storages in sync");
             eprintln!("\tsync [-d] [PAIR]\t\tsync storages once");
             eprintln!("\tresolve-conflicts [-d] [PAIR]\tmanually resolve conflicts");
             eprintln!("\tdiscover\t\t\tprint discovered collections");
@@ -442,7 +442,15 @@ async fn main() -> anyhow::Result<()> {
 
     match cli.command {
         Command::Check => Ok(()),
-        Command::Daemon { pair } => app.daemon(pair).await,
+        Command::Daemon { ready_fd, pair } => {
+            // Everything is ready; indicate this before actual daemon work.
+            if let Some(mut f) = ready_fd {
+                f.write(b"READY=1\n").context("writing to readiness fd")?;
+                f.sync_all().context("flushing readiness fd")?;
+                // File is closed implicity here.
+            };
+            app.daemon(pair).await
+        }
         Command::Sync { dry_run, pair } => app.sync(dry_run, pair).await,
         Command::ResolveConflicts { dry_run, pair } => app.resolve_conflicts(dry_run, pair).await,
         Command::Discover => app.discover().await,

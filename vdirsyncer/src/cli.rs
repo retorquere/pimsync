@@ -1,10 +1,21 @@
 use lexopt::ValueExt as _;
+use rustix::fd::FromRawFd as _;
+use std::fs::File;
 
 pub(crate) enum Command {
     Check,
-    Daemon { pair: Option<String> },
-    Sync { dry_run: bool, pair: Option<String> },
-    ResolveConflicts { dry_run: bool, pair: Option<String> },
+    Daemon {
+        ready_fd: Option<File>,
+        pair: Option<String>,
+    },
+    Sync {
+        dry_run: bool,
+        pair: Option<String>,
+    },
+    ResolveConflicts {
+        dry_run: bool,
+        pair: Option<String>,
+    },
     Discover,
     Version,
 }
@@ -29,13 +40,26 @@ impl Cli {
                         "check" => Some(Command::Check),
                         "daemon" => {
                             let mut pair = None;
+                            let mut ready_fd = None;
                             while let Some(arg) = parser.next()? {
                                 match arg {
+                                    lexopt::Arg::Short('r') => {
+                                        // SAFETY: this file descriptor is not accessed elsewhere.
+                                        // The end user is responsible for ensuring that it is a
+                                        // valid open file.
+                                        let raw_fd = parser.value()?.parse()?;
+                                        if raw_fd < 3 {
+                                            return Err(
+                                                "Readiness fd must be greater than 2".into()
+                                            );
+                                        }
+                                        ready_fd = Some(unsafe { File::from_raw_fd(raw_fd) });
+                                    }
                                     lexopt::Arg::Value(raw_pair) => pair = Some(raw_pair.string()?),
                                     _ => return Err(arg.unexpected()),
                                 };
                             }
-                            Some(Command::Daemon { pair })
+                            Some(Command::Daemon { ready_fd, pair })
                         }
                         "sync" => {
                             let mut pair = None;
