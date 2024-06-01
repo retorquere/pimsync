@@ -9,6 +9,11 @@
 CalDav and CardDav client implementations. This crate is part of the
 [`vdirsyncer` project](https://git.sr.ht/~whynothugo/vdirsyncer-rs).
 
+Documentation for this library can be generated with `cargo doc`. The
+documentation for the stable releases is available at [crates.io].
+
+[crates.io]: https://docs.rs/libdav/0.2.1/libdav/
+
 # Licence
 
 Copyright 2023-2024 Hugo Osvaldo Barrera  
