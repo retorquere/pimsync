@@ -173,25 +173,17 @@ impl<'a> Component<'a> {
     }
 }
 
-impl ToString for Component<'_> {
-    /// Returns a fully encoded representation of this item.
-    fn to_string(&self) -> String {
-        let mut raw = String::new();
-        raw.push_str("BEGIN:");
-        raw.push_str(self.kind.as_ref());
-        raw.push_str("\r\n");
+impl std::fmt::Display for Component<'_> {
+    /// Write a fully encoded representation of this item.
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "BEGIN:{}\r\n", self.kind)?;
         for line in &self.lines {
-            raw.push_str(line.raw());
-            raw.push_str("\r\n");
+            write!(f, "{}\r\n", line.raw())?;
         }
         for component in &self.subcomponents {
-            raw.push_str(&component.to_string());
+            f.write_str(&component.to_string())?;
         }
-        raw.push_str("END:");
-        raw.push_str(self.kind.as_ref());
-        raw.push_str("\r\n");
-
-        raw
+        write!(f, "END:{}\r\n", self.kind)
     }
 }
 
