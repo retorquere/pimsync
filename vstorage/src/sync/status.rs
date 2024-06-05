@@ -74,8 +74,8 @@ pub(super) struct StatusForItem {
     pub(super) hash: String,
     pub(super) etag_a: Etag,
     pub(super) etag_b: Etag,
-    pub(super) href_a: Etag,
-    pub(super) href_b: Etag,
+    pub(super) href_a: String,
+    pub(super) href_b: String,
 }
 
 /// A unique ID used for a mapping between two collections.
@@ -231,8 +231,8 @@ impl StatusDatabase {
                 hash: statement.read::<String, _>("hash")?,
                 etag_a: statement.read::<String, _>("etag_a")?.into(),
                 etag_b: statement.read::<String, _>("etag_b")?.into(),
-                href_a: statement.read::<String, _>("href_a")?.into(),
-                href_b: statement.read::<String, _>("href_b")?.into(),
+                href_a: statement.read::<String, _>("href_a")?,
+                href_b: statement.read::<String, _>("href_b")?,
             }))
         } else {
             Ok(None)

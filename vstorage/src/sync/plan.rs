@@ -631,10 +631,7 @@ impl ItemAction {
             (Some(a), Some(b), Some(prev)) => {
                 if a.hash == b.hash {
                     // Item are in sync
-                    if a.hash == prev.hash
-                        && a.href.as_str() == prev.href_a.as_ref()
-                        && b.href.as_str() == prev.href_b.as_ref()
-                    {
+                    if a.hash == prev.hash && a.href == prev.href_a && b.href == prev.href_b {
                         // Item has not changed on either side.
                         None
                     } else {
