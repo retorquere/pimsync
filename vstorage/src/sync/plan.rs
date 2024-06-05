@@ -630,12 +630,15 @@ impl ItemAction {
             }
             (Some(a), Some(b), Some(prev)) => {
                 if a.hash == b.hash {
-                    // Item are in sync
-                    if a.hash == prev.hash && a.href == prev.href_a && b.href == prev.href_b {
-                        // Item has not changed on either side.
-                        None
-                    } else {
-                        // Item is identical on both sides (but has changes or moved).
+                    // Item is equivalent on both sides.
+
+                    if a.hash != prev.hash // If content has changed
+                        || a.href != prev.href_a // ... or an href has changed ...
+                        || b.href != prev.href_b
+                        || a.etag != prev.etag_a // ... or an etag has changed ...
+                        || b.etag != prev.etag_b
+                    {
+                        // ... update the status to prevent fetching the item until changes again.
                         Some(ItemAction::UpdateStatus {
                             hash: a.hash.clone(),
                             ref_a: ItemRef {
@@ -649,6 +652,9 @@ impl ItemAction {
                             new_a: a.etag.clone(),
                             new_b: b.etag.clone(),
                         })
+                    } else {
+                        // Item is identical, has not moved and Etag has not changed.
+                        None
                     }
                 } else if a.hash == prev.hash {
                     // Side A has not changed
