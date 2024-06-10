@@ -11,7 +11,7 @@ use libdav::{
     sd::find_context_path_via_bootstrap, CalDavClient, CardDavClient,
 };
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
-use std::{fs::File, io::Read, path::Path};
+use std::fs::read_to_string;
 
 mod caldav;
 mod carddav;
@@ -30,19 +30,6 @@ struct Profile {
     /// Whether to perform rfc6764 bootstrap sequence.
     #[serde(default)]
     bootstrap: bool,
-}
-
-impl Profile {
-    /// Load a profile from a given path.
-    fn load<P: AsRef<Path>>(path: P) -> anyhow::Result<Self> {
-        let mut file = File::open(path.as_ref()).context("could not open profile file")?;
-        // toml crate won't allow reading from a file.
-        // See: https://github.com/toml-rs/toml/pull/349
-        let mut config = Vec::new();
-        file.read_to_end(&mut config)?;
-
-        Ok(toml::de::from_str(std::str::from_utf8(&config)?)?)
-    }
 }
 
 struct TestData {
@@ -264,7 +251,8 @@ async fn main() -> anyhow::Result<()> {
         .context(format!("Usage: {} PROFILE", cmd.to_string_lossy()))?;
 
     println!("🗓️ Running tests for: {}", profile_path.to_string_lossy());
-    let profile = Profile::load(&profile_path)?;
+    let raw_profile = read_to_string(profile_path).context("reading config profile")?;
+    let profile = toml::de::from_str::<Profile>(&raw_profile)?;
     let test_data = TestData::from_profile(profile).await?;
 
     let (total, passed) = run_tests!(
