@@ -29,7 +29,7 @@ pub enum RequestError {
     #[error("error executing http request: {0}")]
     Http(#[from] hyper::Error),
 
-    #[error("error resolving authentication")]
+    #[error("error resolving authentication: {0}")]
     BadAuth(#[from] std::io::Error),
 }
 
@@ -40,7 +40,7 @@ pub enum WebDavError {
     #[error("error executing http request: {0}")]
     Http(#[from] hyper::Error),
 
-    #[error("error resolving authentication")]
+    #[error("error resolving authentication: {0}")]
     BadAuth(#[from] std::io::Error),
 
     #[error("missing field '{0}' in response XML")]
