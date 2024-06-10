@@ -38,7 +38,10 @@ pub enum RequestError {
 #[allow(clippy::module_name_repetitions)]
 pub enum WebDavError {
     #[error("error executing http request: {0}")]
-    Request(#[from] RequestError),
+    Http(#[from] hyper::Error),
+
+    #[error("error resolving authentication")]
+    BadAuth(#[from] std::io::Error),
 
     #[error("missing field '{0}' in response XML")]
     MissingData(&'static str),
@@ -68,6 +71,15 @@ pub enum WebDavError {
 impl From<StatusCode> for WebDavError {
     fn from(status: StatusCode) -> Self {
         WebDavError::BadStatusCode(status)
+    }
+}
+
+impl From<RequestError> for WebDavError {
+    fn from(value: RequestError) -> Self {
+        match value {
+            RequestError::Http(err) => WebDavError::Http(err),
+            RequestError::BadAuth(err) => WebDavError::BadAuth(err),
+        }
     }
 }
 
@@ -224,7 +236,7 @@ where
             .header("Depth", depth.to_string())
             .body(Body::from(body))?;
 
-        self.request(request).await.map_err(WebDavError::Request)
+        self.request(request).await.map_err(WebDavError::from)
     }
 
     /// Send a request to the server.
