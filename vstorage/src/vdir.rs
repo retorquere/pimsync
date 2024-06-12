@@ -233,7 +233,6 @@ where
             return Err(Error::new(ErrorKind::InvalidData, "wrong etag"));
         }
 
-        // FIXME: this is racey and the etag can change after checking.
         // TODO: atomic writes.
         let mut file = OpenOptions::new()
             .write(true)
@@ -243,6 +242,8 @@ where
             .await?;
         file.write_all(item.as_str().as_bytes()).await?;
 
+        // FIXME: this is racey and the etag can change after checking.
+        //        I should use fstat here instead
         let etag = etag_for_path(filename).await?;
         Ok(Some(etag))
     }
