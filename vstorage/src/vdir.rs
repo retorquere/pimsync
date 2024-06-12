@@ -249,7 +249,8 @@ where
 
     /// # Quirks
     ///
-    /// Checking the etag is vulnerable to TOCTOU race conditions.
+    /// Checking the etag is vulnerable to TOCTOU race conditions. Filesystem APIs do not provide
+    /// facilities to work around this.
     async fn delete_item(&self, href: &str, etag: &Etag) -> Result<()> {
         let filename = self.build_item_path(href)?;
 
