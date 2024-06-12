@@ -77,9 +77,8 @@ where
             }
             let href = entry
                 .file_name()
-                .to_str()
-                .ok_or_else(|| Error::new(ErrorKind::InvalidData, "collection name is not utf8"))?
-                .to_owned();
+                .into_string()
+                .map_err(|_| Error::new(ErrorKind::InvalidData, "collection name is not utf8"))?;
             if href.starts_with('.') {
                 continue;
             }
