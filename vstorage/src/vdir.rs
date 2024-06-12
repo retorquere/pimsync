@@ -123,8 +123,7 @@ where
     }
 
     async fn get_item(&self, href: &str) -> Result<(I, Etag)> {
-        // TODO: sanitise href
-        let path = self.path.join(href);
+        let path = self.build_item_path(href)?;
 
         let item = I::from(read_to_string(&path).await?);
         let etag = etag_for_path(&path).await?;
@@ -200,7 +199,6 @@ where
     }
 
     async fn add_item(&self, collection_href: &str, item: &I) -> Result<ItemRef> {
-        // TODO: sanitise collection_href
         // TODO: We only need to remove a few "illegal" characters, so this is a bit too strict.
         let basename = item
             .ident()
@@ -211,7 +209,7 @@ where
         let filename = format!("{}.{}", basename, self.extension);
         let relpath = Utf8PathBuf::from(collection_href).join(filename);
 
-        let absolute_path = self.path.join(&relpath);
+        let absolute_path = self.build_item_path(relpath.as_str())?;
         OpenOptions::new()
             .write(true)
             .create_new(true)
@@ -228,8 +226,7 @@ where
     }
 
     async fn update_item(&self, href: &str, etag: &Etag, item: &I) -> Result<Option<Etag>> {
-        let filename = self.path.join(href);
-        self.check_item_href_is_safe(filename.as_str())?;
+        let filename = self.build_item_path(href)?;
 
         let actual_etag = etag_for_path(&filename).await?;
         if *etag != actual_etag {
@@ -254,8 +251,7 @@ where
     ///
     /// Checking the etag is vulnerable to TOCTOU race conditions.
     async fn delete_item(&self, href: &str, etag: &Etag) -> Result<()> {
-        let filename = self.path.join(href);
-        self.check_item_href_is_safe(filename.as_str())?;
+        let filename = self.build_item_path(href)?;
 
         let actual_etag = etag_for_path(&filename).await?;
         if *etag != actual_etag {
@@ -321,6 +317,40 @@ impl<I: Item> VdirStorage<I> {
         Ok(self.path.join(href))
     }
 
+    fn build_item_path(&self, href: &str) -> Result<Utf8PathBuf> {
+        let href = Utf8Path::new(href);
+
+        let mut components = href.components();
+        if !matches!(components.next(), Some(Utf8Component::Normal(_))) {
+            return Err(Error::new(
+                ErrorKind::InvalidInput,
+                "first component of item href must be a regular filename",
+            ));
+        };
+        if let Some(Utf8Component::Normal(name)) = components.next() {
+            let name = Utf8Path::new(name);
+            if !name.extension().is_some_and(|e| e == self.extension) {
+                Err(Error::new(
+                    ErrorKind::InvalidInput,
+                    "item href does not have an extension matching this storage",
+                ))?;
+            }
+        } else {
+            return Err(Error::new(
+                ErrorKind::InvalidInput,
+                "second component of item href must be a regular filename",
+            ));
+        }
+        if components.next().is_some() {
+            return Err(Error::new(
+                ErrorKind::InvalidInput,
+                "item href cannot contain more than two components",
+            ));
+        };
+
+        Ok(self.path.join(href))
+    }
+
     /// Returns the href for a path.
     ///
     /// # Panics
@@ -333,40 +363,6 @@ impl<I: Item> VdirStorage<I> {
             .to_str()
             .ok_or_else(|| Error::new(ErrorKind::InvalidData, "Filename is not valid UTF-8"))
             .map(str::to_string)
-    }
-
-    /// Check that a given href is safe.
-    ///
-    /// Mostly checks that the href doesn't include parent components and does not escape the
-    /// storage's path.
-    fn check_item_href_is_safe(&self, href: &str) -> Result<()> {
-        // This conversion is cost-free.
-        let path = Utf8Path::new(href);
-
-        if !path.extension().is_some_and(|e| e == self.extension) {
-            Err(Error::new(
-                ErrorKind::InvalidInput,
-                "href does not have an extension matching this storage",
-            ))?;
-        }
-
-        let parent_path = path
-            .parent()
-            .ok_or(Error::new(ErrorKind::InvalidInput, "href has no parent"))?;
-
-        let grandparent_path = parent_path.parent().ok_or(Error::new(
-            ErrorKind::InvalidInput,
-            "href has no grandparent",
-        ))?;
-
-        if grandparent_path != self.path {
-            Err(Error::new(
-                ErrorKind::InvalidInput,
-                "href is not a grandchild of storage root",
-            ))?;
-        }
-
-        Ok(())
     }
 }
 
@@ -589,5 +585,31 @@ mod tests {
         assert!(storage.build_collection_path(".").is_err());
         assert!(storage.build_collection_path("../d").is_err());
         assert!(storage.build_collection_path("s/../../").is_err());
+    }
+
+    #[tokio::test]
+    async fn test_build_item_path_is_safe() {
+        let dir = tempdir().unwrap();
+        let storage = VdirStorage::<IcsItem>::new(
+            dir.path().to_path_buf().try_into().unwrap(),
+            "ics".to_string(),
+        );
+
+        assert!(storage.build_item_path("penguins/someitem.ics").is_ok());
+        assert!(storage.build_item_path("蛙类/item.ics").is_ok());
+
+        assert!(storage.build_item_path("penguins/someitem.jpeg").is_err());
+        assert!(storage.build_item_path("蛙类/item.jpeg").is_err());
+        assert!(storage.build_item_path("penguins/someitem").is_err());
+        assert!(storage.build_item_path("蛙类/item").is_err());
+        assert!(storage.build_item_path("penguins").is_err());
+        assert!(storage.build_item_path("蛙类").is_err());
+        assert!(storage.build_item_path("penguins/../someitem.ics").is_err());
+        assert!(storage.build_item_path("../penguins/someitem.ics").is_err());
+        assert!(storage.build_item_path("/").is_err());
+        assert!(storage.build_item_path("/usr/share/").is_err());
+        assert!(storage.build_item_path("..").is_err());
+        assert!(storage.build_item_path(".").is_err());
+        assert!(storage.build_item_path("s/../../").is_err());
     }
 }
