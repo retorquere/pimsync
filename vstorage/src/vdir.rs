@@ -12,8 +12,8 @@ use async_trait::async_trait;
 use camino::{Utf8Component, Utf8Path, Utf8PathBuf};
 use std::ffi::OsStr;
 use std::marker::PhantomData;
+use std::os::unix::prelude::MetadataExt;
 use std::path::Path;
-use std::{fs::Metadata, os::unix::prelude::MetadataExt};
 use tokio::fs::{
     create_dir, metadata, read_dir, read_to_string, remove_dir, remove_file, File, OpenOptions,
 };
@@ -126,7 +126,7 @@ where
         let path = self.build_item_path(href)?;
 
         let item = I::from(read_to_string(&path).await?);
-        let etag = etag_for_path(&path).await?;
+        let etag = etag_for_path(path).await?;
 
         Ok((item, etag))
     }
@@ -159,7 +159,7 @@ where
             items.push(FetchedItem {
                 href: self.href_for_path(&path)?,
                 item: I::from(read_to_string(&path).await?),
-                etag: etag_for_path(&path).await?,
+                etag: etag_for_path(path).await?,
             });
         }
 
@@ -220,7 +220,7 @@ where
 
         let item_ref = ItemRef {
             href: relpath.into_string(),
-            etag: etag_for_path(&absolute_path).await?,
+            etag: etag_for_path(absolute_path).await?,
         };
         Ok(item_ref)
     }
@@ -243,7 +243,7 @@ where
             .await?;
         file.write_all(item.as_str().as_bytes()).await?;
 
-        let etag = etag_for_path(&filename).await?;
+        let etag = etag_for_path(filename).await?;
         Ok(Some(etag))
     }
 
@@ -368,12 +368,8 @@ impl<I: Item> VdirStorage<I> {
 }
 
 async fn etag_for_path(path: impl AsRef<Path>) -> Result<Etag> {
-    let metadata = metadata(path).await?;
-    Ok(etag_for_metadata(&metadata))
-}
-
-fn etag_for_metadata(metadata: &Metadata) -> Etag {
-    format!("{};{}", metadata.mtime(), metadata.ino()).into()
+    let metadata = &metadata(path).await?;
+    Ok(format!("{};{}", metadata.mtime(), metadata.ino()).into())
 }
 
 /// Helper to synchronise collection properties into filesystem.
