@@ -9,7 +9,7 @@
 //!
 //! [`vdir`]: https://vdirsyncer.pimutils.org/en/stable/vdir.html
 use async_trait::async_trait;
-use camino::{Utf8Path, Utf8PathBuf};
+use camino::{Utf8Component, Utf8Path, Utf8PathBuf};
 use std::ffi::OsStr;
 use std::marker::PhantomData;
 use std::path::Path;
@@ -92,22 +92,19 @@ where
     }
 
     async fn create_collection(&self, href: &str) -> Result<Collection> {
-        // TODO: sanitise href
-        let path = self.join_collection_href(href)?;
+        let path = self.build_collection_path(href)?;
         create_dir(&path).await?;
 
         Ok(Collection::new(href.to_string()))
     }
 
     async fn destroy_collection(&self, href: &str) -> Result<()> {
-        // TODO: sanitise href
-        let path = self.join_collection_href(href)?;
+        let path = self.build_collection_path(href)?;
         remove_dir(path).await.map_err(Error::from)
     }
 
-    async fn list_items(&self, collection: &str) -> Result<Vec<ItemRef>> {
-        // TODO: sanitise collection_href
-        let mut read_dir = read_dir(self.collection_path(collection)).await?;
+    async fn list_items(&self, collection_href: &str) -> Result<Vec<ItemRef>> {
+        let mut read_dir = read_dir(self.build_collection_path(collection_href)?).await?;
 
         let mut items = Vec::new();
         let extension = OsStr::new(self.extension.as_str());
@@ -149,9 +146,8 @@ where
         Ok(items)
     }
 
-    async fn get_all_items(&self, collection: &str) -> Result<Vec<FetchedItem<I>>> {
-        // TODO: sanitise collection_href
-        let mut read_dir = read_dir(self.collection_path(collection)).await?;
+    async fn get_all_items(&self, collection_href: &str) -> Result<Vec<FetchedItem<I>>> {
+        let mut read_dir = read_dir(self.build_collection_path(collection_href)?).await?;
 
         let mut items = Vec::new();
         let extension = OsStr::new(self.extension.as_str());
@@ -177,10 +173,9 @@ where
         meta: I::CollectionProperty,
         value: &str,
     ) -> Result<()> {
-        // TODO: sanitise collection_href
         let filename = meta.filename();
 
-        let path = self.collection_path(collection).join(filename);
+        let path = self.build_collection_path(collection)?.join(filename);
         let mut file = File::create(path).await?;
 
         file.write_all(value.as_bytes()).await?;
@@ -192,10 +187,9 @@ where
         collection: &str,
         meta: I::CollectionProperty,
     ) -> Result<Option<String>> {
-        // TODO: sanitise collection_href
         let filename = meta.filename();
 
-        let path = self.collection_path(collection).join(filename);
+        let path = self.build_collection_path(collection)?.join(filename);
         let value = match read_to_string(path).await {
             Ok(data) => data,
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
@@ -299,26 +293,32 @@ impl<I: Item> VdirStorage<I> {
         }
     }
 
-    fn collection_path(&self, collection_href: &str) -> Utf8PathBuf {
-        self.path.join(collection_href)
-    }
-
-    // Joins an href to the storage's path.
-    //
-    // # Errors
-    //
-    // If the resulting path is not a child of the storage's directory.
-    fn join_collection_href(&self, href: &str) -> Result<Utf8PathBuf> {
-        // TODO: validate that no `.` nor `..` components are in the input.
-        let path = self.path.join(href);
-        if path.parent() != Some(&self.path) {
+    /// Joins an href to the storage's path.
+    ///
+    /// This method does safety checks to ensure that malicious input cannot write outside the
+    /// storage's directory.
+    ///
+    /// # Errors
+    ///
+    /// - If the input is an invalid directory name
+    /// - If the resulting path is not a child of the storage's directory.
+    fn build_collection_path(&self, href: &str) -> Result<Utf8PathBuf> {
+        let href = Utf8Path::new(href);
+        let mut components = href.components();
+        if !matches!(components.next(), Some(Utf8Component::Normal(_))) {
             return Err(Error::new(
                 ErrorKind::InvalidInput,
-                "directory is not child of storage directory",
+                "collection href must be a valid directory name",
+            ));
+        };
+        if components.next().is_some() {
+            return Err(Error::new(
+                ErrorKind::InvalidInput,
+                "collection href must contain exactly one component",
             ));
         };
 
-        Ok(path)
+        Ok(self.path.join(href))
     }
 
     /// Returns the href for a path.
@@ -569,5 +569,25 @@ mod tests {
         let collection_id = CollectionId::from_str("one").unwrap();
         let href = storage.href_for_collection_id(&collection_id).unwrap();
         assert_eq!(href, "one");
+    }
+
+    #[tokio::test]
+    async fn test_build_collection_path_is_safe() {
+        let dir = tempdir().unwrap();
+        let storage = VdirStorage::<IcsItem>::new(
+            dir.path().to_path_buf().try_into().unwrap(),
+            "ics".to_string(),
+        );
+
+        assert!(storage.build_collection_path("penguins").is_ok());
+        assert!(storage.build_collection_path("penguins/").is_ok());
+        assert!(storage.build_collection_path("蛙类").is_ok());
+
+        assert!(storage.build_collection_path("/").is_err());
+        assert!(storage.build_collection_path("/usr/share/").is_err());
+        assert!(storage.build_collection_path("..").is_err());
+        assert!(storage.build_collection_path(".").is_err());
+        assert!(storage.build_collection_path("../d").is_err());
+        assert!(storage.build_collection_path("s/../../").is_err());
     }
 }
