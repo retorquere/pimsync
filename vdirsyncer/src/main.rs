@@ -411,7 +411,7 @@ async fn main() -> anyhow::Result<()> {
             eprintln!("Usage: vdirsyncer [-v LOGLEVEL] COMMAND [ARGS...]");
             eprintln!("Commands:");
             eprintln!("\tcheck\t\t\t\tcheck configuration and exit");
-            eprintln!("\tdaemon -[r] [PAIR]\t\t\tkeep storages in sync");
+            eprintln!("\tdaemon -[r] [PAIR]\t\tkeep storages in sync");
             eprintln!("\tsync [-d] [PAIR]\t\tsync storages once");
             eprintln!("\tresolve-conflicts [-d] [PAIR]\tmanually resolve conflicts");
             eprintln!("\tdiscover\t\t\tprint discovered collections");
