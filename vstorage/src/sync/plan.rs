@@ -14,7 +14,7 @@ use log::{debug, warn};
 use crate::base::{FetchedItem, ItemRef, Storage};
 use crate::disco::{DiscoveredCollection, Discovery};
 use crate::{base::Item, sync::declare::StoragePair};
-use crate::{CollectionId, ErrorKind, Etag, Href};
+use crate::{CollectionId, ErrorKind, Href};
 
 use super::declare::{CollectionDescription, DeclaredMapping};
 use super::status::{ItemState, MappingUid, Side, StatusDatabase, StatusError, StatusForItem};
@@ -554,11 +554,11 @@ pub enum ItemAction {
     UpdateStatus {
         hash: String,
         /// As previously seen on a.
-        ref_a: ItemRef,
+        old_a: ItemRef,
         /// As previously seen on b.
-        ref_b: ItemRef,
-        new_a: Etag,
-        new_b: Etag,
+        old_b: ItemRef,
+        new_a: ItemRef,
+        new_b: ItemRef,
     },
     /// Item is gone from both sides but still present in status db.
     ClearStatus {
@@ -571,16 +571,16 @@ pub enum ItemAction {
         source: ItemState,
     },
     UpdateInA {
-        source: ItemState,
-        /// As previously seen in a.
-        target: ItemRef,
-        old_b: Etag,
+        source: Href,
+        target: Href,
+        old_a: ItemRef,
+        old_b: ItemRef,
     },
     UpdateInB {
-        source: ItemState,
-        /// As previously seen in b.
-        target: ItemRef,
-        old_a: Etag,
+        source: Href,
+        target: Href,
+        old_a: ItemRef,
+        old_b: ItemRef,
     },
     DeleteInA {
         target: ItemState,
@@ -641,16 +641,22 @@ impl ItemAction {
                         // ... update the status to prevent fetching the item until changes again.
                         Some(ItemAction::UpdateStatus {
                             hash: a.hash.clone(),
-                            ref_a: ItemRef {
-                                href: a.href.clone(),
+                            old_a: ItemRef {
+                                href: prev.href_a,
                                 etag: prev.etag_a,
                             },
-                            ref_b: ItemRef {
-                                href: b.href.clone(),
+                            old_b: ItemRef {
+                                href: prev.href_b.clone(),
                                 etag: prev.etag_b,
                             },
-                            new_a: a.etag.clone(),
-                            new_b: b.etag.clone(),
+                            new_a: ItemRef {
+                                href: a.href.clone(),
+                                etag: a.etag.clone(),
+                            },
+                            new_b: ItemRef {
+                                href: b.href.clone(),
+                                etag: b.etag.clone(),
+                            },
                         })
                     } else {
                         // Item is identical, has not moved and Etag has not changed.
@@ -659,16 +665,24 @@ impl ItemAction {
                 } else if a.hash == prev.hash {
                     // Side A has not changed
                     Some(ItemAction::UpdateInA {
-                        source: b.clone(),
-                        target: a.to_item_ref(),
-                        old_b: prev.etag_b,
+                        source: b.href.clone(),
+                        target: a.href.clone(),
+                        old_a: a.to_item_ref(),
+                        old_b: ItemRef {
+                            href: prev.href_b,
+                            etag: prev.etag_b,
+                        },
                     })
                 } else if b.hash == prev.hash {
                     // Side B has not changed
                     Some(ItemAction::UpdateInB {
-                        source: a.clone(),
-                        target: b.to_item_ref(),
-                        old_a: prev.etag_a,
+                        source: a.href.clone(),
+                        target: b.href.clone(),
+                        old_a: ItemRef {
+                            href: prev.href_a,
+                            etag: prev.etag_a,
+                        },
+                        old_b: b.to_item_ref(),
                     })
                 } else {
                     // Both sides have changed
@@ -702,8 +716,8 @@ impl std::fmt::Display for ItemAction {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             ItemAction::SaveToStatus { a, .. } => write!(f, "save to status (uid: {})", a.uid),
-            ItemAction::UpdateStatus { ref_a, .. } => {
-                write!(f, "update in status (a.href: {})", ref_a.href)
+            ItemAction::UpdateStatus { old_a, .. } => {
+                write!(f, "update in status (a.href: {})", old_a.href)
             }
             ItemAction::ClearStatus { uid } => write!(f, "clear from status (uid: {uid})"),
             ItemAction::CreateInA { source } => {
@@ -713,10 +727,10 @@ impl std::fmt::Display for ItemAction {
                 write!(f, "create in storage b (uid: {})", source.uid)
             }
             ItemAction::UpdateInA { source, .. } => {
-                write!(f, "update in storage a (uid: {})", source.uid)
+                write!(f, "update in storage a (href: {source})")
             }
             ItemAction::UpdateInB { source, .. } => {
-                write!(f, "update in storage b (uid: {})", source.uid,)
+                write!(f, "update in storage b (href: {source})")
             }
             ItemAction::DeleteInA { target } => {
                 write!(f, "delete in storage a (uid: {})", target.uid)

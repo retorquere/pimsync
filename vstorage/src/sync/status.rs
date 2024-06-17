@@ -159,6 +159,7 @@ impl StatusDatabase {
         // TODO: duplicate ids are not allowed.
         // FIXME: this also needs to be addressed in the discovery layer.
 
+        // TODO: Etag should also be NOT NULL
         self.conn.execute(concat!(
             "CREATE TABLE IF NOT EXISTS items (",
             " ident TEXT NOT NULL,",
@@ -333,32 +334,36 @@ impl StatusDatabase {
         Ok(())
     }
 
-    // TODO: needs to account for movable items (e.g.: maildir).
     pub(super) fn update_item(
         &self,
         new_hash: &str,
-        ref_a: &ItemRef,
-        ref_b: &ItemRef,
-        new_a: Option<&Etag>,
-        new_b: Option<&Etag>,
+        old_a: &ItemRef,
+        old_b: &ItemRef,
+        new_a: &ItemRef,
+        new_b: &ItemRef,
     ) -> Result<(), StatusError> {
         // Items in other collections may have the same UID, so update by href.
         let query = concat!(
-            "UPDATE items SET hash = :hash, etag_a = :new_a, etag_b = :new_b",
-            " WHERE href_a = :href_a AND href_b = :href_b AND etag_a = :old_a AND etag_b = :old_b"
+            "UPDATE items",
+            " SET hash = :hash, etag_a = :new_etag_a, etag_b = :new_etag_b, href_a = :new_href_a, href_b = :new_href_b",
+            " WHERE href_a = :old_href_a AND href_b = :old_href_b AND etag_a = :old_etag_a AND etag_b = :old_etag_b"
         );
         let mut statement = self.conn.prepare(query)?;
         statement.bind((":hash", new_hash))?;
-        statement.bind((":new_a", new_a.as_ref().map(AsRef::as_ref)))?;
-        statement.bind((":new_b", new_b.as_ref().map(AsRef::as_ref)))?;
-        statement.bind((":href_a", ref_a.href.as_str()))?;
-        statement.bind((":href_b", ref_b.href.as_str()))?;
-        statement.bind((":old_a", ref_a.etag.as_ref()))?;
-        statement.bind((":old_b", ref_b.etag.as_ref()))?;
+
+        statement.bind((":new_href_a", new_a.href.as_str()))?;
+        statement.bind((":new_href_b", new_b.href.as_str()))?;
+        statement.bind((":new_etag_a", Some(new_a.etag.as_str())))?;
+        statement.bind((":new_etag_b", Some(new_b.etag.as_str())))?;
+
+        statement.bind((":old_href_a", old_a.href.as_str()))?;
+        statement.bind((":old_href_b", old_b.href.as_str()))?;
+        statement.bind((":old_etag_a", Some(old_a.etag.as_str())))?;
+        statement.bind((":old_etag_b", Some(old_b.etag.as_str())))?;
         statement.next()?;
 
         if self.conn.change_count() == 0 {
-            error!("update_item did not affect any rows! ref_a: {ref_a:?}, ref_b: {ref_b:?}");
+            error!("update_item did not affect any rows! old_a: {old_a:?}, old_b: {old_b:?}");
             Err(StatusError::NoUpdate)
         } else {
             Ok(())
@@ -381,7 +386,7 @@ impl StatusDatabase {
 
 #[cfg(test)]
 mod test {
-    use crate::{base::ItemRef, sync::status::StatusError, CollectionId};
+    use crate::{base::ItemRef, sync::status::StatusError, CollectionId, Etag};
 
     use super::{MappingUid, Side, StatusDatabase};
 
@@ -465,14 +470,20 @@ mod test {
             .unwrap();
 
         let updated_hash = "ANOTHERHASH";
-        let updated_etag_a = "456".into();
-        let updated_etag_b = "def111".into();
+        let updated_etag_a = Etag::from("456");
+        let updated_etag_b = Etag::from("def111");
         db.update_item(
             updated_hash,
             &item_a,
             &item_b,
-            Some(&updated_etag_a),
-            Some(&updated_etag_b),
+            &ItemRef {
+                etag: updated_etag_a.clone(),
+                href: item_a.href.clone(),
+            },
+            &ItemRef {
+                etag: updated_etag_b.clone(),
+                href: item_b.href.clone(),
+            },
         )
         .unwrap();
 
@@ -517,9 +528,7 @@ mod test {
 
         let updated_hash = "ANOTHERHASH";
         let updated_etag_a = "456".into();
-        let updated_etag_a = Some(&updated_etag_a);
         let updated_etag_b = "def111".into();
-        let updated_etag_b = Some(&updated_etag_b);
         let err = db
             .update_item(
                 updated_hash,
@@ -528,8 +537,14 @@ mod test {
                     etag: item_a.etag,
                 },
                 &item_b,
-                updated_etag_a,
-                updated_etag_b,
+                &ItemRef {
+                    href: "not/correct.ics".into(),
+                    etag: updated_etag_a,
+                },
+                &ItemRef {
+                    href: item_b.href.clone(),
+                    etag: updated_etag_b,
+                },
             )
             .unwrap_err();
         assert!(matches!(err, StatusError::NoUpdate));

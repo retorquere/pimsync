@@ -9,7 +9,7 @@ use log::{debug, error};
 use crate::{
     base::{Item, ItemRef, Storage},
     disco::DiscoveredCollection,
-    CollectionId, Etag, Href,
+    CollectionId, Href,
 };
 
 use super::{
@@ -46,13 +46,11 @@ impl ItemAction {
                 .map(|()| Ok(())),
             ItemAction::UpdateStatus {
                 hash,
-                ref_a,
-                ref_b,
+                old_a,
+                old_b,
                 new_a,
                 new_b,
-            } => status
-                .update_item(hash, ref_a, ref_b, Some(new_a), Some(new_b))
-                .map(Ok),
+            } => status.update_item(hash, old_a, old_b, new_a, new_b).map(Ok),
             ItemAction::ClearStatus { uid } => {
                 status.delete_item(mapping_uid, uid).map(|()| Ok(()))
             }
@@ -63,15 +61,17 @@ impl ItemAction {
                 source,
                 target,
                 old_a,
-            } => update_item(source, target, status, a, b, Side::B, old_a).await,
+                old_b,
+            } => update_item(a, b, source, target, old_a, old_b, status, Side::B).await,
             ItemAction::CreateInA { source } => {
                 create_item(source, status, col_a, b, a, mapping_uid, Side::A).await
             }
             ItemAction::UpdateInA {
                 source,
                 target,
+                old_a,
                 old_b,
-            } => update_item(source, target, status, b, a, Side::A, old_b).await,
+            } => update_item(b, a, source, target, old_a, old_b, status, Side::A).await,
             ItemAction::DeleteInA { target } => delete_item(target, status, a, mapping_uid).await,
             ItemAction::DeleteInB { target } => delete_item(target, status, b, mapping_uid).await,
             ItemAction::Conflict { a, .. } => {
@@ -128,37 +128,64 @@ async fn create_item<I: Item>(
     Ok(Ok(()))
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn update_item<I: Item>(
-    source: &ItemState,
-    target: &ItemRef,
-    status: &StatusDatabase,
     src_storage: &dyn Storage<I>,
     dst_storage: &dyn Storage<I>,
+    source: &Href,
+    target: &Href,
+    old_a: &ItemRef,
+    old_b: &ItemRef,
+    status: &StatusDatabase,
     side: Side,
-    old_source: &Etag,
 ) -> Result<Result<(), ExecutionError>, StatusError> {
-    debug!("Updating {}", target.href);
-    let (item, source_etag) = match src_storage.get_item(&source.href).await {
+    debug!("Updating from {}", source);
+    let (source_item, source_etag) = match src_storage.get_item(source).await {
         Ok(i) => i,
         Err(err) => return Ok(Err(ExecutionError::Storage(err))),
     };
 
+    let old_etag = match side {
+        Side::A => &old_a.etag,
+        Side::B => &old_b.etag,
+    };
+
     let new_etag = match dst_storage
-        .update_item(&target.href, &target.etag, &item)
+        .update_item(target, old_etag, &source_item)
         .await
     {
         Ok(i) => i,
         Err(err) => return Ok(Err(ExecutionError::Storage(err))),
     };
 
-    let hash = item.hash();
-    let source = ItemRef {
-        href: source.href.clone(),
-        etag: old_source.clone(),
-    };
+    let hash = source_item.hash();
     match side {
-        Side::A => status.update_item(&hash, target, &source, Some(&new_etag), Some(&source_etag)),
-        Side::B => status.update_item(&hash, &source, target, Some(&source_etag), Some(&new_etag)),
+        Side::A => status.update_item(
+            &hash,
+            old_a,
+            old_b,
+            &ItemRef {
+                href: target.clone(),
+                etag: new_etag,
+            },
+            &ItemRef {
+                href: source.clone(),
+                etag: source_etag,
+            },
+        ),
+        Side::B => status.update_item(
+            &hash,
+            old_a,
+            old_b,
+            &ItemRef {
+                href: source.clone(),
+                etag: source_etag,
+            },
+            &ItemRef {
+                href: target.clone(),
+                etag: new_etag,
+            },
+        ),
     }?;
 
     Ok(Ok(()))

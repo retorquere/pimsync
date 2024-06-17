@@ -217,6 +217,13 @@ impl std::error::Error for Error {}
 #[derive(Debug, PartialEq, Clone)]
 pub struct Etag(String);
 
+impl Etag {
+    #[must_use]
+    pub fn as_str(&self) -> &str {
+        return self.0.as_str();
+    }
+}
+
 impl<T> From<T> for Etag
 where
     String: From<T>,
