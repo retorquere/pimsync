@@ -157,20 +157,8 @@ async fn update_item<I: Item>(
         etag: old_source.clone(),
     };
     match side {
-        Side::A => status.update_item(
-            &hash,
-            target,
-            &source,
-            new_etag.as_ref(),
-            Some(&source_etag),
-        ),
-        Side::B => status.update_item(
-            &hash,
-            &source,
-            target,
-            Some(&source_etag),
-            new_etag.as_ref(),
-        ),
+        Side::A => status.update_item(&hash, target, &source, Some(&new_etag), Some(&source_etag)),
+        Side::B => status.update_item(&hash, &source, target, Some(&source_etag), Some(&new_etag)),
     }?;
 
     Ok(Ok(()))

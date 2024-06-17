@@ -225,7 +225,7 @@ where
         Ok(item_ref)
     }
 
-    async fn update_item(&self, href: &str, etag: &Etag, item: &I) -> Result<Option<Etag>> {
+    async fn update_item(&self, href: &str, etag: &Etag, item: &I) -> Result<Etag> {
         let filename = self.build_item_path(href)?;
 
         let actual_etag = etag_for_path(&filename).await?;
@@ -244,8 +244,7 @@ where
 
         // FIXME: this is racey and the etag can change after checking.
         //        I should use fstat here instead
-        let etag = etag_for_path(filename).await?;
-        Ok(Some(etag))
+        Ok(etag_for_path(filename).await?)
     }
 
     /// # Quirks

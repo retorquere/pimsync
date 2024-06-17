@@ -247,7 +247,7 @@ impl Storage<IcsItem> for WebCalStorage {
     }
 
     /// Unsupported for this storage type.
-    async fn update_item(&self, _: &str, _: &Etag, _: &IcsItem) -> Result<Option<Etag>> {
+    async fn update_item(&self, _: &str, _: &Etag, _: &IcsItem) -> Result<Etag> {
         Err(Error::new(
             ErrorKind::Unsupported,
             "updating items via webcal is not supported",

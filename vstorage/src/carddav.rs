@@ -263,18 +263,25 @@ where
         })
     }
 
-    async fn update_item(&self, href: &str, etag: &Etag, item: &VcardItem) -> Result<Option<Etag>> {
+    async fn update_item(&self, href: &str, etag: &Etag, item: &VcardItem) -> Result<Etag> {
         // TODO: check that href is a sub-path of collection_href
-        Ok(self
+        let raw_etag = self
             .client
             .update_resource(
                 href,
                 item.as_str().as_bytes().to_vec(),
                 etag,
-                mime_types::ADDRESSBOOK,
+                mime_types::CALENDAR,
             )
-            .await?
-            .map(Etag::from))
+            .await?;
+        if let Some(etag) = raw_etag {
+            return Ok(Etag::from(etag));
+        }
+        let (new_item, etag) = self.get_item(href).await?;
+        if new_item.hash() == item.hash() {
+            return Ok(etag);
+        }
+        return Err(ErrorKind::Io.error("Item was overwritten replaced before reading Etag"));
     }
 
     /// # Errors
