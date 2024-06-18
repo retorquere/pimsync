@@ -12,11 +12,15 @@ use libdav::dav::{mime_types, WebDavClient};
 use libdav::sd::BootstrapError;
 use libdav::CalDavClient;
 
-use crate::base::{CalendarProperty, Collection, FetchedItem, IcsItem, Item, ItemRef, Storage};
+use crate::base::{
+    CalendarProperty, Collection, FetchedItem, IcsItem, Item, ItemRef, ListedProperty,
+    PropertyTarget, Storage,
+};
 use crate::dav::{
     collection_href_for_item, collection_id_for_href, path_for_collection_in_home_set,
 };
 use crate::disco::{DiscoveredCollection, Discovery};
+use crate::vdir::PropertyWithFilename;
 use crate::{CollectionId, Error, ErrorKind, Etag, Href, Result};
 
 impl<C> CalDavStorage<C>
@@ -374,6 +378,26 @@ where
                 "calendar home set not found in caldav server",
             ))
         }
+    }
+
+    async fn list_collection_properties(
+        &self,
+        collection: &str,
+    ) -> Result<Vec<ListedProperty<IcsItem>>> {
+        let mut props = Vec::new();
+        for property in CalendarProperty::known_properties() {
+            let prop_value = self
+                .get_collection_property(collection, property.clone())
+                .await?;
+            if let Some(value) = prop_value {
+                props.push(ListedProperty {
+                    resource: PropertyTarget::Collection(collection.to_owned()),
+                    property: property.clone(),
+                    value,
+                });
+            };
+        }
+        return Ok(props);
     }
 }
 

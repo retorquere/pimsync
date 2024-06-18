@@ -56,6 +56,14 @@ pub trait Storage<I: Item>: Sync + Send {
     /// A collection must be empty for deletion to succeed.
     async fn destroy_collection(&self, href: &str) -> Result<()>;
 
+    /// List collection properties.
+    ///
+    /// List all properties of a collection and (if applicable) of its items.
+    async fn list_collection_properties(
+        &self,
+        collection_href: &str,
+    ) -> Result<Vec<ListedProperty<I>>>;
+
     /// Returns the value of a property for a given collection.
     async fn get_collection_property(
         &self,
@@ -232,7 +240,7 @@ where
     /// These were known as "metadata" in the previous vdirsyncer implementation.
     ///
     /// See also [`Storage::get_collection_property`] and [`Storage::get_collection_property`].
-    type Property: Sync + Send;
+    type Property: Sync + Send + Clone;
 
     /// Parse the item and return a unique identifier for it.
     ///
@@ -278,6 +286,7 @@ pub struct IcsItem {
 ///
 /// This is strongly based on the properties supported by `CalDav`.
 #[non_exhaustive]
+#[derive(Clone)]
 pub enum CalendarProperty {
     /// A colour to be used when displaying this collection.
     ///
@@ -492,6 +501,7 @@ pub struct VcardItem {
 ///
 /// This is strongly based on the properties supported by `CardDav`.
 #[non_exhaustive]
+#[derive(Clone)]
 pub enum AddressBookProperty {
     DisplayName,
     Description,
@@ -549,4 +559,15 @@ pub struct FetchedItem<I: Item> {
     pub item: I,
     /// See [`Etag`]
     pub etag: Etag,
+}
+
+pub enum PropertyTarget {
+    Collection(Href),
+    Item(Href),
+}
+
+pub struct ListedProperty<I: Item> {
+    pub resource: PropertyTarget,
+    pub property: I::Property,
+    pub value: String,
 }

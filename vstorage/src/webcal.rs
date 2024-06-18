@@ -14,7 +14,9 @@ use hyper::{client::HttpConnector, Client};
 use hyper_rustls::{HttpsConnector, HttpsConnectorBuilder};
 
 use crate::{
-    base::{CalendarProperty, Collection, FetchedItem, IcsItem, Item, ItemRef, Storage},
+    base::{
+        CalendarProperty, Collection, FetchedItem, IcsItem, Item, ItemRef, ListedProperty, Storage,
+    },
     disco::{DiscoveredCollection, Discovery},
     simple_component::Component,
     CollectionId, Error, ErrorKind, Etag, Href, Result,
@@ -304,6 +306,13 @@ impl Storage<IcsItem> for WebCalStorage {
                 "discovery of arbitrary collections is not supported",
             ))
         }
+    }
+
+    async fn list_collection_properties(&self, _: &str) -> Result<Vec<ListedProperty<IcsItem>>> {
+        Err(Error::new(
+            ErrorKind::Unsupported,
+            "webcal does not support properties",
+        ))
     }
 }
 

@@ -20,7 +20,8 @@ use tokio::fs::{
 use tokio::io::AsyncWriteExt;
 
 use crate::base::{
-    AddressBookProperty, CalendarProperty, Collection, FetchedItem, Item, ItemRef, Storage,
+    AddressBookProperty, CalendarProperty, Collection, FetchedItem, Item, ItemRef, ListedProperty,
+    PropertyTarget, Storage,
 };
 use crate::disco::{DiscoveredCollection, Discovery};
 use crate::{CollectionId, Error, ErrorKind, Etag, Href, Result};
@@ -278,6 +279,23 @@ where
     fn href_for_collection_id(&self, id: &CollectionId) -> Result<Href> {
         Ok(id.to_string())
     }
+
+    async fn list_collection_properties(&self, collection: &str) -> Result<Vec<ListedProperty<I>>> {
+        let mut props = Vec::new();
+        for property in I::Property::known_properties() {
+            let prop_value = self
+                .get_collection_property(collection, property.clone())
+                .await?;
+            if let Some(value) = prop_value {
+                props.push(ListedProperty {
+                    resource: PropertyTarget::Collection(collection.to_owned()),
+                    property: property.clone(),
+                    value,
+                });
+            };
+        }
+        return Ok(props);
+    }
 }
 
 impl<I: Item> VdirStorage<I> {
@@ -379,8 +397,12 @@ async fn etag_for_path(path: impl AsRef<Path>) -> Result<Etag> {
 ///
 /// In order for the `Item`'s properties to synchronise to the filesystem, it should implement this
 /// trait.
-pub trait PropertyWithFilename {
+pub trait PropertyWithFilename: 'static {
     fn filename(&self) -> &'static str;
+
+    fn known_properties() -> &'static [Self]
+    where
+        Self: Sized;
 }
 
 impl PropertyWithFilename for CalendarProperty {
@@ -392,6 +414,18 @@ impl PropertyWithFilename for CalendarProperty {
             CalendarProperty::Order => "order",
         }
     }
+
+    fn known_properties() -> &'static [Self]
+    where
+        Self: Sized,
+    {
+        &[
+            CalendarProperty::DisplayName,
+            CalendarProperty::Colour,
+            CalendarProperty::Description,
+            CalendarProperty::Order,
+        ]
+    }
 }
 
 impl PropertyWithFilename for AddressBookProperty {
@@ -400,6 +434,16 @@ impl PropertyWithFilename for AddressBookProperty {
             AddressBookProperty::DisplayName => "displayname",
             AddressBookProperty::Description => "description",
         }
+    }
+
+    fn known_properties() -> &'static [Self]
+    where
+        Self: Sized,
+    {
+        &[
+            AddressBookProperty::DisplayName,
+            AddressBookProperty::Description,
+        ]
     }
 }
 

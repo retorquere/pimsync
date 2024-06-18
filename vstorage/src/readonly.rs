@@ -16,6 +16,7 @@ use async_trait::async_trait;
 use crate::base::Collection;
 use crate::base::FetchedItem;
 use crate::base::Item;
+use crate::base::ListedProperty;
 use crate::base::Storage;
 use crate::disco::Discovery;
 use crate::CollectionId;
@@ -109,6 +110,10 @@ impl<S: Storage<I>, I: Item> Storage<I> for ReadOnlyStorage<S, I> {
 
     fn href_for_collection_id(&self, _id: &CollectionId) -> Result<Href> {
         Err(ErrorKind::ReadOnly.into())
+    }
+
+    async fn list_collection_properties(&self, collection: &str) -> Result<Vec<ListedProperty<I>>> {
+        self.inner.list_collection_properties(collection).await
     }
 }
 
