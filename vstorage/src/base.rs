@@ -60,14 +60,14 @@ pub trait Storage<I: Item>: Sync + Send {
     async fn get_collection_property(
         &self,
         collection: &str,
-        property: I::CollectionProperty,
+        property: I::Property,
     ) -> Result<Option<String>>;
 
     /// Sets the value of a property for a given collection.
     async fn set_collection_property(
         &self,
         collection: &str,
-        property: I::CollectionProperty,
+        property: I::Property,
         value: &str,
     ) -> Result<()>;
 
@@ -232,7 +232,7 @@ where
     /// These were known as "metadata" in the previous vdirsyncer implementation.
     ///
     /// See also [`Storage::get_collection_property`] and [`Storage::get_collection_property`].
-    type CollectionProperty: Sync + Send;
+    type Property: Sync + Send;
 
     /// Parse the item and return a unique identifier for it.
     ///
@@ -293,7 +293,7 @@ pub enum CalendarProperty {
 
 impl Item for IcsItem {
     /// Calendar properties defined by `CalDav`.
-    type CollectionProperty = CalendarProperty;
+    type Property = CalendarProperty;
 
     /// Returns the contents of the `UID` property, if defined.
     #[must_use]
@@ -499,7 +499,7 @@ pub enum AddressBookProperty {
 }
 
 impl Item for VcardItem {
-    type CollectionProperty = AddressBookProperty;
+    type Property = AddressBookProperty;
     /// Returns a unique identifier for this item.
     ///
     /// The UID does not change when the item is modified. The UID must remain the same when the

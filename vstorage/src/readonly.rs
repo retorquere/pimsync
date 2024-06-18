@@ -85,19 +85,14 @@ impl<S: Storage<I>, I: Item> Storage<I> for ReadOnlyStorage<S, I> {
         Err(ErrorKind::ReadOnly.into())
     }
 
-    async fn set_collection_property(
-        &self,
-        _: &str,
-        _: I::CollectionProperty,
-        _: &str,
-    ) -> Result<()> {
+    async fn set_collection_property(&self, _: &str, _: I::Property, _: &str) -> Result<()> {
         Err(ErrorKind::ReadOnly.into())
     }
 
     async fn get_collection_property(
         &self,
         collection_href: &str,
-        meta: I::CollectionProperty,
+        meta: I::Property,
     ) -> Result<Option<String>> {
         self.inner
             .get_collection_property(collection_href, meta)

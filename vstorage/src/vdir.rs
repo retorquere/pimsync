@@ -50,7 +50,7 @@ pub struct VdirStorage<I: Item> {
 #[async_trait]
 impl<I: Item> Storage<I> for VdirStorage<I>
 where
-    I::CollectionProperty: PropertyWithFilename,
+    I::Property: PropertyWithFilename,
 {
     async fn check(&self) -> Result<()> {
         let meta = metadata(&self.path)
@@ -169,7 +169,7 @@ where
     async fn set_collection_property(
         &self,
         collection: &str,
-        meta: I::CollectionProperty,
+        meta: I::Property,
         value: &str,
     ) -> Result<()> {
         let filename = meta.filename();
@@ -184,7 +184,7 @@ where
     async fn get_collection_property(
         &self,
         collection: &str,
-        meta: I::CollectionProperty,
+        meta: I::Property,
     ) -> Result<Option<String>> {
         let filename = meta.filename();
 
