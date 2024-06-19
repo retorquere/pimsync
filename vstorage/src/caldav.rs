@@ -301,21 +301,16 @@ where
     /// # Errors
     ///
     /// Only `DisplayName` and `Colour` are implemented.
-    async fn set_collection_property(
-        &self,
-        collection_href: &str,
-        meta: CalendarProperty,
-        value: &str,
-    ) -> Result<()> {
+    async fn set_property(&self, href: &str, meta: CalendarProperty, value: &str) -> Result<()> {
         match meta {
             CalendarProperty::DisplayName => self
                 .client
-                .set_collection_displayname(collection_href, Some(value))
+                .set_collection_displayname(href, Some(value))
                 .await
                 .map_err(Error::from),
             CalendarProperty::Colour => self
                 .client
-                .set_calendar_colour(collection_href, Some(value))
+                .set_calendar_colour(href, Some(value))
                 .await
                 .map_err(Error::from),
             _ => Err(Error::from(ErrorKind::Unsupported)),
@@ -332,20 +327,16 @@ where
     /// If the underlying HTTP connection fails or if the server returns invalid data.
     ///
     /// Only `DisplayName` and `Colour` are implemented.
-    async fn get_collection_property(
-        &self,
-        collection_href: &str,
-        meta: CalendarProperty,
-    ) -> Result<Option<String>> {
+    async fn get_property(&self, href: &str, meta: CalendarProperty) -> Result<Option<String>> {
         match meta {
             CalendarProperty::DisplayName => self
                 .client
-                .get_collection_displayname(collection_href)
+                .get_collection_displayname(href)
                 .await
                 .map_err(Error::from),
             CalendarProperty::Colour => self
                 .client
-                .get_calendar_colour(collection_href)
+                .get_calendar_colour(href)
                 .await
                 .map_err(Error::from),
             _ => Err(Error::from(ErrorKind::Unsupported)),
@@ -380,18 +371,13 @@ where
         }
     }
 
-    async fn list_collection_properties(
-        &self,
-        collection: &str,
-    ) -> Result<Vec<ListedProperty<IcsItem>>> {
+    async fn list_properties(&self, collection_href: &str) -> Result<Vec<ListedProperty<IcsItem>>> {
         let mut props = Vec::new();
         for property in CalendarProperty::known_properties() {
-            let prop_value = self
-                .get_collection_property(collection, property.clone())
-                .await?;
+            let prop_value = self.get_property(collection_href, property.clone()).await?;
             if let Some(value) = prop_value {
                 props.push(ListedProperty {
-                    resource: PropertyTarget::Collection(collection.to_owned()),
+                    resource: PropertyTarget::Collection(collection_href.to_owned()),
                     property: property.clone(),
                     value,
                 });

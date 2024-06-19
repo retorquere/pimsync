@@ -289,17 +289,12 @@ where
     /// # Errors
     ///
     /// Only `DisplayName` is implemented.
-    async fn set_collection_property(
-        &self,
-        collection_href: &str,
-        meta: AddressBookProperty,
-        value: &str,
-    ) -> Result<()> {
+    async fn set_property(&self, href: &str, meta: AddressBookProperty, value: &str) -> Result<()> {
         // TODO: make MetaKind paramatrezed on the ItemKind
         match meta {
             AddressBookProperty::DisplayName => self
                 .client
-                .set_collection_displayname(collection_href, Some(value))
+                .set_collection_displayname(href, Some(value))
                 .await
                 .map_err(Error::from),
             AddressBookProperty::Description => Err(Error::from(ErrorKind::Unsupported)),
@@ -316,15 +311,11 @@ where
     /// If the underlying HTTP connection fails or if the server returns invalid data.
     ///
     /// Only `DisplayName` is implemented.
-    async fn get_collection_property(
-        &self,
-        collection_href: &str,
-        meta: AddressBookProperty,
-    ) -> Result<Option<String>> {
+    async fn get_property(&self, href: &str, meta: AddressBookProperty) -> Result<Option<String>> {
         match meta {
             AddressBookProperty::DisplayName => self
                 .client
-                .get_collection_displayname(collection_href)
+                .get_collection_displayname(href)
                 .await
                 .map_err(Error::from),
             AddressBookProperty::Description => Err(Error::from(ErrorKind::Unsupported)),
@@ -359,18 +350,16 @@ where
         }
     }
 
-    async fn list_collection_properties(
+    async fn list_properties(
         &self,
-        collection: &str,
+        collection_href: &str,
     ) -> Result<Vec<ListedProperty<VcardItem>>> {
         let mut props = Vec::new();
         for property in AddressBookProperty::known_properties() {
-            let prop_value = self
-                .get_collection_property(collection, property.clone())
-                .await?;
+            let prop_value = self.get_property(collection_href, property.clone()).await?;
             if let Some(value) = prop_value {
                 props.push(ListedProperty {
-                    resource: PropertyTarget::Collection(collection.to_owned()),
+                    resource: PropertyTarget::Collection(collection_href.to_owned()),
                     property: property.clone(),
                     value,
                 });

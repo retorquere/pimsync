@@ -167,29 +167,20 @@ where
         Ok(items)
     }
 
-    async fn set_collection_property(
-        &self,
-        collection: &str,
-        meta: I::Property,
-        value: &str,
-    ) -> Result<()> {
+    async fn set_property(&self, href: &str, meta: I::Property, value: &str) -> Result<()> {
         let filename = meta.filename();
 
-        let path = self.build_collection_path(collection)?.join(filename);
+        let path = self.build_collection_path(href)?.join(filename);
         let mut file = File::create(path).await?;
 
         file.write_all(value.as_bytes()).await?;
         Ok(())
     }
 
-    async fn get_collection_property(
-        &self,
-        collection: &str,
-        meta: I::Property,
-    ) -> Result<Option<String>> {
+    async fn get_property(&self, href: &str, meta: I::Property) -> Result<Option<String>> {
         let filename = meta.filename();
 
-        let path = self.build_collection_path(collection)?.join(filename);
+        let path = self.build_collection_path(href)?.join(filename);
         let value = match read_to_string(path).await {
             Ok(data) => data,
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
@@ -280,15 +271,13 @@ where
         Ok(id.to_string())
     }
 
-    async fn list_collection_properties(&self, collection: &str) -> Result<Vec<ListedProperty<I>>> {
+    async fn list_properties(&self, collection_href: &str) -> Result<Vec<ListedProperty<I>>> {
         let mut props = Vec::new();
         for property in I::Property::known_properties() {
-            let prop_value = self
-                .get_collection_property(collection, property.clone())
-                .await?;
+            let prop_value = self.get_property(collection_href, property.clone()).await?;
             if let Some(value) = prop_value {
                 props.push(ListedProperty {
-                    resource: PropertyTarget::Collection(collection.to_owned()),
+                    resource: PropertyTarget::Collection(collection_href.to_owned()),
                     property: property.clone(),
                     value,
                 });
@@ -471,7 +460,7 @@ mod tests {
         );
         let collection = storage.create_collection("test").await.unwrap();
         let displayname = storage
-            .get_collection_property(
+            .get_property(
                 collection.href(),
                 crate::base::CalendarProperty::DisplayName,
             )
@@ -561,12 +550,12 @@ mod tests {
         storage.create_collection(collection_name).await.unwrap();
 
         storage
-            .set_collection_property(collection_name, CalendarProperty::Colour, "#000000")
+            .set_property(collection_name, CalendarProperty::Colour, "#000000")
             .await
             .unwrap();
 
         let colour = storage
-            .get_collection_property(collection_name, CalendarProperty::Colour)
+            .get_property(collection_name, CalendarProperty::Colour)
             .await
             .unwrap();
 
@@ -585,7 +574,7 @@ mod tests {
         storage.create_collection(collection_name).await.unwrap();
 
         let description = storage
-            .get_collection_property(collection_name, CalendarProperty::Description)
+            .get_property(collection_name, CalendarProperty::Description)
             .await
             .unwrap();
 

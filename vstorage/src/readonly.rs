@@ -86,18 +86,12 @@ impl<S: Storage<I>, I: Item> Storage<I> for ReadOnlyStorage<S, I> {
         Err(ErrorKind::ReadOnly.into())
     }
 
-    async fn set_collection_property(&self, _: &str, _: I::Property, _: &str) -> Result<()> {
+    async fn set_property(&self, _: &str, _: I::Property, _: &str) -> Result<()> {
         Err(ErrorKind::ReadOnly.into())
     }
 
-    async fn get_collection_property(
-        &self,
-        collection_href: &str,
-        meta: I::Property,
-    ) -> Result<Option<String>> {
-        self.inner
-            .get_collection_property(collection_href, meta)
-            .await
+    async fn get_property(&self, href: &str, meta: I::Property) -> Result<Option<String>> {
+        self.inner.get_property(href, meta).await
     }
 
     async fn delete_item(&self, _: &str, _: &Etag) -> Result<()> {
@@ -112,8 +106,8 @@ impl<S: Storage<I>, I: Item> Storage<I> for ReadOnlyStorage<S, I> {
         Err(ErrorKind::ReadOnly.into())
     }
 
-    async fn list_collection_properties(&self, collection: &str) -> Result<Vec<ListedProperty<I>>> {
-        self.inner.list_collection_properties(collection).await
+    async fn list_properties(&self, collection_href: &str) -> Result<Vec<ListedProperty<I>>> {
+        self.inner.list_properties(collection_href).await
     }
 }
 

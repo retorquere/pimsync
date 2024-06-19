@@ -59,25 +59,13 @@ pub trait Storage<I: Item>: Sync + Send {
     /// List collection properties.
     ///
     /// List all properties of a collection and (if applicable) of its items.
-    async fn list_collection_properties(
-        &self,
-        collection_href: &str,
-    ) -> Result<Vec<ListedProperty<I>>>;
+    async fn list_properties(&self, collection_href: &str) -> Result<Vec<ListedProperty<I>>>;
 
     /// Returns the value of a property for a given collection.
-    async fn get_collection_property(
-        &self,
-        collection: &str,
-        property: I::Property,
-    ) -> Result<Option<String>>;
+    async fn get_property(&self, href: &str, property: I::Property) -> Result<Option<String>>;
 
     /// Sets the value of a property for a given collection.
-    async fn set_collection_property(
-        &self,
-        collection: &str,
-        property: I::Property,
-        value: &str,
-    ) -> Result<()>;
+    async fn set_property(&self, href: &str, property: I::Property, value: &str) -> Result<()>;
 
     /// Enumerates items in a given collection.
     async fn list_items(&self, collection_href: &str) -> Result<Vec<ItemRef>>;
@@ -239,7 +227,7 @@ where
     ///
     /// These were known as "metadata" in the previous vdirsyncer implementation.
     ///
-    /// See also [`Storage::get_collection_property`] and [`Storage::get_collection_property`].
+    /// See also [`Storage::get_property`] and [`Storage::set_property`].
     type Property: Sync + Send + Clone;
 
     /// Parse the item and return a unique identifier for it.

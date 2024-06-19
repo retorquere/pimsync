@@ -257,12 +257,7 @@ impl Storage<IcsItem> for WebCalStorage {
     }
 
     /// Unsupported for this storage type.
-    async fn set_collection_property(
-        &self,
-        _collection: &str,
-        _: CalendarProperty,
-        _: &str,
-    ) -> Result<()> {
+    async fn set_property(&self, _: &str, _: CalendarProperty, _: &str) -> Result<()> {
         Err(Error::new(
             ErrorKind::Unsupported,
             "setting metadata via webcal is not supported",
@@ -270,11 +265,7 @@ impl Storage<IcsItem> for WebCalStorage {
     }
 
     /// Unsupported for this storage type.
-    async fn get_collection_property(
-        &self,
-        _collection: &str,
-        _: CalendarProperty,
-    ) -> Result<Option<String>> {
+    async fn get_property(&self, _: &str, _: CalendarProperty) -> Result<Option<String>> {
         // TODO: return None?
         Err(Error::new(
             ErrorKind::Unsupported,
@@ -308,7 +299,7 @@ impl Storage<IcsItem> for WebCalStorage {
         }
     }
 
-    async fn list_collection_properties(&self, _: &str) -> Result<Vec<ListedProperty<IcsItem>>> {
+    async fn list_properties(&self, _: &str) -> Result<Vec<ListedProperty<IcsItem>>> {
         Err(Error::new(
             ErrorKind::Unsupported,
             "webcal does not support properties",
