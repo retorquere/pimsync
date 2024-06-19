@@ -10,53 +10,28 @@ well as crates with associated functionality.
 
 For the original Python implementation see: https://github.com/pimutils/vdirsyncer
 
-# Documentation
+# User documentation
 
 User documentation is included in the `docs` directory and can be built using
 `hugo`. This will likely change in future to something easier to distribute
 along with the binaries.
 
-Developer documentation for libraries can be built with `cargo doc`.
+# Developer documentation
 
-# Hacking
+Documentation for libraries can be built with `cargo doc`.
 
-## Integration tests
+The documentation for releases published to crates.io is also available
+docs.rs: https://docs.rs/libdav/latest/libdav/
 
-A small integration tests helper program is available as part of this project.
-It runs a sequence of tests on a real `CalDav` server. See
-`live_tests/README.md` for full details.
+The documentation for the latest commits are published at:
 
-## Other test servers
-
-Radicale:
-
-```sh
-docker run --rm --publish 8001:8001 whynothugo/vdirsyncer-devkit-radicale
-```
+- https://mirror.whynothugo.nl/vdirsyncer/main/vstorage/
+- https://mirror.whynothugo.nl/vdirsyncer/main/libdav/
 
 
-Baikal:
+# Contributing
 
-```sh
-docker run --rm --publish 8002:80 whynothugo/vdirsyncer-devkit-baikal
-```
-
-- Cyrus IMAP: Hosted test account by Fastmail.com.
-- Nextcloud: Hosted test account.
-
-## Sending patches
-
-Just once, configure the patches list for this repo:
-
-```
-git config sendemail.to '~whynothugo/vdirsyncer-devel@lists.sr.ht'
-```
-
-Make changes. Run tests. Commit. Then send patches:
-
-```
-git send-email COMMIT_RANGE
-```
+See [HACKING.md].
 
 # Credits
 
