@@ -5,45 +5,61 @@
 #![deny(clippy::unwrap_used)]
 #![allow(clippy::module_name_repetitions)]
 
-//! This crate implements a common API for reading and writing items on different underlying
-//! storage implementations. Storage implementations can contain `icalendar` components, `vcard`
-//! entries, or content types where items are either immutable or have unique ids.
+//! Implementation of a common API for reading and writing items on different underlying
+//! storage implementations.
+//!
+//! Storages can contain `icalendar` components, `vcard` entries, or content types where items are
+//! either immutable or have unique ids.
 //!
 //! # Storage
 //!
 //! A [`Storage`] contains a set of collections, where each collection can contain many items, but
 //! not other collections. This restriction matches the semantics of caldav/carddav and also object
-//! stores like S3. Some examples are:
+//! stores like S3.
 //!
-//! - A [`CalDavStorage`] is a caldav server, where each collection is an individual calendar, and
+//! This crate currently includes the following implementations:
+//!
+//! - [`CalDavStorage`]: a caldav server, where each collection is an individual calendar, and
 //! each item is an individual event or todo in a calendar.
-//! - A [`VdirStorage`] is a local directory, where each collection is a directory and each
+//! - [`CardDavStorage`]: a caldav server, where each collection is an individual address book, and
+//! each item is an individual contact card.
+//! - [`ReadOnlyStorage`]: wraps around another `Storage` instance, returning an error of kind
+//!   [`ErrorKind::ReadOnly`] for any write operation.
+//! - [`VdirStorage`] a local directory, where each collection is a directory and each
 //! item is a file.
-//! - A potential `ImapStorage` instance is a single IMAP account, where each collection is a
-//! mailbox and each item is an individual email message.
+//! - [`WebCal`]: An icalendar file loaded via HTTP(s). This storage is implicitly read-only.
 //!
-//! This crate is agnostic to the content type inside collections, and can synchronise collections
-//! with any type of content. However, some basic understanding of these is necessary; calendar
-//! components have a UID, and when synchronising two storages, components with the same UID on
-//! each side are to be treated as the same.
+//! A potential `ImapStorage` could be implemented a single IMAP account, where each collection is
+//! a mailbox and each item is an individual email message.
 //!
-//! Interpreting content to extract these UIDs is done via the generic `I` parameter, which
-//! implements the necessary operations for a specific content type of a given storage instance.
+//! The `Storage` type and the logic for synchronisation of storages is is agnostic to the content
+//! type inside collections, and can synchronise collections with any type of content. When
+//! synchronising two storages, items with the same UID on both sides are synchronised with each
+//! other. Interpreting content of items in order to extract these UIDs is done via the generic `I`
+//! parameter, which implements the necessary operations for a specific content type of a given
+//! storage instance.
 //!
 //! [`Storage`]: crate::base::Storage
 //! [`CalDavStorage`]: crate::caldav::CalDavStorage
+//! [`CardDavStorage`]: crate::carddav::CardDavStorage
+//! [`ReadOnlyStorage`]: crate::readonly::ReadOnlyStorage
 //! [`VdirStorage`]: crate::vdir::VdirStorage
+//! [`WebCal`]: crate::webcal::WebCalStorage
 //!
 //! ## Collections, Hrefs and Collections Ids
 //!
-//! As mentioned above, collections cannot be nested (although having an `INBOX` collection and an
-//! `INBOX/Feeds` collection is perfectly valid).
+//! As mentioned above, collections cannot be nested (note for IMAP: having an `INBOX` collection
+//! and an `INBOX/Feeds` collection is perfectly valid).
 //!
-//! A collection has an `href` and an `id`. The `href` attribute is storage dependant, meaning that
-//! when a collection is synchronised to another storage, it may have a different `href`. The `id`
-//! for a collection is not storage-specific. When synchronising two storages, the default approach
-//! is to synchronise items across collections with the same `id`. The `id` of a collection is
-//! entirely dependant on its `href`, and should never change.
+//! A collection has an `href` and usually has an `id`.
+//!
+//! The `href` attribute is the path to an item inside a storage instance. Its value is storage
+//! dependant, meaning that when a collection is synchronised to another storage, it may have a
+//! different `href` on each side.
+//!
+//! The `id` for a collection is not storage-specific. When synchronising two storages, the default
+//! approach is to synchronise items across collections with the same `id`. The `id` of a
+//! collection is entirely dependant on its `href`, and should never change.
 //!
 //! The [`Href`] alias is used to refer to `href`s to avoid ambiguity. [`Href`] instances should be
 //! treated as an opaque value and not given any special meaning outside of this crate.
@@ -261,9 +277,8 @@ pub type Href = String;
 /// An identifier for a collection.
 ///
 /// Collection identifiers are a short string that uniquely identify a collection inside a storage.
-/// They are based on the `href` of a collection, which never changes. Likewise, the `CollectionId`
-/// for a `CollectionId` never changes. The `CollectionId` is intended as a more human-friendly
-/// substitute for collection `href`s.
+/// They are based on the `href` of a collection, which never changes. The `CollectionId` is
+/// intended as a more human-friendly substitute for collection `href`s.
 ///
 /// The following limitations exist, given that such values would produce ambiguous results with
 /// the implementation of [`VdirStorage`], [`CalDavStorage`], and [`CardDavStorage`]:
