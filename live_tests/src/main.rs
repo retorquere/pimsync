@@ -8,7 +8,7 @@ use hyper::client::HttpConnector;
 use hyper_rustls::{HttpsConnector, HttpsConnectorBuilder};
 use libdav::{
     auth::Auth, caldav_service_for_url, carddav_service_for_url, dav::WebDavClient,
-    sd::find_context_path_via_bootstrap, CalDavClient, CardDavClient,
+    sd::find_context_url, CalDavClient, CardDavClient,
 };
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
 use std::fs::read_to_string;
@@ -58,7 +58,7 @@ impl TestData {
             let mut webdav = WebDavClient::new(base_url.clone(), auth.clone(), https.clone());
             if profile.bootstrap {
                 let service = caldav_service_for_url(&base_url)?;
-                webdav.base_url = find_context_path_via_bootstrap(&webdav, service)
+                webdav.base_url = find_context_url(&webdav, service)
                     .await?
                     .context("determining context path via bootstrap sequence")?;
             }
@@ -79,7 +79,7 @@ impl TestData {
             let mut webdav = WebDavClient::new(base_url.clone(), auth.clone(), https.clone());
             if profile.bootstrap {
                 let service = carddav_service_for_url(&base_url)?;
-                webdav.base_url = find_context_path_via_bootstrap(&webdav, service)
+                webdav.base_url = find_context_url(&webdav, service)
                     .await?
                     .context("determining context path via bootstrap sequence")?;
             }

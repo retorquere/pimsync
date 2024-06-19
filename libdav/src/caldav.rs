@@ -10,7 +10,7 @@ use hyper::Uri;
 use crate::common::{check_support, parse_find_multiple_collections};
 use crate::dav::WebDavClient;
 use crate::dav::{check_status, FoundCollection, WebDavError};
-use crate::sd::{find_context_path_via_bootstrap, BootstrapError, DiscoverableService};
+use crate::sd::{find_context_url, BootstrapError, DiscoverableService};
 use crate::xmlutils::{check_multistatus, quote_href};
 use crate::{names, FindHomeSetError, InvalidUrl};
 use crate::{CheckSupportError, FetchedResource};
@@ -46,7 +46,7 @@ use crate::{CheckSupportError, FetchedResource};
 /// ```
 ///
 /// If the real CalDav server needs to be resolved via bootstrapping, see
-/// [`find_context_path_via_bootstrap`].
+/// [`find_context_url`].
 #[derive(Debug, Clone)]
 pub struct CalDavClient<C>
 where
@@ -79,18 +79,17 @@ where
     /// Create a new client instance.
     ///
     /// Creates a new client, with its `base_url` set to the context path automatically discovered
-    /// via [`find_context_path_via_bootstrap`].
+    /// via [`find_context_url`].
     ///
     /// # Errors
     ///
-    /// Returns an error if and only if the underlying call to [`find_context_path_via_bootstrap`]
+    /// Returns an error if and only if the underlying call to [`find_context_url`]
     /// returns an error.
     pub async fn new_via_bootstrap(
         mut webdav_client: WebDavClient<C>,
     ) -> Result<CalDavClient<C>, BootstrapError> {
         let service = service_for_url(&webdav_client.base_url)?;
-        if let Some(context_path) = find_context_path_via_bootstrap(&webdav_client, service).await?
-        {
+        if let Some(context_path) = find_context_url(&webdav_client, service).await? {
             webdav_client.base_url = context_path;
         }
         Ok(CalDavClient { webdav_client })

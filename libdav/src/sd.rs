@@ -57,7 +57,7 @@ pub enum BootstrapError {
 /// This resolves from "user friendly" URLs to the real URL where the CalDav or CardDav server is
 /// advertised as running. For example, a user may understand their CalDav server as being
 /// `https://example.com` but bootstrapping would reveal it to actually run under
-/// `https://instance31.example.com/users/john@example.com/calendars`.
+/// `https://instance31.example.com/users/john@example.com/calendars/`.
 ///
 /// # Errors
 ///
@@ -65,7 +65,7 @@ pub enum BootstrapError {
 /// parse.
 ///
 /// Does not return an error if DNS records are missing, only if they contain invalid data.
-pub async fn find_context_path_via_bootstrap<C>(
+pub async fn find_context_url<C>(
     client: &WebDavClient<C>,
     service: DiscoverableService,
 ) -> Result<Option<Uri>, BootstrapError>
@@ -162,7 +162,7 @@ impl DiscoverableService {
         }
     }
 
-    /// Returns the default port to try and use.
+    /// Default port to use if no port is explicitly provided.
     #[must_use]
     pub fn default_port(self) -> u16 {
         match self {

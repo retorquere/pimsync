@@ -11,6 +11,10 @@
 //! Both clients implement `Deref<Target = DavClient>`, so all the associated
 //! functions for [`dav::WebDavClient`] are usable directly.
 //!
+//! # Service discover
+//!
+//! DNS-based service discovery is implemented in [`sd::find_context_url`].
+//!
 //! # Hrefs
 //!
 //! All `href` strings returned by the server are unquoted by this library before being returned to

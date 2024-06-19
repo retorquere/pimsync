@@ -9,8 +9,7 @@ use http::Uri;
 use hyper::client::HttpConnector;
 use hyper_rustls::{HttpsConnector, HttpsConnectorBuilder};
 use libdav::{
-    auth::Auth, caldav_service_for_url, dav::WebDavClient, sd::find_context_path_via_bootstrap,
-    CalDavClient,
+    auth::Auth, caldav_service_for_url, dav::WebDavClient, sd::find_context_url, CalDavClient,
 };
 use log::info;
 
@@ -70,7 +69,7 @@ pub(crate) async fn execute(command: ServerCommand) -> anyhow::Result<()> {
 async fn discover(mut client: Client) -> anyhow::Result<()> {
     let service = caldav_service_for_url(client.base_url())?;
     println!("- Base url: {}", client.base_url());
-    match find_context_path_via_bootstrap(&client, service).await? {
+    match find_context_url(&client, service).await? {
         Some(context_path) => {
             println!("- Resolved context path: {context_path}");
             client.webdav_client.base_url = context_path;
