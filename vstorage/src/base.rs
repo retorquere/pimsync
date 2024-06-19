@@ -206,7 +206,7 @@ impl Collection {
     }
 
     #[must_use]
-    pub fn into_href(self) -> String {
+    pub fn into_href(self) -> Href {
         self.href
     }
 
