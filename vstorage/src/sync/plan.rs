@@ -349,10 +349,10 @@ mod test {
 
 /// A mapping resolved based on the storage's current state.
 #[derive(Debug, PartialEq)]
-struct ResolvedMapping {
-    alias: String,
-    a: ResolvedCollection,
-    b: ResolvedCollection,
+pub(super) struct ResolvedMapping {
+    pub(super) alias: String,
+    pub(super) a: ResolvedCollection,
+    pub(super) b: ResolvedCollection,
 }
 
 impl ResolvedMapping {
@@ -380,9 +380,9 @@ impl ResolvedMapping {
 
 /// A collection as resolved based on existing data.
 #[derive(Debug, Clone, PartialEq, Eq)]
-struct ResolvedCollection {
-    id: Option<CollectionId>,
-    href: Href,
+pub(super) struct ResolvedCollection {
+    pub(super) id: Option<CollectionId>,
+    pub(super) href: Href,
     exists: bool,
 }
 
@@ -468,33 +468,27 @@ fn resolve_mapping_counterpart<I: Item>(
 /// Actions required to sync a collection between two storages.
 #[derive(Debug)]
 pub struct CollectionPlan {
-    pub alias: String,
     pub collection_action: CollectionAction,
     pub item_actions: Vec<ItemAction>,
-    pub(super) href_a: Href,
-    pub(super) href_b: Href,
-    pub(super) id_a: Option<CollectionId>,
-    pub(super) id_b: Option<CollectionId>,
+    pub(super) mapping: ResolvedMapping,
 }
 
 impl CollectionPlan {
     /// Calculate actions to sync a collection between two storages.
-    ///
-    /// Returns `None` if this plan would be a no-op.
     async fn new<I: Item>(
         pair: &StoragePair<I>,
         mapping: ResolvedMapping,
         status: Option<&StatusDatabase>,
     ) -> Result<CollectionPlan, PlanError> {
-        let (href_a, href_b) = (mapping.a.href, mapping.b.href);
+        let (href_a, href_b) = (&mapping.a.href, &mapping.b.href);
         let mapping_uid = status
-            .map(|s| s.get_mapping_uid(&href_a, &href_b))
+            .map(|s| s.get_mapping_uid(href_a, href_b))
             .transpose()?
             .flatten();
 
         let (items_a, items_b) = tokio::try_join!(
-            items_for_collection(status, pair.storage_a(), &href_a, Side::A),
-            items_for_collection(status, pair.storage_b(), &href_b, Side::B),
+            items_for_collection(status, pair.storage_a(), href_a, Side::A),
+            items_for_collection(status, pair.storage_b(), href_b, Side::B),
         )?;
 
         let status_uids = match (status, &mapping_uid) {
@@ -529,17 +523,16 @@ impl CollectionPlan {
             CollectionAction::new(mapping.a.exists, mapping.b.exists, mapping_uid);
 
         Ok(CollectionPlan {
-            alias: mapping.alias,
             collection_action,
             item_actions,
-            id_a: mapping.a.id,
-            href_a,
-            id_b: mapping.b.id,
-            href_b,
+            mapping,
         })
     }
 
-    // a hash is an overkill. just keep all the data in the collections table.
+    #[must_use]
+    pub fn alias(&self) -> &str {
+        &self.mapping.alias
+    }
 }
 
 /// Operation to execute on an item during synchronising.

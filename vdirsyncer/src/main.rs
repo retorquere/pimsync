@@ -147,7 +147,7 @@ impl<I: Item> NamedPair<I> {
         for cp in &plan.collection_plans {
             info!(
                 "collection: {}, action: {}. {} item actions.",
-                cp.alias,
+                cp.alias(),
                 cp.collection_action,
                 cp.item_actions.len()
             );

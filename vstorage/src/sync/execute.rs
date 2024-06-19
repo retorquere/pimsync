@@ -14,7 +14,7 @@ use crate::{
 
 use super::{
     error::SyncError,
-    plan::{CollectionAction, CollectionPlan, ItemAction, Plan},
+    plan::{CollectionAction, CollectionPlan, ItemAction, Plan, ResolvedMapping},
     status::{ItemState, MappingUid, Side, StatusDatabase, StatusError},
 };
 
@@ -237,18 +237,15 @@ impl<I: Item> Plan<I> {
 
         for plan in self.collection_plans {
             let CollectionPlan {
-                alias,
                 collection_action,
                 item_actions,
-                href_a,
-                href_b,
-                id_a,
-                id_b,
+                mapping,
             } = plan;
+            let ResolvedMapping { alias, a, b } = mapping;
 
             let (mapping_uid, side_to_delete) = match collection_action
                 .clone() // FIXME: cloning is a bit of a hack here
-                .execute(status, &href_a, &href_b, id_a, id_b, storage_a, storage_b)
+                .execute(status, &a.href, &b.href, a.id, b.id, storage_a, storage_b)
                 .await?
             {
                 Ok((m, s)) => (m, s),
@@ -260,7 +257,7 @@ impl<I: Item> Plan<I> {
 
             for item_action in item_actions {
                 if let Err(err) = item_action
-                    .execute(storage_a, storage_b, &href_a, &href_b, status, &mapping_uid)
+                    .execute(storage_a, storage_b, &a.href, &b.href, status, &mapping_uid)
                     .await?
                 {
                     on_error(SyncError::item(item_action, err));
@@ -271,7 +268,7 @@ impl<I: Item> Plan<I> {
                 None => {}
                 Some(Side::A) => {
                     if let Err(err) =
-                        delete_collection(&href_a, status, storage_a, &mapping_uid).await?
+                        delete_collection(&a.href, status, storage_a, &mapping_uid).await?
                     {
                         let action = CollectionAction::Delete(mapping_uid, Side::A);
                         on_error(SyncError::collection(action, alias, err));
@@ -279,7 +276,7 @@ impl<I: Item> Plan<I> {
                 }
                 Some(Side::B) => {
                     if let Err(err) =
-                        delete_collection(&href_b, status, storage_b, &mapping_uid).await?
+                        delete_collection(&b.href, status, storage_b, &mapping_uid).await?
                     {
                         let action = CollectionAction::Delete(mapping_uid, Side::B);
                         on_error(SyncError::collection(action, alias, err));
