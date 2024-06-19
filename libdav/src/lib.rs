@@ -8,8 +8,8 @@
 //!
 //! See [`CalDavClient`] and [`CardDavClient`] as a useful entry points.
 //!
-//! Both clients implement `Deref<Target = DavClient>`, so all the associated
-//! functions for [`dav::WebDavClient`] are usable directly.
+//! Both clients wrap a [`dav::WebDavClient`], and implement `Deref<Target = DavClient>`, so all
+//! of `WebDavClient`'s associated functions for  are usable directly.
 //!
 //! # Service discover
 //!
