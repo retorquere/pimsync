@@ -217,6 +217,15 @@ pub struct ItemRef {
     pub etag: Etag,
 }
 
+/// Properties for storage collections or items.
+///
+/// See [`Item::Property`].
+pub trait Property:
+    Sync + Send + Clone + std::fmt::Debug + std::hash::Hash + PartialEq + Eq
+{
+    fn name(&self) -> String;
+}
+
 /// A type of item that is contained in a [`Storage`].
 ///
 /// A `Storage` can contain items of a concrete type described by implementations of this trait.
@@ -235,7 +244,7 @@ where
     /// These were known as "metadata" in the previous vdirsyncer implementation.
     ///
     /// See also [`Storage::get_property`] and [`Storage::set_property`].
-    type Property: Sync + Send + Clone;
+    type Property: Property;
 
     /// Parse the item and return a unique identifier for it.
     ///
@@ -281,7 +290,7 @@ pub struct IcsItem {
 ///
 /// This is strongly based on the properties supported by `CalDav`.
 #[non_exhaustive]
-#[derive(Clone)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub enum CalendarProperty {
     /// A colour to be used when displaying this collection.
     ///
@@ -303,6 +312,17 @@ impl CalendarProperty {
             CalendarProperty::DisplayName => &names::DISPLAY_NAME,
             CalendarProperty::Description => &names::CALENDAR_DESCRIPTION,
             CalendarProperty::Order => &names::CALENDAR_ORDER,
+        }
+    }
+}
+
+impl Property for CalendarProperty {
+    fn name(&self) -> String {
+        match self {
+            CalendarProperty::DisplayName => "displayname".into(),
+            CalendarProperty::Colour => "color".into(),
+            CalendarProperty::Description => "description".into(),
+            CalendarProperty::Order => "order".into(),
         }
     }
 }
@@ -507,7 +527,7 @@ pub struct VcardItem {
 ///
 /// This is strongly based on the properties supported by `CardDav`.
 #[non_exhaustive]
-#[derive(Clone)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub enum AddressBookProperty {
     DisplayName,
     Description,
@@ -519,6 +539,15 @@ impl AddressBookProperty {
         match self {
             AddressBookProperty::DisplayName => &names::DISPLAY_NAME,
             AddressBookProperty::Description => &names::ADDRESSBOOK_DESCRIPTION,
+        }
+    }
+}
+
+impl Property for AddressBookProperty {
+    fn name(&self) -> String {
+        match self {
+            AddressBookProperty::DisplayName => "displayname".into(),
+            AddressBookProperty::Description => "description".into(),
         }
     }
 }
