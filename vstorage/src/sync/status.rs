@@ -11,8 +11,8 @@ const SCHEMA_VERSION: i64 = 2;
 /// Error interacting with status database.
 #[derive(thiserror::Error, Debug)]
 pub enum StatusError {
-    #[error("IO error operating with status database: {0}")]
-    Io(#[from] sqlite::Error),
+    #[error("Error interacting with sqlite backend: {0}")]
+    Sqlite(#[from] sqlite::Error),
     #[error("UPDATE did no affect any rows")]
     NoUpdate,
     #[error("Could not create parent directories")]
@@ -108,13 +108,13 @@ impl StatusDatabase {
     ///
     /// # Errors
     ///
-    /// Returns [`StatusError::Io`] if sqlite fails to open the database.
+    /// Returns [`StatusError::Sqlite`] if sqlite fails to open the database.
     pub fn open_readonly(path: impl AsRef<Path>) -> Result<Option<StatusDatabase>, StatusError> {
         let flags = OpenFlags::new().with_read_only().with_full_mutex();
         match Connection::open_thread_safe_with_flags(path, flags) {
             Ok(conn) => Ok(Some(StatusDatabase { conn })),
             Err(e) if e.code == Some(14) => Ok(None),
-            Err(e) => Err(StatusError::Io(e)),
+            Err(e) => Err(StatusError::Sqlite(e)),
         }
     }
 
@@ -122,7 +122,7 @@ impl StatusDatabase {
     ///
     /// # Errors
     ///
-    /// Returns [`StatusError::Io`] if sqlite fails to open or create the database.
+    /// Returns [`StatusError::Sqlite`] if sqlite fails to open or create the database.
     pub fn open_or_create(path: impl AsRef<Path>) -> Result<StatusDatabase, StatusError> {
         let path = path.as_ref();
         if let Some(parent) = path.parent() {
