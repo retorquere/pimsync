@@ -4,7 +4,10 @@
 
 use anyhow::{bail, ensure, Context};
 use http::StatusCode;
-use libdav::dav::{mime_types, WebDavError};
+use libdav::{
+    dav::{mime_types, WebDavError},
+    names,
+};
 use std::fmt::Write;
 
 use crate::{random_string, TestData};
@@ -191,13 +194,13 @@ pub(crate) async fn test_setting_and_getting_addressbook_displayname(
     let first_name = "panda-events";
     test_data
         .carddav
-        .set_collection_displayname(&new_collection, Some(first_name))
+        .set_property(&new_collection, &names::DISPLAY_NAME, Some(first_name))
         .await
         .context("setting collection displayname")?;
 
     let value = test_data
         .carddav
-        .get_collection_displayname(&new_collection)
+        .get_property(&new_collection, &names::DISPLAY_NAME)
         .await
         .context("getting collection displayname")?;
 
@@ -206,13 +209,13 @@ pub(crate) async fn test_setting_and_getting_addressbook_displayname(
     let new_name = "🔥🔥🔥<lol>";
     test_data
         .carddav
-        .set_collection_displayname(&new_collection, Some(new_name))
+        .set_property(&new_collection, &names::DISPLAY_NAME, Some(new_name))
         .await
         .context("setting collection displayname")?;
 
     let value = test_data
         .carddav
-        .get_collection_displayname(&new_collection)
+        .get_property(&new_collection, &names::DISPLAY_NAME)
         .await
         .context("getting collection displayname")?;
 

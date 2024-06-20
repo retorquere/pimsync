@@ -143,43 +143,6 @@ where
         parse_find_multiple_collections(body, &names::CALENDAR)
     }
 
-    /// Returns the colour for the calendar at path `href`.
-    ///
-    /// This is not a formally standardised property, but is relatively widespread.
-    ///
-    /// # Quirks
-    ///
-    /// The namespace of the value in the response from the server is ignored. This is a workaround
-    /// for an [issue in the `cyrus-imapd` implemenetation][cyrus-issue].
-    ///
-    /// [cyrus-issue]: https://github.com/cyrusimap/cyrus-imapd/issues/4489
-    ///
-    /// # Errors
-    ///
-    /// If the network request fails, or if the response cannot be parsed.
-    pub async fn get_calendar_colour(&self, href: &str) -> Result<Option<String>, WebDavError> {
-        self.get_property(href, &names::CALENDAR_COLOUR).await
-    }
-
-    /// Sets the `colour` for a collection
-    ///
-    /// This is not a formally standardised property, but is relatively widespread.
-    ///
-    /// The `colour` string should be an unescaped hex value with a leading pound sign (e.g.
-    /// `#ff0000`).
-    ///
-    /// # Errors
-    ///
-    /// If there are any network errors or the response could not be parsed.
-    pub async fn set_calendar_colour(
-        &self,
-        href: &str,
-        colour: Option<&str>,
-    ) -> Result<(), WebDavError> {
-        self.set_property(href, &names::CALENDAR_COLOUR, colour)
-            .await
-    }
-
     // TODO: check link in doc:
     // TODO: same note on carddav.
     /// Fetches existing icalendar resources.

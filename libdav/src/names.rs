@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: EUPL-1.2
 
-//! Names of common dav attributes.
+//! Names of common dav attributes and properties.
 
 use crate::Property;
 
@@ -17,7 +17,10 @@ pub const APPLE: &str = "http://apple.com/ns/ical/";
 
 pub const COLLECTION: Property = Property::from_static(DAV, "collection");
 /// Property name for collections display name.
-/// From: <https://www.rfc-editor.org/rfc/rfc3744#section-4>
+///
+/// From <https://www.rfc-editor.org/rfc/rfc3744#section-4>:
+///
+/// > A principal MUST have a non-empty DAV:displayname property
 pub const DISPLAY_NAME: Property = Property::from_static(DAV, "displayname");
 pub const GETCONTENTTYPE: Property = Property::from_static(DAV, "getcontenttype");
 pub const GETETAG: Property = Property::from_static(DAV, "getetag");
@@ -35,6 +38,10 @@ pub const CALENDAR: Property = Property::from_static(CALDAV, "calendar");
 pub const CALENDAR_DESCRIPTION: Property = Property::from_static(CALDAV, "calendar-description");
 /// Defined in <https://www.rfc-editor.org/rfc/rfc4791#section-6.2.1>
 pub const CALENDAR_HOME_SET: Property = Property::from_static(CALDAV, "calendar-home-set");
+/// A calendar's colour.
+///
+/// This is not a formally standardised property, but is relatively widespread. The value of this
+/// property should be an unescaped hex value with a leading pound sign (e.g. `#ff0000`).
 pub const CALENDAR_COLOUR: Property =
     Property::from_static("http://apple.com/ns/ical/", "calendar-color");
 pub const CALENDAR_DATA: Property = Property::from_static(CALDAV, "calendar-data");

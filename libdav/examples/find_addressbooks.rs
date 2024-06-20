@@ -23,7 +23,7 @@ use http::Uri;
 use hyper_rustls::HttpsConnectorBuilder;
 use libdav::auth::Auth;
 use libdav::dav::WebDavClient;
-use libdav::CardDavClient;
+use libdav::{names, CardDavClient};
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
@@ -71,7 +71,7 @@ async fn main() {
 
     for ref addressbook in addressbooks {
         let name = carddav_client
-            .get_collection_displayname(&addressbook.href)
+            .get_property(&addressbook.href, &names::DISPLAY_NAME)
             .await
             .unwrap();
         println!(

@@ -260,13 +260,29 @@ where
 
     /// Fetch a single property.
     ///
+    /// # Common properties
+    ///
+    /// - [`names::ADDRESSBOOK_DESCRIPTION`]
+    /// - [`names::CALENDAR_COLOUR`]
+    /// - [`names::CALENDAR_DESCRIPTION`]
+    /// - [`names::CALENDAR_ORDER`]
+    /// - [`names::DISPLAY_NAME`]
+    ///
+    /// # Quirks
+    ///
+    /// The namespace of the value in the response from the server is ignored. This is a workaround
+    /// for an [issue in `cyrus-imapd`][cyrus-issue].
+    ///
+    /// [cyrus-issue]: https://github.com/cyrusimap/cyrus-imapd/issues/4489
+    ///
     /// # Errors
     ///
-    /// If there are any network errors or the response could not be parsed.
+    /// - If there are any network errors or the response could not be parsed.
+    /// - If the requested property is missing in the response.
     ///
     /// # See also
     ///
-    /// - <https://www.rfc-editor.org/rfc/rfc3744#section-4>
+    /// - [`WebDavClient::set_property`]
     pub async fn get_property(
         &self,
         href: &str,
@@ -280,23 +296,6 @@ where
         parse_prop(body, property)
     }
 
-    /// Returns the `displayname` for the collection at path `href`.
-    ///
-    /// From [rfc3744#section-4](https://www.rfc-editor.org/rfc/rfc3744#section-4):
-    ///
-    /// > A principal MUST have a non-empty DAV:displayname property
-    ///
-    /// # Errors
-    ///
-    /// If there are any network errors or the response could not be parsed.
-    // TODO: #[deprecated = "Use `get_property(href, libdav::names::DISPLAY_NAME)`"]
-    pub async fn get_collection_displayname(
-        &self,
-        href: &str,
-    ) -> Result<Option<String>, WebDavError> {
-        self.get_property(href, &names::DISPLAY_NAME).await
-    }
-
     /// Sends a `PROPUPDATE` query to the server.
     ///
     /// Setting the value to `None` will remove the property.
@@ -304,6 +303,10 @@ where
     /// # Errors
     ///
     /// If there are any network errors or the response could not be parsed.
+    ///
+    /// # See also
+    ///
+    /// - [`WebDavClient::get_property`] (contains a list of some included well-known properties)
     // TODO: document whether the value needs to be escaped or not.
     pub async fn set_property(
         &self,
@@ -352,22 +355,6 @@ where
         Err(WebDavError::InvalidResponse(
             "missing property in response but no error".into(),
         ))
-    }
-
-    /// Sets the `displayname` for a collection
-    ///
-    /// The `displayname` string is expected not to be escaped.
-    ///
-    /// # Errors
-    ///
-    /// If there are any network errors or the response could not be parsed.
-    pub async fn set_collection_displayname(
-        &self,
-        href: &str,
-        displayname: Option<&str>,
-    ) -> Result<(), WebDavError> {
-        self.set_property(href, &names::DISPLAY_NAME, displayname)
-            .await
     }
 
     /// Resolve the default context path using a well-known path.

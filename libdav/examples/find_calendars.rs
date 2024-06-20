@@ -22,7 +22,7 @@ use http::Uri;
 use hyper_rustls::HttpsConnectorBuilder;
 use libdav::auth::Auth;
 use libdav::dav::WebDavClient;
-use libdav::CalDavClient;
+use libdav::{names, CalDavClient};
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
@@ -68,11 +68,11 @@ async fn main() {
 
     for calendar in calendars {
         let name = caldav_client
-            .get_collection_displayname(&calendar.href)
+            .get_property(&calendar.href, &names::DISPLAY_NAME)
             .await
             .unwrap();
         let color = caldav_client
-            .get_calendar_colour(&calendar.href)
+            .get_property(&calendar.href, &names::CALENDAR_COLOUR)
             .await
             .unwrap();
         println!(
