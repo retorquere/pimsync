@@ -198,7 +198,7 @@ where
 
     /// Internal helper to find an `href` property
     ///
-    /// Very specific, but de-duplicates a few identical methods.
+    /// Very specific, but de-duplicates a few identical functions.
     pub(crate) async fn find_href_prop_as_uri(
         &self,
         url: &Uri,
@@ -427,8 +427,6 @@ where
 
     /// Enumerates resources in a collection
     ///
-    /// Returns an array of results.
-    ///
     /// # Errors
     ///
     /// If there are any network errors or the response could not be parsed.
@@ -489,7 +487,8 @@ where
 
     /// Creates a new resource
     ///
-    /// Returns an `Etag` if present in the server's response.
+    /// Returns an `Etag` if present in the response. If the `Etag` is not included, it must be
+    /// requested in a follow-up request, and cannot be obtained race-free.
     ///
     /// # Errors
     ///
@@ -505,7 +504,8 @@ where
 
     /// Updates an existing resource
     ///
-    /// Returns an `Etag` if present in the server's response.
+    /// Returns an `Etag` if present in the response. If the `Etag` is not included, it must be
+    /// requested in a follow-up request, and cannot be obtained race-free.
     ///
     /// # Errors
     ///
@@ -526,11 +526,6 @@ where
     ///
     /// Additional resource types may be specified via the `resourcetypes` argument. The
     /// `DAV:collection` resource type is implied and MUST NOT be specified.
-    ///
-    /// # Caveats
-    ///
-    /// Because servers commonly don't return an Etag for this operation, it needs to be fetched in
-    /// a separate operation.
     ///
     /// # Errors
     ///
@@ -561,13 +556,13 @@ where
 
         let request = Request::builder()
             .method("MKCOL")
-            // TODO: this URL is never escaped!
             .uri(self.relative_uri(href.as_ref())?)
             .header("Content-Type", "application/xml; charset=utf-8")
             .body(Body::from(body))?;
 
         let (head, _body) = self.request(request).await?;
-        // TODO: we should check the response body here, but some servers (e.g.: Fastmail) return an empty body.
+        // TODO: we should check the response body here, if present.
+        // Some servers (e.g.: Fastmail) return an empty body.
         check_status(head.status)?;
 
         Ok(())
@@ -605,10 +600,10 @@ where
     /// Force deletion of the resource at `href`.
     ///
     /// This function does not guarantee that a resource or collection has not been modified since
-    /// it was last read. **Use this function with great care**.
+    /// it was last read. **Use this function with care**.
     ///
     /// The resource MAY be a collection. Because the implementation for deleting resources and
-    /// collections is identical, this same method covers both cases.
+    /// collections is identical, this same function covers both cases.
     ///
     /// # Errors
     ///
