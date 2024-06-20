@@ -13,8 +13,7 @@ use libdav::sd::BootstrapError;
 use libdav::CalDavClient;
 
 use crate::base::{
-    CalendarProperty, Collection, FetchedItem, IcsItem, Item, ItemRef, ListedProperty,
-    PropertyTarget, Storage,
+    CalendarProperty, Collection, FetchedItem, IcsItem, Item, ItemRef, ListedProperty, Storage,
 };
 use crate::dav::{
     collection_href_for_item, collection_id_for_href, path_for_collection_in_home_set,
@@ -381,7 +380,7 @@ where
             .zip(CalendarProperty::known_properties())
             .filter_map(|((_, v), p)| {
                 v.map(|value| ListedProperty {
-                    resource: PropertyTarget::Collection(collection_href.to_owned()),
+                    resource: collection_href.to_owned(),
                     property: p.clone(),
                     value,
                 })

@@ -70,6 +70,17 @@
 //!
 //! See [`Item`](crate::base::Item).
 //!
+//! ## Properties
+//!
+//! Storages expose properties. Property types vary depending on a Storage's items. E.g.: Calendars
+//! have a `Colour`, `Description`, `DisplayName` and `Order`, whereas Address Books have
+//! `DisplayName` and `Description`. In both of these examples, only collections have properties,
+//! and items have no properties.
+//!
+//! Synchronising Storages with custom `Item` types where items have properties is not yet
+//! supported. This limitation means that an implementation trying to synchronise email will
+//! synchronise messages but not their properties (e.g.: `Seen`, `Flagged`, etc).
+//!
 //! ## Entity tags
 //!
 //! An `Etag` is a value that changes whenever an item has changed in a collection. It is inspired

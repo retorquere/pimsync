@@ -11,7 +11,7 @@ use std::sync::Arc;
 
 use log::{debug, warn};
 
-use crate::base::{FetchedItem, ItemRef, Storage};
+use crate::base::{FetchedItem, ItemRef, Property, Storage};
 use crate::disco::{DiscoveredCollection, Discovery};
 use crate::{base::Item, sync::declare::StoragePair};
 use crate::{CollectionId, ErrorKind, Href};
@@ -59,7 +59,7 @@ pub enum PlanError {
 pub struct Plan<I: Item> {
     pub(super) storage_a: Arc<dyn Storage<I>>,
     pub(super) storage_b: Arc<dyn Storage<I>>,
-    pub collection_plans: Vec<CollectionPlan>,
+    pub collection_plans: Vec<CollectionPlan<I>>,
 }
 
 /// Show details of the plan itself.
@@ -467,19 +467,20 @@ fn resolve_mapping_counterpart<I: Item>(
 
 /// Actions required to sync a collection between two storages.
 #[derive(Debug)]
-pub struct CollectionPlan {
+pub struct CollectionPlan<I: Item> {
     pub collection_action: CollectionAction,
     pub item_actions: Vec<ItemAction>,
+    pub property_actions: Vec<PropertyPlan<I>>,
     pub(super) mapping: ResolvedMapping,
 }
 
-impl CollectionPlan {
+impl<I: Item> CollectionPlan<I> {
     /// Calculate actions to sync a collection between two storages.
-    async fn new<I: Item>(
+    async fn new(
         pair: &StoragePair<I>,
         mapping: ResolvedMapping,
         status: Option<&StatusDatabase>,
-    ) -> Result<CollectionPlan, PlanError> {
+    ) -> Result<CollectionPlan<I>, PlanError> {
         let (href_a, href_b) = (&mapping.a.href, &mapping.b.href);
         let mapping_uid = status
             .map(|s| s.get_mapping_uid(href_a, href_b))
@@ -520,11 +521,27 @@ impl CollectionPlan {
             .collect::<Result<Vec<_>, PlanError>>()?;
 
         let collection_action =
-            CollectionAction::new(mapping.a.exists, mapping.b.exists, mapping_uid);
+            CollectionAction::new(mapping.a.exists, mapping.b.exists, mapping_uid.clone());
+
+        // TODO: need to pass items_a and items_b to map Href->UID for item properties.
+        let property_actions =
+            match PropertyPlan::create_for_collection(pair, &mapping, status, mapping_uid).await {
+                Ok(plan) => plan,
+                // If a storage doesn't support properties, don't bail, simply no-op.
+                Err(err) => 'unsupported: {
+                    if let PlanError::Storage(e) = &err {
+                        if e.kind == ErrorKind::Unsupported {
+                            break 'unsupported Vec::<PropertyPlan<I>>::new();
+                        }
+                    }
+                    return Err(err);
+                }
+            };
 
         Ok(CollectionPlan {
             collection_action,
             item_actions,
+            property_actions,
             mapping,
         })
     }
@@ -844,4 +861,130 @@ async fn items_for_collection<I: Item>(
     items.extend(prefetched);
 
     Ok(items)
+}
+
+#[derive(Debug)]
+pub enum PropertyAction {
+    WriteToA { value: String },
+    WriteToB { value: String },
+    DeleteInA,
+    DeleteInB,
+    ClearStatus,
+    UpdateStatus { value: String },
+    Conflict,
+}
+
+impl std::fmt::Display for PropertyAction {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            PropertyAction::WriteToA { value } => write!(f, "Write to a: {value}"),
+            PropertyAction::WriteToB { value } => write!(f, "Write to b: {value}"),
+            PropertyAction::DeleteInA => write!(f, "Delete in a"),
+            PropertyAction::DeleteInB => write!(f, "Delete in b"),
+            PropertyAction::ClearStatus => write!(f, "Clear status"),
+            PropertyAction::UpdateStatus { .. } => write!(f, "Update status"),
+            PropertyAction::Conflict => write!(f, "Conflict"),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct PropertyPlan<I: Item> {
+    pub(super) property: I::Property,
+    pub(super) action: PropertyAction,
+}
+
+impl<I: Item> PropertyPlan<I> {
+    async fn create_for_collection(
+        pair: &StoragePair<I>,
+        mapping: &ResolvedMapping,
+        status: Option<&StatusDatabase>,
+        uid: Option<MappingUid>,
+    ) -> Result<Vec<PropertyPlan<I>>, PlanError> {
+        let props_a = pair.storage_a().list_properties(&mapping.a.href).await?;
+        let props_b = pair.storage_b().list_properties(&mapping.b.href).await?;
+
+        let props_status = match (status, uid) {
+            (Some(s), Some(u)) => s.list_properties_for_collection(&u)?,
+            _ => Vec::new(),
+        };
+
+        // FIXME: assumes that no props belong to items.
+        let all_props = props_a
+            .iter()
+            .chain(props_b.iter())
+            .map(|p| &p.property)
+            .collect::<HashSet<_>>(); // Collecting into HashSet removes duplicates.
+
+        let mut actions = Vec::new();
+        for property in all_props {
+            // TODO: it is safe to POP from the vec and handle owned data.
+            let a = props_a.iter().find(|p| p.property == *property);
+            let b = props_b.iter().find(|p| p.property == *property);
+            let state = props_status.iter().find(|p| p.property == property.name());
+
+            if let Some(a) = a {
+                if *a.resource != mapping.a.href {
+                    todo!("Synchronising item properties is not implemented");
+                }
+            }
+            if let Some(b) = b {
+                if *b.resource != mapping.b.href {
+                    todo!("Synchronising item properties is not implemented");
+                }
+            }
+
+            let action = match (a, b, state) {
+                (None, None, None) => None,
+                (None, None, Some(_)) => Some(PropertyAction::ClearStatus),
+                (None, Some(b), None) => Some(PropertyAction::WriteToA {
+                    value: b.value.clone(),
+                }),
+                (None, Some(_), Some(_)) => Some(PropertyAction::DeleteInB {}),
+                (Some(a), None, None) => Some(PropertyAction::WriteToB {
+                    value: a.value.clone(),
+                }),
+                (Some(_), None, Some(_)) => Some(PropertyAction::DeleteInA {}),
+                (Some(a), Some(b), None) => {
+                    if a.value == b.value {
+                        Some(PropertyAction::UpdateStatus {
+                            value: a.value.clone(),
+                        })
+                    } else {
+                        Some(PropertyAction::Conflict)
+                    }
+                }
+                (Some(a), Some(b), Some(s)) => {
+                    if a.value == b.value {
+                        if s.value == a.value {
+                            None
+                        } else {
+                            Some(PropertyAction::UpdateStatus {
+                                value: a.value.clone(),
+                            })
+                        }
+                    } else if a.value == s.value {
+                        Some(PropertyAction::WriteToA {
+                            value: b.value.clone(),
+                        })
+                    } else if b.value == s.value {
+                        Some(PropertyAction::WriteToB {
+                            value: a.value.clone(),
+                        })
+                    } else {
+                        Some(PropertyAction::Conflict)
+                    }
+                }
+            };
+
+            if let Some(action) = action {
+                actions.push(PropertyPlan {
+                    action,
+                    property: property.clone(), // TODO: don't clone
+                });
+            }
+        }
+
+        Ok(actions)
+    }
 }

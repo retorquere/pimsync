@@ -78,6 +78,16 @@ pub(super) struct StatusForItem {
     pub(super) href_b: String,
 }
 
+pub(super) struct PropertyStatus {
+    #[allow(dead_code)] // TODO: will be required for item properties
+    pub(super) href_a: String,
+    #[allow(dead_code)] // TODO: will be required for item properties
+    pub(super) href_b: String,
+    // The name of the property
+    pub(super) property: String,
+    pub(super) value: String,
+}
+
 /// A unique ID used for a mapping between two collections.
 ///
 /// This is an opaque identifier, and can only be obtained from a status database.
@@ -179,7 +189,25 @@ impl StatusDatabase {
         self.conn
             .execute("CREATE UNIQUE INDEX IF NOT EXISTS by_href ON items(href_b)")?;
 
-        // TODO: table for properties
+        self.conn.execute(concat!(
+            "CREATE TABLE IF NOT EXISTS properties (",
+            " mapping_uid INTEGER NOT NULL,",
+            " href_a TEXT NOT NULL,",
+            " href_b TEXT NOT NULL,",
+            " property TEXT NOT NULL,",
+            " value TEXT NOT NULL,",
+            " FOREIGN KEY(mapping_uid) REFERENCES collections(uid)",
+            ")"
+        ))?;
+        self.conn.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS by_uid ON properties(mapping_uid, property)",
+        )?;
+        self.conn.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS by_href_a ON properties(href_a, property)",
+        )?;
+        self.conn.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS by_href_b ON properties(href_b, property)",
+        )?;
         Ok(())
     }
 
@@ -379,6 +407,73 @@ impl StatusDatabase {
         let mut statement = self.conn.prepare(query)?;
         statement.bind((1, mapping_uid.0))?;
         statement.bind((2, uid))?;
+        statement.next()?;
+        Ok(())
+    }
+
+    pub(super) fn list_properties_for_collection(
+        &self,
+        mapping_uid: &MappingUid,
+    ) -> Result<Vec<PropertyStatus>, StatusError> {
+        let query = concat!(
+            "SELECT href_a, href_b, property, value",
+            " FROM properties",
+            " WHERE mapping_uid = :mapping_uid"
+        );
+        let mut statement = self.conn.prepare(query)?;
+        statement.bind((":mapping_uid", mapping_uid.0))?;
+
+        let mut results = Vec::new();
+        while let Ok(State::Row) = statement.next() {
+            results.push(PropertyStatus {
+                href_a: statement.read::<String, _>("href_a")?,
+                href_b: statement.read::<String, _>("href_b")?,
+                property: statement.read::<String, _>("property")?,
+                value: statement.read::<String, _>("value")?,
+            });
+        }
+        Ok(results)
+    }
+
+    pub(super) fn set_property(
+        &self,
+        mapping_uid: &MappingUid,
+        href_a: &str,
+        href_b: &str,
+        property: &str,
+        value: &str,
+    ) -> Result<(), StatusError> {
+        let query = concat!(
+            "INSERT OR REPLACE INTO properties (mapping_uid, href_a, href_b, property, value) ",
+            "VALUES (:mapping_uid, :href_a, :href_b, :property, :value)",
+        );
+        let mut statement = self.conn.prepare(query)?;
+        statement.bind((":mapping_uid", mapping_uid.0))?;
+        statement.bind((":href_a", href_a))?;
+        statement.bind((":href_b", href_b))?;
+        statement.bind((":property", property))?;
+        statement.bind((":value", value))?;
+        statement.next()?;
+        Ok(())
+    }
+
+    pub(super) fn delete_property(
+        &self,
+        mapping_uid: &MappingUid,
+        href_a: &str,
+        href_b: &str,
+        property: &str,
+    ) -> Result<(), StatusError> {
+        let query = concat!(
+            "DELETE FROM properties",
+            " WHERE mapping_uid = :mapping_uid AND href_a = :href_a AND href_b = :href_b",
+            " AND property = :property",
+        );
+        let mut statement = self.conn.prepare(query)?;
+        statement.bind((":mapping_uid", mapping_uid.0))?;
+        statement.bind((":href_a", href_a))?;
+        statement.bind((":href_b", href_b))?;
+        statement.bind((":property", property))?;
         statement.next()?;
         Ok(())
     }

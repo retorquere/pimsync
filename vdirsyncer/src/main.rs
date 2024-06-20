@@ -146,15 +146,19 @@ impl<I: Item> NamedPair<I> {
         info!(">>> Plan for storage pair '{}'", self.name);
         for cp in &plan.collection_plans {
             info!(
-                "collection: {}, action: {}. {} item actions.",
+                "collection: {}, action: {}. {} item actions. {} property actions.",
                 cp.alias(),
                 cp.collection_action,
-                cp.item_actions.len()
+                cp.item_actions.len(),
+                cp.property_actions.len(),
             );
 
             for item in &cp.item_actions {
                 info!("item: {}", item);
                 debug!("{item:?}");
+            }
+            for prop in &cp.property_actions {
+                info!("property: {:?}", prop);
             }
         }
     }

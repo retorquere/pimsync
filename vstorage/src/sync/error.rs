@@ -8,7 +8,7 @@
 
 use super::{
     execute::ExecutionError,
-    plan::{CollectionAction, ItemAction},
+    plan::{CollectionAction, ItemAction, PropertyAction},
 };
 
 /// An error synchronising two items between storages.
@@ -39,6 +39,14 @@ impl SyncError {
             error,
         }
     }
+
+    #[must_use]
+    pub fn property(action: PropertyAction, error: ExecutionError) -> Self {
+        Self {
+            action: SomeAction::Property(action),
+            error,
+        }
+    }
 }
 
 impl std::fmt::Display for SyncError {
@@ -62,6 +70,8 @@ pub enum SomeAction {
         action: CollectionAction,
         alias: String,
     },
+    // FIXME: missing details of property. Do I need Property::display ?
+    Property(PropertyAction),
 }
 
 impl std::fmt::Display for SomeAction {
@@ -72,6 +82,9 @@ impl std::fmt::Display for SomeAction {
             }
             SomeAction::Collection { action, alias } => {
                 write!(f, "collection action '{action}' for '{alias}'")
+            }
+            SomeAction::Property(action) => {
+                write!(f, "property action '{action}'")
             }
         }
     }

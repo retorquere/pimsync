@@ -608,13 +608,8 @@ pub struct FetchedItem<I: Item> {
     pub etag: Etag,
 }
 
-pub enum PropertyTarget {
-    Collection(Href),
-    Item(Href),
-}
-
 pub struct ListedProperty<P: Property> {
-    pub resource: PropertyTarget,
+    pub resource: Href,
     pub property: P,
     pub value: String,
 }

@@ -12,8 +12,7 @@ use libdav::dav::{mime_types, WebDavClient};
 use libdav::CardDavClient;
 
 use crate::base::{
-    AddressBookProperty, Collection, FetchedItem, Item, ItemRef, ListedProperty, PropertyTarget,
-    Storage, VcardItem,
+    AddressBookProperty, Collection, FetchedItem, Item, ItemRef, ListedProperty, Storage, VcardItem,
 };
 use crate::dav::{
     collection_href_for_item, collection_id_for_href, path_for_collection_in_home_set,
@@ -369,7 +368,7 @@ where
             .zip(AddressBookProperty::known_properties())
             .filter_map(|((_, v), p)| {
                 v.map(|value| ListedProperty {
-                    resource: PropertyTarget::Collection(collection_href.to_owned()),
+                    resource: collection_href.to_owned(),
                     property: p.clone(),
                     value,
                 })

@@ -7,14 +7,14 @@
 use log::{debug, error};
 
 use crate::{
-    base::{Item, ItemRef, Storage},
+    base::{Item, ItemRef, Property, Storage},
     disco::DiscoveredCollection,
     CollectionId, Href,
 };
 
 use super::{
     error::SyncError,
-    plan::{CollectionAction, CollectionPlan, ItemAction, Plan, ResolvedMapping},
+    plan::{CollectionAction, CollectionPlan, ItemAction, Plan, PropertyPlan, ResolvedMapping},
     status::{ItemState, MappingUid, Side, StatusDatabase, StatusError},
 };
 
@@ -239,6 +239,7 @@ impl<I: Item> Plan<I> {
             let CollectionPlan {
                 collection_action,
                 item_actions,
+                property_actions,
                 mapping,
             } = plan;
             let ResolvedMapping { alias, a, b } = mapping;
@@ -261,6 +262,16 @@ impl<I: Item> Plan<I> {
                     .await?
                 {
                     on_error(SyncError::item(item_action, err));
+                };
+            }
+
+            for prop_action in property_actions {
+                if let Err(err) = prop_action
+                    // FIXME: won't work for item properties
+                    .execute(storage_a, storage_b, status, &mapping_uid, &a.href, &b.href)
+                    .await?
+                {
+                    on_error(SyncError::property(prop_action.action, err));
                 };
             }
 
@@ -426,4 +437,68 @@ async fn check_id_matches_expected<I: Item>(
         }
     }
     Ok(())
+}
+
+impl<I: Item> PropertyPlan<I> {
+    async fn execute(
+        &self,
+        a: &dyn Storage<I>,
+        b: &dyn Storage<I>,
+        status: &StatusDatabase,
+        mapping_uid: &MappingUid,
+        href_a: &str,
+        href_b: &str,
+    ) -> Result<Result<(), ExecutionError>, StatusError> {
+        match &self.action {
+            super::plan::PropertyAction::WriteToA { value } => {
+                if let Err(err) = a.set_property(href_a, self.property.clone(), value).await {
+                    return Ok(Err(ExecutionError::from(err)));
+                };
+                status.set_property(mapping_uid, href_a, href_b, &self.property.name(), value)?;
+            }
+            super::plan::PropertyAction::WriteToB { value } => {
+                if let Err(err) = b.set_property(href_b, self.property.clone(), value).await {
+                    return Ok(Err(ExecutionError::from(err)));
+                };
+                status.set_property(mapping_uid, href_a, href_b, &self.property.name(), value)?;
+            }
+            super::plan::PropertyAction::DeleteInA => {
+                if let Err(err) = a.unset_property(href_a, self.property.clone()).await {
+                    return Ok(Err(ExecutionError::from(err)));
+                };
+                status.delete_property(
+                    mapping_uid,
+                    href_a,
+                    href_b,
+                    self.property.name().as_str(),
+                )?;
+            }
+            super::plan::PropertyAction::DeleteInB => {
+                if let Err(err) = b.unset_property(href_b, self.property.clone()).await {
+                    return Ok(Err(ExecutionError::from(err)));
+                };
+                status.delete_property(
+                    mapping_uid,
+                    href_a,
+                    href_b,
+                    self.property.name().as_str(),
+                )?;
+            }
+            super::plan::PropertyAction::ClearStatus => {
+                status.delete_property(
+                    mapping_uid,
+                    href_a,
+                    href_b,
+                    self.property.name().as_str(),
+                )?;
+            }
+            super::plan::PropertyAction::UpdateStatus { value } => {
+                status.set_property(mapping_uid, href_a, href_b, &self.property.name(), value)?;
+            }
+            super::plan::PropertyAction::Conflict => {
+                error!("Conflict for property {}. Skipping.", self.property.name());
+            }
+        };
+        Ok(Ok(()))
+    }
 }

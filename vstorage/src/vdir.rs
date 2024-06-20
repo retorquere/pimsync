@@ -21,7 +21,7 @@ use tokio::io::AsyncWriteExt;
 
 use crate::base::{
     AddressBookProperty, CalendarProperty, Collection, FetchedItem, Item, ItemRef, ListedProperty,
-    PropertyTarget, Storage,
+    Storage,
 };
 use crate::disco::{DiscoveredCollection, Discovery};
 use crate::{CollectionId, Error, ErrorKind, Etag, Href, Result};
@@ -287,7 +287,7 @@ where
             let prop_value = self.get_property(collection_href, property.clone()).await?;
             if let Some(value) = prop_value {
                 props.push(ListedProperty {
-                    resource: PropertyTarget::Collection(collection_href.to_owned()),
+                    resource: collection_href.to_owned(),
                     property: property.clone(),
                     value,
                 });
