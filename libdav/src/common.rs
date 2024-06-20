@@ -8,7 +8,7 @@ use crate::{
     dav::{check_status, FoundCollection, WebDavClient, WebDavError},
     names,
     xmlutils::get_unquoted_href,
-    CheckSupportError, Property,
+    CheckSupportError, PropertyName,
 };
 
 use http::{Method, Request};
@@ -17,7 +17,7 @@ use log::debug;
 
 pub(crate) fn parse_find_multiple_collections(
     body: impl AsRef<[u8]>,
-    only: &Property<'_, '_>,
+    only: &PropertyName<'_, '_>,
 ) -> Result<Vec<FoundCollection>, WebDavError> {
     let body = std::str::from_utf8(body.as_ref())?;
     let doc = roxmltree::Document::parse(body)?;

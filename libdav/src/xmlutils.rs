@@ -14,7 +14,7 @@ use roxmltree::Node;
 
 use crate::dav::{check_status, WebDavError};
 use crate::names;
-use crate::Property;
+use crate::PropertyName;
 
 /// Characters that are escaped for hrefs.
 pub const DISALLOWED_FOR_HREF: &AsciiSet = &NON_ALPHANUMERIC.remove(b'/').remove(b'.');
@@ -64,7 +64,7 @@ pub fn parse_statusline(status_line: impl AsRef<str>) -> Result<StatusCode, Inva
 }
 
 /// Render an empty XML node.
-pub(crate) fn render_xml(name: &Property) -> String {
+pub(crate) fn render_xml(name: &PropertyName) -> String {
     if let Some(ns) = name.namespace() {
         format!("<{0} xmlns=\"{1}\"/>", name.name(), ns)
     } else {
@@ -73,7 +73,7 @@ pub(crate) fn render_xml(name: &Property) -> String {
 }
 
 /// Render an XML node with optional text.
-pub fn render_xml_with_text(name: &Property, text: Option<impl AsRef<str>>) -> String {
+pub fn render_xml_with_text(name: &PropertyName, text: Option<impl AsRef<str>>) -> String {
     match (name.namespace(), text) {
         (None, None) => format!("<{}/>", name.name()),
         (None, Some(t)) => format!("<{0}>{1}</{0}>", name.name(), escape_text(t.as_ref())),
@@ -207,7 +207,7 @@ pub(crate) fn quote_href(href: &[u8]) -> Cow<'_, str> {
 #[inline]
 pub(crate) fn get_newline_corrected_text(
     node: &Node,
-    property: &Property<'_, '_>,
+    property: &PropertyName<'_, '_>,
 ) -> Result<String, WebDavError> {
     let raw_data = node
         .descendants()

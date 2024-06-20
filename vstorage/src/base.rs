@@ -14,7 +14,7 @@ use std::num::NonZeroUsize;
 use async_trait::async_trait;
 use libdav::{
     names::{self},
-    Property,
+    PropertyName,
 };
 use tokio::sync::mpsc::Receiver;
 
@@ -297,7 +297,7 @@ pub enum CalendarProperty {
 
 impl CalendarProperty {
     #[must_use]
-    pub fn dav_propname(&self) -> &Property<'_, '_> {
+    pub fn dav_propname(&self) -> &PropertyName<'_, '_> {
         match self {
             CalendarProperty::Colour => &names::CALENDAR_COLOUR,
             CalendarProperty::DisplayName => &names::DISPLAY_NAME,
@@ -515,7 +515,7 @@ pub enum AddressBookProperty {
 
 impl AddressBookProperty {
     #[must_use]
-    pub fn dav_propname(&self) -> &Property<'_, '_> {
+    pub fn dav_propname(&self) -> &PropertyName<'_, '_> {
         match self {
             AddressBookProperty::DisplayName => &names::DISPLAY_NAME,
             AddressBookProperty::Description => &names::ADDRESSBOOK_DESCRIPTION,

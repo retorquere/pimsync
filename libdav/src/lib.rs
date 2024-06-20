@@ -45,7 +45,7 @@ pub use carddav::CardDavClient;
 /// A WebDav property with a `namespace` and `name`.
 ///
 /// This is currently an alias of [`roxmltree::ExpandedName`].
-pub type Property<'ns, 'name> = roxmltree::ExpandedName<'ns, 'name>;
+pub type PropertyName<'ns, 'name> = roxmltree::ExpandedName<'ns, 'name>;
 
 /// A supplied Url was not valid.
 #[derive(thiserror::Error, Debug)]

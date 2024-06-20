@@ -21,7 +21,7 @@ use crate::{
         check_multistatus, get_newline_corrected_text, get_unquoted_href, quote_href, render_xml,
         render_xml_with_text,
     },
-    Auth, FetchedResource, FetchedResourceContent, ItemDetails, Property, ResourceType,
+    Auth, FetchedResource, FetchedResourceContent, ItemDetails, PropertyName, ResourceType,
 };
 
 #[derive(thiserror::Error, Debug)]
@@ -202,7 +202,7 @@ where
     pub(crate) async fn find_href_prop_as_uri(
         &self,
         url: &Uri,
-        property: &Property<'_, '_>,
+        property: &PropertyName<'_, '_>,
     ) -> Result<Option<Uri>, WebDavError> {
         let (head, body) = self.propfind(url, &[property], 0).await?;
         check_status(head.status)?;
@@ -220,7 +220,7 @@ where
     pub async fn propfind(
         &self,
         url: &Uri,
-        properties: &[&Property<'_, '_>],
+        properties: &[&PropertyName<'_, '_>],
         depth: u8,
     ) -> Result<(Parts, Bytes), WebDavError> {
         let mut body = String::from(r#"<propfind xmlns="DAV:"><prop>"#);
@@ -286,7 +286,7 @@ where
     pub async fn get_property(
         &self,
         href: &str,
-        property: &Property<'_, '_>,
+        property: &PropertyName<'_, '_>,
     ) -> Result<Option<String>, WebDavError> {
         let url = self.relative_uri(href)?;
 
@@ -311,7 +311,7 @@ where
     pub async fn set_property(
         &self,
         href: &str,
-        property: &Property<'_, '_>,
+        property: &PropertyName<'_, '_>,
         value: Option<&str>,
     ) -> Result<(), WebDavError> {
         let url = self.relative_uri(href)?;
@@ -533,7 +533,7 @@ where
     pub async fn create_collection(
         &self,
         href: impl AsRef<str>,
-        resourcetypes: &[&Property<'_, '_>],
+        resourcetypes: &[&PropertyName<'_, '_>],
     ) -> Result<(), WebDavError> {
         let mut rendered_resource_types = String::new();
         for resource_type in resourcetypes {
@@ -624,7 +624,7 @@ where
         &self,
         collection_href: &str,
         body: String,
-        property: &Property<'_, '_>,
+        property: &PropertyName<'_, '_>,
     ) -> Result<Vec<FetchedResource>, WebDavError> {
         let request = Request::builder()
             .method("REPORT")
@@ -681,7 +681,7 @@ pub struct FoundCollection {
 pub(crate) fn parse_prop_href(
     body: impl AsRef<[u8]>,
     url: &Uri,
-    property: &Property<'_, '_>,
+    property: &PropertyName<'_, '_>,
 ) -> Result<Option<Uri>, WebDavError> {
     let body = std::str::from_utf8(body.as_ref())?;
     let doc = roxmltree::Document::parse(body)?;
@@ -724,7 +724,7 @@ pub(crate) fn parse_prop_href(
 
 fn parse_prop(
     body: impl AsRef<[u8]>,
-    property: &Property<'_, '_>,
+    property: &PropertyName<'_, '_>,
 ) -> Result<Option<String>, WebDavError> {
     let body = std::str::from_utf8(body.as_ref())?;
     let doc = roxmltree::Document::parse(body)?;
@@ -806,7 +806,7 @@ fn list_resources_parse(
 
 fn multi_get_parse(
     body: impl AsRef<[u8]>,
-    property: &Property<'_, '_>,
+    property: &PropertyName<'_, '_>,
 ) -> Result<Vec<FetchedResource>, WebDavError> {
     let body = std::str::from_utf8(body.as_ref())?;
     let doc = roxmltree::Document::parse(body)?;
