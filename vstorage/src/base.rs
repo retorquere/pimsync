@@ -500,7 +500,6 @@ mod tests {
 /// enable operating on potentially invalid items too.
 #[derive(Debug)]
 pub struct VcardItem {
-    // TODO: make this Vec<u8> instead?
     raw: String,
 }
 
