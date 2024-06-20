@@ -12,6 +12,8 @@ pub const DAV: &str = "DAV:";
 pub const CALDAV: &str = "urn:ietf:params:xml:ns:caldav";
 /// Namespace for properties defined in the CardDav specifications.
 pub const CARDDAV: &str = "urn:ietf:params:xml:ns:carddav";
+/// Namespace for properties defined by Apple / ical.
+pub const APPLE: &str = "http://apple.com/ns/ical/";
 
 pub const COLLECTION: Property = Property::from_static(DAV, "collection");
 /// Property name for collections display name.
@@ -29,13 +31,19 @@ pub const SYNC_COLLECTION: Property = Property::from_static(DAV, "sync-collectio
 pub const CURRENT_USER_PRINCIPAL: Property = Property::from_static(DAV, "current-user-principal");
 
 pub const CALENDAR: Property = Property::from_static(CALDAV, "calendar");
+/// From: <https://www.rfc-editor.org/rfc/rfc4791#section-5.2.1>
+pub const CALENDAR_DESCRIPTION: Property = Property::from_static(CALDAV, "calendar-description");
 /// Defined in <https://www.rfc-editor.org/rfc/rfc4791#section-6.2.1>
 pub const CALENDAR_HOME_SET: Property = Property::from_static(CALDAV, "calendar-home-set");
 pub const CALENDAR_COLOUR: Property =
     Property::from_static("http://apple.com/ns/ical/", "calendar-color");
 pub const CALENDAR_DATA: Property = Property::from_static(CALDAV, "calendar-data");
+pub const CALENDAR_ORDER: Property = Property::from_static(APPLE, "calendar-order");
 
 pub const ADDRESSBOOK: Property = Property::from_static(CARDDAV, "addressbook");
+/// From: <https://www.rfc-editor.org/rfc/rfc6352#section-6.2.1>
+pub const ADDRESSBOOK_DESCRIPTION: Property =
+    Property::from_static(CARDDAV, "addressbook-description");
 pub const ADDRESSBOOK_HOME_SET: Property =
     Property::from_static("urn:ietf:params:xml:ns:carddav", "addressbook-home-set");
 pub const ADDRESS_DATA: Property = Property::from_static(CARDDAV, "address-data");

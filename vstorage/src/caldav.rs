@@ -301,39 +301,21 @@ where
     /// # Errors
     ///
     /// Only `DisplayName` and `Colour` are implemented.
-    async fn set_property(&self, href: &str, meta: CalendarProperty, value: &str) -> Result<()> {
-        match meta {
-            CalendarProperty::DisplayName => self
-                .client
-                .set_collection_displayname(href, Some(value))
-                .await
-                .map_err(Error::from),
-            CalendarProperty::Colour => self
-                .client
-                .set_calendar_colour(href, Some(value))
-                .await
-                .map_err(Error::from),
-            _ => Err(Error::from(ErrorKind::Unsupported)),
-        }
+    async fn set_property(&self, href: &str, prop: CalendarProperty, value: &str) -> Result<()> {
+        self.client
+            .set_property(href, prop.dav_propname(), Some(value))
+            .await
+            .map_err(Error::from)
     }
 
     /// # Errors
     ///
     /// Only `DisplayName` and `Colour` are implemented.
-    async fn unset_property(&self, href: &str, meta: CalendarProperty) -> Result<()> {
-        match meta {
-            CalendarProperty::DisplayName => self
-                .client
-                .set_collection_displayname(href, None)
-                .await
-                .map_err(Error::from),
-            CalendarProperty::Colour => self
-                .client
-                .set_calendar_colour(href, None)
-                .await
-                .map_err(Error::from),
-            _ => Err(Error::from(ErrorKind::Unsupported)),
-        }
+    async fn unset_property(&self, href: &str, prop: CalendarProperty) -> Result<()> {
+        self.client
+            .set_property(href, prop.dav_propname(), None)
+            .await
+            .map_err(Error::from)
     }
 
     /// Read metadata from a collection.
@@ -346,20 +328,11 @@ where
     /// If the underlying HTTP connection fails or if the server returns invalid data.
     ///
     /// Only `DisplayName` and `Colour` are implemented.
-    async fn get_property(&self, href: &str, meta: CalendarProperty) -> Result<Option<String>> {
-        match meta {
-            CalendarProperty::DisplayName => self
-                .client
-                .get_collection_displayname(href)
-                .await
-                .map_err(Error::from),
-            CalendarProperty::Colour => self
-                .client
-                .get_calendar_colour(href)
-                .await
-                .map_err(Error::from),
-            _ => Err(Error::from(ErrorKind::Unsupported)),
-        }
+    async fn get_property(&self, href: &str, prop: CalendarProperty) -> Result<Option<String>> {
+        self.client
+            .get_property(href, prop.dav_propname())
+            .await
+            .map_err(Error::from)
     }
 
     async fn delete_item(&self, href: &str, etag: &Etag) -> Result<()> {

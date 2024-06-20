@@ -289,29 +289,21 @@ where
     /// # Errors
     ///
     /// Only `DisplayName` is implemented.
-    async fn set_property(&self, href: &str, meta: AddressBookProperty, value: &str) -> Result<()> {
-        match meta {
-            AddressBookProperty::DisplayName => self
-                .client
-                .set_collection_displayname(href, Some(value))
-                .await
-                .map_err(Error::from),
-            AddressBookProperty::Description => Err(Error::from(ErrorKind::Unsupported)),
-        }
+    async fn set_property(&self, href: &str, prop: AddressBookProperty, value: &str) -> Result<()> {
+        self.client
+            .set_property(href, prop.dav_propname(), Some(value))
+            .await
+            .map_err(Error::from)
     }
 
     /// # Errors
     ///
     /// Only `DisplayName` is implemented.
-    async fn unset_property(&self, href: &str, meta: AddressBookProperty) -> Result<()> {
-        match meta {
-            AddressBookProperty::DisplayName => self
-                .client
-                .set_collection_displayname(href, None)
-                .await
-                .map_err(Error::from),
-            AddressBookProperty::Description => Err(Error::from(ErrorKind::Unsupported)),
-        }
+    async fn unset_property(&self, href: &str, prop: AddressBookProperty) -> Result<()> {
+        self.client
+            .set_property(href, prop.dav_propname(), None)
+            .await
+            .map_err(Error::from)
     }
 
     /// Read metadata from a collection.
@@ -324,15 +316,11 @@ where
     /// If the underlying HTTP connection fails or if the server returns invalid data.
     ///
     /// Only `DisplayName` is implemented.
-    async fn get_property(&self, href: &str, meta: AddressBookProperty) -> Result<Option<String>> {
-        match meta {
-            AddressBookProperty::DisplayName => self
-                .client
-                .get_collection_displayname(href)
-                .await
-                .map_err(Error::from),
-            AddressBookProperty::Description => Err(Error::from(ErrorKind::Unsupported)),
-        }
+    async fn get_property(&self, href: &str, prop: AddressBookProperty) -> Result<Option<String>> {
+        self.client
+            .get_property(href, prop.dav_propname())
+            .await
+            .map_err(Error::from)
     }
 
     async fn delete_item(&self, href: &str, etag: &Etag) -> Result<()> {

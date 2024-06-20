@@ -12,6 +12,10 @@
 use std::num::NonZeroUsize;
 
 use async_trait::async_trait;
+use libdav::{
+    names::{self},
+    Property,
+};
 use tokio::sync::mpsc::Receiver;
 
 use crate::{
@@ -291,6 +295,18 @@ pub enum CalendarProperty {
     Order,
 }
 
+impl CalendarProperty {
+    #[must_use]
+    pub fn dav_propname(&self) -> &Property<'_, '_> {
+        match self {
+            CalendarProperty::Colour => &names::CALENDAR_COLOUR,
+            CalendarProperty::DisplayName => &names::DISPLAY_NAME,
+            CalendarProperty::Description => &names::CALENDAR_DESCRIPTION,
+            CalendarProperty::Order => &names::CALENDAR_ORDER,
+        }
+    }
+}
+
 impl Item for IcsItem {
     /// Calendar properties defined by `CalDav`.
     type Property = CalendarProperty;
@@ -497,6 +513,16 @@ pub enum AddressBookProperty {
     DisplayName,
     Description,
     // TODO: can this have colour too?
+}
+
+impl AddressBookProperty {
+    #[must_use]
+    pub fn dav_propname(&self) -> &Property<'_, '_> {
+        match self {
+            AddressBookProperty::DisplayName => &names::DISPLAY_NAME,
+            AddressBookProperty::Description => &names::ADDRESSBOOK_DESCRIPTION,
+        }
+    }
 }
 
 impl Item for VcardItem {
