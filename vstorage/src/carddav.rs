@@ -357,18 +357,26 @@ where
         &self,
         collection_href: &str,
     ) -> Result<Vec<ListedProperty<AddressBookProperty>>> {
-        let mut props = Vec::new();
-        for property in AddressBookProperty::known_properties() {
-            let prop_value = self.get_property(collection_href, property.clone()).await?;
-            if let Some(value) = prop_value {
-                props.push(ListedProperty {
+        let prop_names = AddressBookProperty::known_properties()
+            .iter()
+            .map(|p| p.dav_propname())
+            .collect::<Vec<_>>();
+        let result = self
+            .client
+            .get_properties(collection_href, &prop_names)
+            .await?
+            .into_iter()
+            .zip(AddressBookProperty::known_properties())
+            .filter_map(|((_, v), p)| {
+                v.map(|value| ListedProperty {
                     resource: PropertyTarget::Collection(collection_href.to_owned()),
-                    property: property.clone(),
+                    property: p.clone(),
                     value,
-                });
-            };
-        }
-        return Ok(props);
+                })
+            })
+            .collect::<Vec<_>>();
+
+        return Ok(result);
     }
 }
 

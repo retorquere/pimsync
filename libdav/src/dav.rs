@@ -298,6 +298,8 @@ where
 
     /// Fetch multiple properties for a single resource.
     ///
+    /// Values in the returned `Vec` are in the same order as the `properties` parameter.
+    ///
     /// # Quirks
     ///
     /// Same as [`WebDavClient::get_property`].
