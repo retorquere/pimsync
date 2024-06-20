@@ -296,6 +296,54 @@ where
         parse_prop(body, property)
     }
 
+    /// Fetch multiple properties for a single resource.
+    ///
+    /// # Quirks
+    ///
+    /// Same as [`WebDavClient::get_property`].
+    ///
+    /// # Errors
+    ///
+    /// - If there are any network errors or the response could not be parsed.
+    /// - If the requested property is missing in the response.
+    ///
+    /// # See also
+    ///
+    /// - [`WebDavClient::get_property`]
+    /// - [`WebDavClient::set_property`]
+    pub async fn get_properties<'p>(
+        &self,
+        href: &str,
+        properties: &[&PropertyName<'p, 'p>],
+    ) -> Result<Vec<(PropertyName<'p, 'p>, Option<String>)>, WebDavError> {
+        let url = self.relative_uri(href)?;
+
+        let (head, body) = self.propfind(&url, properties, 0).await?;
+        check_status(head.status)?;
+
+        let body = std::str::from_utf8(body.as_ref())?;
+        let doc = roxmltree::Document::parse(body)?;
+        let root = doc.root_element();
+
+        let mut results = Vec::with_capacity(properties.len());
+        for property in properties {
+            let prop = root
+                .descendants()
+                .find(|node| node.tag_name() == **property)
+                // Hack to work around: https://github.com/cyrusimap/cyrus-imapd/issues/4489
+                .or_else(|| {
+                    root.descendants()
+                        .find(|node| node.tag_name().name() == property.name())
+                })
+                // End hack
+                .and_then(|p| p.text())
+                .map(str::to_owned);
+
+            results.push((**property, prop));
+        }
+        Ok(results)
+    }
+
     /// Sends a `PROPUPDATE` query to the server.
     ///
     /// Setting the value to `None` will remove the property. Returns the new value as returned by

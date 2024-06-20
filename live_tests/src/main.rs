@@ -252,6 +252,7 @@ async fn main() -> anyhow::Result<()> {
 
     let (total, passed) = run_tests!(
         &test_data,
+        caldav::test_get_properties,
         caldav::test_create_and_delete_collection,
         caldav::test_create_and_force_delete_collection,
         caldav::test_setting_and_getting_displayname,

@@ -158,6 +158,61 @@ pub(crate) async fn test_setting_and_getting_colour(test_data: &TestData) -> any
     Ok(())
 }
 
+pub(crate) async fn test_get_properties(test_data: &TestData) -> anyhow::Result<()> {
+    let new_collection = format!(
+        "{}{}/",
+        test_data.calendar_home_set.path(),
+        &random_string(16)
+    );
+    test_data.caldav.create_calendar(&new_collection).await?;
+
+    let colour = "#ff00ff";
+    let colour_alpha = "#FF00FFFF"; // Some servers normalise to this value.
+    test_data
+        .caldav
+        .set_property(&new_collection, &names::CALENDAR_COLOUR, Some(colour))
+        .await
+        .context("setting collection colour")?;
+
+    let name = "panda-events";
+    test_data
+        .caldav
+        .set_property(&new_collection, &names::DISPLAY_NAME, Some(name))
+        .await
+        .context("setting collection displayname")?;
+
+    let values = test_data
+        .caldav
+        .get_properties(
+            &new_collection,
+            &[
+                &names::CALENDAR_COLOUR,
+                &names::DISPLAY_NAME,
+                &names::CALENDAR_ORDER,
+            ],
+        )
+        .await
+        .context("getting collection properties")?;
+
+    for value in values {
+        match value.0 {
+            names::CALENDAR_COLOUR => match value.1 {
+                Some(c) => {
+                    ensure!(c.eq_ignore_ascii_case(colour) || c.eq_ignore_ascii_case(colour_alpha));
+                }
+                None => bail!("Set a colour but then got colour None"),
+            },
+            names::DISPLAY_NAME => ensure!(value.1 == Some("panda-events".into())),
+            names::CALENDAR_ORDER => ensure!(value.1 == None),
+            _ => bail!("got unexpected property"),
+        }
+    }
+
+    test_data.caldav.force_delete(&new_collection).await?;
+
+    Ok(())
+}
+
 fn minimal_icalendar() -> anyhow::Result<Vec<u8>> {
     let mut entry = String::new();
     let uid = random_string(12);
