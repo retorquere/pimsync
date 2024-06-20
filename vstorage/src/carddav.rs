@@ -354,7 +354,7 @@ where
     async fn list_properties(
         &self,
         collection_href: &str,
-    ) -> Result<Vec<ListedProperty<VcardItem>>> {
+    ) -> Result<Vec<ListedProperty<AddressBookProperty>>> {
         let mut props = Vec::new();
         for property in AddressBookProperty::known_properties() {
             let prop_value = self.get_property(collection_href, property.clone()).await?;

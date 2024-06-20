@@ -110,7 +110,10 @@ impl<S: Storage<I>, I: Item> Storage<I> for ReadOnlyStorage<S, I> {
         Err(ErrorKind::ReadOnly.into())
     }
 
-    async fn list_properties(&self, collection_href: &str) -> Result<Vec<ListedProperty<I>>> {
+    async fn list_properties(
+        &self,
+        collection_href: &str,
+    ) -> Result<Vec<ListedProperty<I::Property>>> {
         self.inner.list_properties(collection_href).await
     }
 }

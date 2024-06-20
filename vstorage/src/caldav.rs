@@ -363,7 +363,10 @@ where
         }
     }
 
-    async fn list_properties(&self, collection_href: &str) -> Result<Vec<ListedProperty<IcsItem>>> {
+    async fn list_properties(
+        &self,
+        collection_href: &str,
+    ) -> Result<Vec<ListedProperty<CalendarProperty>>> {
         let mut props = Vec::new();
         for property in CalendarProperty::known_properties() {
             let prop_value = self.get_property(collection_href, property.clone()).await?;

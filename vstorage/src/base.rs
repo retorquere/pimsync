@@ -63,7 +63,10 @@ pub trait Storage<I: Item>: Sync + Send {
     /// List collection properties.
     ///
     /// List all properties of a collection and (if applicable) of its items.
-    async fn list_properties(&self, collection_href: &str) -> Result<Vec<ListedProperty<I>>>;
+    async fn list_properties(
+        &self,
+        collection_href: &str,
+    ) -> Result<Vec<ListedProperty<I::Property>>>;
 
     /// Returns the value of a property for a given collection.
     async fn get_property(&self, href: &str, property: I::Property) -> Result<Option<String>>;
@@ -610,8 +613,8 @@ pub enum PropertyTarget {
     Item(Href),
 }
 
-pub struct ListedProperty<I: Item> {
+pub struct ListedProperty<P: Property> {
     pub resource: PropertyTarget,
-    pub property: I::Property,
+    pub property: P,
     pub value: String,
 }

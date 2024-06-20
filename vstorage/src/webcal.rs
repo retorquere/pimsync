@@ -307,7 +307,7 @@ impl Storage<IcsItem> for WebCalStorage {
         }
     }
 
-    async fn list_properties(&self, _: &str) -> Result<Vec<ListedProperty<IcsItem>>> {
+    async fn list_properties(&self, _: &str) -> Result<Vec<ListedProperty<CalendarProperty>>> {
         Err(Error::new(
             ErrorKind::Unsupported,
             "webcal does not support properties",
