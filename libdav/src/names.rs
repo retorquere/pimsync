@@ -14,6 +14,8 @@ pub const CALDAV: &str = "urn:ietf:params:xml:ns:caldav";
 pub const CARDDAV: &str = "urn:ietf:params:xml:ns:carddav";
 
 pub const COLLECTION: Property = Property::from_static(DAV, "collection");
+/// Property name for collections display name.
+/// From: <https://www.rfc-editor.org/rfc/rfc3744#section-4>
 pub const DISPLAY_NAME: Property = Property::from_static(DAV, "displayname");
 pub const GETCONTENTTYPE: Property = Property::from_static(DAV, "getcontenttype");
 pub const GETETAG: Property = Property::from_static(DAV, "getetag");

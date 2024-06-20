@@ -258,6 +258,28 @@ where
         Ok((head, body))
     }
 
+    /// Fetch a single property.
+    ///
+    /// # Errors
+    ///
+    /// If there are any network errors or the response could not be parsed.
+    ///
+    /// # See also
+    ///
+    /// - <https://www.rfc-editor.org/rfc/rfc3744#section-4>
+    pub async fn get_property(
+        &self,
+        href: &str,
+        property: &Property<'_, '_>,
+    ) -> Result<Option<String>, WebDavError> {
+        let url = self.relative_uri(href)?;
+
+        let (head, body) = self.propfind(&url, &[property], 0).await?;
+        check_status(head.status)?;
+
+        parse_prop(body, property)
+    }
+
     /// Returns the `displayname` for the collection at path `href`.
     ///
     /// From [rfc3744#section-4](https://www.rfc-editor.org/rfc/rfc3744#section-4):
@@ -267,30 +289,29 @@ where
     /// # Errors
     ///
     /// If there are any network errors or the response could not be parsed.
+    // TODO: #[deprecated = "Use `get_property(href, libdav::names::DISPLAY_NAME)`"]
     pub async fn get_collection_displayname(
         &self,
         href: &str,
     ) -> Result<Option<String>, WebDavError> {
-        let url = self.relative_uri(href)?;
-
-        let (head, body) = self.propfind(&url, &[&names::DISPLAY_NAME], 0).await?;
-        check_status(head.status)?;
-
-        parse_prop(body, &names::DISPLAY_NAME)
+        self.get_property(href, &names::DISPLAY_NAME).await
     }
 
     /// Sends a `PROPUPDATE` query to the server.
+    ///
+    /// Setting the value to `None` will remove the property.
     ///
     /// # Errors
     ///
     /// If there are any network errors or the response could not be parsed.
     // TODO: document whether the value needs to be escaped or not.
-    pub async fn propupdate(
+    pub async fn set_property(
         &self,
-        url: &Uri,
+        href: &str,
         property: &Property<'_, '_>,
         value: Option<&str>,
     ) -> Result<(), WebDavError> {
+        let url = self.relative_uri(href)?;
         let action = match value {
             Some(_) => "set",
             None => "remove",
@@ -345,8 +366,7 @@ where
         href: &str,
         displayname: Option<&str>,
     ) -> Result<(), WebDavError> {
-        let url = self.relative_uri(href)?;
-        self.propupdate(&url, &names::DISPLAY_NAME, displayname)
+        self.set_property(href, &names::DISPLAY_NAME, displayname)
             .await
     }
 

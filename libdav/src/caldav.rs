@@ -201,14 +201,9 @@ where
         href: &str,
         colour: Option<&str>,
     ) -> Result<(), WebDavError> {
-        let url = self.relative_uri(href)?;
-        self.propupdate(&url, &names::CALENDAR_COLOUR, colour).await
+        self.set_property(href, &names::CALENDAR_COLOUR, colour)
+            .await
     }
-
-    // TODO: get_calendar_description ("calendar-description", "urn:ietf:params:xml:ns:caldav")
-    // TODO: get_calendar_order ("calendar-order", "http://apple.com/ns/ical/")
-    // TODO: DRY: the above methods are super repetitive.
-    //       Maybe all these props impl a single trait, so the API could be `get_prop<T>(url)`?
 
     // TODO: check link in doc:
     // TODO: same note on carddav.

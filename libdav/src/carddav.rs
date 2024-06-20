@@ -143,10 +143,6 @@ where
         parse_find_multiple_collections(body, &names::ADDRESSBOOK)
     }
 
-    // TODO: get_addressbook_description ("addressbook-description", "urn:ietf:params:xml:ns:carddav")
-    // TODO: DRY: the above methods are super repetitive.
-    //       Maybe all these props impl a single trait, so the API could be `get_prop<T>(url)`?
-
     /// Fetches existing vcard resources.
     ///
     /// # Errors
