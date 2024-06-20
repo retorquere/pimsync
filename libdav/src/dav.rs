@@ -750,7 +750,10 @@ fn parse_prop(
 
     let props = root
         .descendants()
-        .filter(|node| node.tag_name() == *property)
+        // TODO: Comparing only names is an ugly hack to work around:
+        //       See: https://github.com/cyrusimap/cyrus-imapd/issues/4489
+        // TODO: Should use `node.tag_name() == *property` here.
+        .filter(|node| node.tag_name().name() == property.name())
         .collect::<Vec<_>>();
 
     if props.len() == 1 {
@@ -760,7 +763,7 @@ fn parse_prop(
     check_multistatus(root)?;
 
     Err(WebDavError::InvalidResponse(
-        "missing property in response but no error".into(),
+        "Property is missing from response, but response is non-error.".into(),
     ))
 }
 
@@ -1153,5 +1156,26 @@ END:VCALENDAR
         assert_eq!(results, Some("#ff00ff".into()));
 
         parse_prop(raw, &DISPLAY_NAME).unwrap_err();
+    }
+
+    #[test]
+    fn test_parse_prop() {
+        // As returned by Fastmail.
+        let body = concat!(
+            "<?xml version=\"1.0\" encoding=\"utf-8\"?>",
+            "<multistatus xmlns=\"DAV:\">",
+            "<response>",
+            "<href>/dav/calendars/user/hugo@whynothugo.nl/37c044e7-4b3d-4910-ba31-55038b413c7d/</href>",
+            "<propstat>",
+            "<prop>",
+            "<calendar-color><![CDATA[#FF2968]]></calendar-color>",
+            "</prop>",
+            "<status>HTTP/1.1 200 OK</status>",
+            "</propstat>",
+            "</response>",
+            "</multistatus>",
+        );
+        let parsed = parse_prop(body, &names::CALENDAR_COLOUR).unwrap();
+        assert_eq!(parsed, Some(String::from("#FF2968")));
     }
 }

@@ -11,7 +11,7 @@ use crate::common::{check_support, parse_find_multiple_collections};
 use crate::dav::WebDavClient;
 use crate::dav::{check_status, FoundCollection, WebDavError};
 use crate::sd::{find_context_url, BootstrapError, DiscoverableService};
-use crate::xmlutils::{check_multistatus, quote_href};
+use crate::xmlutils::quote_href;
 use crate::{names, FindHomeSetError, InvalidUrl};
 use crate::{CheckSupportError, FetchedResource};
 
@@ -158,32 +158,7 @@ where
     ///
     /// If the network request fails, or if the response cannot be parsed.
     pub async fn get_calendar_colour(&self, href: &str) -> Result<Option<String>, WebDavError> {
-        let url = self.relative_uri(href)?;
-
-        let (head, body) = self.propfind(&url, &[&names::CALENDAR_COLOUR], 0).await?;
-        check_status(head.status)?;
-
-        let body = std::str::from_utf8(body.as_ref())?;
-        let doc = roxmltree::Document::parse(body)?;
-        let root = doc.root_element();
-
-        let props = root
-            .descendants()
-            .filter(|node| {
-                // Ignoring namespace as workaround for https://github.com/cyrusimap/cyrus-imapd/issues/4489
-                node.tag_name().name() == "calendar-color"
-            })
-            .collect::<Vec<_>>();
-
-        if props.len() == 1 {
-            return Ok(props[0].text().map(str::to_string));
-        }
-
-        check_multistatus(root)?;
-
-        Err(WebDavError::InvalidResponse(
-            "missing property in response with no error".into(),
-        ))
+        self.get_property(href, &names::CALENDAR_COLOUR).await
     }
 
     /// Sets the `colour` for a collection
