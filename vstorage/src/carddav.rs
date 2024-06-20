@@ -293,6 +293,7 @@ where
         self.client
             .set_property(href, prop.dav_propname(), Some(value))
             .await
+            .map(|_| ())
             .map_err(Error::from)
     }
 
@@ -303,6 +304,7 @@ where
         self.client
             .set_property(href, prop.dav_propname(), None)
             .await
+            .map(|_| ())
             .map_err(Error::from)
     }
 

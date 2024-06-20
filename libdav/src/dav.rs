@@ -298,7 +298,8 @@ where
 
     /// Sends a `PROPUPDATE` query to the server.
     ///
-    /// Setting the value to `None` will remove the property.
+    /// Setting the value to `None` will remove the property. Returns the new value as returned by
+    /// the server.
     ///
     /// # Quirks
     ///
@@ -317,7 +318,7 @@ where
         href: &str,
         property: &PropertyName<'_, '_>,
         value: Option<&str>,
-    ) -> Result<(), WebDavError> {
+    ) -> Result<Option<String>, WebDavError> {
         let url = self.relative_uri(href)?;
         let action = match value {
             Some(_) => "set",
@@ -341,27 +342,7 @@ where
         let (head, body) = self.request(request).await?;
         check_status(head.status)?;
 
-        let body = std::str::from_utf8(body.as_ref())?;
-        let doc = roxmltree::Document::parse(body)?;
-        let root = doc.root_element();
-
-        let props = root
-            .descendants()
-            // TODO: Comparing only names is an ugly hack to work around:
-            //       See: https://github.com/cyrusimap/cyrus-imapd/issues/4489
-            // TODO: Should use `node.tag_name() == *property` here.
-            .filter(|node| node.tag_name().name() == property.name())
-            .collect::<Vec<_>>();
-
-        if props.len() == 1 {
-            return Ok(());
-        }
-
-        check_multistatus(root)?;
-
-        Err(WebDavError::InvalidResponse(
-            "Property was set but missing from response.".into(),
-        ))
+        parse_prop(body, property)
     }
 
     /// Resolve the default context path using a well-known path.
