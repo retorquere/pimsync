@@ -511,7 +511,6 @@ pub struct VcardItem {
 pub enum AddressBookProperty {
     DisplayName,
     Description,
-    // TODO: can this have colour too?
 }
 
 impl AddressBookProperty {
