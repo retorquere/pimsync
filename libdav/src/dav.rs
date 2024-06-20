@@ -300,6 +300,10 @@ where
     ///
     /// Setting the value to `None` will remove the property.
     ///
+    /// # Quirks
+    ///
+    /// Same as [`WebDavClient::get_property`].
+    ///
     /// # Errors
     ///
     /// If there are any network errors or the response could not be parsed.
@@ -343,7 +347,10 @@ where
 
         let props = root
             .descendants()
-            .filter(|node| node.tag_name() == *property)
+            // TODO: Comparing only names is an ugly hack to work around:
+            //       See: https://github.com/cyrusimap/cyrus-imapd/issues/4489
+            // TODO: Should use `node.tag_name() == *property` here.
+            .filter(|node| node.tag_name().name() == property.name())
             .collect::<Vec<_>>();
 
         if props.len() == 1 {
@@ -353,7 +360,7 @@ where
         check_multistatus(root)?;
 
         Err(WebDavError::InvalidResponse(
-            "missing property in response but no error".into(),
+            "Property was set but missing from response.".into(),
         ))
     }
 

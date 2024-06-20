@@ -203,11 +203,6 @@ const EXPECTED_FAILURES: &[ExpectedFailure] = &[
     },
     ExpectedFailure {
         server: "cyrus-imap",
-        test: "caldav::test_setting_and_getting_colour",
-        reason: "https://github.com/cyrusimap/cyrus-imapd/issues/4489",
-    },
-    ExpectedFailure {
-        server: "cyrus-imap",
         test: "carddav::test_check_carddav_support",
         reason: "server does not adviertise caldav support (unreported)",
     },
