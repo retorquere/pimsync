@@ -737,16 +737,17 @@ fn parse_prop(
     let doc = roxmltree::Document::parse(body)?;
     let root = doc.root_element();
 
-    let props = root
+    let prop = root
         .descendants()
-        // TODO: Comparing only names is an ugly hack to work around:
-        //       See: https://github.com/cyrusimap/cyrus-imapd/issues/4489
-        // TODO: Should use `node.tag_name() == *property` here.
-        .filter(|node| node.tag_name().name() == property.name())
-        .collect::<Vec<_>>();
+        .find(|node| node.tag_name() == *property)
+        // Hack to work around: https://github.com/cyrusimap/cyrus-imapd/issues/4489
+        .or_else(|| {
+            root.descendants()
+                .find(|node| node.tag_name().name() == property.name())
+        });
 
-    if props.len() == 1 {
-        return Ok(props[0].text().map(str::to_string));
+    if let Some(prop) = prop {
+        return Ok(prop.text().map(str::to_string));
     }
 
     check_multistatus(root)?;
