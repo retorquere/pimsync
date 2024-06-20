@@ -317,6 +317,25 @@ where
         }
     }
 
+    /// # Errors
+    ///
+    /// Only `DisplayName` and `Colour` are implemented.
+    async fn unset_property(&self, href: &str, meta: CalendarProperty) -> Result<()> {
+        match meta {
+            CalendarProperty::DisplayName => self
+                .client
+                .set_collection_displayname(href, None)
+                .await
+                .map_err(Error::from),
+            CalendarProperty::Colour => self
+                .client
+                .set_calendar_colour(href, None)
+                .await
+                .map_err(Error::from),
+            _ => Err(Error::from(ErrorKind::Unsupported)),
+        }
+    }
+
     /// Read metadata from a collection.
     ///
     /// Metadata is fetched using the `PROPFIND` method under the hood. Some servers may not

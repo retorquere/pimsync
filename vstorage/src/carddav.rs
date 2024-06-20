@@ -290,11 +290,24 @@ where
     ///
     /// Only `DisplayName` is implemented.
     async fn set_property(&self, href: &str, meta: AddressBookProperty, value: &str) -> Result<()> {
-        // TODO: make MetaKind paramatrezed on the ItemKind
         match meta {
             AddressBookProperty::DisplayName => self
                 .client
                 .set_collection_displayname(href, Some(value))
+                .await
+                .map_err(Error::from),
+            AddressBookProperty::Description => Err(Error::from(ErrorKind::Unsupported)),
+        }
+    }
+
+    /// # Errors
+    ///
+    /// Only `DisplayName` is implemented.
+    async fn unset_property(&self, href: &str, meta: AddressBookProperty) -> Result<()> {
+        match meta {
+            AddressBookProperty::DisplayName => self
+                .client
+                .set_collection_displayname(href, None)
                 .await
                 .map_err(Error::from),
             AddressBookProperty::Description => Err(Error::from(ErrorKind::Unsupported)),

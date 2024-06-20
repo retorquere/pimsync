@@ -67,6 +67,9 @@ pub trait Storage<I: Item>: Sync + Send {
     /// Sets the value of a property for a given collection.
     async fn set_property(&self, href: &str, property: I::Property, value: &str) -> Result<()>;
 
+    /// Unsets a property for a given collection.
+    async fn unset_property(&self, href: &str, property: I::Property) -> Result<()>;
+
     /// Enumerates items in a given collection.
     async fn list_items(&self, collection_href: &str) -> Result<Vec<ItemRef>>;
 

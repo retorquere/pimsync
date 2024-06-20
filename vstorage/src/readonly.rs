@@ -90,6 +90,10 @@ impl<S: Storage<I>, I: Item> Storage<I> for ReadOnlyStorage<S, I> {
         Err(ErrorKind::ReadOnly.into())
     }
 
+    async fn unset_property(&self, _: &str, _: I::Property) -> Result<()> {
+        Err(ErrorKind::ReadOnly.into())
+    }
+
     async fn get_property(&self, href: &str, meta: I::Property) -> Result<Option<String>> {
         self.inner.get_property(href, meta).await
     }

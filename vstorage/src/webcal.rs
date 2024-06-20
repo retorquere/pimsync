@@ -265,6 +265,14 @@ impl Storage<IcsItem> for WebCalStorage {
     }
 
     /// Unsupported for this storage type.
+    async fn unset_property(&self, _: &str, _: CalendarProperty) -> Result<()> {
+        Err(Error::new(
+            ErrorKind::Unsupported,
+            "unsetting metadata via webcal is not supported",
+        ))
+    }
+
+    /// Unsupported for this storage type.
     async fn get_property(&self, _: &str, _: CalendarProperty) -> Result<Option<String>> {
         // TODO: return None?
         Err(Error::new(

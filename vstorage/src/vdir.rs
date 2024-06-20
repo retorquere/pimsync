@@ -177,6 +177,13 @@ where
         Ok(())
     }
 
+    async fn unset_property(&self, href: &str, meta: I::Property) -> Result<()> {
+        let filename = meta.filename();
+        let path = self.build_collection_path(href)?.join(filename);
+        remove_file(path).await?;
+        Ok(())
+    }
+
     async fn get_property(&self, href: &str, meta: I::Property) -> Result<Option<String>> {
         let filename = meta.filename();
 
