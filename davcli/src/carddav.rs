@@ -2,7 +2,9 @@
 //
 // SPDX-License-Identifier: EUPL-1.2
 
-use anyhow::Context;
+use std::io::Read;
+
+use anyhow::{bail, Context};
 use http::Uri;
 use hyper::client::HttpConnector;
 use hyper_rustls::{HttpsConnector, HttpsConnectorBuilder};
@@ -51,9 +53,14 @@ pub(crate) async fn execute(command: ServerCommand) -> anyhow::Result<()> {
             list_resources(&client, collection_href).await?;
         }
         ServerCommand::Get { resource_href } => get(client, resource_href).await?,
-        ServerCommand::Delete { .. } => todo!(),
-        ServerCommand::Tree { .. } => todo!(),
-        ServerCommand::Create { .. } => todo!(),
+        ServerCommand::Delete { force, href } => {
+            if !force {
+                bail!("Must force deletion (no etag support in davcli)");
+            }
+            delete(&client, href).await?;
+        }
+        ServerCommand::Tree => tree(client).await?,
+        ServerCommand::Create { resource_href } => create(client, resource_href).await?,
     };
 
     Ok(())
@@ -138,6 +145,43 @@ async fn list_resources(client: &Client, href: String) -> anyhow::Result<()> {
         for resource in resources {
             println!("{}", resource.href);
         }
+    }
+
+    Ok(())
+}
+
+async fn delete(client: &Client, href: String) -> anyhow::Result<()> {
+    client
+        .force_delete(&href)
+        .await
+        .map_err(anyhow::Error::from)
+}
+
+async fn tree(client: Client) -> anyhow::Result<()> {
+    let url = url_for_finding_address_books(&client).await?;
+    let response = client.find_addressbooks(&url).await?;
+    for collection in response {
+        println!("{}", collection.href);
+        list_resources(&client, collection.href).await?;
+    }
+
+    Ok(())
+}
+
+async fn create(client: Client, href: String) -> anyhow::Result<()> {
+    let mut data = Vec::new();
+    let mut stdin = std::io::stdin().lock();
+    stdin.read_to_end(&mut data).context("reading from stdin")?;
+
+    let response = client
+        .create_resource(&href, data, b"text/vcard")
+        .await
+        .context("sending request to create resource")?;
+
+    if let Some(etag) = response {
+        println!("Etag: {etag}");
+    } else {
+        println!("No etag");
     }
 
     Ok(())
