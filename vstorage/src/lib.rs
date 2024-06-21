@@ -4,6 +4,7 @@
 #![deny(clippy::pedantic)]
 #![deny(clippy::unwrap_used)]
 #![allow(clippy::module_name_repetitions)]
+#![forbid(unsafe_code)]
 
 //! Implementation of a common API for reading and writing items on different underlying
 //! storage implementations.
