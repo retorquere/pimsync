@@ -188,13 +188,11 @@ where
         let filename = meta.filename();
 
         let path = self.build_collection_path(href)?.join(filename);
-        let value = match read_to_string(path).await {
-            Ok(data) => data,
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
-            Err(e) => return Err(Error::from(e)),
-        };
-
-        Ok(Some(value))
+        match read_to_string(path).await {
+            Ok(value) => Ok(Some(value)),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+            Err(e) => Err(Error::from(e)),
+        }
     }
 
     async fn add_item(&self, collection_href: &str, item: &I) -> Result<ItemRef> {
@@ -293,7 +291,7 @@ where
                 });
             };
         }
-        return Ok(props);
+        Ok(props)
     }
 }
 
