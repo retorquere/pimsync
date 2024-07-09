@@ -21,6 +21,8 @@ hyper = "0.14.24"
 hyper-rustls = "0.25.0"
 libdav = { version = "0.2.0", path = "../libdav" }
 log = "0.4.17"
+rand = "0.8.5"
+rustix = { version = "0.38.10", features = ["fs"] }
 sha2 = "0.10.2"
 sqlite = "0.32.0"
 thiserror = "1.0.37"
@@ -29,6 +31,5 @@ vparser = "1.0.0"
 
 [dev-dependencies]
 anyhow = "1.0.71"
-rand = "0.8.5"
 tempfile = "3.3.0"
 tokio = { version = "1.21.2", features = ["full"] }

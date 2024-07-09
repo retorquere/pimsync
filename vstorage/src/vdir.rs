@@ -14,19 +14,16 @@ use std::ffi::OsStr;
 use std::marker::PhantomData;
 use std::os::unix::prelude::MetadataExt;
 use std::path::Path;
-use tokio::fs::{
-    create_dir, metadata, read_dir, read_to_string, remove_dir, remove_file, File, OpenOptions,
-};
+use tokio::fs::{create_dir, metadata, read_dir, read_to_string, remove_dir, remove_file};
 use tokio::io::AsyncWriteExt;
 
+use crate::atomic::AtomicFile;
 use crate::base::{
     AddressBookProperty, CalendarProperty, Collection, FetchedItem, Item, ItemRef, ListedProperty,
     Storage,
 };
 use crate::disco::{DiscoveredCollection, Discovery};
 use crate::{CollectionId, Error, ErrorKind, Etag, Href, Result};
-
-// TODO: atomic writes
 
 /// A `vdir` filesystem directory containing zero or more directories.
 ///
@@ -171,9 +168,11 @@ where
         let filename = meta.filename();
 
         let path = self.build_collection_path(href)?.join(filename);
-        let mut file = File::create(path).await?;
+        let mut file = AtomicFile::new(path)?;
 
         file.write_all(value.as_bytes()).await?;
+        file.commit()?;
+
         Ok(())
     }
 
@@ -207,13 +206,9 @@ where
         let relpath = Utf8PathBuf::from(collection_href).join(filename);
 
         let absolute_path = self.build_item_path(relpath.as_str())?;
-        OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .open(&absolute_path)
-            .await?
-            .write_all(item.as_str().as_bytes())
-            .await?;
+        let mut file = AtomicFile::new(&absolute_path)?;
+        file.write_all(item.as_str().as_bytes()).await?;
+        file.commit_new()?;
 
         let item_ref = ItemRef {
             href: relpath.into_string(),
@@ -230,14 +225,9 @@ where
             return Err(Error::new(ErrorKind::InvalidData, "wrong etag"));
         }
 
-        // TODO: atomic writes.
-        let mut file = OpenOptions::new()
-            .write(true)
-            .truncate(true)
-            .create(false)
-            .open(&filename)
-            .await?;
+        let mut file = AtomicFile::new(&filename)?;
         file.write_all(item.as_str().as_bytes()).await?;
+        file.commit()?;
 
         // FIXME: this is racey and the etag can change after checking.
         //        I should use fstat here instead

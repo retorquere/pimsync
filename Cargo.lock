@@ -1299,6 +1299,7 @@ dependencies = [
  "libdav",
  "log",
  "rand",
+ "rustix",
  "sha2",
  "sqlite",
  "tempfile",

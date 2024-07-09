@@ -89,6 +89,7 @@
 
 use std::{backtrace::Backtrace, str::FromStr};
 
+mod atomic;
 pub mod base;
 pub mod caldav;
 pub mod carddav;
