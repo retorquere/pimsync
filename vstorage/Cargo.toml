@@ -14,18 +14,18 @@ keywords = ["vdir", "filesystem", "icalendar", "caldav"]
 license = "EUPL-1.2"
 
 [dependencies]
-sha2 = "0.10.2"
-log = "0.4.17"
-tokio = { version = "1.21.2", features = ["io-util", "fs"] }
-thiserror = "1.0.37"
 async-trait = "0.1.64"
-libdav = { version = "0.2.0", path = "../libdav" }
+camino = { version = "1.1.6" }
 http = "0.2.9"
 hyper = "0.14.24"
 hyper-rustls = "0.25.0"
-vparser = "1.0.0"
-camino = { version = "1.1.6" }
+libdav = { version = "0.2.0", path = "../libdav" }
+log = "0.4.17"
+sha2 = "0.10.2"
 sqlite = "0.32.0"
+thiserror = "1.0.37"
+tokio = { version = "1.21.2", features = ["io-util", "fs"] }
+vparser = "1.0.0"
 
 [dev-dependencies]
 anyhow = "1.0.71"
