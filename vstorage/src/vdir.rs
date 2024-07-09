@@ -402,10 +402,7 @@ impl PropertyWithFilename for CalendarProperty {
         }
     }
 
-    fn known_properties() -> &'static [Self]
-    where
-        Self: Sized,
-    {
+    fn known_properties() -> &'static [Self] {
         &[
             CalendarProperty::DisplayName,
             CalendarProperty::Colour,
@@ -423,10 +420,7 @@ impl PropertyWithFilename for AddressBookProperty {
         }
     }
 
-    fn known_properties() -> &'static [Self]
-    where
-        Self: Sized,
-    {
+    fn known_properties() -> &'static [Self] {
         &[
             AddressBookProperty::DisplayName,
             AddressBookProperty::Description,
