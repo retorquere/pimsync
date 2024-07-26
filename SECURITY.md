@@ -11,6 +11,11 @@ can be improved via https://todo.sr.ht/~whynothugo/vdirsyncer-rs/44. In the
 meantime, any actor with read access to vdirsyncer's memory space may extract
 secret credentials from it.
 
+Vdirsyncer discovers the server's real hostname and path using DNS-based
+discovery. For this, the system resolver is used. It is expected that the
+system resolver performs DNSSEC validation and will not return invalid results.
+Vdirsyncer does not perform DNSSEC validation itself.
+
 # Manual tasks
 
 The following need to be run manually and ought to be made part of some
