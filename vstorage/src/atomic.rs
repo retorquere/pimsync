@@ -67,7 +67,7 @@ impl AtomicFile {
             dir.as_fd(),
             &temp_name,
             OFlags::WRONLY | OFlags::CREATE | OFlags::EXCL | OFlags::CLOEXEC,
-            Mode::RWXU,
+            Mode::from(0o600),
         )
         .map(|fd| File::from(std::fs::File::from(fd)))
         .map_err(|e| Error::new(ErrorKind::Io, e))?;
