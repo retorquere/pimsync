@@ -60,9 +60,7 @@ pub trait Storage<I: Item>: Sync + Send {
     /// A collection must be empty for deletion to succeed.
     async fn destroy_collection(&self, href: &str) -> Result<()>;
 
-    /// List collection properties.
-    ///
-    /// List all properties of a collection and (if applicable) of its items.
+    /// List all properties of a collection.
     async fn list_properties(
         &self,
         collection_href: &str,
@@ -609,7 +607,6 @@ pub struct FetchedItem<I: Item> {
 }
 
 pub struct ListedProperty<P: Property> {
-    pub resource: Href,
     pub property: P,
     pub value: String,
 }

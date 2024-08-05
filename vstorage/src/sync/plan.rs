@@ -909,7 +909,6 @@ impl<I: Item> PropertyPlan<I> {
             _ => Vec::new(),
         };
 
-        // FIXME: assumes that no props belong to items.
         let all_props = props_a
             .iter()
             .chain(props_b.iter())
@@ -922,17 +921,6 @@ impl<I: Item> PropertyPlan<I> {
             let a = props_a.iter().find(|p| p.property == *property);
             let b = props_b.iter().find(|p| p.property == *property);
             let state = props_status.iter().find(|p| p.property == property.name());
-
-            if let Some(a) = a {
-                if *a.resource != mapping.a.href {
-                    todo!("Synchronising item properties is not implemented");
-                }
-            }
-            if let Some(b) = b {
-                if *b.resource != mapping.b.href {
-                    todo!("Synchronising item properties is not implemented");
-                }
-            }
 
             let action = match (a, b, state) {
                 (None, None, None) => None,

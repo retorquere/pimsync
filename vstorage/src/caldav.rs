@@ -380,7 +380,6 @@ where
             .zip(CalendarProperty::known_properties())
             .filter_map(|((_, v), p)| {
                 v.map(|value| ListedProperty {
-                    resource: collection_href.to_owned(),
                     property: p.clone(),
                     value,
                 })

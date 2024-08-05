@@ -79,10 +79,6 @@ pub(super) struct StatusForItem {
 }
 
 pub(super) struct PropertyStatus {
-    #[allow(dead_code)] // TODO: will be required for item properties
-    pub(super) href_a: String,
-    #[allow(dead_code)] // TODO: will be required for item properties
-    pub(super) href_b: String,
     // The name of the property
     pub(super) property: String,
     pub(super) value: String,
@@ -416,7 +412,7 @@ impl StatusDatabase {
         mapping_uid: &MappingUid,
     ) -> Result<Vec<PropertyStatus>, StatusError> {
         let query = concat!(
-            "SELECT href_a, href_b, property, value",
+            "SELECT property, value",
             " FROM properties",
             " WHERE mapping_uid = :mapping_uid"
         );
@@ -426,8 +422,6 @@ impl StatusDatabase {
         let mut results = Vec::new();
         while let Ok(State::Row) = statement.next() {
             results.push(PropertyStatus {
-                href_a: statement.read::<String, _>("href_a")?,
-                href_b: statement.read::<String, _>("href_b")?,
                 property: statement.read::<String, _>("property")?,
                 value: statement.read::<String, _>("value")?,
             });

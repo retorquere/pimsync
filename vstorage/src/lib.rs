@@ -9,8 +9,8 @@
 //! Implementation of a common API for reading and writing items on different underlying
 //! storage implementations.
 //!
-//! Storages can contain `icalendar` components, `vcard` entries, or content types where items are
-//! either immutable or have unique ids.
+//! Storages can contain `icalendar` components, `vcard` entries, or other content types where
+//! items are either immutable or have unique ids.
 //!
 //! # Storage
 //!
@@ -29,9 +29,6 @@
 //! - [`VdirStorage`] a local directory, where each collection is a directory and each
 //!   item is a file.
 //! - [`WebCal`]: An icalendar file loaded via HTTP(s). This storage is implicitly read-only.
-//!
-//! A potential `ImapStorage` could be implemented a single IMAP account, where each collection is
-//! a mailbox and each item is an individual email message.
 //!
 //! The `Storage` type and the logic for synchronisation of storages is is agnostic to the content
 //! type inside collections, and can synchronise collections with any type of content. When
@@ -73,14 +70,12 @@
 //!
 //! ## Properties
 //!
-//! Storages expose properties. Property types vary depending on a Storage's items. E.g.: Calendars
-//! have a `Colour`, `Description`, `DisplayName` and `Order`, whereas Address Books have
-//! `DisplayName` and `Description`. In both of these examples, only collections have properties,
-//! and items have no properties.
+//! Storages expose properties for collections. Property types vary depending on a Storage's items,
+//! although items themselves cannot have properties.
 //!
-//! Synchronising Storages with custom `Item` types where items have properties is not yet
-//! supported. This limitation means that an implementation trying to synchronise email will
-//! synchronise messages but not their properties (e.g.: `Seen`, `Flagged`, etc).
+//! Calendars have a `Colour`, `Description`, `DisplayName` and `Order`
+//!
+//! Address Books have `DisplayName` and `Description`.
 //!
 //! ## Entity tags
 //!

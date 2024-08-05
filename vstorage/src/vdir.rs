@@ -275,7 +275,6 @@ where
             let prop_value = self.get_property(collection_href, property.clone()).await?;
             if let Some(value) = prop_value {
                 props.push(ListedProperty {
-                    resource: collection_href.to_owned(),
                     property: property.clone(),
                     value,
                 });
