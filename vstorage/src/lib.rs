@@ -21,13 +21,13 @@
 //! This crate currently includes the following implementations:
 //!
 //! - [`CalDavStorage`]: a caldav server, where each collection is an individual calendar, and
-//! each item is an individual event or todo in a calendar.
+//!   each item is an individual event or todo in a calendar.
 //! - [`CardDavStorage`]: a caldav server, where each collection is an individual address book, and
-//! each item is an individual contact card.
+//!   each item is an individual contact card.
 //! - [`ReadOnlyStorage`]: wraps around another `Storage` instance, returning an error of kind
 //!   [`ErrorKind::ReadOnly`] for any write operation.
 //! - [`VdirStorage`] a local directory, where each collection is a directory and each
-//! item is a file.
+//!   item is a file.
 //! - [`WebCal`]: An icalendar file loaded via HTTP(s). This storage is implicitly read-only.
 //!
 //! A potential `ImapStorage` could be implemented a single IMAP account, where each collection is
