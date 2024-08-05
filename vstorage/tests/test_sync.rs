@@ -38,6 +38,7 @@ fn minimal_icalendar(summary: &str) -> anyhow::Result<String> {
     Ok(entry)
 }
 
+/// Create a storage with three calendars.
 async fn create_populated_storage(path: Utf8PathBuf) -> Arc<dyn Storage<IcsItem>> {
     std::fs::create_dir(&path).unwrap();
     let storage = VdirStorage::<IcsItem>::new(path, "ics".into());
@@ -82,8 +83,10 @@ async fn create_empty_storage(path: Utf8PathBuf) -> Arc<dyn Storage<IcsItem>> {
     Arc::new(storage)
 }
 
+// TODO: maybe "second calendar" should exist in side B for these to make more sense.
+
 #[tokio::test]
-async fn test_sync_simple_case() {
+async fn test_sync_only_declared_mappings() {
     let populated_path = {
         let mut p = std::env::temp_dir();
         p.push(random_string(12));
@@ -99,12 +102,62 @@ async fn test_sync_simple_case() {
 
     let first_mapping = DeclaredMapping::direct("first-calendar".parse().unwrap());
     let second_mapping = DeclaredMapping::direct("second-calendar".parse().unwrap());
+    // third-calendar is not synced.
+
     let pair = StoragePair::<IcsItem>::new(populated, empty)
         .with_mapping(first_mapping)
         .with_mapping(second_mapping);
     let plan = Plan::new(&pair, None).await.unwrap();
-    // dbg!(&plan);
-    // TODO: I'll need to trace! the point where each actions is decided.
+    // TODO: inspect plan
+    let status = StatusDatabase::open_or_create(":memory:").unwrap();
+    plan.execute(&status, drop).await.unwrap();
+
+    let first = std::fs::read_dir(empty_path.join("first-calendar"))
+        .unwrap()
+        .map(|r| r.unwrap())
+        .collect::<Vec<_>>();
+    assert_eq!(first.len(), 2);
+    for item in first {
+        let data = std::fs::read_to_string(item.path()).unwrap();
+        let found = data.find("First calendar event");
+        assert!(found.is_some());
+    }
+
+    let second = std::fs::read_dir(empty_path.join("second-calendar"))
+        .unwrap()
+        .map(|r| r.unwrap())
+        .collect::<Vec<_>>();
+    assert_eq!(second.len(), 2);
+    for item in second {
+        let data = std::fs::read_to_string(item.path()).unwrap();
+        let found = data.find("Second calendar event");
+        assert!(found.is_some());
+    }
+
+    let _third = std::fs::read_dir(empty_path.join("third-calendar")).unwrap_err();
+
+    std::fs::remove_dir_all(populated_path).unwrap();
+    std::fs::remove_dir_all(empty_path).unwrap();
+}
+
+#[tokio::test]
+async fn test_sync_from_a() {
+    let populated_path = {
+        let mut p = std::env::temp_dir();
+        p.push(random_string(12));
+        Utf8PathBuf::try_from(p).unwrap()
+    };
+    let empty_path = {
+        let mut p = std::env::temp_dir();
+        p.push(random_string(12));
+        Utf8PathBuf::try_from(p).unwrap()
+    };
+    let populated = create_populated_storage(populated_path.clone()).await;
+    let empty = create_empty_storage(empty_path.clone()).await;
+
+    let pair = StoragePair::<IcsItem>::new(populated, empty).with_all_from_a();
+    let plan = Plan::new(&pair, None).await.unwrap();
+    // TODO: inspect plan
     let status = StatusDatabase::open_or_create(":memory:").unwrap();
     plan.execute(&status, drop).await.unwrap();
 
@@ -133,6 +186,80 @@ async fn test_sync_simple_case() {
         assert!(found.is_some());
     }
 
+    let third = std::fs::read_dir(empty_path.join("third-calendar"))
+        .unwrap()
+        .map(|r| r.unwrap())
+        .collect::<Vec<_>>();
+    assert_eq!(third.len(), 1);
+    for item in third {
+        let data = std::fs::read_to_string(item.path()).unwrap();
+        let found = data.find("Third calendar event");
+        assert!(found.is_some());
+    }
+
     std::fs::remove_dir_all(populated_path).unwrap();
     std::fs::remove_dir_all(empty_path).unwrap();
 }
+
+#[tokio::test]
+async fn test_sync_from_b() {
+    let populated_path = {
+        let mut p = std::env::temp_dir();
+        p.push(random_string(12));
+        Utf8PathBuf::try_from(p).unwrap()
+    };
+    let empty_path = {
+        let mut p = std::env::temp_dir();
+        p.push(random_string(12));
+        Utf8PathBuf::try_from(p).unwrap()
+    };
+    let populated = create_populated_storage(populated_path.clone()).await;
+    let empty = create_empty_storage(empty_path.clone()).await;
+
+    let pair = StoragePair::<IcsItem>::new(populated, empty).with_all_from_b();
+    let plan = Plan::new(&pair, None).await.unwrap();
+    // TODO: inspect plan
+    let status = StatusDatabase::open_or_create(":memory:").unwrap();
+    plan.execute(&status, drop).await.unwrap();
+
+    let _first = std::fs::read_dir(empty_path.join("first-calendar")).unwrap_err();
+    let _second = std::fs::read_dir(empty_path.join("second-calendar")).unwrap_err();
+    let _third = std::fs::read_dir(empty_path.join("third-calendar")).unwrap_err();
+
+    std::fs::remove_dir_all(populated_path).unwrap();
+    std::fs::remove_dir_all(empty_path).unwrap();
+}
+#[tokio::test]
+async fn test_sync_none() {
+    let populated_path = {
+        let mut p = std::env::temp_dir();
+        p.push(random_string(12));
+        Utf8PathBuf::try_from(p).unwrap()
+    };
+    let empty_path = {
+        let mut p = std::env::temp_dir();
+        p.push(random_string(12));
+        Utf8PathBuf::try_from(p).unwrap()
+    };
+    let populated = create_populated_storage(populated_path.clone()).await;
+    let empty = create_empty_storage(empty_path.clone()).await;
+
+    let pair = StoragePair::<IcsItem>::new(populated, empty);
+    let plan = Plan::new(&pair, None).await.unwrap();
+    // TODO: inspect plan
+    let status = StatusDatabase::open_or_create(":memory:").unwrap();
+    plan.execute(&status, drop).await.unwrap();
+
+    let _first = std::fs::read_dir(empty_path.join("first-calendar")).unwrap_err();
+    let _second = std::fs::read_dir(empty_path.join("second-calendar")).unwrap_err();
+    let _third = std::fs::read_dir(empty_path.join("third-calendar")).unwrap_err();
+
+    std::fs::remove_dir_all(populated_path).unwrap();
+    std::fs::remove_dir_all(empty_path).unwrap();
+}
+// TODO: create in both sides, sync once, then:
+// - delete in a, check deletion after syn
+// - delete in b, check deletion after syn
+// - update in a, check deletion after syn
+// - update in b, check deletion after syn
+// - create new in a...
