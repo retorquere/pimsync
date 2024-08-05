@@ -1,7 +1,10 @@
 DESTDIR?=/
 PREFIX?=/usr/local
 
-build:
+.PHONY: build
+build: target/release/vdirsyncer
+
+target/release/vdirsyncer:
 	cargo build -p vdirsyncer --release
 
 .PHONY: install
