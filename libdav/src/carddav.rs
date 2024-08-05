@@ -19,7 +19,7 @@ use crate::{CheckSupportError, FetchedResource};
 ///
 /// Instances are usually created via [`CardDavClient::new`].
 ///
-/// ```rust,no_run
+/// ```rust
 /// # use libdav::CardDavClient;
 /// # use libdav::dav::WebDavClient;
 /// use http::Uri;

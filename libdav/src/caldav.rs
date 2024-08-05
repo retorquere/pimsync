@@ -19,7 +19,7 @@ use crate::{CheckSupportError, FetchedResource};
 ///
 /// Instances are usually created via [`CalDavClient::new`].
 ///
-/// ```rust,no_run
+/// ```rust
 /// # use libdav::CalDavClient;
 /// # use libdav::dav::WebDavClient;
 /// use http::Uri;
