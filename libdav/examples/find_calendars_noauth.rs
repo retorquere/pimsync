@@ -8,8 +8,8 @@
 //!
 //! Usage:
 //!
-//!     cargo run --example=find_calendars https://example.com
-//!     cargo run --example=find_calendars $SERVER_URL
+//!     cargo run --example=find_calendars_noauth https://example.com
+//!     cargo run --example=find_calendars_noauth $SERVER_URL
 use http::Uri;
 use hyper_rustls::HttpsConnectorBuilder;
 use libdav::auth::Auth;
