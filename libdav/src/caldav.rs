@@ -105,13 +105,13 @@ where
     pub async fn find_calendar_home_set(
         &self,
         principal: &Uri,
-    ) -> Result<Option<Uri>, FindHomeSetError>
+    ) -> Result<Vec<Uri>, FindHomeSetError>
     where
         C: Connect + Clone + Sync + Send,
     {
         // If obtaining a principal fails, the specification says we should query the user. This
         // tries to use the `base_url` first, since the user might have provided it for a reason.
-        self.find_href_prop_as_uri(principal, &names::CALENDAR_HOME_SET)
+        self.find_hrefs_prop_as_uri(principal, &names::CALENDAR_HOME_SET)
             .await
             .map_err(FindHomeSetError)
     }

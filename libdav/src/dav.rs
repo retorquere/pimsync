@@ -210,6 +210,62 @@ where
         parse_prop_href(body, url, property)
     }
 
+    /// Internal helper to find multiple `href` properties.
+    ///
+    /// Very specific, but de-duplicates a few identical functions.
+    pub(crate) async fn find_hrefs_prop_as_uri(
+        &self,
+        url: &Uri,
+        property: &PropertyName<'_, '_>,
+    ) -> Result<Vec<Uri>, WebDavError> {
+        let (head, body) = self.propfind(url, &[property], 0).await?;
+        check_status(head.status)?;
+
+        let body = body;
+        let body = std::str::from_utf8(body.as_ref())?;
+        let doc = roxmltree::Document::parse(body)?;
+        let root = doc.root_element();
+
+        let props = root
+            .descendants()
+            .filter(|node| node.tag_name() == *property)
+            .collect::<Vec<_>>();
+
+        if props.len() == 1 {
+            let mut hrefs = Vec::new();
+
+            let href_nodes = props[0]
+                .children()
+                .filter(|node| node.tag_name() == names::HREF);
+
+            for href_node in href_nodes {
+                let maybe_href = href_node
+                    .text()
+                    .map(|raw| percent_decode_str(raw).decode_utf8())
+                    .transpose()?;
+                let Some(href) = maybe_href else {
+                    continue;
+                };
+                let path = PathAndQuery::from_str(&href)
+                    .map_err(|e| WebDavError::InvalidResponse(Box::from(e)))?;
+
+                let mut parts = url.clone().into_parts();
+                parts.path_and_query = Some(path);
+                let href = (Uri::from_parts(parts))
+                    .map_err(|e| WebDavError::InvalidResponse(Box::from(e)))?;
+                hrefs.push(href);
+            }
+
+            return Ok(hrefs);
+        }
+
+        check_multistatus(root)?;
+
+        Err(WebDavError::InvalidResponse(
+            "missing property in response but no error".into(),
+        ))
+    }
+
     /// Sends a `PROPFIND` request.
     ///
     /// This is a shortcut for simple `PROPFIND` requests.

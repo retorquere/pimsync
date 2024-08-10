@@ -54,38 +54,44 @@ async fn main() {
 
     println!("Resolved server URL to: {}", carddav_client.base_url());
 
-    let url = match carddav_client.find_current_user_principal().await.unwrap() {
+    let urls = match carddav_client.find_current_user_principal().await.unwrap() {
         Some(principal) => {
             let home_set = carddav_client
                 .find_address_book_home_set(&principal)
                 .await
                 .unwrap();
-            home_set.unwrap_or(carddav_client.base_url().clone())
+            if home_set.is_empty() {
+                vec![carddav_client.base_url().clone()]
+            } else {
+                home_set
+            }
         }
-        None => carddav_client.base_url().clone(),
+        None => vec![carddav_client.base_url().clone()],
     };
 
-    let addressbooks = carddav_client.find_addressbooks(&url).await.unwrap();
+    for url in urls {
+        let addressbooks = carddav_client.find_addressbooks(&url).await.unwrap();
 
-    println!("found {} addressbooks...", addressbooks.len());
+        println!("found {} addressbooks...", addressbooks.len());
 
-    for ref addressbook in addressbooks {
-        let name = carddav_client
-            .get_property(&addressbook.href, &names::DISPLAY_NAME)
-            .await
-            .unwrap();
-        println!(
-            "📇 name: {name:?}, path: {:?}, etag: {:?}",
-            &addressbook.href, &addressbook.etag
-        );
-        let items = carddav_client
-            .list_resources(&addressbook.href)
-            .await
-            .unwrap()
-            .into_iter()
-            .filter(|i| !i.details.resource_type.is_collection);
-        for item in items {
-            println!("   {}, {}", item.href, item.details.etag.unwrap());
+        for ref addressbook in addressbooks {
+            let name = carddav_client
+                .get_property(&addressbook.href, &names::DISPLAY_NAME)
+                .await
+                .unwrap();
+            println!(
+                "📇 name: {name:?}, path: {:?}, etag: {:?}",
+                &addressbook.href, &addressbook.etag
+            );
+            let items = carddav_client
+                .list_resources(&addressbook.href)
+                .await
+                .unwrap()
+                .into_iter()
+                .filter(|i| !i.details.resource_type.is_collection);
+            for item in items {
+                println!("   {}, {}", item.href, item.details.etag.unwrap());
+            }
         }
     }
 }

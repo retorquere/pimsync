@@ -72,9 +72,13 @@ async fn discover(mut client: Client) -> anyhow::Result<()> {
     match client.find_current_user_principal().await? {
         Some(principal) => {
             println!("- Current user principal: {principal}");
-            match client.find_calendar_home_set(&principal).await? {
-                Some(home_set) => println!("- Calendar home set: {home_set}"),
-                None => println!("- Calendar home set not found."),
+            let home_sets = client.find_calendar_home_set(&principal).await?;
+            if home_sets.is_empty() {
+                println!("- Calendar home set not found.");
+            } else {
+                for collection in home_sets {
+                    println!("- Calendar home set: {collection}");
+                }
             }
         }
         None => println!("- Curent user principal not found."),
@@ -126,33 +130,40 @@ async fn create(client: Client, href: String) -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn url_for_finding_calendars(client: &Client) -> anyhow::Result<Uri> {
-    let url = match client.find_current_user_principal().await? {
+async fn urls_for_finding_calendars(client: &Client) -> anyhow::Result<Vec<Uri>> {
+    let urls = match client.find_current_user_principal().await? {
         Some(principal) => {
             let home_set = client.find_calendar_home_set(&principal).await?;
-            home_set.unwrap_or(client.base_url().clone())
+            if home_set.is_empty() {
+                vec![client.base_url().clone()]
+            } else {
+                home_set
+            }
         }
-        None => client.base_url().clone(),
+        None => vec![client.base_url().clone()],
     };
-    Ok(url)
+    Ok(urls)
 }
 
 async fn tree(client: Client) -> anyhow::Result<()> {
-    let url = url_for_finding_calendars(&client).await?;
-    let response = client.find_calendars(&url).await?;
-    for collection in response {
-        println!("{}", collection.href);
-        list_resources(&client, collection.href).await?;
+    for url in urls_for_finding_calendars(&client).await? {
+        let response = client.find_calendars(&url).await?;
+        for collection in response {
+            println!("{}", collection.href);
+            list_resources(&client, collection.href).await?;
+        }
     }
 
     Ok(())
 }
 
 async fn list_collections(client: Client) -> anyhow::Result<()> {
-    let url = url_for_finding_calendars(&client).await?;
-    let response = client.find_calendars(&url).await?;
-    for collection in response {
-        println!("{}", collection.href);
+    let urls = urls_for_finding_calendars(&client).await?;
+    for url in urls {
+        let response = client.find_calendars(&url).await?;
+        for collection in response {
+            println!("{}", collection.href);
+        }
     }
 
     Ok(())

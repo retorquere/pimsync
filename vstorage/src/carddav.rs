@@ -42,7 +42,10 @@ where
         let address_book_home_set = client
             .find_address_book_home_set(&principal)
             .await
-            .map_err(|e| Error::new(ErrorKind::Io, e))?;
+            .map_err(|e| Error::new(ErrorKind::Io, e))?
+            // FIXME: should keep the entire home set
+            .first()
+            .cloned();
 
         Ok(CardDavStorage {
             client,

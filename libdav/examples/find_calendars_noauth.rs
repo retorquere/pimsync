@@ -36,42 +36,48 @@ async fn main() {
     let webdav = WebDavClient::new(base_url, auth, https);
     let caldav_client = CalDavClient::new_via_bootstrap(webdav).await.unwrap();
 
-    let url = match caldav_client.find_current_user_principal().await.unwrap() {
+    let urls = match caldav_client.find_current_user_principal().await.unwrap() {
         Some(principal) => {
             let home_set = caldav_client
                 .find_calendar_home_set(&principal)
                 .await
                 .unwrap();
-            home_set.unwrap_or(caldav_client.base_url().clone())
+            if home_set.is_empty() {
+                vec![caldav_client.base_url().clone()]
+            } else {
+                home_set
+            }
         }
-        None => caldav_client.base_url().clone(),
+        None => vec![caldav_client.base_url().clone()],
     };
 
-    let calendars = caldav_client.find_calendars(&url).await.unwrap();
+    for url in urls {
+        let calendars = caldav_client.find_calendars(&url).await.unwrap();
 
-    println!("found {} calendars...", calendars.len());
+        println!("found {} calendars...", calendars.len());
 
-    for calendar in calendars {
-        let name = caldav_client
-            .get_property(&calendar.href, &names::DISPLAY_NAME)
-            .await
-            .unwrap();
-        let color = caldav_client
-            .get_property(&calendar.href, &names::CALENDAR_COLOUR)
-            .await
-            .unwrap();
-        println!(
-            "📅 name: {name:?}, colour: {color:?}, path: {:?}, etag: {:?}",
-            &calendar.href, &calendar.etag
-        );
-        let items = caldav_client
-            .list_resources(&calendar.href)
-            .await
-            .unwrap()
-            .into_iter()
-            .filter(|i| !i.details.resource_type.is_collection);
-        for item in items {
-            println!("   {}, {}", item.href, item.details.etag.unwrap());
+        for calendar in calendars {
+            let name = caldav_client
+                .get_property(&calendar.href, &names::DISPLAY_NAME)
+                .await
+                .unwrap();
+            let color = caldav_client
+                .get_property(&calendar.href, &names::CALENDAR_COLOUR)
+                .await
+                .unwrap();
+            println!(
+                "📅 name: {name:?}, colour: {color:?}, path: {:?}, etag: {:?}",
+                &calendar.href, &calendar.etag
+            );
+            let items = caldav_client
+                .list_resources(&calendar.href)
+                .await
+                .unwrap()
+                .into_iter()
+                .filter(|i| !i.details.resource_type.is_collection);
+            for item in items {
+                println!("   {}, {}", item.href, item.details.etag.unwrap());
+            }
         }
     }
 }

@@ -35,7 +35,9 @@ struct Profile {
 struct TestData {
     caldav: CalDavClient<HttpsConnector<HttpConnector>>,
     carddav: CardDavClient<HttpsConnector<HttpConnector>>,
+    // FIXME: assumes that home set is a single href.
     calendar_home_set: Uri,
+    // FIXME: assumes that home set is a single href.
     address_home_set: Uri,
     profile: Profile,
 }
@@ -72,6 +74,7 @@ impl TestData {
         let calendar_home_set = caldav
             .find_calendar_home_set(&user_principal)
             .await?
+            .first()
             .context("no calendar home set found")?
             .clone();
 
@@ -93,6 +96,7 @@ impl TestData {
         let address_home_set = carddav
             .find_address_book_home_set(&user_principal)
             .await?
+            .first()
             .context("no calendar home set found")?
             .clone();
 
