@@ -8,16 +8,10 @@ use anyhow::{bail, Context};
 use http::Uri;
 use hyper::client::HttpConnector;
 use hyper_rustls::{HttpsConnector, HttpsConnectorBuilder};
-use libdav::{
-    auth::{Auth, Password},
-    caldav_service_for_url,
-    dav::WebDavClient,
-    sd::find_context_url,
-    CalDavClient,
-};
+use libdav::{caldav_service_for_url, dav::WebDavClient, sd::find_context_url, CalDavClient};
 use log::info;
 
-use crate::cli::ServerCommand;
+use crate::{cli::ServerCommand, common::auth_from_env};
 
 type Client = CalDavClient<HttpsConnector<HttpConnector>>;
 
@@ -27,15 +21,13 @@ fn caldav_client() -> anyhow::Result<Client> {
         .context("failed to determine base_url")?
         .try_into()
         .context("parsing DAVCLI_BASE_URL")?;
-    let username = std::env::var("DAVCLI_USERNAME").context("failed to determine username")?;
-    let password = std::env::var("DAVCLI_PASSWORD").map(Password::from).ok();
+    let auth = auth_from_env()?;
 
     let https = HttpsConnectorBuilder::new()
         .with_native_roots()?
         .https_or_http()
         .enable_http1()
         .build();
-    let auth = Auth::Basic { username, password };
     let webdav = WebDavClient::new(base_url, auth, https);
     let client = CalDavClient::new(webdav);
     Ok(client)

@@ -10,6 +10,7 @@ use clap::Parser;
 mod caldav;
 mod carddav;
 mod cli;
+mod common;
 
 fn main() -> anyhow::Result<()> {
     // TODO: also support email as input?
