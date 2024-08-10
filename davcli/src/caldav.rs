@@ -9,7 +9,11 @@ use http::Uri;
 use hyper::client::HttpConnector;
 use hyper_rustls::{HttpsConnector, HttpsConnectorBuilder};
 use libdav::{
-    auth::Auth, caldav_service_for_url, dav::WebDavClient, sd::find_context_url, CalDavClient,
+    auth::{Auth, Password},
+    caldav_service_for_url,
+    dav::WebDavClient,
+    sd::find_context_url,
+    CalDavClient,
 };
 use log::info;
 
@@ -24,19 +28,14 @@ fn caldav_client() -> anyhow::Result<Client> {
         .try_into()
         .context("parsing DAVCLI_BASE_URL")?;
     let username = std::env::var("DAVCLI_USERNAME").context("failed to determine username")?;
-    let password = std::env::var("DAVCLI_PASSWORD")
-        .context("failed to determine password")?
-        .into();
+    let password = std::env::var("DAVCLI_PASSWORD").map(Password::from).ok();
 
     let https = HttpsConnectorBuilder::new()
         .with_native_roots()?
         .https_or_http()
         .enable_http1()
         .build();
-    let auth = Auth::Basic {
-        username,
-        password: Some(password),
-    };
+    let auth = Auth::Basic { username, password };
     let webdav = WebDavClient::new(base_url, auth, https);
     let client = CalDavClient::new(webdav);
     Ok(client)
