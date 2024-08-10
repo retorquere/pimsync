@@ -20,10 +20,10 @@ type Client = CalDavClient<HttpsConnector<HttpConnector>>;
 /// Create a new client. Note that bootstrap is not performed implicitly.
 fn caldav_client() -> anyhow::Result<Client> {
     let base_url = std::env::var("DAVCLI_BASE_URL")
-        .context("failed to determine password")?
+        .context("failed to determine base_url")?
         .try_into()
         .context("parsing DAVCLI_BASE_URL")?;
-    let username = std::env::var("DAVCLI_USERNAME").context("failed to determine password")?;
+    let username = std::env::var("DAVCLI_USERNAME").context("failed to determine username")?;
     let password = std::env::var("DAVCLI_PASSWORD")
         .context("failed to determine password")?
         .into();
