@@ -17,7 +17,7 @@ pub(crate) async fn test_create_and_delete_collection(test_data: &TestData) -> a
 
     let new_collection = format!(
         "{}{}/",
-        test_data.calendar_home_set.path(),
+        test_data.first_calendar_home_set()?,
         &random_string(16)
     );
     test_data.caldav.create_calendar(&new_collection).await?;
@@ -30,7 +30,7 @@ pub(crate) async fn test_create_and_delete_collection(test_data: &TestData) -> a
     // ASSERTION: this validates that a collection with a matching href was created.
     let calendars = test_data
         .caldav
-        .find_calendars(&test_data.calendar_home_set)
+        .find_calendars(test_data.first_calendar_home_set()?)
         .await?;
     let etag = calendars
         .into_iter()
@@ -65,7 +65,7 @@ pub(crate) async fn test_create_and_force_delete_collection(
 
     let new_collection = format!(
         "{}{}/",
-        test_data.calendar_home_set.path(),
+        test_data.first_calendar_home_set()?.path(),
         &random_string(16)
     );
     test_data.caldav.create_calendar(&new_collection).await?;
@@ -87,7 +87,7 @@ pub(crate) async fn test_setting_and_getting_displayname(
 ) -> anyhow::Result<()> {
     let new_collection = format!(
         "{}{}/",
-        test_data.calendar_home_set.path(),
+        test_data.first_calendar_home_set()?.path(),
         &random_string(16)
     );
     test_data.caldav.create_calendar(&new_collection).await?;
@@ -130,7 +130,7 @@ pub(crate) async fn test_setting_and_getting_displayname(
 pub(crate) async fn test_setting_and_getting_colour(test_data: &TestData) -> anyhow::Result<()> {
     let new_collection = format!(
         "{}{}/",
-        test_data.calendar_home_set.path(),
+        test_data.first_calendar_home_set()?.path(),
         &random_string(16)
     );
     test_data.caldav.create_calendar(&new_collection).await?;
@@ -161,7 +161,7 @@ pub(crate) async fn test_setting_and_getting_colour(test_data: &TestData) -> any
 pub(crate) async fn test_get_properties(test_data: &TestData) -> anyhow::Result<()> {
     let new_collection = format!(
         "{}{}/",
-        test_data.calendar_home_set.path(),
+        test_data.first_calendar_home_set()?.path(),
         &random_string(16)
     );
     test_data.caldav.create_calendar(&new_collection).await?;
@@ -252,7 +252,7 @@ fn funky_calendar_event() -> anyhow::Result<Vec<u8>> {
 pub(crate) async fn test_create_and_delete_resource(test_data: &TestData) -> anyhow::Result<()> {
     let collection = format!(
         "{}{}/",
-        test_data.calendar_home_set.path(),
+        test_data.first_calendar_home_set()?.path(),
         &random_string(16)
     );
     test_data.caldav.create_calendar(&collection).await?;
@@ -351,7 +351,7 @@ pub(crate) async fn test_create_and_delete_resource(test_data: &TestData) -> any
 pub(crate) async fn test_create_and_fetch_resource(test_data: &TestData) -> anyhow::Result<()> {
     let collection = format!(
         "{}{}/",
-        test_data.calendar_home_set.path(),
+        test_data.first_calendar_home_set()?.path(),
         &random_string(16)
     );
     test_data.caldav.create_calendar(&collection).await?;
@@ -385,7 +385,7 @@ pub(crate) async fn test_create_and_fetch_resource_with_non_ascii_data(
 ) -> anyhow::Result<()> {
     let collection = format!(
         "{}{}/",
-        test_data.calendar_home_set.path(),
+        test_data.first_calendar_home_set()?.path(),
         &random_string(16)
     );
     test_data.caldav.create_calendar(&collection).await?;
@@ -430,7 +430,7 @@ pub(crate) async fn test_create_and_fetch_resource_with_weird_characters(
 ) -> anyhow::Result<()> {
     let collection = format!(
         "{}{}/",
-        test_data.calendar_home_set.path(),
+        test_data.first_calendar_home_set()?.path(),
         &random_string(16)
     );
     test_data.caldav.create_calendar(&collection).await?;
@@ -471,7 +471,7 @@ pub(crate) async fn test_create_and_fetch_resource_with_weird_characters(
 pub(crate) async fn test_fetch_missing(test_data: &TestData) -> anyhow::Result<()> {
     let collection = format!(
         "{}{}/",
-        test_data.calendar_home_set.path(),
+        test_data.first_calendar_home_set()?.path(),
         &random_string(16)
     );
     test_data.caldav.create_calendar(&collection).await?;

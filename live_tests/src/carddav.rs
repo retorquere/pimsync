@@ -17,7 +17,7 @@ pub(crate) async fn test_create_and_delete_addressbook(test_data: &TestData) -> 
 
     let new_collection = format!(
         "{}{}/",
-        test_data.address_home_set.path(),
+        test_data.first_address_book_home_set()?.path(),
         &random_string(16)
     );
     test_data
@@ -31,7 +31,7 @@ pub(crate) async fn test_create_and_delete_addressbook(test_data: &TestData) -> 
     // ASSERTION: this validates that a collection with a matching href was created.
     let addressbook = test_data
         .carddav
-        .find_addressbooks(&test_data.address_home_set)
+        .find_addressbooks(test_data.first_address_book_home_set()?)
         .await?;
     let etag = addressbook
         .into_iter()
@@ -79,7 +79,7 @@ fn minimal_vcard() -> anyhow::Result<Vec<u8>> {
 pub(crate) async fn test_create_and_delete_resource(test_data: &TestData) -> anyhow::Result<()> {
     let collection = format!(
         "{}{}/",
-        test_data.address_home_set.path(),
+        test_data.first_address_book_home_set()?.path(),
         &random_string(16)
     );
     test_data.carddav.create_addressbook(&collection).await?;
@@ -183,7 +183,7 @@ pub(crate) async fn test_setting_and_getting_addressbook_displayname(
 ) -> anyhow::Result<()> {
     let new_collection = format!(
         "{}{}/",
-        test_data.address_home_set.path(),
+        test_data.first_address_book_home_set()?.path(),
         &random_string(16)
     );
     test_data

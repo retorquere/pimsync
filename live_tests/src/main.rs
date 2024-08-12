@@ -35,10 +35,8 @@ struct Profile {
 struct TestData {
     caldav: CalDavClient<HttpsConnector<HttpConnector>>,
     carddav: CardDavClient<HttpsConnector<HttpConnector>>,
-    // FIXME: assumes that home set is a single href.
-    calendar_home_set: Uri,
-    // FIXME: assumes that home set is a single href.
-    address_home_set: Uri,
+    calendar_home_set: Vec<Uri>,
+    address_home_set: Vec<Uri>,
     profile: Profile,
 }
 
@@ -71,12 +69,7 @@ impl TestData {
 
             (CalDavClient::new(webdav), user_principal)
         };
-        let calendar_home_set = caldav
-            .find_calendar_home_set(&user_principal)
-            .await?
-            .first()
-            .context("no calendar home set found")?
-            .clone();
+        let calendar_home_set = caldav.find_calendar_home_set(&user_principal).await?;
 
         let (carddav, user_principal) = {
             let mut webdav = WebDavClient::new(base_url.clone(), auth.clone(), https.clone());
@@ -93,12 +86,7 @@ impl TestData {
 
             (CardDavClient::new(webdav), user_principal)
         };
-        let address_home_set = carddav
-            .find_address_book_home_set(&user_principal)
-            .await?
-            .first()
-            .context("no calendar home set found")?
-            .clone();
+        let address_home_set = carddav.find_address_book_home_set(&user_principal).await?;
 
         Ok(TestData {
             caldav,
@@ -110,19 +98,41 @@ impl TestData {
     }
 
     async fn calendar_count(&self) -> anyhow::Result<usize> {
-        self.caldav
-            .find_calendars(&self.calendar_home_set)
-            .await
-            .map(|calendars| calendars.len())
-            .context("fetch calendar count")
+        let mut total = 0;
+        for home_set in &self.calendar_home_set {
+            total += self
+                .caldav
+                .find_calendars(home_set)
+                .await
+                .map(|calendars| calendars.len())
+                .context("fetch calendar count")?;
+        }
+        Ok(total)
     }
 
     async fn addressbook_count(&self) -> anyhow::Result<usize> {
-        self.carddav
-            .find_addressbooks(&self.address_home_set)
-            .await
-            .map(|a| a.len())
-            .context("fetching addressbook count")
+        let mut total = 0;
+        for home_set in &self.address_home_set {
+            total += self
+                .carddav
+                .find_addressbooks(home_set)
+                .await
+                .map(|a| a.len())
+                .context("fetching addressbook count")?;
+        }
+        Ok(total)
+    }
+
+    fn first_calendar_home_set(&self) -> anyhow::Result<&Uri> {
+        self.calendar_home_set
+            .first()
+            .context("reading first calendar home set entry")
+    }
+
+    fn first_address_book_home_set(&self) -> anyhow::Result<&Uri> {
+        self.address_home_set
+            .first()
+            .context("reading first address book home set entry")
     }
 }
 
