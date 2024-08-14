@@ -83,8 +83,10 @@ where
     ///
     /// # Errors
     ///
-    /// Returns an error if and only if the underlying call to [`find_context_url`]
-    /// returns an error.
+    /// Returns an error if:
+    ///
+    /// - The URL has an invalid schema.
+    /// - The underlying call to [`find_context_url`] returns an error.
     pub async fn new_via_bootstrap(
         mut webdav_client: WebDavClient<C>,
     ) -> Result<CalDavClient<C>, BootstrapError> {
