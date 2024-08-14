@@ -11,9 +11,15 @@
 //! Both clients wrap a [`dav::WebDavClient`], and implement `Deref<Target = DavClient>`, so all
 //! of `WebDavClient`'s associated functions for  are usable directly.
 //!
-//! # Service discover
+//! # Service discovery
 //!
 //! DNS-based service discovery is implemented in [`sd::find_context_url`].
+//!
+//! The implementation does not validate DNSSEC signatures. Because of this, discovery must only be
+//! used with a validating DNS resolver (as defined in [rfc4033][rfc4033]), or with domains served
+//! from a local, trusted networks.
+//!
+//! [rfc4033]: https://www.rfc-editor.org/rfc/rfc4033
 //!
 //! # Hrefs
 //!

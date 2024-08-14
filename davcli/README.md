@@ -114,6 +114,14 @@ See `davcli --help` for further details.
 Passwords must be provided as the environment variable `DAVCLI_PASSWORD`. Only
 password-based authentication is implemented at this time.
 
+# Security
+
+The implementation does not validate DNSSEC signatures. Because of this,
+discovery must only be used with a validating DNS resolver (as defined in
+[rfc4033][rfc4033]), or with domains served from a local, trusted networks.
+
+[rfc4033]: https://www.rfc-editor.org/rfc/rfc4033
+
 # Limitations
 
 Nothing is cached. Ever. Performance is basically the worst possible, so
