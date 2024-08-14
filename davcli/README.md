@@ -5,9 +5,8 @@
 [Patches](https://lists.sr.ht/~whynothugo/vdirsyncer-devel) |
 [Chat](irc://ircs.libera.chat:6697/#pimutils)
 
-**`davcli`** is a command line tool to interact with CalDav and CardDav
-servers. It is simple interface to `libdav`, and part of the vdirsyncer
-project.
+**`davcli`** is a command line tool to interact with CalDav and CardDav servers.
+It is simple interface to `libdav`, and part of the vdirsyncer project.
 
 # Goals
 
@@ -55,8 +54,8 @@ Discovery successful.
 - Calendar home set: https://d277161.caldav.fastmail.com/dav/calendars/user/vdirsyncer@fastmail.com/
 ```
 
-Errors should generally be useful (please report an issue if you find an
-obscure error where the underlying root cause is not clear):
+Errors should generally be useful (please report an issue if you find an obscure
+error where the underlying root cause is not clear):
 
 ```console
 > DAVCLI_PASSWORD=wrong_password davcli --caldav discover
@@ -83,10 +82,10 @@ Following the example above, this would be:
 > export DAVCLI_BASE_URL=https://d277161.caldav.fastmail.com/dav/calendars
 ```
 
-Previous versions of davcli performed discovery/bootstrap sequence
-automatically on each execution. This resulted in slow operations. Discovery
-now needs to be done once, manually (it can only be skipped in cases where the
-BASE_URL points directly to the final server).
+Previous versions of davcli performed discovery/bootstrap sequence automatically
+on each execution. This resulted in slow operations. Discovery now needs to be
+done once, manually (it can only be skipped in cases where the BASE_URL points
+directly to the final server).
 
 With the above variable set, `find-collections` will list collections belonging
 to the current user:
@@ -124,9 +123,9 @@ discovery must only be used with a validating DNS resolver (as defined in
 
 # Limitations
 
-Nothing is cached. Ever. Performance is basically the worst possible, so
-there's enormous room for improvement. A caching mechanism needs to be exposed
-by `libdav`.
+Nothing is cached. Ever. Performance is basically the worst possible, so there's
+enormous room for improvement. A caching mechanism needs to be exposed by
+`libdav`.
 
 # Building from source
 
