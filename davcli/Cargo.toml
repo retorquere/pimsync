@@ -9,7 +9,7 @@ edition = "2021"
 license = "EUPL-1.2"
 
 [dependencies]
-libdav = { version = "0.3.0", path = "../libdav" }
+libdav = { version = "0.4.0", path = "../libdav" }
 clap = { version = "4.0.0", features = ["derive"] }
 log = "0.4.17"
 anyhow = "1.0.70"
