@@ -4,7 +4,6 @@
 
 [workspace]
 members = [
-    "davcli",
     "libdav",
     "live_tests",
     "vdirsyncer",

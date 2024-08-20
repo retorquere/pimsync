@@ -18,7 +18,6 @@ USER user
 
 WORKDIR /home/user
 
-COPY --from=builder /home/user/vdirsyncer-rs/target/debug/davcli /usr/local/bin/
 COPY --from=builder /home/user/vdirsyncer-rs/target/debug/vdirsyncer /usr/local/bin/
 
 ENTRYPOINT ["/usr/local/bin/vdirsyncer"]

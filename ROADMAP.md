@@ -27,8 +27,6 @@ This document only lists pending tasks.
 
 - A design for using Google's CalDav OAuth
   - A proxy for their proprietary API might also be a good suggestion
-- Split out davcli
-  - Add a proper intro to its README
 - Split out libdav
 - JSCal stuff
 - JMAP lib
