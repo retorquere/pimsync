@@ -44,15 +44,15 @@ impl Cli {
                             while let Some(arg) = parser.next()? {
                                 match arg {
                                     lexopt::Arg::Short('r') => {
-                                        // SAFETY: this file descriptor is not accessed elsewhere.
-                                        // The end user is responsible for ensuring that it is a
-                                        // valid open file.
                                         let raw_fd = parser.value()?.parse()?;
                                         if raw_fd < 3 {
                                             return Err(
                                                 "Readiness fd must be greater than 2".into()
                                             );
                                         }
+                                        // SAFETY: this file descriptor is not accessed elsewhere.
+                                        // The user is responsible for ensuring that they have
+                                        // supplied a valid open file.
                                         ready_fd = Some(unsafe { File::from_raw_fd(raw_fd) });
                                     }
                                     lexopt::Arg::Value(raw_pair) => pair = Some(raw_pair.string()?),
