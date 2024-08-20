@@ -36,10 +36,10 @@ See [HACKING.md].
 # Credits
 
 Special thanks to the [NLnet foundation] that helped receive financial support
-from the [NGI Assure] program of the European Commission in early 2023.
+from the [NGI Zero Entrust] program of the European Commission since early 2023.
 
 [NLnet foundation]: https://nlnet.nl/project/vdirsyncer/
-[NGI Assure]: https://www.ngi.eu/ngi-projects/ngi-assure/
+[NGI Zero Entrust]: https://www.ngi.eu/ngi-projects/ngi-zero-entrust/
 
 # Licence
 
