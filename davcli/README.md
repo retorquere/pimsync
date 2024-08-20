@@ -6,13 +6,15 @@
 [Chat](irc://ircs.libera.chat:6697/#pimutils)
 
 **`davcli`** is a command line tool to interact with CalDav and CardDav servers.
-It is simple interface to `libdav`, and part of the vdirsyncer project.
+
+It is simple interface to `libdav`, and was developed as part of the vdirsyncer
+project.
 
 # Goals
 
 The main goal of this project is to provide a simple command line interface to
 expose simple caldav and carddav operations; essentially equivalents to `ls`,
-`cat`, `mkdir`, etc (plus discovery).
+`cat`, `mkdir`, etc (plus service discovery).
 
 Output is printed to `stdout` in a clean format (e.g.: so you can use this in
 shell scripts) and all logging is printed to `stderr`.
@@ -33,7 +35,8 @@ commands into history if they're preceded by an empty <kbd>Space</kbd>.
 > export DAVCLI_PASSWORD=XXX
 ```
 
-The examples below assume that these variables are properly set.
+The examples below assume that these variables are properly set. If not username
+or password is required, you may omit the corresponding variable.
 
 # Discovery
 
@@ -84,8 +87,8 @@ Following the example above, this would be:
 
 Previous versions of davcli performed discovery/bootstrap sequence automatically
 on each execution. This resulted in slow operations. Discovery now needs to be
-done once, manually (it can only be skipped in cases where the BASE_URL points
-directly to the final server).
+done once, manually. It can be skipped in cases where the BASE_URL points
+directly to the final server.
 
 With the above variable set, `find-collections` will list collections belonging
 to the current user:
