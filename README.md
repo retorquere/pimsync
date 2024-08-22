@@ -20,14 +20,9 @@ along with the binaries.
 
 Documentation for libraries can be built with `cargo doc`.
 
-The documentation for releases published to crates.io is also available
-docs.rs: https://docs.rs/libdav/latest/libdav/
-
 The documentation for the latest commits are published at:
 
 - https://mirror.whynothugo.nl/vdirsyncer/main/vstorage/
-- https://mirror.whynothugo.nl/vdirsyncer/main/libdav/
-
 
 # Contributing
 

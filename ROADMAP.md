@@ -27,7 +27,6 @@ This document only lists pending tasks.
 
 - A design for using Google's CalDav OAuth
   - A proxy for their proprietary API might also be a good suggestion
-- Split out libdav
 - JSCal stuff
 - JMAP lib
 - vdirsycner jmap storage (requires jscal + generator)
