@@ -10,8 +10,12 @@
 
 use async_trait::async_trait;
 use http::{uri::Scheme, StatusCode, Uri};
-use hyper::{client::HttpConnector, Client};
+use http_body_util::BodyExt;
 use hyper_rustls::{HttpsConnector, HttpsConnectorBuilder};
+use hyper_util::{
+    client::legacy::{connect::HttpConnector, Client},
+    rt::TokioExecutor,
+};
 
 use crate::{
     base::{
@@ -42,7 +46,7 @@ pub struct WebCalStorage {
     url: Uri,
     /// The href and id to be given to the single collection available.
     collection_name: CollectionId,
-    http_client: Client<HttpsConnector<HttpConnector>>,
+    http_client: Client<HttpsConnector<HttpConnector>, String>,
 }
 
 impl WebCalStorage {
@@ -80,7 +84,7 @@ impl WebCalStorage {
         Ok(WebCalStorage {
             url,
             collection_name,
-            http_client: Client::builder().build(proto),
+            http_client: Client::builder(TokioExecutor::new()).build(proto),
         })
     }
 
@@ -111,12 +115,16 @@ impl WebCalStorage {
             }
         }
 
-        // TODO: handle non-UTF-8 data (e.g.: Content-Type/charset).
-        hyper::body::to_bytes(response)
+        let (_head, body) = response.into_parts();
+        let data = body
+            .collect()
             .await
-            .map_err(|e| Error::new(ErrorKind::Io, e))
-            .map(|bytes| String::from_utf8(bytes.into()))?
-            .map_err(|e| Error::new(ErrorKind::InvalidData, e))
+            .map_err(|e| Error::new(ErrorKind::Io, e))?
+            .to_bytes();
+
+        // TODO: handle non-UTF-8 data (e.g.: Content-Type/charset).
+        // TODO: can I avoid making a copy of the entire response here?
+        String::from_utf8(data.to_vec()).map_err(|e| Error::new(ErrorKind::InvalidData, e))
     }
 }
 

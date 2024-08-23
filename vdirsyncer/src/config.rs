@@ -16,8 +16,8 @@ use std::{
 
 use anyhow::{bail, Context};
 use camino::{Utf8Path, Utf8PathBuf};
-use hyper::client::HttpConnector;
 use hyper_rustls::{ConfigBuilderExt, HttpsConnector, HttpsConnectorBuilder};
+use hyper_util::client::legacy::connect::HttpConnector;
 use libdav::auth::Password;
 use log::{debug, error};
 use rustls::{client::danger::DangerousClientConfigBuilder, ClientConfig, RootCertStore};

@@ -13,10 +13,11 @@ license = "EUPL-1.2"
 [dependencies]
 anyhow = "1.0.75"
 camino = { version = "1.1.6", features = ["serde1"] }
-hyper = "0.14.27"
-hyper-rustls = "0.25.0"
+hyper = { version = "1", features = ["http1", "client"] }
+hyper-rustls = "0.26.0"
+hyper-util = { version = "0.1.1", features = ["client", "client-legacy", "http1"] }
 lexopt = "0.3.0"
-libdav = { version = "0.4.0" }
+libdav = { version = "0.5.0" }
 log = "0.4.20"
 rustix = { version = "0.38.10", features = ["fs"] }
 rustls = { version = "0.22.4" }

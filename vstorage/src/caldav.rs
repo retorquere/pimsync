@@ -6,7 +6,7 @@
 
 use async_trait::async_trait;
 use http::Uri;
-use hyper::client::connect::Connect;
+use hyper_util::client::legacy::connect::Connect;
 use libdav::auth::Auth;
 use libdav::dav::{mime_types, WebDavClient};
 use libdav::sd::BootstrapError;
