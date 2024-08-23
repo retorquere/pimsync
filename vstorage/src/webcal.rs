@@ -83,6 +83,42 @@ impl WebCalStorage {
             http_client: Client::builder().build(proto),
         })
     }
+
+    /// Helper method to fetch a URL and return its body as a String.
+    ///
+    /// Be warned! This swallows headers (including `Etag`!).
+    #[inline]
+    async fn fetch_raw(&self, url: &Uri) -> Result<String> {
+        let response = self
+            .http_client
+            // TODO: upstream should impl IntoURL for &Uri
+            .get(url.clone())
+            .await
+            .map_err(|e| Error::new(ErrorKind::Io, e))?;
+
+        match response.status() {
+            StatusCode::NOT_FOUND | StatusCode::GONE => {
+                return Err(Error::new(
+                    ErrorKind::DoesNotExist,
+                    "The remote resource does not exist.",
+                ))
+            }
+            StatusCode::OK => {}
+            code => {
+                return Err(Error::new(
+                    ErrorKind::Io,
+                    format!("request returned {code}"),
+                ))
+            }
+        }
+
+        // TODO: handle non-UTF-8 data (e.g.: Content-Type/charset).
+        hyper::body::to_bytes(response)
+            .await
+            .map_err(|e| Error::new(ErrorKind::Io, e))
+            .map(|bytes| String::from_utf8(bytes.into()))?
+            .map_err(|e| Error::new(ErrorKind::InvalidData, e))
+    }
 }
 
 #[async_trait]
@@ -90,7 +126,7 @@ impl Storage<IcsItem> for WebCalStorage {
     /// Checks that the remove resource exists and whether it looks like an icalendar resource.
     async fn check(&self) -> Result<()> {
         // TODO: Should map status codes to io::Error. if 404 -> NotFound, etc.
-        let raw = fetch_raw(&self.http_client, &self.url).await?;
+        let raw = self.fetch_raw(&self.url).await?;
 
         if !raw.starts_with("BEGIN:VCALENDAR") {
             return Err(Error::new(
@@ -133,7 +169,7 @@ impl Storage<IcsItem> for WebCalStorage {
     /// items need to be read as well, it is generally best to use
     /// [`WebCalStorage::get_all_items`] instead.
     async fn list_items(&self, _collection: &str) -> Result<Vec<ItemRef>> {
-        let raw = fetch_raw(&self.http_client, &self.url).await?;
+        let raw = self.fetch_raw(&self.url).await?;
 
         // TODO: it would be best if the parser could operate on a stream, although that might
         //       complicate copying VTIMEZONEs inline if they are at the end of the stream.
@@ -161,7 +197,7 @@ impl Storage<IcsItem> for WebCalStorage {
     /// Note that, due to the nature of webcal, the whole collection needs to be retrieved. It is
     /// strongly recommended to use [`WebCalStorage::get_all_items`] instead.
     async fn get_item(&self, href: &str) -> Result<(IcsItem, Etag)> {
-        let raw = fetch_raw(&self.http_client, &self.url).await?;
+        let raw = self.fetch_raw(&self.url).await?;
 
         // TODO: it would be best if the parser could operate on a stream, although that might
         //       complicate inlining VTIMEZONEs that are at the end.
@@ -189,7 +225,7 @@ impl Storage<IcsItem> for WebCalStorage {
     /// Note that, due to the nature of webcal, the whole collection needs to be retrieved. It is
     /// generally best to use [`WebCalStorage::get_all_items`] instead.
     async fn get_many_items(&self, hrefs: &[&str]) -> Result<Vec<FetchedItem<IcsItem>>> {
-        let raw = fetch_raw(&self.http_client, &self.url).await?;
+        let raw = self.fetch_raw(&self.url).await?;
 
         // TODO: it would be best if the parser could operate on a stream, although that might
         //       complicate inlining VTIMEZONEs that are at the end.
@@ -218,7 +254,7 @@ impl Storage<IcsItem> for WebCalStorage {
     ///
     /// Performs a single HTTP(s) request to fetch all items.
     async fn get_all_items(&self, _collection: &str) -> Result<Vec<FetchedItem<IcsItem>>> {
-        let raw = fetch_raw(&self.http_client, &self.url).await?;
+        let raw = self.fetch_raw(&self.url).await?;
 
         // TODO: it would be best if the parser could operate on a stream, although that might
         //       complicate inlining VTIMEZONEs that are at the end.
@@ -313,41 +349,6 @@ impl Storage<IcsItem> for WebCalStorage {
             "webcal does not support properties",
         ))
     }
-}
-
-/// Helper method to fetch a URL and return its body as a String.
-///
-/// Be warned! This swallows headers (including `Etag`!).
-#[inline]
-async fn fetch_raw(client: &Client<HttpsConnector<HttpConnector>>, url: &Uri) -> Result<String> {
-    let response = client
-        // TODO: upstream should impl IntoURL for &Uri
-        .get(url.clone())
-        .await
-        .map_err(|e| Error::new(ErrorKind::Io, e))?;
-
-    match response.status() {
-        StatusCode::NOT_FOUND | StatusCode::GONE => {
-            return Err(Error::new(
-                ErrorKind::DoesNotExist,
-                "The remote resource does not exist.",
-            ))
-        }
-        StatusCode::OK => {}
-        code => {
-            return Err(Error::new(
-                ErrorKind::Io,
-                format!("request returned {code}"),
-            ))
-        }
-    }
-
-    // TODO: handle non-UTF-8 data (e.g.: Content-Type/charset).
-    hyper::body::to_bytes(response)
-        .await
-        .map_err(|e| Error::new(ErrorKind::Io, e))
-        .map(|bytes| String::from_utf8(bytes.into()))?
-        .map_err(|e| Error::new(ErrorKind::InvalidData, e))
 }
 
 #[cfg(test)]
