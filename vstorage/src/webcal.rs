@@ -87,7 +87,6 @@ impl WebCalStorage {
     /// Helper method to fetch a URL and return its body as a String.
     ///
     /// Be warned! This swallows headers (including `Etag`!).
-    #[inline]
     async fn fetch_raw(&self, url: &Uri) -> Result<String> {
         let response = self
             .http_client
