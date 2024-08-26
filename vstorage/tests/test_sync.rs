@@ -7,8 +7,8 @@ use rand::{distributions::Alphanumeric, thread_rng, Rng};
 use std::fmt::Write;
 use std::sync::Arc;
 use vstorage::base::{IcsItem, Storage};
-use vstorage::sync::declare::{DeclaredMapping, StoragePair};
-use vstorage::sync::plan::Plan;
+use vstorage::sync::declare::{DeclaredMapping, OnEmpty, StoragePair};
+use vstorage::sync::plan::{ItemAction, Plan};
 use vstorage::sync::status::StatusDatabase;
 use vstorage::vdir::VdirStorage;
 
@@ -229,6 +229,7 @@ async fn test_sync_from_b() {
     std::fs::remove_dir_all(populated_path).unwrap();
     std::fs::remove_dir_all(empty_path).unwrap();
 }
+
 #[tokio::test]
 async fn test_sync_none() {
     let populated_path = {
@@ -263,3 +264,101 @@ async fn test_sync_none() {
 // - update in a, check deletion after syn
 // - update in b, check deletion after syn
 // - create new in a...
+
+#[tokio::test]
+async fn test_empty_protection_enabled() {
+    let path_a = {
+        let mut p = std::env::temp_dir();
+        p.push(random_string(12));
+        Utf8PathBuf::try_from(p).unwrap()
+    };
+    let path_b = {
+        let mut p = std::env::temp_dir();
+        p.push(random_string(12));
+        Utf8PathBuf::try_from(p).unwrap()
+    };
+    std::fs::create_dir(&path_a).unwrap();
+    std::fs::create_dir(&path_b).unwrap();
+    let storage_a = Arc::new(VdirStorage::<IcsItem>::new(path_a, "ics".into()));
+    let storage_b = Arc::new(VdirStorage::<IcsItem>::new(path_b, "ics".into()));
+
+    let first = storage_a.create_collection("first-calendar").await.unwrap();
+    let item = &minimal_icalendar("First calendar event one")
+        .unwrap()
+        .into();
+    let item_ref = storage_a.add_item(first.href(), item).await.unwrap();
+
+    let pair = StoragePair::<IcsItem>::new(storage_a.clone(), storage_b.clone())
+        .with_all_from_a()
+        .on_empty(OnEmpty::Skip);
+    let status = StatusDatabase::open_or_create(":memory:").unwrap();
+    let plan = Plan::new(&pair, Some(&status)).await.unwrap();
+    plan.execute(&status, drop).await.unwrap();
+
+    // At this point both storages and the status DB are all in sync.
+
+    storage_a
+        .delete_item(&item_ref.href, &item_ref.etag)
+        .await
+        .unwrap();
+
+    let plan = Plan::new(&pair, Some(&status)).await.unwrap();
+    assert_eq!(plan.collection_plans.len(), 1);
+    // Plan should be empty due to protection:
+    assert!(plan
+        .collection_plans
+        .first()
+        .unwrap()
+        .item_actions
+        .is_empty());
+}
+
+#[tokio::test]
+async fn test_empty_protection_disabled() {
+    let path_a = {
+        let mut p = std::env::temp_dir();
+        p.push(random_string(12));
+        Utf8PathBuf::try_from(p).unwrap()
+    };
+    let path_b = {
+        let mut p = std::env::temp_dir();
+        p.push(random_string(12));
+        Utf8PathBuf::try_from(p).unwrap()
+    };
+    std::fs::create_dir(&path_a).unwrap();
+    std::fs::create_dir(&path_b).unwrap();
+    let storage_a = Arc::new(VdirStorage::<IcsItem>::new(path_a, "ics".into()));
+    let storage_b = Arc::new(VdirStorage::<IcsItem>::new(path_b, "ics".into()));
+
+    let first = storage_a.create_collection("first-calendar").await.unwrap();
+    let item = &minimal_icalendar("First calendar event one")
+        .unwrap()
+        .into();
+    let item_ref = storage_a.add_item(first.href(), item).await.unwrap();
+
+    let pair = StoragePair::<IcsItem>::new(storage_a.clone(), storage_b.clone())
+        .with_all_from_a()
+        .on_empty(OnEmpty::Sync);
+    let status = StatusDatabase::open_or_create(":memory:").unwrap();
+    let plan = Plan::new(&pair, Some(&status)).await.unwrap();
+    plan.execute(&status, drop).await.unwrap();
+
+    // At this point both storages and the status DB are all in sync.
+
+    storage_a
+        .delete_item(&item_ref.href, &item_ref.etag)
+        .await
+        .unwrap();
+
+    let plan = Plan::new(&pair, Some(&status)).await.unwrap();
+    assert_eq!(plan.collection_plans.len(), 1);
+    // Plan should be empty due to protection:
+    let action = plan
+        .collection_plans
+        .first()
+        .unwrap()
+        .item_actions
+        .first()
+        .unwrap();
+    assert!(matches!(action, ItemAction::DeleteInB { .. }));
+}

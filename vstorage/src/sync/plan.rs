@@ -16,7 +16,7 @@ use crate::disco::{DiscoveredCollection, Discovery};
 use crate::{base::Item, sync::declare::StoragePair};
 use crate::{CollectionId, ErrorKind, Href};
 
-use super::declare::{CollectionDescription, DeclaredMapping};
+use super::declare::{CollectionDescription, DeclaredMapping, OnEmpty};
 use super::status::{ItemState, MappingUid, Side, StatusDatabase, StatusError, StatusForItem};
 
 /// Error that occurs when creating a [`Plan`].
@@ -497,6 +497,21 @@ impl<I: Item> CollectionPlan<I> {
             _ => Vec::new(),
         };
 
+        if (items_a.is_empty() || items_b.is_empty())
+            && !status_uids.is_empty()
+            && pair.on_empty == OnEmpty::Skip
+        {
+            let mapping_uid =
+                mapping_uid.expect("If mapping_uid is None, then status_uid must be empty.");
+            warn!("Collection has been emptied on one side; skipping.");
+            return Ok(CollectionPlan {
+                collection_action: CollectionAction::NoAction(mapping_uid),
+                item_actions: Vec::new(),
+                property_actions: Vec::new(),
+                mapping,
+            });
+        }
+
         let all_uids = items_a
             .iter()
             .chain(items_b.iter())
@@ -815,6 +830,8 @@ impl std::fmt::Display for CollectionAction {
 }
 
 /// Returns the state of all items for a collection.
+///
+/// Returns only items that currently exist in the remote storage.
 ///
 /// If an item has changed `href`, the updated `href` is returned.
 async fn items_for_collection<I: Item>(

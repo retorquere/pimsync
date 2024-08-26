@@ -72,6 +72,7 @@ pub struct StoragePair<I: Item> {
     pub(super) mappings: Vec<DeclaredMapping>,
     pub(super) all_from_a: bool,
     pub(super) all_from_b: bool,
+    pub(super) on_empty: OnEmpty,
 }
 
 impl<I: Item> StoragePair<I> {
@@ -87,6 +88,7 @@ impl<I: Item> StoragePair<I> {
             mappings: Vec::new(),
             all_from_a: false,
             all_from_b: false,
+            on_empty: OnEmpty::Skip,
         }
     }
 
@@ -126,4 +128,18 @@ impl<I: Item> StoragePair<I> {
     pub fn storage_b(&self) -> &dyn Storage<I> {
         self.storage_b.as_ref()
     }
+
+    /// Action to take when a collection is completely emptied.
+    #[must_use]
+    pub fn on_empty(mut self, action: OnEmpty) -> Self {
+        self.on_empty = action;
+        self
+    }
+}
+
+#[derive(Debug, PartialEq, Default)]
+pub enum OnEmpty {
+    #[default]
+    Skip,
+    Sync,
 }

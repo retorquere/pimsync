@@ -26,7 +26,7 @@ use vstorage::{
     base::{IcsItem, Item, Storage, VcardItem},
     caldav::CalDavStorage,
     carddav::CardDavStorage,
-    sync::declare::{CollectionDescription, DeclaredMapping, StoragePair},
+    sync::declare::{CollectionDescription, DeclaredMapping, OnEmpty, StoragePair},
     vdir::VdirStorage,
     webcal::WebCalStorage,
     CollectionId,
@@ -166,6 +166,8 @@ struct PairSection {
     #[allow(dead_code)]
     metadata: Option<Vec<String>>,
     conflict_resolution: Option<VecDeque<String>>,
+    #[serde(with = "OnEmptyDef", default)]
+    on_empty: OnEmpty,
     // TODO: partial_sync
 }
 
@@ -203,6 +205,8 @@ impl PairSection {
                 }
             }
         }
+
+        pair = pair.on_empty(self.on_empty);
 
         let conflict_resolution = match self.conflict_resolution {
             Some(args) => {
@@ -644,4 +648,11 @@ fn open_default_path() -> anyhow::Result<File> {
 
 pub(crate) fn load_from_default_path() -> anyhow::Result<Config> {
     parse_from_file(open_default_path()?)
+}
+
+#[derive(Deserialize)]
+#[serde(remote = "OnEmpty", rename_all = "lowercase")]
+pub(crate) enum OnEmptyDef {
+    Skip,
+    Sync,
 }
