@@ -42,10 +42,7 @@ where
         let address_book_home_set = client
             .find_address_book_home_set(&principal)
             .await
-            .map_err(|e| Error::new(ErrorKind::Io, e))?
-            // FIXME: should keep the entire home set
-            .into_iter()
-            .next();
+            .map_err(|e| Error::new(ErrorKind::Io, e))?;
 
         Ok(CardDavStorage {
             client,
@@ -59,7 +56,7 @@ where
 /// A single storage represents a single server with a specific set of credentials.
 pub struct CardDavStorage<C: Connect + Clone + Sync + Send + 'static> {
     client: CardDavClient<C>,
-    address_book_home_set: Option<Uri>,
+    address_book_home_set: Vec<Uri>,
 }
 
 #[async_trait]
@@ -68,34 +65,26 @@ where
     C: Connect + Clone + Sync + Send,
 {
     async fn check(&self) -> Result<()> {
-        let url = self
-            .address_book_home_set
-            .as_ref()
-            .unwrap_or(&self.client.base_url);
         self.client
-            .check_support(url)
+            .check_support(&self.client.base_url)
             .await
             .map_err(|e| Error::new(ErrorKind::Uncategorised, e))
     }
 
     /// Finds existing collections for this storage.
     ///
-    /// Will only return collections stored under the principal's home. In most common scenarios,
-    /// this implies that only collections owned by the current user are found and not other
-    /// collections.
+    /// Will only return collections stored under the principal's home set. In most common
+    /// scenarios, this implies that only collections owned by the current user are found and not
+    /// other collections.
     ///
-    /// Collections outside the principal's home can be referenced by using an absolute path.
+    /// Collections outside the principal's home set can be referenced by using an absolute path.
     async fn discover_collections(&self) -> Result<Discovery> {
-        let Some(home_set) = &self.address_book_home_set else {
-            return Err(Error::new(
-                ErrorKind::PreconditionFailed,
-                "calendar home set was not found",
-            ));
-        };
+        let mut collections = Vec::new();
+        for home in &self.address_book_home_set {
+            collections.append(&mut self.client.find_addressbooks(home).await?);
+        }
 
-        self.client
-            .find_addressbooks(home_set)
-            .await?
+        collections
             .into_iter()
             .map(|collection| {
                 collection_id_for_href(&collection.href)
@@ -345,7 +334,7 @@ where
     /// Returns [`ErrorKind::PreconditionFailed`] if a home set was not found in the carddav
     /// server.
     fn href_for_collection_id(&self, id: &CollectionId) -> Result<Href> {
-        if let Some(home_set) = &self.address_book_home_set {
+        if let Some(home_set) = &self.address_book_home_set.first() {
             Ok(path_for_collection_in_home_set(home_set, id.as_ref()))
         } else {
             Err(Error::new(

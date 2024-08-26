@@ -147,7 +147,7 @@ pub trait Storage<I: Item>: Sync + Send {
     /// This functions returns an `Err` variant if the provided `collection` is invalid.
     fn collection_id(&self, collection_href: &str) -> Result<CollectionId>;
 
-    /// Return the `href` for a collection that would have the given `id`.
+    /// Return the `href` for a collection that is expected to have `id`.
     ///
     /// Creating a collection under `href` SHOULD result in the collection being available via
     /// discovery with the provided `id`.
