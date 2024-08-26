@@ -7,8 +7,7 @@
 use async_trait::async_trait;
 use http::Uri;
 use hyper_util::client::legacy::connect::Connect;
-use libdav::auth::Auth;
-use libdav::dav::{mime_types, WebDavClient};
+use libdav::dav::mime_types;
 use libdav::CardDavClient;
 
 use crate::base::{
@@ -30,10 +29,7 @@ where
     /// # Errors
     ///
     /// If there are errors discovering the CardDav server.
-    pub async fn new(url: Uri, auth: Auth, connector: C) -> Result<CardDavStorage<C>> {
-        let webdav = WebDavClient::new(url, auth, connector);
-        let client = CardDavClient::new_via_bootstrap(webdav).await?;
-
+    pub async fn new(client: CardDavClient<C>) -> Result<CardDavStorage<C>> {
         let principal = client
             .find_current_user_principal()
             .await

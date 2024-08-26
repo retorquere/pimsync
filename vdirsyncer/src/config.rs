@@ -18,7 +18,7 @@ use anyhow::{bail, Context};
 use camino::{Utf8Path, Utf8PathBuf};
 use hyper_rustls::{ConfigBuilderExt, HttpsConnector, HttpsConnectorBuilder};
 use hyper_util::client::legacy::connect::HttpConnector;
-use libdav::auth::Password;
+use libdav::{auth::Password, dav::WebDavClient, CalDavClient, CardDavClient};
 use log::{debug, error};
 use rustls::{client::danger::DangerousClientConfigBuilder, ClientConfig, RootCertStore};
 use serde::{Deserialize, Deserializer};
@@ -449,7 +449,9 @@ impl CardDav {
             // TODO: don't prompt if won't be sync'ed
             password: Some(self.password.into_password()?),
         };
-        Ok(CardDavStorage::new(url, auth, self.network_opts.into_connector()?).await?)
+        let webdav = WebDavClient::new(url, auth, self.network_opts.into_connector()?);
+        let client = CardDavClient::new_via_bootstrap(webdav).await?;
+        Ok(CardDavStorage::new(client).await?)
     }
 }
 
@@ -478,7 +480,9 @@ impl CalDav {
             // TODO: don't prompt if won't be sync'ed
             password: Some(self.password.into_password()?),
         };
-        Ok(CalDavStorage::new(url, auth, self.network_opts.into_connector()?).await?)
+        let webdav = WebDavClient::new(url, auth, self.network_opts.into_connector()?);
+        let client = CalDavClient::new_via_bootstrap(webdav).await?;
+        Ok(CalDavStorage::new(client).await?)
     }
 }
 

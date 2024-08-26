@@ -5,7 +5,7 @@
 use std::sync::Arc;
 
 use hyper_rustls::HttpsConnectorBuilder;
-use libdav::auth::Auth;
+use libdav::{auth::Auth, dav::WebDavClient, CalDavClient};
 use vstorage::{
     base::{FetchedItem, IcsItem, Storage},
     caldav::CalDavStorage,
@@ -23,16 +23,13 @@ async fn create_caldav_from_env() -> Arc<dyn Storage<IcsItem>> {
         .https_or_http()
         .enable_http1()
         .build();
-    let storage = CalDavStorage::new(
-        server.parse().unwrap(),
-        Auth::Basic {
-            username,
-            password: Some(password),
-        },
-        connector,
-    )
-    .await
-    .unwrap();
+    let auth = Auth::Basic {
+        username,
+        password: Some(password),
+    };
+    let webdav = WebDavClient::new(server.parse().unwrap(), auth, connector);
+    let caldav = CalDavClient::new_via_bootstrap(webdav).await.unwrap();
+    let storage = CalDavStorage::new(caldav).await.unwrap();
     Arc::from(storage)
 }
 

@@ -7,8 +7,7 @@
 use async_trait::async_trait;
 use http::Uri;
 use hyper_util::client::legacy::connect::Connect;
-use libdav::auth::Auth;
-use libdav::dav::{mime_types, WebDavClient};
+use libdav::dav::mime_types;
 use libdav::sd::BootstrapError;
 use libdav::CalDavClient;
 
@@ -31,9 +30,7 @@ where
     /// # Errors
     ///
     /// If there are errors discovering the CalDav server.
-    pub async fn new(url: Uri, auth: Auth, connector: C) -> Result<CalDavStorage<C>> {
-        let webdav = WebDavClient::new(url, auth, connector);
-        let client = CalDavClient::new_via_bootstrap(webdav).await?;
+    pub async fn new(client: CalDavClient<C>) -> Result<CalDavStorage<C>> {
         let principal = client
             .find_current_user_principal()
             .await
