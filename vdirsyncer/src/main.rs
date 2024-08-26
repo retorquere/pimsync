@@ -427,6 +427,7 @@ async fn main() -> anyhow::Result<()> {
 
     if let Command::Version = cli.command {
         println!("vdirsyncer {VERSION}");
+        return Ok(());
     };
 
     simple_logger::SimpleLogger::new()
