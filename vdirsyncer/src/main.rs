@@ -75,10 +75,9 @@ impl<I: Item> NamedPair<I> {
     /// Sync this pair indefinitely
     ///
     /// Returns an error if an only if a fatal synchronisation error ocurred.
-    async fn daemon(self, interval: Duration /* ui-lock ? */) -> anyhow::Error {
-        // TODO: take some broadcast channel where events are sent:
-        //       enum Event: CreatePlan, PrintPlan, ExecutePlan, Monitor
+    async fn daemon(self, interval: Duration) -> anyhow::Error {
         loop {
+            // TODO: should lock storages here
             match self.create_plan().await {
                 Ok(plan) => {
                     self.print_plan(&plan);
@@ -88,6 +87,12 @@ impl<I: Item> NamedPair<I> {
                 }
                 Err(err) => error!("error creating plan for {}: {}", self.name, err),
             }
+
+            // TODO: HTTPS connections are kept open for a while; this should also be configurable.
+            warn!(
+                "Monitoring is not implemented, will auto-sync every {} minutes.",
+                interval.as_secs() / 60
+            );
             tokio::time::sleep(interval).await;
         }
     }
@@ -315,9 +320,6 @@ impl App {
     }
 
     async fn daemon(self) -> anyhow::Result<()> {
-        warn!("Storage monitoring is not implemented, will auto-sync every 5 minutes.");
-        // TODO: HTTPS connections are kept open for a while; this should also be configurable.
-
         let mut set = JoinSet::new();
         for pair in self.calendar_pairs {
             set.spawn(pair.daemon(self.interval));
