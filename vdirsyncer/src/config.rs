@@ -224,12 +224,11 @@ impl PairSection {
                         CollectionValue::FromA => pair.with_all_from_a(),
                         CollectionValue::FromB => pair.with_all_from_b(),
                         CollectionValue::Mapped(alias, a, b) => {
-                            let mapping = DeclaredMapping::Mapped {
+                            pair.with_mapping(DeclaredMapping::Mapped {
                                 alias,
                                 a: a.into_description(),
                                 b: b.into_description(),
-                            };
-                            pair.with_mapping(mapping)
+                            })
                         }
                         CollectionValue::Collection(col) => pair.with_mapping(col.into_mapping()),
                     };
