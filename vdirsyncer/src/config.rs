@@ -406,7 +406,7 @@ impl<I: Item> Vdir<I> {
 #[derive(Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
 struct CardDav {
-    url: String,
+    url: StringOrCommand,
     username: StringOrCommand,
     password: StringOrCommand,
     #[serde(flatten)]
@@ -415,16 +415,17 @@ struct CardDav {
 
 impl CardDav {
     async fn into_storage(self) -> anyhow::Result<CardDavStorage<HttpsConnector<HttpConnector>>> {
-        Ok(CardDavStorage::new(
-            self.url.parse()?,
-            libdav::auth::Auth::Basic {
-                username: self.username.into_string()?,
-                // TODO: don't prompt if won't be sync'ed
-                password: Some(self.password.into_password()?),
-            },
-            self.network_opts.into_connector()?,
-        )
-        .await?)
+        let url = self
+            .url
+            .into_string()?
+            .parse()
+            .context("parsing caldav URL")?;
+        let auth = libdav::auth::Auth::Basic {
+            username: self.username.into_string()?,
+            // TODO: don't prompt if won't be sync'ed
+            password: Some(self.password.into_password()?),
+        };
+        Ok(CardDavStorage::new(url, auth, self.network_opts.into_connector()?).await?)
     }
 }
 
@@ -443,19 +444,17 @@ struct CalDav {
 
 impl CalDav {
     async fn into_storage(self) -> anyhow::Result<CalDavStorage<HttpsConnector<HttpConnector>>> {
-        Ok(CalDavStorage::new(
-            self.url
-                .into_string()?
-                .parse()
-                .context("parsing caldav URL")?,
-            libdav::auth::Auth::Basic {
-                username: self.username.into_string()?,
-                // TODO: don't prompt if won't be sync'ed
-                password: Some(self.password.into_password()?),
-            },
-            self.network_opts.into_connector()?,
-        )
-        .await?)
+        let url = self
+            .url
+            .into_string()?
+            .parse()
+            .context("parsing caldav URL")?;
+        let auth = libdav::auth::Auth::Basic {
+            username: self.username.into_string()?,
+            // TODO: don't prompt if won't be sync'ed
+            password: Some(self.password.into_password()?),
+        };
+        Ok(CalDavStorage::new(url, auth, self.network_opts.into_connector()?).await?)
     }
 }
 
