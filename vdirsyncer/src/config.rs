@@ -60,53 +60,34 @@ impl Config {
     ///
     /// If `enabled_pairs` is not `None`, only pairs with a matching name will be loaded.
     pub(crate) async fn into_app<'storages>(
-        self,
+        mut self,
         enabled_pairs: Option<Vec<String>>,
     ) -> anyhow::Result<App> {
         let status_dir = expand_tilde(self.general.status_path)
             .context("error expanding tilde for status_dir")?;
-        // Initialise storages once, to avoid duplicating any.
-        // TODO: do this in parallel: https://docs.rs/tokio/latest/tokio/task/struct.JoinSet.html
-        let storages = {
-            let mut storages = Vec::with_capacity(self.storages.len());
-            for (name, source) in self.storages {
-                storages.push(source.into_storage(name).await?);
-            }
-            storages
-        };
+
+        // Only already-initialised storages (name -> instance).
+        // TODO: keep instance so I can later lock storages before using them.
+        let mut storages = Vec::<NamedStorage>::new();
 
         let mut calendar_pairs = Vec::new();
         let mut contact_pairs = Vec::new();
 
         for (name, source) in self.pairs {
+            // Skip disabled storages.
             if let Some(pairs) = &enabled_pairs {
                 if !pairs.contains(&name) {
                     continue;
                 }
             }
 
-            // Cannot pop a from storages; it might needed for another pair.
-            let a = storages
-                .iter()
-                .find(|s| s.name() == source.a)
-                .with_context(|| {
-                    format!("pair {} refers to undefined storage {}.", name, source.a)
-                })?;
-            let b = storages
-                .iter()
-                .find(|s| s.name() == source.b)
-                .with_context(|| {
-                    format!("pair {} refers to undefined storage {}.", name, source.b)
-                })?;
+            let a = resolve_storage(&mut self.storages, &mut storages, &source.a).await?;
+            let b = resolve_storage(&mut self.storages, &mut storages, &source.b).await?;
 
             match (a, b) {
                 (EitherStorage::Calendar(a), EitherStorage::Calendar(b)) => {
-                    let pair = source.try_into_named_pair(
-                        name,
-                        a.inner.clone(),
-                        b.inner.clone(),
-                        &status_dir,
-                    )?;
+                    let pair =
+                        source.try_into_named_pair(name, a.clone(), b.clone(), &status_dir)?;
                     calendar_pairs.push(pair);
                 }
                 (EitherStorage::Calendar(_), EitherStorage::AddressBook(_)) => {
@@ -116,12 +97,8 @@ impl Config {
                     bail!("pair {} mixes contacts storage with calendar storage", name)
                 }
                 (EitherStorage::AddressBook(a), EitherStorage::AddressBook(b)) => {
-                    let pair = source.try_into_named_pair(
-                        name,
-                        a.inner.clone(),
-                        b.inner.clone(),
-                        &status_dir,
-                    )?;
+                    let pair =
+                        source.try_into_named_pair(name, a.clone(), b.clone(), &status_dir)?;
                     contact_pairs.push(pair);
                 }
             }
@@ -133,6 +110,27 @@ impl Config {
             interval: Duration::from_secs(self.general.interval),
             stdio: Arc::new(StdIo::new()),
         })
+    }
+}
+
+/// If the storage is in `raw_storages`, initialise it and add it into `parsed_storages`.
+/// Otherwise, find it in `parsed_storages`.
+async fn resolve_storage(
+    raw_storages: &mut HashMap<String, StorageSection>,
+    parsed_storages: &mut Vec<NamedStorage>,
+    storage_name: &str,
+) -> anyhow::Result<EitherStorage> {
+    if let Some((name, s)) = raw_storages.remove_entry(storage_name) {
+        let storage = s.into_storage(name).await?;
+        let inner = storage.inner.clone();
+        parsed_storages.push(storage);
+        Ok(inner)
+    } else {
+        parsed_storages
+            .iter()
+            .find(|s| s.name == storage_name)
+            .map(|ns| ns.inner.clone())
+            .with_context(|| format!("storage {storage_name} is not defined."))
     }
 }
 
@@ -338,42 +336,49 @@ enum StorageSection {
     Http(Http),
 }
 
-enum EitherStorage {
-    Calendar(NamedStorage<IcsItem>),
-    AddressBook(NamedStorage<VcardItem>),
-}
-
-impl EitherStorage {
-    fn name(&self) -> &str {
-        match self {
-            EitherStorage::Calendar(c) => &c.name,
-            EitherStorage::AddressBook(a) => &a.name,
-        }
-    }
+#[derive(Clone)] // Cheap clone; enum + Arc.
+pub(crate) enum EitherStorage {
+    Calendar(Arc<dyn Storage<IcsItem>>),
+    AddressBook(Arc<dyn Storage<VcardItem>>),
 }
 
 impl StorageSection {
-    pub(crate) async fn into_storage(self, name: String) -> anyhow::Result<EitherStorage> {
+    pub(crate) async fn into_storage(self, name: String) -> anyhow::Result<NamedStorage> {
         Ok(match self {
             StorageSection::VdirIcalendar(def) => {
                 let inner = Arc::new(def.into_storage()?);
-                EitherStorage::Calendar(NamedStorage { name, inner })
+                NamedStorage {
+                    name,
+                    inner: EitherStorage::Calendar(inner),
+                }
             }
             StorageSection::VdirVcard(def) => {
                 let inner = Arc::new(def.into_storage()?);
-                EitherStorage::AddressBook(NamedStorage { name, inner })
+                NamedStorage {
+                    name,
+                    inner: EitherStorage::AddressBook(inner),
+                }
             }
             StorageSection::CardDav(carddav) => {
                 let inner = Arc::new(carddav.into_storage().await?);
-                EitherStorage::AddressBook(NamedStorage { name, inner })
+                NamedStorage {
+                    name,
+                    inner: EitherStorage::AddressBook(inner),
+                }
             }
             StorageSection::CalDav(caldav) => {
                 let inner = Arc::new(caldav.into_storage().await?);
-                EitherStorage::Calendar(NamedStorage { name, inner })
+                NamedStorage {
+                    name,
+                    inner: EitherStorage::Calendar(inner),
+                }
             }
             StorageSection::Http(http) => {
                 let inner = Arc::new(http.into_storage()?);
-                EitherStorage::Calendar(NamedStorage { name, inner })
+                NamedStorage {
+                    name,
+                    inner: EitherStorage::Calendar(inner),
+                }
             }
         })
     }
