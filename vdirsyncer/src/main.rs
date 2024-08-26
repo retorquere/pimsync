@@ -44,7 +44,7 @@ pub(crate) struct NamedPair<I: Item> {
     pub(crate) inner: StoragePair<I>,
     status_path: Utf8PathBuf,
     conflict_resolution: Option<RawCommand>,
-    /// Advisory locks taken before using a storage.
+    /// Discretionary locks taken before using a storage.
     /// These MUST be sorted based on storage name to prevent possible deadlocks.
     locks: (Arc<Mutex<()>>, Arc<Mutex<()>>),
 }
