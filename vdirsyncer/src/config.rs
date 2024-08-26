@@ -257,6 +257,7 @@ impl PairSection {
             status_path,
             conflict_resolution,
             locks,
+            names: (self.a, self.b),
         })
     }
 }

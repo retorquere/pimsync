@@ -47,6 +47,7 @@ pub(crate) struct NamedPair<I: Item> {
     /// Discretionary locks taken before using a storage.
     /// These MUST be sorted based on storage name to prevent possible deadlocks.
     locks: (Arc<Mutex<()>>, Arc<Mutex<()>>),
+    names: (String, String),
 }
 
 /// Data necessary to create a new `Command` instance.
@@ -134,13 +135,13 @@ impl<I: Item> NamedPair<I> {
     async fn discover(&self) -> anyhow::Result<()> {
         // TODO: discover displaynames and colours too
         let disco = self.inner.storage_a().discover_collections().await?;
-        println!("For pair {}, storage a:", self.name);
+        println!("For pair {}, storage a/{}:", self.name, self.names.0);
         for collection in disco.collections() {
             println!("- id={} href={}", collection.id(), collection.href());
         }
 
         let disco = self.inner.storage_b().discover_collections().await?;
-        println!("For pair {}, storage b:", self.name);
+        println!("For pair {}, storage b/{}:", self.name, self.names.1);
         for collection in disco.collections() {
             println!("- id={} href={}", collection.id(), collection.href());
         }
@@ -319,6 +320,7 @@ pub(crate) struct App {
 
 impl App {
     async fn discover(&self) -> anyhow::Result<()> {
+        // FIXME: if multiple pairs share a storage, only print that storage once.
         for pair in &self.calendar_pairs {
             pair.discover().await?;
         }
