@@ -38,7 +38,7 @@ use crate::{
         cert_and_key_from_pemfile, certs_from_pemfile, key_from_pemfile,
         FingerprintAndWebPkiVerifier, FingerprintVerifier,
     },
-    App, NamedPair, NamedStorage, RawCommand, VERSION,
+    App, NamedPair, RawCommand, VERSION,
 };
 
 /// A deserialised configuration file.
@@ -68,7 +68,7 @@ impl Config {
 
         // Only already-initialised storages (name -> instance).
         // TODO: keep instance so I can later lock storages before using them.
-        let mut storages = Vec::<NamedStorage>::new();
+        let mut storages = HashMap::<String, EitherStorage>::new();
 
         let mut calendar_pairs = Vec::new();
         let mut contact_pairs = Vec::new();
@@ -117,19 +117,18 @@ impl Config {
 /// Otherwise, find it in `parsed_storages`.
 async fn resolve_storage(
     raw_storages: &mut HashMap<String, StorageSection>,
-    parsed_storages: &mut Vec<NamedStorage>,
+    parsed_storages: &mut HashMap<String, EitherStorage>,
     storage_name: &str,
 ) -> anyhow::Result<EitherStorage> {
     if let Some((name, s)) = raw_storages.remove_entry(storage_name) {
-        let storage = s.into_storage(name).await?;
-        let inner = storage.inner.clone();
-        parsed_storages.push(storage);
+        let storage = s.into_storage().await?;
+        let inner = storage.clone();
+        parsed_storages.insert(name, storage);
         Ok(inner)
     } else {
         parsed_storages
-            .iter()
-            .find(|s| s.name == storage_name)
-            .map(|ns| ns.inner.clone())
+            .get(storage_name)
+            .cloned()
             .with_context(|| format!("storage {storage_name} is not defined."))
     }
 }
@@ -343,42 +342,27 @@ pub(crate) enum EitherStorage {
 }
 
 impl StorageSection {
-    pub(crate) async fn into_storage(self, name: String) -> anyhow::Result<NamedStorage> {
+    pub(crate) async fn into_storage(self) -> anyhow::Result<EitherStorage> {
         Ok(match self {
             StorageSection::VdirIcalendar(def) => {
                 let inner = Arc::new(def.into_storage()?);
-                NamedStorage {
-                    name,
-                    inner: EitherStorage::Calendar(inner),
-                }
+                EitherStorage::Calendar(inner)
             }
             StorageSection::VdirVcard(def) => {
                 let inner = Arc::new(def.into_storage()?);
-                NamedStorage {
-                    name,
-                    inner: EitherStorage::AddressBook(inner),
-                }
+                EitherStorage::AddressBook(inner)
             }
             StorageSection::CardDav(carddav) => {
                 let inner = Arc::new(carddav.into_storage().await?);
-                NamedStorage {
-                    name,
-                    inner: EitherStorage::AddressBook(inner),
-                }
+                EitherStorage::AddressBook(inner)
             }
             StorageSection::CalDav(caldav) => {
                 let inner = Arc::new(caldav.into_storage().await?);
-                NamedStorage {
-                    name,
-                    inner: EitherStorage::Calendar(inner),
-                }
+                EitherStorage::Calendar(inner)
             }
             StorageSection::Http(http) => {
                 let inner = Arc::new(http.into_storage()?);
-                NamedStorage {
-                    name,
-                    inner: EitherStorage::Calendar(inner),
-                }
+                EitherStorage::Calendar(inner)
             }
         })
     }

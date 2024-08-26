@@ -13,7 +13,6 @@ use std::{
 
 use anyhow::{bail, Context};
 use camino::Utf8PathBuf;
-use config::EitherStorage;
 use log::{debug, error, info, trace, warn};
 use rustix::fs::sync;
 use stdio::{StdIo, StdIoLock};
@@ -38,14 +37,6 @@ mod stdio;
 mod tls;
 
 pub const VERSION: &str = "2.0.0-alpha0";
-
-/// Storage with a name, as defined in the configuration file.
-pub(crate) struct NamedStorage {
-    name: String,
-    // TODO: this should be wrapped in a Mutex. Once we allow pairs to synchronise concurrently,
-    // this will avoid the same pair being re-used.
-    inner: EitherStorage,
-}
 
 /// Pair with a name, as defined in the configuration file.
 pub(crate) struct NamedPair<I: Item> {
