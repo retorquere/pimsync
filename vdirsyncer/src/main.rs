@@ -17,7 +17,7 @@ use log::{debug, error, info, trace, warn};
 use rustix::fs::sync;
 use stdio::{StdIo, StdIoLock};
 use tempfile::NamedTempFile;
-use tokio::task::JoinSet;
+use tokio::{sync::Mutex, task::JoinSet};
 use vstorage::{
     base::{IcsItem, Item, Storage, VcardItem},
     sync::{
@@ -44,6 +44,9 @@ pub(crate) struct NamedPair<I: Item> {
     pub(crate) inner: StoragePair<I>,
     status_path: Utf8PathBuf,
     conflict_resolution: Option<RawCommand>,
+    /// Advisory locks taken before using a storage.
+    /// These MUST be sorted based on storage name to prevent possible deadlocks.
+    locks: (Arc<Mutex<()>>, Arc<Mutex<()>>),
 }
 
 /// Data necessary to create a new `Command` instance.
@@ -74,10 +77,11 @@ impl<I: Item> NamedPair<I> {
 
     /// Sync this pair indefinitely
     ///
-    /// Returns an error if an only if a fatal synchronisation error ocurred.
+    /// Returns an error if an only if a fatal synchronisation error occurred.
     async fn daemon(self, interval: Duration) -> anyhow::Error {
         loop {
-            // TODO: should lock storages here
+            let lock_0 = self.locks.0.lock().await;
+            let lock_1 = self.locks.1.lock().await;
             match self.create_plan().await {
                 Ok(plan) => {
                     self.print_plan(&plan);
@@ -87,6 +91,8 @@ impl<I: Item> NamedPair<I> {
                 }
                 Err(err) => error!("error creating plan for {}: {}", self.name, err),
             }
+            drop(lock_0);
+            drop(lock_1);
 
             // TODO: HTTPS connections are kept open for a while; this should also be configurable.
             warn!(
@@ -100,11 +106,15 @@ impl<I: Item> NamedPair<I> {
     async fn sync_once(self, dry_run: bool /* ui-lock ? */) -> anyhow::Result<()> {
         // TODO: take some broadcast channel where events are sent:
         //       enum Event: CreatePlan, PrintPlan, ExecutePlan, Monitor
+        let lock_0 = self.locks.0.lock().await;
+        let lock_1 = self.locks.1.lock().await;
         let plan = self.create_plan().await?;
         self.print_plan(&plan);
         if !dry_run {
             self.execute_plan(plan).await?;
         }
+        drop(lock_0);
+        drop(lock_1);
         Ok(())
     }
 
@@ -161,6 +171,7 @@ impl<I: Item> NamedPair<I> {
     }
 
     async fn resolve_conflicts(self, stdio: Arc<StdIo>) -> anyhow::Result<()> {
+        // TODO: are storage locks necessary here?
         let Some(ref raw_cmd) = self.conflict_resolution else {
             error!("No conflict resolution command for {}.", self.name);
             return Ok(());
@@ -300,8 +311,6 @@ fn continue_or_abort(stdio: &StdIoLock) -> anyhow::Result<()> {
 }
 
 pub(crate) struct App {
-    // TODO: this also needs a global Mutex, which will be taken when trying to take locks on
-    // individual storages.
     interval: Duration,
     calendar_pairs: Vec<NamedPair<IcsItem>>,
     contact_pairs: Vec<NamedPair<VcardItem>>,

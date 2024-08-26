@@ -22,6 +22,7 @@ use libdav::auth::Password;
 use log::{debug, error};
 use rustls::{client::danger::DangerousClientConfigBuilder, ClientConfig, RootCertStore};
 use serde::{Deserialize, Deserializer};
+use tokio::sync::Mutex;
 use vstorage::{
     base::{IcsItem, Item, Storage, VcardItem},
     caldav::CalDavStorage,
@@ -69,6 +70,7 @@ impl Config {
         // Only already-initialised storages (name -> instance).
         // TODO: keep instance so I can later lock storages before using them.
         let mut storages = HashMap::<String, EitherStorage>::new();
+        let mut locks = HashMap::<String, Arc<Mutex<()>>>::new();
 
         let mut calendar_pairs = Vec::new();
         let mut contact_pairs = Vec::new();
@@ -84,10 +86,25 @@ impl Config {
             let a = resolve_storage(&mut self.storages, &mut storages, &source.a).await?;
             let b = resolve_storage(&mut self.storages, &mut storages, &source.b).await?;
 
+            let lock_a = locks.entry(source.a.clone()).or_default().clone();
+            let lock_b = locks.entry(source.b.clone()).or_default().clone();
+
+            // Keep locks sorted based on storage name. Prevents deadlocks.
+            let locks = if source.a < source.b {
+                (lock_a, lock_b)
+            } else {
+                (lock_b, lock_a)
+            };
+
             match (a, b) {
                 (EitherStorage::Calendar(a), EitherStorage::Calendar(b)) => {
-                    let pair =
-                        source.try_into_named_pair(name, a.clone(), b.clone(), &status_dir)?;
+                    let pair = source.try_into_named_pair(
+                        name,
+                        a.clone(),
+                        b.clone(),
+                        locks,
+                        &status_dir,
+                    )?;
                     calendar_pairs.push(pair);
                 }
                 (EitherStorage::Calendar(_), EitherStorage::AddressBook(_)) => {
@@ -97,8 +114,13 @@ impl Config {
                     bail!("pair {} mixes contacts storage with calendar storage", name)
                 }
                 (EitherStorage::AddressBook(a), EitherStorage::AddressBook(b)) => {
-                    let pair =
-                        source.try_into_named_pair(name, a.clone(), b.clone(), &status_dir)?;
+                    let pair = source.try_into_named_pair(
+                        name,
+                        a.clone(),
+                        b.clone(),
+                        locks,
+                        &status_dir,
+                    )?;
                     contact_pairs.push(pair);
                 }
             }
@@ -185,6 +207,7 @@ impl PairSection {
         name: String,
         a: Arc<dyn Storage<I>>,
         b: Arc<dyn Storage<I>>,
+        locks: (Arc<Mutex<()>>, Arc<Mutex<()>>),
         status_dir: &Utf8Path,
     ) -> anyhow::Result<NamedPair<I>> {
         let status_path = status_dir.join(format!("{name}.status"));
@@ -234,6 +257,7 @@ impl PairSection {
             inner: pair,
             status_path,
             conflict_resolution,
+            locks,
         })
     }
 }
