@@ -57,7 +57,12 @@ impl Config {
     ///
     /// This consumes the configuration to avoid copying any data needlessly and freeing up any
     /// unnecessary data.
-    pub(crate) async fn into_app<'storages>(self) -> anyhow::Result<App> {
+    ///
+    /// If `enabled_pairs` is not `None`, only pairs with a matching name will be loaded.
+    pub(crate) async fn into_app<'storages>(
+        self,
+        enabled_pairs: Option<Vec<String>>,
+    ) -> anyhow::Result<App> {
         let status_dir = expand_tilde(self.general.status_path)
             .context("error expanding tilde for status_dir")?;
         // Initialise storages once, to avoid duplicating any.
@@ -74,6 +79,12 @@ impl Config {
         let mut contact_pairs = Vec::new();
 
         for (name, source) in self.pairs {
+            if let Some(pairs) = &enabled_pairs {
+                if !pairs.contains(&name) {
+                    continue;
+                }
+            }
+
             // Cannot pop a from storages; it might needed for another pair.
             let a = storages
                 .iter()

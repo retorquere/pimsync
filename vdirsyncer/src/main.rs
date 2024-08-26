@@ -312,12 +312,6 @@ pub(crate) struct App {
 }
 
 impl App {
-    // Only retain a pair with the given name.
-    fn only(&mut self, name: &str) {
-        self.calendar_pairs.retain(|p| p.name == name);
-        self.contact_pairs.retain(|p| p.name == name);
-    }
-
     async fn discover(&self) -> anyhow::Result<()> {
         for pair in &self.calendar_pairs {
             pair.discover().await?;
@@ -328,10 +322,7 @@ impl App {
         Ok(())
     }
 
-    async fn daemon(mut self, pair: Option<String>) -> anyhow::Result<()> {
-        if let Some(name) = pair {
-            self.only(&name);
-        }
+    async fn daemon(self) -> anyhow::Result<()> {
         warn!("Storage monitoring is not implemented, will auto-sync every 5 minutes.");
         // TODO: HTTPS connections are kept open for a while; this should also be configurable.
 
@@ -352,11 +343,7 @@ impl App {
         anyhow::bail!("All sync tasks exited.");
     }
 
-    async fn sync(mut self, dry_run: bool, pair: Option<String>) -> anyhow::Result<()> {
-        if let Some(name) = pair {
-            self.only(&name);
-        }
-
+    async fn sync(self, dry_run: bool) -> anyhow::Result<()> {
         let mut set = JoinSet::new();
         for pair in self.calendar_pairs {
             set.spawn(pair.sync_once(dry_run));
@@ -375,14 +362,7 @@ impl App {
         Ok(())
     }
 
-    async fn resolve_conflicts(
-        mut self,
-        dry_run: bool,
-        pair: Option<String>,
-    ) -> anyhow::Result<()> {
-        if let Some(name) = pair {
-            self.only(&name);
-        }
+    async fn resolve_conflicts(self, dry_run: bool) -> anyhow::Result<()> {
         if dry_run {
             bail!("dry_run is not implemented for resolve-conflicts");
         }
@@ -440,24 +420,24 @@ async fn main() -> anyhow::Result<()> {
     trace!("Parsed configuration: {:?}", &config);
 
     let app = config
-        .into_app()
+        .into_app(cli.pairs)
         .await
         .context("initialising application")?;
     debug!("Initialised application");
 
     match cli.command {
         Command::Check => Ok(()),
-        Command::Daemon { ready_fd, pair } => {
+        Command::Daemon { ready_fd } => {
             // Everything is ready; indicate this before actual daemon work.
             if let Some(mut f) = ready_fd {
                 f.write(b"READY=1\n").context("writing to readiness fd")?;
                 f.sync_all().context("flushing readiness fd")?;
                 // File is closed implicity here.
             };
-            app.daemon(pair).await
+            app.daemon().await
         }
-        Command::Sync { dry_run, pair } => app.sync(dry_run, pair).await,
-        Command::ResolveConflicts { dry_run, pair } => app.resolve_conflicts(dry_run, pair).await,
+        Command::Sync { dry_run } => app.sync(dry_run).await,
+        Command::ResolveConflicts { dry_run } => app.resolve_conflicts(dry_run).await,
         Command::Discover => app.discover().await,
         Command::Version => unreachable!(),
     }

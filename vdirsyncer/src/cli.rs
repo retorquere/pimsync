@@ -4,18 +4,9 @@ use std::fs::File;
 
 pub(crate) enum Command {
     Check,
-    Daemon {
-        ready_fd: Option<File>,
-        pair: Option<String>,
-    },
-    Sync {
-        dry_run: bool,
-        pair: Option<String>,
-    },
-    ResolveConflicts {
-        dry_run: bool,
-        pair: Option<String>,
-    },
+    Daemon { ready_fd: Option<File> },
+    Sync { dry_run: bool },
+    ResolveConflicts { dry_run: bool },
     Discover,
     Version,
 }
@@ -23,23 +14,28 @@ pub(crate) enum Command {
 pub(crate) struct Cli {
     pub command: Command,
     pub log_level: log::LevelFilter,
+    pub pairs: Option<Vec<String>>,
 }
 
 impl Cli {
     pub fn parse(mut args: impl Iterator<Item = String>) -> Result<Cli, lexopt::Error> {
         let mut command = None;
         let mut log_level = log::LevelFilter::Warn;
+        let mut pairs = Vec::new();
 
         args.next(); // Skip arg0
         let mut parser = lexopt::Parser::from_args(args);
         while let Some(arg) = parser.next()? {
             match arg {
                 lexopt::Arg::Short('v') => log_level = parser.value()?.parse()?,
+                lexopt::Arg::Short('p') => {
+                    let pair_name = parser.value()?.string()?;
+                    pairs.push(pair_name);
+                }
                 lexopt::Arg::Value(raw_cmd) => {
                     command = match raw_cmd.string()?.as_str() {
                         "check" => Some(Command::Check),
                         "daemon" => {
-                            let mut pair = None;
                             let mut ready_fd = None;
                             while let Some(arg) = parser.next()? {
                                 match arg {
@@ -55,35 +51,30 @@ impl Cli {
                                         // supplied a valid open file.
                                         ready_fd = Some(unsafe { File::from_raw_fd(raw_fd) });
                                     }
-                                    lexopt::Arg::Value(raw_pair) => pair = Some(raw_pair.string()?),
                                     _ => return Err(arg.unexpected()),
                                 };
                             }
-                            Some(Command::Daemon { ready_fd, pair })
+                            Some(Command::Daemon { ready_fd })
                         }
                         "sync" => {
-                            let mut pair = None;
                             let mut dry_run = false;
                             while let Some(arg) = parser.next()? {
                                 match arg {
                                     lexopt::Arg::Short('d') => dry_run = true,
-                                    lexopt::Arg::Value(raw_pair) => pair = Some(raw_pair.string()?),
                                     _ => return Err(arg.unexpected()),
                                 };
                             }
-                            Some(Command::Sync { pair, dry_run })
+                            Some(Command::Sync { dry_run })
                         }
                         "resolve-conflicts" => {
-                            let mut pair = None;
                             let mut dry_run = false;
                             while let Some(arg) = parser.next()? {
                                 match arg {
                                     lexopt::Arg::Short('d') => dry_run = true,
-                                    lexopt::Arg::Value(raw_pair) => pair = Some(raw_pair.string()?),
                                     _ => return Err(arg.unexpected()),
                                 };
                             }
-                            Some(Command::ResolveConflicts { pair, dry_run })
+                            Some(Command::ResolveConflicts { dry_run })
                         }
                         "discover" => Some(Command::Discover),
                         "version" => Some(Command::Version),
@@ -98,6 +89,7 @@ impl Cli {
         Ok(Cli {
             command: command.ok_or(lexopt::Error::from("No command specified"))?,
             log_level,
+            pairs: if pairs.is_empty() { None } else { Some(pairs) },
         })
     }
 }
