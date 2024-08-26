@@ -44,8 +44,8 @@ where
             .await
             .map_err(|e| Error::new(ErrorKind::Io, e))?
             // FIXME: should keep the entire home set
-            .first()
-            .cloned();
+            .into_iter()
+            .next();
 
         Ok(CalDavStorage {
             client,
