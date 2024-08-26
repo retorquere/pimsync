@@ -829,7 +829,15 @@ async fn items_for_collection<I: Item>(
     let prefetched = if let Some(status) = status {
         let mut to_prefetch = Vec::new();
 
-        for item_ref in storage.list_items(collection).await? {
+        let listed_items = match storage.list_items(collection).await {
+            Ok(i) => i,
+            Err(err) if err.kind == ErrorKind::DoesNotExist => {
+                return Ok(Vec::new());
+            }
+            Err(err) => return Err(err.into()),
+        };
+
+        for item_ref in listed_items {
             if let Some(prev_item) = status.get_item_by_href(side, &item_ref.href)? {
                 if prev_item.etag == item_ref.etag {
                     // Item has not changed; nothing to fetch.
