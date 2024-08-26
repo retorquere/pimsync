@@ -432,7 +432,7 @@ async fn main() -> anyhow::Result<()> {
             if let Some(mut f) = ready_fd {
                 f.write(b"READY=1\n").context("writing to readiness fd")?;
                 f.sync_all().context("flushing readiness fd")?;
-                // File is closed implicity here.
+                // File is closed implicitly here.
             };
             app.daemon().await
         }
