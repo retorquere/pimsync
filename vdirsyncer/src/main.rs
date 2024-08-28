@@ -436,7 +436,6 @@ async fn main() -> anyhow::Result<()> {
             // Everything is ready; indicate this before actual daemon work.
             if let Some(mut f) = ready_fd {
                 f.write(b"READY=1\n").context("writing to readiness fd")?;
-                f.sync_all().context("flushing readiness fd")?;
                 // File is closed implicitly here.
             };
             app.daemon().await
