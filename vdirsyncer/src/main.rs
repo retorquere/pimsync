@@ -393,22 +393,19 @@ impl App {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let cli = match Cli::parse(std::env::args()) {
-        Ok(cli) => cli,
-        Err(err) => {
-            eprintln!("Bad usage: {err}\n");
-            eprintln!("Usage: vdirsyncer [-v LOGLEVEL] COMMAND [ARGS...]");
-            eprintln!("Commands:");
-            eprintln!("\tcheck\t\t\t\tcheck configuration and exit");
-            eprintln!("\tdaemon -[r] [PAIR]\t\tkeep storages in sync");
-            eprintln!("\tsync [-d] [PAIR]\t\tsync storages once");
-            eprintln!("\tresolve-conflicts [-d] [PAIR]\tmanually resolve conflicts");
-            eprintln!("\tdiscover\t\t\tprint discovered collections");
-            eprintln!("\tversion\t\t\t\tprint version");
-            eprintln!("See 'man vdirsyncer' for details");
-            std::process::exit(100);
-        }
-    };
+    let cli = Cli::parse(std::env::args()).unwrap_or_else(|err| {
+        eprintln!("Bad usage: {err}\n");
+        eprintln!("Usage: vdirsyncer [-v LOGLEVEL] COMMAND [ARGS...]");
+        eprintln!("Commands:");
+        eprintln!("\tcheck\t\t\t\tcheck configuration and exit");
+        eprintln!("\tdaemon -[r] [PAIR]\t\tkeep storages in sync");
+        eprintln!("\tsync [-d] [PAIR]\t\tsync storages once");
+        eprintln!("\tresolve-conflicts [-d] [PAIR]\tmanually resolve conflicts");
+        eprintln!("\tdiscover\t\t\tprint discovered collections");
+        eprintln!("\tversion\t\t\t\tprint version");
+        eprintln!("See 'man vdirsyncer' for details");
+        std::process::exit(100);
+    });
 
     if let Command::Version = cli.command {
         println!("vdirsyncer {VERSION}");
