@@ -80,7 +80,7 @@ impl AtomicFile {
         })
     }
 
-    /// Commit content into the specified path, overwritting if it already exists.
+    /// Commit content into the specified path, overwriting if it already exists.
     pub fn commit(self) -> Result<()> {
         rustix::fs::renameat(&self.dir, self.temp_name, &self.dir, self.final_name)
             .map_err(|e| Error::new(ErrorKind::Io, e))?;
