@@ -526,7 +526,7 @@ impl<I: Item> CollectionPlan<I> {
                 let item_b = items_b.iter().find(|i| i.uid == *uid);
 
                 let previous = match (status, &mapping_uid) {
-                    (Some(s), Some(m)) => { s.get_item_hash_by_uid(m, uid) }?,
+                    (Some(s), Some(m)) => s.get_item_hash_by_uid(m, uid)?,
                     _ => None,
                 };
 
