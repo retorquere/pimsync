@@ -11,6 +11,9 @@ target/release/vdirsyncer:
 install: build
 	@install -Dm755 target/release/vdirsyncer 	${DESTDIR}${PREFIX}/bin/vdirsyncer
 
+clean:
+	cargo clean
+
 check:
 	cargo build
 	cargo fmt --check
