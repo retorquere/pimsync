@@ -108,6 +108,10 @@ with untrusted parties.
 
 Please note that our security audit is still ongoing.
 
+# SEE ALSO
+
+vdirsyncer-config(5), vdirsyncer-migration(7)
+
 # DEVELOPMENT
 
 For issues and general development inquiries, see the project home currently
@@ -123,10 +127,6 @@ See:
 
 - https://nlnet.nl/project/vdirsyncer/
 - https://www.ngi.eu/ngi-projects/ngi-zero-entrust/
-
-# SEE ALSO
-
-vdirsyncer-config(5), vdirsyncer-migration(7)
 
 # HISTORY
 
