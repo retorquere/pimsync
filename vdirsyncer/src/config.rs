@@ -658,16 +658,16 @@ fn open_default_path() -> anyhow::Result<File> {
             return Ok(file);
         }
         debug!("Could not open config file {}", path.to_string_lossy());
-    }
-
-    #[allow(deprecated)] // Only problematic on unsupported platforms.
-    if let Some(home) = std::env::home_dir() {
-        let path = home.join(".config/vdirsyncer/config.toml");
-        if let Ok(file) = File::open(&path) {
-            debug!("Opened config file {}", path.to_string_lossy());
-            return Ok(file);
+    } else {
+        #[allow(deprecated)]
+        if let Some(home) = std::env::home_dir() {
+            let path = home.join(".config/vdirsyncer/config.toml");
+            if let Ok(file) = File::open(&path) {
+                debug!("Opened config file {}", path.to_string_lossy());
+                return Ok(file);
+            }
+            debug!("Could not open config file {}", path.to_string_lossy());
         }
-        debug!("Could not open config file {}", path.to_string_lossy());
     }
 
     bail!("No usable configuration file found");
