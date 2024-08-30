@@ -651,26 +651,18 @@ fn parse_from_file(mut path: File) -> anyhow::Result<Config> {
 ///
 /// Attempts to open multiple paths in sequence and returns the first that works.
 fn open_default_path() -> anyhow::Result<File> {
-    if let Some(xdg) = std::env::var_os("XDG_CONFIG_HOME") {
-        let path = PathBuf::from(xdg).join("vdirsyncer/config.toml");
-        if let Ok(file) = File::open(&path) {
-            debug!("Opened config file {}", path.to_string_lossy());
-            return Ok(file);
-        }
-        debug!("Could not open config file {}", path.to_string_lossy());
+    let path = if let Some(xdg) = std::env::var_os("XDG_CONFIG_HOME") {
+        PathBuf::from(xdg).join("vdirsyncer/config.toml")
     } else {
         #[allow(deprecated)]
-        if let Some(home) = std::env::home_dir() {
-            let path = home.join(".config/vdirsyncer/config.toml");
-            if let Ok(file) = File::open(&path) {
-                debug!("Opened config file {}", path.to_string_lossy());
-                return Ok(file);
-            }
-            debug!("Could not open config file {}", path.to_string_lossy());
-        }
-    }
+        let home = std::env::home_dir().context("Could not resolve $XDG_CONFIG_HOME nor $HOME.")?;
+        home.join(".config/vdirsyncer/config.toml")
+    };
 
-    bail!("No usable configuration file found");
+    let file =
+        File::open(&path).with_context(|| format!("Could not open {}.", path.to_string_lossy()))?;
+    debug!("Opened config file {}", path.to_string_lossy());
+    Ok(file)
 }
 
 pub(crate) fn load_from_default_path() -> anyhow::Result<Config> {
