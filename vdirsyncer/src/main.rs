@@ -395,14 +395,14 @@ impl App {
 async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse(std::env::args()).unwrap_or_else(|err| {
         eprintln!("Bad usage: {err}\n");
-        eprintln!("Usage: vdirsyncer [-v LOGLEVEL] COMMAND [ARGS...]");
+        eprintln!("Usage: vdirsyncer [-v LOGLEVEL] [-p PAIR] COMMAND [ARGS...]");
         eprintln!("Commands:");
-        eprintln!("\tcheck\t\t\t\tcheck configuration and exit");
-        eprintln!("\tdaemon -[r] [PAIR]\t\tkeep storages in sync");
-        eprintln!("\tsync [-d] [PAIR]\t\tsync storages once");
-        eprintln!("\tresolve-conflicts [-d] [PAIR]\tmanually resolve conflicts");
-        eprintln!("\tdiscover\t\t\tprint discovered collections");
-        eprintln!("\tversion\t\t\t\tprint version");
+        eprintln!("\tcheck\t\t\tcheck configuration and exit");
+        eprintln!("\tdaemon -[r READY_FD]\tkeep storages in sync");
+        eprintln!("\tsync [-d]\t\tsync storages once");
+        eprintln!("\tresolve-conflicts [-d]\tmanually resolve conflicts");
+        eprintln!("\tdiscover\t\tprint discovered collections");
+        eprintln!("\tversion\t\t\tprint version");
         eprintln!("See 'man vdirsyncer' for details");
         std::process::exit(100);
     });
