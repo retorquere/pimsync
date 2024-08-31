@@ -29,7 +29,7 @@ sha2 = "0.10.2"
 sqlite = "0.32.0"
 thiserror = "1.0.37"
 tokio = { version = "1.21.2", features = ["io-util", "fs"] }
-vparser = "1.0.0"
+vparser = "1.0.1"
 
 [dev-dependencies]
 anyhow = "1.0.71"

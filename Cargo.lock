@@ -1192,9 +1192,9 @@ checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
 
 [[package]]
 name = "vparser"
-version = "1.0.0"
+version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a45efe28b68e88b1585156e5d93bea74ced972ce5a21315a7a1e7a36b826006a"
+checksum = "f9d339a897ca0e42126ae5cccc53acc1bdc55e9888938e4beb7ca58f63ff5a7a"
 
 [[package]]
 name = "vstorage"
