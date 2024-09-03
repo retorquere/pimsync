@@ -13,6 +13,7 @@ use std::{
 
 use anyhow::{bail, Context};
 use camino::Utf8PathBuf;
+use config::{open_default_path, parse_from_file};
 use log::{debug, error, info, trace, warn};
 use rustix::fs::sync;
 use stdio::{StdIo, StdIoLock};
@@ -418,7 +419,13 @@ async fn main() -> anyhow::Result<()> {
         .expect("logger should initialise");
     info!("Logging enabled with {} level", cli.log_level);
 
-    let config = config::load_from_default_path().context("could not load configuration file")?;
+    let (config_path, config_file) = open_default_path()?;
+    let config = parse_from_file(config_file).with_context(|| {
+        format!(
+            "Could not parse configuration file at {}",
+            config_path.display()
+        )
+    })?;
     trace!("Parsed configuration: {:?}", &config);
 
     let app = config

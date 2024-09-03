@@ -639,7 +639,8 @@ impl StringOrCommand {
     }
 }
 
-fn parse_from_file(mut path: File) -> anyhow::Result<Config> {
+/// Parse a given file as a configuration file.
+pub(crate) fn parse_from_file(mut path: File) -> anyhow::Result<Config> {
     let mut raw = String::new();
     path.read_to_string(&mut raw)?;
     let config = toml::from_str::<Config>(&raw)?;
@@ -647,10 +648,10 @@ fn parse_from_file(mut path: File) -> anyhow::Result<Config> {
     Ok(config)
 }
 
-/// Open the default path.
+/// Open the configuration file, expecting it in the default path.
 ///
-/// Attempts to open multiple paths in sequence and returns the first that works.
-fn open_default_path() -> anyhow::Result<File> {
+/// Returns the path of the file opened and the file itself.
+pub(crate) fn open_default_path() -> anyhow::Result<(PathBuf, File)> {
     let path = if let Some(xdg) = std::env::var_os("XDG_CONFIG_HOME") {
         PathBuf::from(xdg).join("vdirsyncer/config.toml")
     } else {
@@ -662,11 +663,7 @@ fn open_default_path() -> anyhow::Result<File> {
     let file =
         File::open(&path).with_context(|| format!("Could not open {}.", path.to_string_lossy()))?;
     debug!("Opened config file {}", path.to_string_lossy());
-    Ok(file)
-}
-
-pub(crate) fn load_from_default_path() -> anyhow::Result<Config> {
-    parse_from_file(open_default_path()?)
+    Ok((path, file))
 }
 
 #[derive(Deserialize)]
