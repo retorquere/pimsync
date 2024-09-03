@@ -17,8 +17,9 @@ any combination of *vdir* and *carddav* is supported.
 # OPTIONS
 
 *-v* _loglevel_
-	Set logger to _loglevel_, which must be one of *debug*, *info*, *warn*
-	or *error*.
+	Set logger to _loglevel_, which must be one of *trace*, *debug*, *info*,
+	*warn* or *error*. When specifying *trace*, logs may contain sensitive
+	data, see *SECURITY CONSIDERATIONS* below.
 
 *-p* _pair_
 	Only operate on the pair named _pair_.
@@ -105,6 +106,9 @@ Vdirsyncer will retain credentials in memory during its entire lifetime. Any
 actor with read access to vdirsyncer's memory space may extract secret
 credentials from it. Likewise, core dumps from vdirsyncer should not be shared
 with untrusted parties.
+
+When logging with *-v trace*, logs MAY contain credentials, secrets, data inside
+of storage items and other sensitive information.
 
 Please note that our security audit is still ongoing.
 
