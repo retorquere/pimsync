@@ -18,8 +18,8 @@ any combination of *vdir* and *carddav* is supported.
 
 *-v* _loglevel_
 	Set logger to _loglevel_, which must be one of *trace*, *debug*, *info*,
-	*warn* or *error*. When specifying *trace*, logs may contain sensitive
-	data, see *SECURITY CONSIDERATIONS* below.
+	*warn* or *error*. The default is *warn*. When specifying *trace*, logs
+	may contain sensitive data, see *SECURITY CONSIDERATIONS* below.
 
 *-p* _pair_
 	Only operate on the pair named _pair_.
