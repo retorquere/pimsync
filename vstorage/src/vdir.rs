@@ -45,6 +45,9 @@ pub struct VdirStorage<I: Item> {
     i: PhantomData<I>,
 }
 
+const SAFE_FILENAME_CHARS: &str =
+    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-+";
+
 #[async_trait]
 impl<I: Item> Storage<I> for VdirStorage<I>
 where
@@ -195,11 +198,11 @@ where
     }
 
     async fn add_item(&self, collection_href: &str, item: &I) -> Result<ItemRef> {
-        // TODO: We only need to remove a few "illegal" characters, so this is a bit too strict.
         let basename = item
             .ident()
             .chars()
-            .filter(char::is_ascii_alphanumeric)
+            // TODO: We only need to remove a few "illegal" characters, so this is a bit too strict.
+            .filter(|c| SAFE_FILENAME_CHARS.contains(*c))
             .collect::<String>();
 
         let filename = format!("{}.{}", basename, self.extension);
@@ -632,5 +635,58 @@ mod tests {
         assert!(storage.build_item_path("..").is_err());
         assert!(storage.build_item_path(".").is_err());
         assert!(storage.build_item_path("s/../../").is_err());
+    }
+
+    #[tokio::test]
+    async fn only_safe_chars_in_filenames() {
+        let dir = tempdir().unwrap();
+        let storage = VdirStorage::<IcsItem>::new(
+            dir.path().to_path_buf().try_into().unwrap(),
+            "ics".to_string(),
+        );
+
+        let valid = [
+            "BEGIN:VCALENDAR",
+            "BEGIN:VEVENT",
+            "DTSTART:19970714T170000Z",
+            "DTEND:19970715T035959Z",
+            "SUMMARY:Bastille Day Party",
+            "UID:11bb6bed-c29b-4999-a627-12dee35f8395",
+            "END:VEVENT",
+            "END:VCALENDAR",
+        ]
+        .join("\r\n");
+        let item = IcsItem::from(valid);
+        storage.create_collection("one").await.unwrap();
+        let item_ref = storage.add_item("one", &item).await.unwrap();
+        assert_eq!(
+            item_ref.href,
+            "one/11bb6bed-c29b-4999-a627-12dee35f8395.ics"
+        );
+    }
+
+    #[tokio::test]
+    async fn only_unsafe_chars_in_filenames() {
+        let dir = tempdir().unwrap();
+        let storage = VdirStorage::<IcsItem>::new(
+            dir.path().to_path_buf().try_into().unwrap(),
+            "ics".to_string(),
+        );
+
+        let valid = [
+            "BEGIN:VCALENDAR",
+            "BEGIN:VEVENT",
+            "DTSTART:19970714T170000Z",
+            "DTEND:19970715T035959Z",
+            "SUMMARY:Bastille Day Party",
+            "UID:these/slashes/are/not/okay",
+            "END:VEVENT",
+            "END:VCALENDAR",
+        ]
+        .join("\r\n");
+        let item = IcsItem::from(valid);
+        storage.create_collection("one").await.unwrap();
+        let item_ref = storage.add_item("one", &item).await.unwrap();
+        assert_eq!(item_ref.href, "one/theseslashesarenotokay.ics");
     }
 }
