@@ -398,6 +398,7 @@ impl StatusDatabase {
         &self,
         mapping_uid: &MappingUid,
         uid: &str,
+        // FIXME: should take etag, in case another instance raced us and updated the item?
     ) -> Result<(), StatusError> {
         let query = "DELETE FROM items WHERE mapping_uid = ? AND ident = ?";
         let mut statement = self.conn.prepare(query)?;
