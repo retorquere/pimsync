@@ -9,7 +9,7 @@ use std::sync::Arc;
 use vstorage::base::{IcsItem, Storage};
 use vstorage::sync::declare::{DeclaredMapping, OnEmpty, StoragePair};
 use vstorage::sync::plan::{ItemAction, Plan};
-use vstorage::sync::status::StatusDatabase;
+use vstorage::sync::status::{Side, StatusDatabase};
 use vstorage::vdir::VdirStorage;
 
 fn random_string(len: usize) -> String {
@@ -360,5 +360,5 @@ async fn test_empty_protection_disabled() {
         .item_actions
         .first()
         .unwrap();
-    assert!(matches!(action, ItemAction::DeleteInB { .. }));
+    assert!(matches!(action, ItemAction::Delete { side: Side::B, .. }));
 }

@@ -72,8 +72,10 @@ impl ItemAction {
                 old_a,
                 old_b,
             } => update_item(b, a, source, target, old_a, old_b, status, Side::A).await,
-            ItemAction::DeleteInA { target } => delete_item(target, status, a, mapping_uid).await,
-            ItemAction::DeleteInB { target } => delete_item(target, status, b, mapping_uid).await,
+            ItemAction::Delete { side, target } => {
+                let storage = if *side == Side::A { a } else { b };
+                delete_item(target, status, storage, mapping_uid).await
+            }
             ItemAction::Conflict { a, .. } => {
                 error!("Conflict for items {}. Skipping.", a.uid);
                 Ok(Ok(()))

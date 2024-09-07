@@ -607,10 +607,8 @@ pub enum ItemAction {
         old_a: ItemRef,
         old_b: ItemRef,
     },
-    DeleteInA {
-        target: ItemState,
-    },
-    DeleteInB {
+    Delete {
+        side: Side,
         target: ItemState,
     },
     /// Item is in conflict which needs to be resolved externally.
@@ -623,6 +621,7 @@ pub enum ItemAction {
 }
 
 impl ItemAction {
+    #[allow(clippy::too_many_lines)]
     #[must_use]
     fn for_item(
         current_a: Option<&ItemState>,
@@ -638,7 +637,10 @@ impl ItemAction {
             (None, Some(b), None) => Some(ItemAction::CreateInA { source: b.clone() }),
             (None, Some(b), Some(prev)) => {
                 if b.hash == prev.hash {
-                    Some(ItemAction::DeleteInB { target: b.clone() })
+                    Some(ItemAction::Delete {
+                        side: Side::B,
+                        target: b.clone(),
+                    })
                 } else {
                     warn!("Item deleted in A but changed B: {}.", b.uid);
                     Some(ItemAction::CreateInA { source: b.clone() })
@@ -647,7 +649,10 @@ impl ItemAction {
             (Some(a), None, None) => Some(ItemAction::CreateInB { source: a.clone() }),
             (Some(a), None, Some(prev)) => {
                 if a.hash == prev.hash {
-                    Some(ItemAction::DeleteInA { target: a.clone() })
+                    Some(ItemAction::Delete {
+                        side: Side::A,
+                        target: a.clone(),
+                    })
                 } else {
                     warn!("Item deleted in B but changed A: {}.", a.uid);
                     Some(ItemAction::CreateInB { source: a.clone() })
@@ -757,11 +762,8 @@ impl std::fmt::Display for ItemAction {
             ItemAction::UpdateInB { source, .. } => {
                 write!(f, "update in storage b (href: {source})")
             }
-            ItemAction::DeleteInA { target } => {
-                write!(f, "delete in storage a (uid: {})", target.uid)
-            }
-            ItemAction::DeleteInB { target } => {
-                write!(f, "delete in storage b (uid: {})", target.uid)
+            ItemAction::Delete { side, target } => {
+                write!(f, "delete in storage {} (uid: {})", side, target.uid)
             }
             ItemAction::Conflict { a, .. } => {
                 write!(f, "conflict (uid: {})", a.uid)
