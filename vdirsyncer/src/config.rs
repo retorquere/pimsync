@@ -431,8 +431,8 @@ impl<I: Item> Vdir<I> {
 #[serde(deny_unknown_fields)]
 struct CardDav {
     url: StringOrCommand,
-    username: StringOrCommand,
-    password: StringOrCommand,
+    username: Option<StringOrCommand>,
+    password: Option<StringOrCommand>,
     #[serde(flatten)]
     network_opts: HttpsConfig,
 }
@@ -444,10 +444,16 @@ impl CardDav {
             .into_string()?
             .parse()
             .context("parsing caldav URL")?;
-        let auth = libdav::auth::Auth::Basic {
-            username: self.username.into_string()?,
-            // TODO: don't prompt if won't be sync'ed
-            password: Some(self.password.into_password()?),
+        let auth = match self.username {
+            Some(x) => libdav::auth::Auth::Basic {
+                username: x.into_string()?,
+                // TODO: don't prompt if won't be sync'ed
+                password: match self.password {
+                    Some(y) => Some(y.into_password()?),
+                    None => None,
+                },
+            },
+            None => libdav::auth::Auth::None,
         };
         let webdav = WebDavClient::new(url, auth, self.network_opts.into_connector()?);
         let client = CardDavClient::new_via_bootstrap(webdav).await?;
@@ -459,8 +465,8 @@ impl CardDav {
 #[serde(deny_unknown_fields)]
 struct CalDav {
     url: StringOrCommand,
-    username: StringOrCommand,
-    password: StringOrCommand,
+    username: Option<StringOrCommand>,
+    password: Option<StringOrCommand>,
     // TODO: start_date
     // TODO: end_date
     // TODO: item_types
@@ -475,10 +481,16 @@ impl CalDav {
             .into_string()?
             .parse()
             .context("parsing caldav URL")?;
-        let auth = libdav::auth::Auth::Basic {
-            username: self.username.into_string()?,
-            // TODO: don't prompt if won't be sync'ed
-            password: Some(self.password.into_password()?),
+        let auth = match self.username {
+            Some(x) => libdav::auth::Auth::Basic {
+                username: x.into_string()?,
+                // TODO: don't prompt if won't be sync'ed
+                password: match self.password {
+                    Some(y) => Some(y.into_password()?),
+                    None => None,
+                },
+            },
+            None => libdav::auth::Auth::None,
         };
         let webdav = WebDavClient::new(url, auth, self.network_opts.into_connector()?);
         let client = CalDavClient::new_via_bootstrap(webdav).await?;
