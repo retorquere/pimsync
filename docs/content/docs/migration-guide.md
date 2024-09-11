@@ -8,7 +8,25 @@ type: docs
 # Migration guide
 
 This migration guide covers changes to be kept in mind when migrating from the
-previous implementation (e.g.: the 0.x series).
+previous implementation (e.g.: the 0.x series). It is geared towards users with
+a working configuration of the previous implementation.
+
+## Missing features
+
+The following features were previously available, but are not currently
+available in v2.0.0:
+
+- HTTP Digest Auth.
+- `partial_sync` configuration parameter.
+- Encodings other than UTF-8.
+- `post_hook` configuration parameter.
+- `fileignoreext` configuration parameter.
+- Filtering for CalDav storages:
+  - `start_date`
+  - `end_date`
+  - `item_types`
+- Customisation of the `User-Agent`.
+- The `singlefile` storage.
 
 ## Configuration file format
 
