@@ -89,6 +89,22 @@ storages, and the locally configured DNS resolver.
 The status database file contains metadata of configured storages, their
 collections and items.
 
+# DATA VALIDATION
+
+Data synchronised is not validated. This is an intentional design choice: if
+your calendar application produces events that are technically invalid,
+vdirsyncer will synchronise, and you will be able to access the exact same data
+on other hosts. You may also need to synchronise invalid data in order to fix
+the invalidity.
+
+In order to map items between storage, vdirsyncer does some minor parsing of
+items to extract their UID. Items must be syntactically valid components, even
+if semantically invalid.
+
+In order to interact with CalDav/CardDav resources where a UID cannot be
+extracted, consider using davcli(1). In future, a *repair* command shall be
+included to address this scenario.
+
 # SECURITY CONSIDERATIONS
 
 When service discovery is enabled, the real hostname and port of the Dav server
