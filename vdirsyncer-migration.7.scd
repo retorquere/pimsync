@@ -24,44 +24,60 @@ available in v2.0.0:
 storages.
 - Customisation of the *User-Agent*.
 - The *singlefile* storage.
+- All metadata is synchronised. Selecting individual fields is not currently
+  possible.
 
 # CONFIGURATION FILE FORMAT
 
-The configuration file is now parsed as a TOML file, rather than a bespoke
-format. The main difference is that sections have a dot (instead of a space)
-separating the type and the name.
+The configuration format has changed. The general approach is the same but the
+syntax has been greatly simplified for humans to write. Technically, the format
+is the *scfg* format.
+
 
 The following:
 
 ```
-[pair contacts]
+[pair.contacts]
+a = "contacts_local"
+b = "contacts_fastmail"
+collections = "all"
+conflict_resolution = ["nvim", "-d"]
 ```
 
 Becomes:
 
 ```
-[pair.contacts]
+pair contacts {
+  storage_a contacts_local
+  storage_b contacts_fastmail
+  collections all
+  conflict_resolution nvim -d
+}
 ```
 
 And the following:
 
 ```
-[storage contacts_local]
+[storage.contacts_local]
+type = "filesystem"
+path = "~/.local/share/contacts/"
+fileext = "vcf"
 ```
 
 Becomes this:
 
 ```
-[storage.contacts_local]
+storage contacts_local {
+  type vdir/vcard
+  path ~/.local/share/contacts/
+  fileext vcf
+}
 ```
-
-While the difference is quite subtle, it allows using a standard TOML parser to
-read the configuration file, instead of having to implement our own parser.
 
 # FETCH MECHANISMS
 
-The *shell* and *prompt* mechanisms for fetching passwords  have been dropped.
-Only the *command* mechanism remains, and its syntax has changed slightly.
+The *shell* and *prompt* mechanisms for fetching passwords have been dropped.
+Only the *command* mechanism remains.
 
 A *fetch* definition with a *command* would previously look like this:
 
@@ -69,16 +85,18 @@ A *fetch* definition with a *command* would previously look like this:
 password.fetch = ["command", "hiq", "-dFpassword", "proto=carddavs", "username=..."]
 ```
 
-The word *fetch* is replaced by *command* and the word *command* is no longer
-required as the first parameter:
+Now a block is provided to **password** with a single **cmd** directive
+specifying the command and its arguments.
 
 ```
-password.command = ["hiq", "-dFpassword", "proto=carddavs", "username=..."]
+  password {
+    cmd hiq -dFpassword proto=carddavs username=...
+  }
 ```
 
 ## MIGRATING FETCH / SHELL
 
-The following `shell` example:
+The following *shell* example:
 
 ```
 password.fetch = ["shell", "~/.local/bin/get-my-password | head -n1"]
@@ -87,7 +105,9 @@ password.fetch = ["shell", "~/.local/bin/get-my-password | head -n1"]
 Can be replaced with:
 
 ```
-password.command = ["sh", "-c", "~/.local/bin/get-my-password | head -n1"]
+password {
+  cmd sh -c "~/.local/bin/get-my-password | head -n1"
+}
 ```
 
 ## MIGRATING FETCH / PROMPT
@@ -95,17 +115,18 @@ password.command = ["sh", "-c", "~/.local/bin/get-my-password | head -n1"]
 Use an external prompter instead. For a GUI prompter, consider using:
 
 ```
-password.command = ["zenity ", "--password"]
+password {
+  cmd zenity --password
+}
 ```
 
-*vdirsyncer(1)* will prompt for passwords in sequence, so no special
+*vdirsyncer(1)* will request passwords in sequence, so no special
 considerations are required to prevent concurrent prompts.
 
 # MANUAL DISCOVERY IS NO LONGER REQUIRED
 
 Discovering collections ahead of time is no longer required. Collections are
-discovered automatically. The *discover* command now has an entirely different
-use.
+discovered automatically if necessary.
 
 The *discover* command merely prints discovered collections as a convenience
 for manually configuring collections. It does not affect vdirsyncer's internal
@@ -123,7 +144,8 @@ individual collection should be explicitly specified instead.
 # DRY RUNS ARE NOW POSSIBLE
 
 It is now possible to execute a dry run, which only prints the tentative plan
-without executing it.
+without executing it. The output is somewhat terse at this stage and not in
+its final form.
 
 This can be used to audit new configurations and ensure that the planned
 actions make sense.
@@ -142,7 +164,7 @@ type = "vdir/icalendar"
 A directory with vcard files should specify:
 
 ```
-type = "vdir/vcard"
+type vdir/vcard
 ```
 
 # CUSTOM ENCODINGS FOR VDIR STORAGE
@@ -152,8 +174,6 @@ scenario, please open an issue at:
 
 	https://todo.sr.ht/~whynothugo/vdirsyncer-rs
 
-; TODO: this should be replaced with a link to a page describing issues and lists
-
 # FILESYSTEM FILEEXT FIELD
 
 The *fileext* field for filesystem storages required a leading dot. This is no
@@ -162,76 +182,91 @@ omitted. Omit the leading dot when porting configurations.
 
 # COLLECTIONS ARE DECLARED IN A DIFFERENT FORMAT
 
-The format for specifying collections from both sides remains the same:
+To synchronise all collections from both sides, use:
 
 ```
-collections = "all"
+collections all
 ```
 
-The format for specifying all collections from a single side also remains the
-same:
+To synchronise all collections present on a specific storage, use:
 
 ```
-collections = ["from b"]
+collections from b
 ```
 
-Only the above usages remain unchanged.
+## SPECIFYING INDIVIDUAL COLLECTIONS
 
-Collections can now be specified either by *id* or by *href*:
+Individual collections can be specified by *id* or by *href*:
 
-- The *id* is the name from discovery.
+- The *id* is the name from the discovery process.
 - The *href* is the full path inside the storage.
 
-Generally, using an *id* is recommended, and using an *href* is reserved for
-situations where discovery is not possible or where multiple collections have
-the same *id*.
+Generally, using an *id* is recommended. Using *href* is intended for situations
+where discovery is not possible or where multiple collections have the same
+*id*.
 
 To specify a single collection by name, use:
 
 ```
-collections = [
-    { id = "c037725e-e4fd-4b3e-b73d-d5e27d5a90a9" }
-]
+collection c037725e-e4fd-4b3e-b73d-d5e27d5a90a9
 ```
 
 The above will find synchronise collections with the given id between both
 storages.
 
-A collection can now also be specified by *href*:
-
-```
-collections = [
-    { href = "/calendars/hugo/c037725e-e4fd-4b3e-b73d-d5e27d5a90a9/" }
-]
-```
-
-Note that in the above case, the collection is expected to have the same *href*
-in both storages.
-
 Two different collections can mapped on each side:
 
 ```
-collections = [
-    # first collection
-    {
-        # an alias, used for logging:
-        "personal",
-        # the description of the collection on storage a
-        { href = "/calendars/hugo/c037725e-e4fd-4b3e-b73d-d5e27d5a90a9/" },
-        # the description of the collection on storage b
-        { href = "/personal/" },
-    },
-    # second collection
-    {
-        # an alias, used for logging:
-        "work",
-        # the description of the collection on storage a
-        { id = "work" },
-        # the description of the collection on storage b
-        { href = "/work/" },
-    }
-]
+pair my_pair {
+  # other fields here
+
+  # first collection
+  collection {
+      alias personal
+      href_a /calendars/hugo/c037725e-e4fd-4b3e-b73d-d5e27d5a90a9/
+      href_b /personal/
+  }
+
+  # another collection
+  collection {
+      alias work
+      id_a work
+      href_b /calendars/work/
+  }
+}
 ```
 
 Specifying collection *null* is no longer allowed; configuration should point
 to an explicitly collection instead.
+
+# WEBCAL COLLECTION NAME
+
+Due to its nature, the WebCal storage has a single collection. However, this
+collection has no name. A name must be provided for it explicitly. This
+simplifies configurations where it must be synchronised to another calendar with
+the same name.
+
+```
+storage calendars_lessons {
+  type http
+  collection_name lessons
+  url {
+    cmd hiq -dFurl proto=webcal alias=lessons
+  }
+}
+```
+
+# ISSUES
+
+Please report issues at:
+
+	https://todo.sr.ht/~whynothugo/vdirsyncer-rs
+
+If you have a working vdirsyncer 0.x configuration, and this page is missing
+details necessary when upgrading, please reach out so this documentation can be
+improved.
+
+# SEE ALSO
+
+- *scfg*, simple configuration format, https://git.sr.ht/~emersion/scfg
+- *hiq(1)*, query a *himitsu(7)* key store
