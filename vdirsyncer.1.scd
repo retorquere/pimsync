@@ -53,11 +53,11 @@ any combination of *vdir* and *carddav* is supported.
 
 If *$XDG_CONFIG_HOME* is define, the configuration shall be read from:
 
-	*$XDG_DATA_HOME*/vdirsyncer/config.toml
+	*$XDG_DATA_HOME*/vdirsyncer/config.scfg
 
 If the above is not defined, the configuration file shall be read from:
 
-	~/.config/vdirsyncer/config.toml
+	~/.config/vdirsyncer/config.scfg
 
 # ENVIRONMENT
 

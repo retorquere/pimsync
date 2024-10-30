@@ -5,7 +5,6 @@
 #![deny(clippy::unwrap_used)]
 
 use std::{
-    ffi::OsString,
     io::{read_to_string, Seek, Write},
     sync::Arc,
     time::Duration,
@@ -13,7 +12,7 @@ use std::{
 
 use anyhow::{bail, Context};
 use camino::Utf8PathBuf;
-use config::{open_default_path, parse_from_file};
+use config::{open_default_path, parse_config};
 use log::{debug, error, info, trace, warn};
 use rustix::fs::sync;
 use stdio::{StdIo, StdIoLock};
@@ -55,8 +54,17 @@ pub(crate) struct NamedPair<I: Item> {
 ///
 /// This helper is used for commands that need to be executed multiple times.
 pub struct RawCommand {
-    command: OsString,
-    args: Vec<OsString>,
+    command: String,
+    args: Vec<String>,
+}
+
+impl RawCommand {
+    #[must_use]
+    pub fn command(&self) -> std::process::Command {
+        let mut cmd = std::process::Command::new(&self.command);
+        cmd.args(&self.args);
+        cmd
+    }
 }
 
 /// Simply log non-fatal errors.
@@ -216,8 +224,8 @@ impl<I: Item> NamedPair<I> {
                 .context("fetching conflicted item from B")?;
 
             info!("Running conflict resolution for item {}", a.uid);
-            let exit_status = std::process::Command::new(&raw_cmd.command)
-                .args(&raw_cmd.args)
+            let exit_status = raw_cmd
+                .command()
                 .arg(temp_a.path())
                 .arg(temp_b.path())
                 .spawn()
@@ -420,7 +428,8 @@ async fn main() -> anyhow::Result<()> {
     info!("Logging enabled with {} level", cli.log_level);
 
     let (config_path, config_file) = open_default_path()?;
-    let config = parse_from_file(config_file).with_context(|| {
+    let config_data = read_to_string(config_file)?;
+    let config = parse_config(&config_data, &cli.pairs).with_context(|| {
         format!(
             "Could not parse configuration file at {}",
             config_path.display()
@@ -429,7 +438,7 @@ async fn main() -> anyhow::Result<()> {
     trace!("Parsed configuration: {:?}", &config);
 
     let app = config
-        .into_app(cli.pairs)
+        .into_app()
         .await
         .context("initialising application")?;
     debug!("Initialised application");

@@ -3,32 +3,28 @@
 // SPDX-License-Identifier: EUPL-1.2
 
 use std::{
-    collections::{HashMap, VecDeque},
-    ffi::OsString,
-    fs::File,
-    io::Read,
-    marker::PhantomData,
-    path::PathBuf,
-    process::{Command, Stdio},
-    sync::Arc,
-    time::Duration,
+    collections::HashMap, fs::File, path::PathBuf, process::Stdio, sync::Arc, time::Duration,
 };
 
-use anyhow::{bail, Context};
-use camino::{Utf8Path, Utf8PathBuf};
+use anyhow::{bail, ensure, Context};
+use camino::Utf8PathBuf;
 use hyper_rustls::{ConfigBuilderExt, HttpsConnector, HttpsConnectorBuilder};
 use hyper_util::client::legacy::connect::HttpConnector;
-use libdav::{auth::Password, dav::WebDavClient, CalDavClient, CardDavClient};
-use log::{debug, error};
+use libdav::{
+    auth::{Auth, Password},
+    dav::WebDavClient,
+    CalDavClient, CardDavClient,
+};
+use log::{debug, error, info};
 use rustls::{client::danger::DangerousClientConfigBuilder, ClientConfig, RootCertStore};
-use serde::{Deserialize, Deserializer};
+use scfg::{Directive, Scfg};
 use tokio::sync::Mutex;
 use vstorage::{
     base::{IcsItem, Item, Storage, VcardItem},
     caldav::CalDavStorage,
     carddav::CardDavStorage,
     sync::declare::{CollectionDescription, DeclaredMapping, OnEmpty, StoragePair},
-    vdir::VdirStorage,
+    vdir::{PropertyWithFilename, VdirStorage},
     webcal::WebCalStorage,
     CollectionId,
 };
@@ -39,18 +35,18 @@ use crate::{
         cert_and_key_from_pemfile, certs_from_pemfile, key_from_pemfile,
         FingerprintAndWebPkiVerifier, FingerprintVerifier,
     },
-    App, NamedPair, RawCommand, VERSION,
+    App, NamedPair, RawCommand,
 };
 
 /// A deserialised configuration file.
-#[derive(Deserialize, Debug)]
-#[serde(deny_unknown_fields)]
+#[derive(Debug)]
 pub(crate) struct Config {
-    general: GeneralSection,
-    #[serde(rename = "pair")]
-    pairs: HashMap<String, PairSection>,
-    #[serde(rename = "storage")]
-    storages: HashMap<String, StorageSection>,
+    status_path: Utf8PathBuf,
+    /// Used when storages do not implement or support monitoring.
+    // FIXME: TODO: move into individual storage definitions.
+    interval: Duration,
+    pairs: HashMap<String, Scfg>,
+    storages: HashMap<String, Scfg>,
 }
 
 impl Config {
@@ -60,12 +56,9 @@ impl Config {
     /// unnecessary data.
     ///
     /// If `enabled_pairs` is not `None`, only pairs with a matching name will be loaded.
-    pub(crate) async fn into_app<'storages>(
-        mut self,
-        enabled_pairs: Option<Vec<String>>,
-    ) -> anyhow::Result<App> {
-        let status_dir = expand_tilde(self.general.status_path)
-            .context("error expanding tilde for status_dir")?;
+    pub(crate) async fn into_app<'storages>(mut self) -> anyhow::Result<App> {
+        let status_dir =
+            expand_tilde(self.status_path).context("Expanding tilde for status_dir")?;
 
         // Only already-initialised storages (name -> instance).
         // TODO: keep instance so I can later lock storages before using them.
@@ -75,37 +68,67 @@ impl Config {
         let mut calendar_pairs = Vec::new();
         let mut contact_pairs = Vec::new();
 
-        for (name, source) in self.pairs {
-            // Skip disabled storages.
-            if let Some(pairs) = &enabled_pairs {
-                if !pairs.contains(&name) {
-                    continue;
+        for (name, mut config) in self.pairs {
+            info!("Initialising pair {name}");
+            let mut collections = Vec::<Collections>::new();
+
+            let name_a = take_single_param_from_directive(&mut config, "storage_a")?;
+            let storage_a = init_storage(&mut self.storages, &mut storages, &name_a).await?;
+
+            let name_b = take_single_param_from_directive(&mut config, "storage_b")?;
+            let storage_b = init_storage(&mut self.storages, &mut storages, &name_b).await?;
+
+            if let Some(directives) = config.remove("collections") {
+                for directive in directives {
+                    let params = directive.params().join(" ");
+                    collections.push(parse_collections_directive(&params)?);
                 }
             }
 
-            let a = resolve_storage(&mut self.storages, &mut storages, &source.a).await?;
-            let b = resolve_storage(&mut self.storages, &mut storages, &source.b).await?;
+            if let Some(directives) = config.remove("collection") {
+                for directive in directives {
+                    collections.push(parse_collection_directive(directive)?);
+                }
+            }
 
-            let lock_a = locks.entry(source.a.clone()).or_default().clone();
-            let lock_b = locks.entry(source.b.clone()).or_default().clone();
+            let on_empty = if let Some(directive) = take_single_directive(&mut config, "on_empty")?
+            {
+                parse_on_empty(directive).context("Parsing on_empty")?
+            } else {
+                OnEmpty::default()
+            };
+
+            let conflict_resolution = if let Some(directive) =
+                take_single_directive(&mut config, "conflict_resolution")?
+            {
+                Some(parse_raw_command(directive).context("Parsing conflict_resolution")?)
+            } else {
+                None
+            };
+
+            // TODO: metadata
+
+            let lock_a = locks.entry(name_a.clone()).or_default().clone();
+            let lock_b = locks.entry(name_b.clone()).or_default().clone();
 
             // Keep locks sorted based on storage name. Prevents deadlocks.
-            let locks = if source.a < source.b {
+            let locks = if name_a < name_b {
                 (lock_a, lock_b)
             } else {
                 (lock_b, lock_a)
             };
 
-            match (a, b) {
+            let status_path = status_dir.join(format!("{name}.status"));
+            match (storage_a, storage_b) {
                 (EitherStorage::Calendar(a), EitherStorage::Calendar(b)) => {
-                    let pair = source.try_into_named_pair(
+                    calendar_pairs.push(NamedPair {
                         name,
-                        a.clone(),
-                        b.clone(),
+                        inner: init_pair(collections, (a, b), on_empty),
+                        status_path,
+                        conflict_resolution,
                         locks,
-                        &status_dir,
-                    )?;
-                    calendar_pairs.push(pair);
+                        names: (name_a, name_b),
+                    });
                 }
                 (EitherStorage::Calendar(_), EitherStorage::AddressBook(_)) => {
                     bail!("pair {} mixes calendar storage with contacts storage", name)
@@ -114,14 +137,14 @@ impl Config {
                     bail!("pair {} mixes contacts storage with calendar storage", name)
                 }
                 (EitherStorage::AddressBook(a), EitherStorage::AddressBook(b)) => {
-                    let pair = source.try_into_named_pair(
+                    contact_pairs.push(NamedPair {
                         name,
-                        a.clone(),
-                        b.clone(),
+                        inner: init_pair(collections, (a, b), on_empty),
+                        status_path,
+                        conflict_resolution,
                         locks,
-                        &status_dir,
-                    )?;
-                    contact_pairs.push(pair);
+                        names: (name_a, name_b),
+                    });
                 }
             }
         }
@@ -129,29 +152,61 @@ impl Config {
         Ok(App {
             calendar_pairs,
             contact_pairs,
-            interval: Duration::from_secs(self.general.interval),
+            interval: self.interval,
             stdio: Arc::new(StdIo::new()),
         })
     }
 }
 
+fn parse_collections_directive(params: &str) -> anyhow::Result<Collections> {
+    let c = if params == "all" {
+        Collections::All
+    } else if params == "from a" {
+        Collections::FromA
+    } else if params == "from b" {
+        Collections::FromB
+    } else {
+        bail!("Invalid value for colletions: {params}");
+    };
+    Ok(c)
+}
+
+// TODO: a "protect" flag to protect one side if EVERYTHING is about to be deleted:
+// - off
+// - items: refuses to operate if any item would be deleted.
+// - collection: refuses to operate if a non-empty collection would be emptied or deleted.
+// - storage: refuses to operate if ALL collections would be emptied or deleted.
+// TODO: changelog MUST mention the change in default behaviour here.
+
 /// If the storage is in `raw_storages`, initialise it and add it into `parsed_storages`.
 /// Otherwise, find it in `parsed_storages`.
-async fn resolve_storage(
-    raw_storages: &mut HashMap<String, StorageSection>,
+async fn init_storage(
+    raw_storages: &mut HashMap<String, Scfg>,
     parsed_storages: &mut HashMap<String, EitherStorage>,
     storage_name: &str,
 ) -> anyhow::Result<EitherStorage> {
-    if let Some((name, s)) = raw_storages.remove_entry(storage_name) {
-        let storage = s.into_storage().await?;
+    if let Some((name, mut config)) = raw_storages.remove_entry(storage_name) {
+        let type_ = take_single_param_from_directive(&mut config, "type")?;
+        let storage = match type_.as_ref() {
+            "vdir/icalendar" => EitherStorage::Calendar(parse_vdir(config)?),
+            "vdir/vcard" => EitherStorage::AddressBook(parse_vdir(config)?),
+            // TODO: should not await here; return a FutureStorage instead.
+            "carddav" => EitherStorage::AddressBook(parse_carddav(config).await?),
+            "caldav" => EitherStorage::Calendar(parse_caldav(config).await?),
+            "http" => EitherStorage::Calendar(parse_webcal(config)?),
+            _ => bail!("Unknown storage type: {type_}"),
+        };
+
         let inner = storage.clone();
-        parsed_storages.insert(name, storage);
+        info!("Initialised storage {name}");
+        parsed_storages.insert(name.to_string(), storage);
         Ok(inner)
     } else {
+        debug!("Re-using storage {storage_name}");
         parsed_storages
             .get(storage_name)
             .cloned()
-            .with_context(|| format!("storage {storage_name} is not defined."))
+            .with_context(|| format!("Storage {storage_name} is not defined."))
     }
 }
 
@@ -172,191 +227,102 @@ fn expand_tilde(orig: Utf8PathBuf) -> Result<Utf8PathBuf, camino::FromPathBufErr
     Ok(orig)
 }
 
-/// The "general" section of the parsed configuration file
-#[derive(Deserialize, Debug)]
-#[serde(deny_unknown_fields)]
-pub(crate) struct GeneralSection {
-    status_path: Utf8PathBuf,
-    /// In seconds. Used when storages do not implement or support monitoring.
-    #[serde(default = "default_interval")]
-    interval: u64,
-}
-
-fn default_interval() -> u64 {
-    300
-}
-
-/// A "pair" section of the parsed configuration file
-#[derive(Deserialize, Debug)]
-#[serde(deny_unknown_fields)]
-struct PairSection {
-    a: String,
-    b: String,
-    collections: Collections,
-    #[allow(dead_code)]
-    metadata: Option<Vec<String>>,
-    conflict_resolution: Option<VecDeque<String>>,
-    #[serde(with = "OnEmptyDef", default)]
+fn init_pair<I: Item>(
+    collections: Vec<Collections>,
+    storages: (Arc<dyn Storage<I>>, Arc<dyn Storage<I>>),
     on_empty: OnEmpty,
     // TODO: partial_sync
-}
+) -> StoragePair<I> {
+    let mut pair = StoragePair::new(storages.0, storages.1);
 
-impl PairSection {
-    fn try_into_named_pair<I: Item>(
-        self,
-        name: String,
-        a: Arc<dyn Storage<I>>,
-        b: Arc<dyn Storage<I>>,
-        locks: (Arc<Mutex<()>>, Arc<Mutex<()>>),
-        status_dir: &Utf8Path,
-    ) -> anyhow::Result<NamedPair<I>> {
-        let status_path = status_dir.join(format!("{name}.status"));
-
-        let mut pair = StoragePair::new(a, b);
-
-        match self.collections {
-            Collections::All => {
-                pair = pair.with_all_from_a().with_all_from_b();
-            }
-            Collections::Mappings(mappings) => {
-                for cv in mappings {
-                    pair = match cv {
-                        CollectionValue::FromA => pair.with_all_from_a(),
-                        CollectionValue::FromB => pair.with_all_from_b(),
-                        CollectionValue::Mapped(alias, a, b) => {
-                            pair.with_mapping(DeclaredMapping::Mapped {
-                                alias,
-                                a: a.into_description(),
-                                b: b.into_description(),
-                            })
-                        }
-                        CollectionValue::Collection(col) => pair.with_mapping(col.into_mapping()),
-                    };
-                }
+    for collection in collections {
+        pair = match collection {
+            Collections::All => pair.with_all_from_a().with_all_from_b(),
+            Collections::FromA => pair.with_all_from_a(),
+            Collections::FromB => pair.with_all_from_b(),
+            Collections::Named(id) => pair.with_mapping(DeclaredMapping::direct(id)),
+            Collections::Mapped(alias, a, b) => {
+                pair.with_mapping(DeclaredMapping::Mapped { alias, a, b })
             }
         }
+    }
 
-        pair = pair.on_empty(self.on_empty);
+    pair.on_empty(on_empty)
+}
 
-        let conflict_resolution = match self.conflict_resolution {
-            Some(args) => {
-                let mut args: VecDeque<_> = args.into_iter().map(OsString::from).collect();
-                Some(RawCommand {
-                    command: args
-                        .pop_front()
-                        .context("conflict_resolution must specify a command")?,
-                    args: args.into(),
-                })
-            }
-            None => None,
-        };
+fn parse_collection_directive(mut directive: Directive) -> anyhow::Result<Collections> {
+    if let Some(param) = directive.params().first() {
+        // TODO: should bail if more than one parameter is specified?
+        let name = param.parse().context("Parsing collection id")?;
+        Ok(Collections::Named(name))
+    } else {
+        let mut child = directive
+            .take_child()
+            .context("Collection directive must specify an id or a block")?;
 
-        Ok(NamedPair {
-            name,
-            inner: pair,
-            status_path,
-            conflict_resolution,
-            locks,
-            names: (self.a, self.b),
-        })
+        let alias = take_single_param_from_directive(&mut child, "alias")?;
+        let id_a = take_single_directive(&mut child, "id_a")?;
+        let href_a = take_single_directive(&mut child, "href_a")?;
+        let id_b = take_single_directive(&mut child, "id_b")?;
+        let href_b = take_single_directive(&mut child, "href_b")?;
+
+        let a = parse_individual_collection(id_a, href_a)?;
+        let b = parse_individual_collection(id_b, href_b)?;
+        Ok(Collections::Mapped(alias, a, b))
     }
 }
 
-#[derive(Deserialize, Debug)]
-#[serde(deny_unknown_fields)]
+/// Flatten a `Vec` which is expected to have a single item.
+fn flatten_single_vec<T>(mut vec: Vec<T>) -> Option<T> {
+    if vec.len() == 1 {
+        vec.pop()
+    } else {
+        None
+    }
+}
+
+fn parse_individual_collection(
+    id: Option<Directive>,
+    href: Option<Directive>,
+) -> anyhow::Result<CollectionDescription> {
+    Ok(match (id, href) {
+        (None, None) => bail!("collection block must define either id_a or href_a"),
+        (None, Some(mut href)) => {
+            let href = flatten_single_vec(href.take_params())
+                .context("Collection href must define exactly one parameter")?;
+            CollectionDescription::Href { href }
+        }
+        (Some(mut id), None) => {
+            let id = flatten_single_vec(id.take_params())
+                .context("Collection id must define exactly one parameter")?
+                .parse()
+                .context("Parsing collection id")?;
+            CollectionDescription::Id { id }
+        }
+        (Some(_), Some(_)) => bail!("Collection block cannot define both id_a and href_a."),
+    })
+}
+
+fn parse_on_empty(mut directive: Directive) -> anyhow::Result<OnEmpty> {
+    let val = directive
+        .take_params()
+        .pop()
+        .context("Directive on_empty must include one parameter")?;
+
+    match val.as_ref() {
+        "skip" => Ok(OnEmpty::Skip),
+        "sync" => Ok(OnEmpty::Sync),
+        _ => bail!("on_empty must specify either 'skip' or 'sync'"),
+    }
+}
+
+// Temporary field
 enum Collections {
-    #[serde(rename = "all")]
     All,
-    #[serde(untagged)]
-    Mappings(Vec<CollectionValue>),
-}
-
-#[derive(Deserialize, Debug)]
-#[serde(deny_unknown_fields)]
-enum CollectionValue {
-    #[serde(rename = "from a")]
     FromA,
-    #[serde(rename = "from b")]
     FromB,
-    #[serde(rename = "mapped")]
-    Mapped(String, Collection, Collection),
-    #[serde(untagged)]
-    Collection(Collection),
-}
-
-fn deserialise_collection_id<'de, D>(deserializer: D) -> Result<CollectionId, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let s: String = Deserialize::deserialize(deserializer)?;
-    CollectionId::try_from(s).map_err(serde::de::Error::custom)
-}
-
-#[derive(Deserialize, Debug)]
-#[serde(deny_unknown_fields)]
-enum Collection {
-    #[serde(rename = "id", deserialize_with = "deserialise_collection_id")]
-    Id(CollectionId),
-    #[serde(rename = "href")]
-    Href(String),
-}
-
-impl Collection {
-    fn into_description(self) -> CollectionDescription {
-        match self {
-            Collection::Id(id) => CollectionDescription::Id { id },
-            Collection::Href(href) => CollectionDescription::Href { href },
-        }
-    }
-
-    fn into_mapping(self) -> DeclaredMapping {
-        match self {
-            Collection::Id(id) => DeclaredMapping::Direct {
-                description: CollectionDescription::Id { id },
-            },
-            Collection::Href(href) => DeclaredMapping::Direct {
-                description: CollectionDescription::Href { href },
-            },
-        }
-    }
-}
-
-#[derive(Deserialize, Debug)]
-#[serde(deny_unknown_fields)]
-enum CollectionSpecial {
-    #[serde(rename = "all")]
-    All,
-    #[serde(rename = "from a")]
-    FromA,
-    #[serde(rename = "from b")]
-    FromB,
-}
-
-/// A "storage" section of the parsed configuration file
-#[derive(Deserialize, Debug)]
-#[serde(deny_unknown_fields)]
-#[serde(tag = "type")]
-enum StorageSection {
-    // TODO: a "protect" flag to protect one side if EVERYTHING is about to be deleted:
-    // - off
-    // - items: refuses to operate if any item would be deleted.
-    // - collection: refuses to operate if a non-empty collection would be emptied or deleted.
-    // - storage: refuses to operate if ALL collections would be emptied or deleted.
-    // TODO: changelog MUST mention the change in default behaviour here.
-    #[serde(rename = "vdir/icalendar")]
-    VdirIcalendar(Vdir<IcsItem>),
-
-    #[serde(rename = "vdir/vcard")]
-    VdirVcard(Vdir<VcardItem>),
-
-    #[serde(rename = "carddav")]
-    CardDav(CardDav),
-
-    #[serde(rename = "caldav")]
-    CalDav(CalDav),
-
-    #[serde(rename = "http")]
-    Http(Http),
+    Named(CollectionId),
+    Mapped(String, CollectionDescription, CollectionDescription),
 }
 
 #[derive(Clone)] // Cheap clone; enum + Arc.
@@ -365,172 +331,241 @@ pub(crate) enum EitherStorage {
     AddressBook(Arc<dyn Storage<VcardItem>>),
 }
 
-impl StorageSection {
-    pub(crate) async fn into_storage(self) -> anyhow::Result<EitherStorage> {
-        Ok(match self {
-            StorageSection::VdirIcalendar(def) => {
-                let inner = Arc::new(def.into_storage()?);
-                EitherStorage::Calendar(inner)
-            }
-            StorageSection::VdirVcard(def) => {
-                let inner = Arc::new(def.into_storage()?);
-                EitherStorage::AddressBook(inner)
-            }
-            StorageSection::CardDav(carddav) => {
-                let inner = Arc::new(carddav.into_storage().await?);
-                EitherStorage::AddressBook(inner)
-            }
-            StorageSection::CalDav(caldav) => {
-                let inner = Arc::new(caldav.into_storage().await?);
-                EitherStorage::Calendar(inner)
-            }
-            StorageSection::Http(http) => {
-                let inner = Arc::new(http.into_storage()?);
-                EitherStorage::Calendar(inner)
-            }
-        })
-    }
-}
+fn parse_vdir<I: Item + 'static>(mut config: Scfg) -> anyhow::Result<Arc<dyn Storage<I>>>
+where
+    I::Property: PropertyWithFilename,
+{
+    let path = take_single_param_from_directive(&mut config, "path")?;
+    let path = Utf8PathBuf::from(path);
+    let path = expand_tilde(path).context("Expanding tilde for storage")?;
 
-#[derive(Deserialize, Debug)]
-#[serde(deny_unknown_fields)]
-struct Vdir<I: Item> {
-    path: Utf8PathBuf,
-    fileext: String,
-    /// Not implemented; bails.
-    encoding: Option<String>,
+    let fileext = take_single_param_from_directive(&mut config, "fileext")?;
+    // v0.X series expected the leading dot. This is not ideal and should be deprecated.
+    let fileext = fileext.strip_prefix('.').unwrap_or(&fileext).to_string();
+
+    if config.remove("encoding").is_some() {
+        // I don't want to implement a feature that is potentially unused.
+        // If someone really needs this, it's doable.
+        error!("Vdir storage does no implement 'encoding' in v2.0.0.");
+        error!("If you need to define a specific encoding, please open an issue.");
+        bail!("'encoding' is not implemented for vdir storages.");
+    }
+
     // TODO: post_hook
     // TODO: fileignoreext
-    #[allow(dead_code)]
-    post_hook: Option<OsString>,
-    #[serde(default)]
-    item: PhantomData<I>,
+
+    Ok(Arc::new(VdirStorage::new(path, fileext)))
 }
 
-impl<I: Item> Vdir<I> {
-    fn into_storage(self) -> anyhow::Result<VdirStorage<I>> {
-        if self.encoding.is_some() {
-            // I don't want to implement a feature that is potentially unused.
-            // If someone really needs this, it's doable.
-            error!("Vdir storage does no implement 'encoding' in v2.0.0.");
-            error!("If you need to define a specific encoding, please open an issue.");
-            bail!("'encoding' is not implemented for vdir storages.");
+enum IntoString {
+    Raw(String),
+    Cmd(RawCommand),
+}
+
+impl IntoString {
+    fn into_string(self) -> anyhow::Result<String> {
+        match self {
+            IntoString::Raw(raw) => Ok(raw),
+            IntoString::Cmd(raw_command) => {
+                let output = raw_command
+                    .command()
+                    .stdout(Stdio::piped())
+                    .output()
+                    .context("Error executing command")?;
+                match output.status.code() {
+                    Some(0) => Ok(std::str::from_utf8(&output.stdout)?.trim().to_owned()),
+                    Some(code) => bail!("Command exited with status {}.", code),
+                    None => bail!("Command exited unexpectedly."),
+                }
+            }
         }
-        let path = expand_tilde(self.path).context("error expanding tilde for storage")?;
-        // v0.X series expected the leading dot. This is not ideal and should be deprecated.
-        let fileext = self
-            .fileext
-            .strip_prefix('.')
-            .unwrap_or(&self.fileext)
-            .to_string();
-        Ok(VdirStorage::new(path, fileext))
+    }
+
+    fn into_password(self) -> anyhow::Result<Password> {
+        let string = self.into_string()?;
+        if string.is_empty() {
+            bail!("Command returned an empty password. This is likely a misconfiguration.")
+        }
+        Ok(Password::from(string))
     }
 }
 
-#[derive(Deserialize, Debug)]
-#[serde(deny_unknown_fields)]
-struct CardDav {
-    url: StringOrCommand,
-    username: Option<StringOrCommand>,
-    password: Option<StringOrCommand>,
-    #[serde(flatten)]
-    network_opts: HttpsConfig,
+async fn parse_carddav(mut config: Scfg) -> anyhow::Result<Arc<dyn Storage<VcardItem>>> {
+    let url = take_single_param_from_directive(&mut config, "url")?
+        .parse()
+        .context("Parsing carddav url")?;
+    let network_opts = parse_tls_config(&mut config)?;
+    let auth = parse_auth(&mut config).context("Parsing carddav storage auth")?;
+    let webdav = WebDavClient::new(url, auth, network_opts.into_connector()?);
+    let client = CardDavClient::new_via_bootstrap(webdav).await?;
+    Ok(Arc::new(CardDavStorage::new(client).await?))
 }
 
-impl CardDav {
-    async fn into_storage(self) -> anyhow::Result<CardDavStorage<HttpsConnector<HttpConnector>>> {
-        let url = self
-            .url
-            .into_string()?
-            .parse()
-            .context("parsing caldav URL")?;
-        let auth = match self.username {
-            Some(x) => libdav::auth::Auth::Basic {
-                username: x.into_string()?,
-                // TODO: don't prompt if won't be sync'ed
-                password: match self.password {
-                    Some(y) => Some(y.into_password()?),
-                    None => None,
-                },
-            },
-            None => libdav::auth::Auth::None,
-        };
-        let webdav = WebDavClient::new(url, auth, self.network_opts.into_connector()?);
-        let client = CardDavClient::new_via_bootstrap(webdav).await?;
-        Ok(CardDavStorage::new(client).await?)
-    }
-}
+async fn parse_caldav(mut config: Scfg) -> anyhow::Result<Arc<dyn Storage<IcsItem>>> {
+    let url = take_single_param_from_directive(&mut config, "url")?
+        .parse()
+        .context("Parsing caldav url")?;
 
-#[derive(Deserialize, Debug)]
-#[serde(deny_unknown_fields)]
-struct CalDav {
-    url: StringOrCommand,
-    username: Option<StringOrCommand>,
-    password: Option<StringOrCommand>,
     // TODO: start_date
     // TODO: end_date
     // TODO: item_types
-    #[serde(flatten)]
-    network_opts: HttpsConfig,
+
+    let network_opts = parse_tls_config(&mut config)?;
+    let auth = parse_auth(&mut config).context("Parsing caldav auth")?;
+    let webdav = WebDavClient::new(url, auth, network_opts.into_connector()?);
+    let client = CalDavClient::new_via_bootstrap(webdav).await?;
+    Ok(Arc::new(CalDavStorage::new(client).await?))
 }
 
-impl CalDav {
-    async fn into_storage(self) -> anyhow::Result<CalDavStorage<HttpsConnector<HttpConnector>>> {
-        let url = self
-            .url
-            .into_string()?
-            .parse()
-            .context("parsing caldav URL")?;
-        let auth = match self.username {
-            Some(x) => libdav::auth::Auth::Basic {
-                username: x.into_string()?,
-                // TODO: don't prompt if won't be sync'ed
-                password: match self.password {
-                    Some(y) => Some(y.into_password()?),
-                    None => None,
-                },
+fn parse_webcal(mut config: Scfg) -> anyhow::Result<Arc<dyn Storage<IcsItem>>> {
+    let url =
+        take_single_directive(&mut config, "url")?.context("Webcal storage must define a url")?;
+    let url = parse_into_string(url)
+        .context("Parsing webcal URL")?
+        .into_string()
+        .context("Resolving webcal URL")?
+        .parse()?;
+
+    let collection_name = take_single_param_from_directive(&mut config, "collection_name")?
+        .parse()
+        .context("Parsing webcal url")?;
+
+    // TODO: network_opts
+    // TODO: authentication fields
+    // TODO: TLS fields
+
+    Ok(Arc::new(WebCalStorage::new(url, collection_name)?))
+}
+
+fn parse_auth(directive: &mut Scfg) -> anyhow::Result<Auth> {
+    let username = take_single_directive(directive, "username")?
+        .map(parse_into_string)
+        .transpose()
+        .context("Parsing username directive")?;
+    let password = take_single_directive(directive, "password")?
+        .map(parse_into_string)
+        .transpose()
+        .context("Parsing username directive")?;
+
+    let auth = match username {
+        Some(x) => Auth::Basic {
+            username: x.into_string().context("Resolving username")?,
+            password: match password {
+                Some(y) => Some(y.into_password().context("Resolving password")?),
+                None => None,
             },
-            None => libdav::auth::Auth::None,
-        };
-        let webdav = WebDavClient::new(url, auth, self.network_opts.into_connector()?);
-        let client = CalDavClient::new_via_bootstrap(webdav).await?;
-        Ok(CalDavStorage::new(client).await?)
-    }
+        },
+        None => Auth::None,
+    };
+    Ok(auth)
 }
 
-#[derive(Deserialize, Debug)]
-#[serde(deny_unknown_fields)]
-pub(crate) struct Http {
-    url: StringOrCommand,
-    /// A name for the single collection inside this storage.
-    #[serde(deserialize_with = "deserialise_collection_id")]
-    collection: CollectionId,
-    #[serde(flatten)]
-    #[allow(dead_code)]
-    https_config: HttpsConfig,
+fn parse_into_string(directive: Directive) -> anyhow::Result<IntoString> {
+    let result = if let Some(param) = directive.params().first() {
+        IntoString::Raw(param.to_owned())
+    } else {
+        IntoString::Cmd(parse_raw_command(directive)?)
+    };
+    Ok(result)
 }
 
-impl Http {
-    fn into_storage(self) -> anyhow::Result<WebCalStorage> {
-        Ok(WebCalStorage::new(
-            self.url.into_string()?.parse()?,
-            self.collection,
-        )?)
-    }
+fn parse_raw_command(mut directive: Directive) -> anyhow::Result<RawCommand> {
+    let mut block = directive
+        .take_child()
+        .context("Must define a parameter or a block")?;
+    let mut params = take_single_directive(&mut block, "cmd")?
+        .context("Block must define a cmd directive")?
+        .take_params()
+        .into_iter();
+
+    let command = params
+        .next()
+        .context("cmd must define at least one parameter")?;
+    let args = params.collect();
+    Ok(RawCommand { command, args })
 }
 
-#[derive(Deserialize, Debug)]
-#[serde(deny_unknown_fields)]
+#[derive(Debug, Default)]
 struct HttpsConfig {
     verify: Option<PathBuf>,
     verify_fingerprint: Option<String>,
-    #[serde(default)]
-    #[allow(dead_code)]
-    auth: Auth,
     auth_cert: Option<ClientCert>,
-    #[serde(default = "default_useragent")]
-    #[allow(dead_code)]
-    useragent: String,
+}
+
+fn parse_tls_config(config: &mut Scfg) -> anyhow::Result<HttpsConfig> {
+    let mut tls = HttpsConfig::default();
+
+    if let Some(mut verify) = take_single_directive(config, "verify")? {
+        let path = verify
+            .take_params()
+            .pop()
+            .context("verify must specify one parameter")?
+            .parse()
+            .context("verify must specify a valid path")?;
+        tls.verify = Some(path);
+    }
+
+    if let Some(mut fp) = take_single_directive(config, "verify_fingerprint")? {
+        let fingerprint = fp
+            .take_params()
+            .pop()
+            .context("verify_fingerprint must specify one parameter")?;
+        tls.verify_fingerprint = Some(fingerprint);
+    }
+
+    if let Some(mut auth_cert) = take_single_directive(config, "auth_cert")? {
+        let params = auth_cert.take_params();
+        let mut params = params.iter();
+
+        let first = params
+            .next()
+            .context("auth_cert must specify at least one parameter")?;
+        let cert = if let Some(second) = params.next() {
+            ClientCert::SeparateKeyAndCert(first.parse()?, second.parse()?)
+        } else {
+            ClientCert::SingleFile(first.parse()?)
+        };
+
+        tls.auth_cert = Some(cert);
+    }
+
+    Ok(tls)
+}
+
+/// Take a directive expecting it at most once.
+///
+/// # Errors
+///
+/// If the directive is defined more than once.
+fn take_single_directive(config: &mut Scfg, name: &str) -> anyhow::Result<Option<Directive>> {
+    if let Some(mut directives) = config.remove(name) {
+        ensure!(
+            directives.len() == 1,
+            "{name} may only be specified once per block.",
+        );
+        let directive = directives
+            .pop()
+            .expect("directives contains exactly one element");
+        Ok(Some(directive))
+    } else {
+        Ok(None)
+    }
+}
+
+/// Take a single parameter from a directive.
+///
+/// # Errors
+///
+/// Returns an error if zero or more than one parameter is specified.
+fn take_single_param_from_directive(config: &mut Scfg, name: &str) -> anyhow::Result<String> {
+    let mut directive =
+        take_single_directive(config, name)?.with_context(|| "directive {name} not found")?;
+    let mut params = directive.take_params();
+    ensure!(
+        params.len() == 1,
+        "{name} must specify exactly one parameter"
+    );
+    Ok(params.pop().expect("at least one parameter is defined"))
 }
 
 impl HttpsConfig {
@@ -588,22 +623,7 @@ impl HttpsConfig {
     }
 }
 
-#[derive(Deserialize, Debug, Default)]
-#[serde(deny_unknown_fields)]
-#[serde(rename_all = "lowercase")]
-enum Auth {
-    #[default]
-    Basic,
-    Digest,
-    Guess,
-}
-
-fn default_useragent() -> String {
-    String::from(VERSION)
-}
-
-#[derive(Deserialize, Debug)]
-#[serde(deny_unknown_fields)]
+#[derive(Debug)]
 enum ClientCert {
     SingleFile(PathBuf),
     SeparateKeyAndCert(PathBuf, PathBuf),
@@ -611,54 +631,76 @@ enum ClientCert {
 
 // TODO: singlefile
 
-#[derive(Deserialize, Debug)]
-#[serde(deny_unknown_fields)]
-#[serde(untagged)]
-enum StringOrCommand {
-    Raw(String),
-    Command { command: Vec<String> },
-}
-
-impl StringOrCommand {
-    fn into_string(self) -> anyhow::Result<String> {
-        match self {
-            StringOrCommand::Raw(s) => Ok(s),
-            StringOrCommand::Command { command } => {
-                // TODO: should expand user and normalise paths.
-                let mut values = command.into_iter();
-                let cmd = values
-                    .next()
-                    .context("A command requires at least one value")?;
-                let output = Command::new(cmd)
-                    .args(values)
-                    .stdout(Stdio::piped())
-                    .output()
-                    .context("problem executing command")?;
-                match output.status.code() {
-                    Some(0) => Ok(std::str::from_utf8(&output.stdout)?.trim().to_owned()),
-                    Some(code) => bail!("Command exited with status {}.", code),
-                    None => bail!("Command exited unexpectedly."),
-                }
-            }
-        }
-    }
-
-    fn into_password(self) -> anyhow::Result<Password> {
-        let string = self.into_string()?;
-        if string.is_empty() {
-            bail!("Command returned an empty password. This is likely a misconfiguration.")
-        }
-        Ok(Password::from(string))
-    }
-}
-
 /// Parse a given file as a configuration file.
-pub(crate) fn parse_from_file(mut path: File) -> anyhow::Result<Config> {
-    let mut raw = String::new();
-    path.read_to_string(&mut raw)?;
-    let config = toml::from_str::<Config>(&raw)?;
+pub(crate) fn parse_config(
+    raw_config: &str,
+    enabled_pairs: &Option<Vec<String>>,
+) -> anyhow::Result<Config> {
+    // TODO: The Scfg crate crates multiple copies of each string in the entire configuration file.
+    //       I want a high-level API like the Scfg crate, but the zero-copy approach from scfg-scanner.
+    let mut parser = raw_config
+        .parse::<Scfg>()
+        .context("Parsing configuration file")?;
 
-    Ok(config)
+    // TODO: should use Cow<str>, not String as keys.
+    let mut pairs = HashMap::<String, Scfg>::new();
+    let mut storages = HashMap::<String, Scfg>::new();
+
+    let interval = if let Some(mut directive) = take_single_directive(&mut parser, "interval")? {
+        let mut params = directive.take_params().into_iter();
+        params
+            .next()
+            .context("Interval must have exactly one parameter")?
+            .parse()
+            .context("Interval must be a valid integer")?
+    } else {
+        300
+    };
+
+    let status_path = take_single_param_from_directive(&mut parser, "status_path")?;
+
+    if let Some(directives) = parser.remove("pair") {
+        for mut directive in directives {
+            let name = directive
+                .take_params()
+                .pop() // TODO: ignores superfluous values
+                .context("pair must specify a name")?;
+
+            // Skip disabled pairs.
+            if let Some(ref enabled) = enabled_pairs {
+                if !enabled.iter().any(|e| *e == name) {
+                    continue;
+                };
+            }
+
+            info!("Enabled pair {name}");
+            let child = directive.take_child().context("pair must define a block")?;
+            pairs.insert(name, child);
+        }
+    }
+
+    if let Some(directives) = parser.remove("storage") {
+        for mut directive in directives {
+            let name = directive
+                .take_params()
+                .pop() // TODO: ignores superfluous values
+                .context("storage must specify a name")?;
+
+            let child = directive
+                .take_child()
+                .context("storage must define a block")?;
+            storages.insert(name, child);
+        }
+    }
+
+    // TODO: assert that parser is now empty (e.g.: no superfluous values).
+
+    Ok(Config {
+        status_path: Utf8PathBuf::from(status_path),
+        interval: Duration::from_secs(interval),
+        pairs,
+        storages,
+    })
 }
 
 /// Open the configuration file, expecting it in the default path.
@@ -666,22 +708,15 @@ pub(crate) fn parse_from_file(mut path: File) -> anyhow::Result<Config> {
 /// Returns the path of the file opened and the file itself.
 pub(crate) fn open_default_path() -> anyhow::Result<(PathBuf, File)> {
     let path = if let Some(xdg) = std::env::var_os("XDG_CONFIG_HOME") {
-        PathBuf::from(xdg).join("vdirsyncer/config.toml")
+        PathBuf::from(xdg).join("vdirsyncer/config.scfg")
     } else {
         #[allow(deprecated)]
         let home = std::env::home_dir().context("Could not resolve $XDG_CONFIG_HOME nor $HOME.")?;
-        home.join(".config/vdirsyncer/config.toml")
+        home.join(".config/vdirsyncer/config.scfg")
     };
 
     let file =
         File::open(&path).with_context(|| format!("Could not open {}.", path.to_string_lossy()))?;
     debug!("Opened config file {}", path.to_string_lossy());
     Ok((path, file))
-}
-
-#[derive(Deserialize)]
-#[serde(remote = "OnEmpty", rename_all = "lowercase")]
-pub(crate) enum OnEmptyDef {
-    Skip,
-    Sync,
 }
