@@ -15,7 +15,8 @@ use crate::base::{
     CalendarProperty, Collection, FetchedItem, IcsItem, Item, ItemRef, ListedProperty, Storage,
 };
 use crate::dav::{
-    collection_href_for_item, collection_id_for_href, path_for_collection_in_home_set,
+    collection_href_for_item, collection_id_for_href, parse_list_items,
+    path_for_collection_in_home_set,
 };
 use crate::disco::{DiscoveredCollection, Discovery};
 use crate::vdir::PropertyWithFilename;
@@ -169,18 +170,7 @@ where
 
     async fn list_items(&self, collection_href: &str) -> Result<Vec<ItemRef>> {
         let response = self.client.list_resources(collection_href).await?;
-        let mut items = Vec::with_capacity(response.len());
-        for r in response {
-            items.push(ItemRef {
-                href: r.href,
-                etag: r
-                    .details
-                    .etag
-                    .ok_or(Error::from(ErrorKind::InvalidData))?
-                    .into(),
-            });
-        }
-        Ok(items)
+        parse_list_items(response)
     }
 
     async fn get_item(&self, href: &str) -> Result<(IcsItem, Etag)> {
