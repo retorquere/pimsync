@@ -13,9 +13,11 @@ license = "EUPL-1.2"
 [dependencies]
 anyhow = "1.0.75"
 camino = { version = "1.1.6" }
+hex = "0.4.3"
 hyper = { version = "1", features = ["http1", "client"] }
 hyper-rustls = "0.26.0"
 hyper-util = { version = "0.1.1", features = ["client", "client-legacy", "http1"] }
+hyperlocal = "0.9.1"
 lexopt = "0.3.0"
 libdav = { version = "0.5.0" }
 log = "0.4.20"

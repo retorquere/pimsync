@@ -73,10 +73,14 @@ impl Config {
             let mut collections = Vec::<Collections>::new();
 
             let name_a = take_single_param_from_directive(&mut config, "storage_a")?;
-            let storage_a = init_storage(&mut self.storages, &mut storages, &name_a).await?;
+            let storage_a = init_storage(&mut self.storages, &mut storages, &name_a)
+                .await
+                .with_context(|| format!("initialising storage {name_a}"))?;
 
             let name_b = take_single_param_from_directive(&mut config, "storage_b")?;
-            let storage_b = init_storage(&mut self.storages, &mut storages, &name_b).await?;
+            let storage_b = init_storage(&mut self.storages, &mut storages, &name_b)
+                .await
+                .with_context(|| format!("initialising storage {name_b}"))?;
 
             if let Some(directives) = config.remove("collections") {
                 for directive in directives {
@@ -391,30 +395,50 @@ impl IntoString {
 }
 
 async fn parse_carddav(mut config: Scfg) -> anyhow::Result<Arc<dyn Storage<VcardItem>>> {
-    let url = take_single_param_from_directive(&mut config, "url")?
-        .parse()
-        .context("Parsing carddav url")?;
-    let network_opts = parse_tls_config(&mut config)?;
+    let url = take_single_param_from_directive(&mut config, "url")?;
     let auth = parse_auth(&mut config).context("Parsing carddav storage auth")?;
-    let webdav = WebDavClient::new(url, auth, network_opts.into_connector()?);
-    let client = CardDavClient::new_via_bootstrap(webdav).await?;
-    Ok(Arc::new(CardDavStorage::new(client).await?))
+    if let Some(socket) = url.strip_prefix("unix://") {
+        let host = hex::encode(socket.as_bytes());
+        let url = (format!("unix://{host}:0/"))
+            .parse()
+            .context("Building pseudo-url for socket connection")?;
+
+        let webdav = WebDavClient::new(url, auth, hyperlocal::UnixConnector);
+        let client = CardDavClient::new(webdav);
+        Ok(Arc::new(CardDavStorage::new(client).await?))
+    } else {
+        let url = url.parse().context("Parsing carddav url")?;
+        let network_opts = parse_tls_config(&mut config)?;
+        let webdav = WebDavClient::new(url, auth, network_opts.into_connector()?);
+        let client = CardDavClient::new_via_bootstrap(webdav).await?;
+        Ok(Arc::new(CardDavStorage::new(client).await?))
+    }
 }
 
 async fn parse_caldav(mut config: Scfg) -> anyhow::Result<Arc<dyn Storage<IcsItem>>> {
-    let url = take_single_param_from_directive(&mut config, "url")?
-        .parse()
-        .context("Parsing caldav url")?;
+    let url = take_single_param_from_directive(&mut config, "url")?;
+    let auth = parse_auth(&mut config).context("Parsing caldav storage auth")?;
 
     // TODO: start_date
     // TODO: end_date
     // TODO: item_types
 
-    let network_opts = parse_tls_config(&mut config)?;
-    let auth = parse_auth(&mut config).context("Parsing caldav auth")?;
-    let webdav = WebDavClient::new(url, auth, network_opts.into_connector()?);
-    let client = CalDavClient::new_via_bootstrap(webdav).await?;
-    Ok(Arc::new(CalDavStorage::new(client).await?))
+    if let Some(socket) = url.strip_prefix("unix://") {
+        let host = hex::encode(socket.as_bytes());
+        let url = (format!("unix://{host}:0/"))
+            .parse()
+            .context("Building pseudo-url for socket connection")?;
+
+        let webdav = WebDavClient::new(url, auth, hyperlocal::UnixConnector);
+        let client = CalDavClient::new(webdav);
+        Ok(Arc::new(CalDavStorage::new(client).await?))
+    } else {
+        let url = url.parse().context("Parsing caldav url")?;
+        let network_opts = parse_tls_config(&mut config)?;
+        let webdav = WebDavClient::new(url, auth, network_opts.into_connector()?);
+        let client = CalDavClient::new_via_bootstrap(webdav).await?;
+        Ok(Arc::new(CalDavStorage::new(client).await?))
+    }
 }
 
 fn parse_webcal(mut config: Scfg) -> anyhow::Result<Arc<dyn Storage<IcsItem>>> {
@@ -558,8 +582,8 @@ fn take_single_directive(config: &mut Scfg, name: &str) -> anyhow::Result<Option
 ///
 /// Returns an error if zero or more than one parameter is specified.
 fn take_single_param_from_directive(config: &mut Scfg, name: &str) -> anyhow::Result<String> {
-    let mut directive =
-        take_single_directive(config, name)?.with_context(|| "directive {name} not found")?;
+    let mut directive = take_single_directive(config, name)?
+        .with_context(|| format!("directive {name} not found"))?;
     let mut params = directive.take_params();
     ensure!(
         params.len() == 1,
