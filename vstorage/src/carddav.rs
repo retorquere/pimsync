@@ -5,7 +5,7 @@
 //! A [`CardDavStorage`] is a single carddav repository, as specified in rfc6352.
 
 use async_trait::async_trait;
-use http::Uri;
+use http::{StatusCode, Uri};
 use hyper_util::client::legacy::connect::Connect;
 use libdav::dav::mime_types;
 use libdav::CardDavClient;
@@ -197,17 +197,16 @@ where
             .await
             .map_err(|e| Error::new(ErrorKind::Uncategorised, e))?
             .into_iter()
-            .map(|resource| {
-                resource
-                    .content
-                    .map_err(|e| {
-                        ErrorKind::Io.error(format!("Got status code {} for {}", e, resource.href))
-                    })
-                    .map(|content| FetchedItem {
-                        href: resource.href,
-                        item: VcardItem::from(content.data),
-                        etag: content.etag.into(),
-                    })
+            .filter_map(|resource| match resource.content {
+                Ok(content) => Some(Ok(FetchedItem {
+                    href: resource.href,
+                    item: VcardItem::from(content.data),
+                    etag: content.etag.into(),
+                })),
+                Err(StatusCode::NOT_FOUND) => None,
+                Err(e) => Some(Err(
+                    ErrorKind::Io.error(format!("Got status code {} for {}", e, resource.href))
+                )),
             })
             .collect()
     }

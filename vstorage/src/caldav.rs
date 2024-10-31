@@ -5,7 +5,7 @@
 //! A [`CalDavStorage`] is a single caldav repository, as specified in rfc4791.
 
 use async_trait::async_trait;
-use http::Uri;
+use http::{StatusCode, Uri};
 use hyper_util::client::legacy::connect::Connect;
 use libdav::dav::mime_types;
 use libdav::sd::BootstrapError;
@@ -211,17 +211,16 @@ where
             .await
             .map_err(|e| Error::new(ErrorKind::Uncategorised, e))?
             .into_iter()
-            .map(|resource| {
-                resource
-                    .content
-                    .map_err(|e| {
-                        ErrorKind::Io.error(format!("Got status code {} for {}", e, resource.href))
-                    })
-                    .map(|content| FetchedItem {
-                        href: resource.href,
-                        item: IcsItem::from(content.data),
-                        etag: content.etag.into(),
-                    })
+            .filter_map(|resource| match resource.content {
+                Ok(content) => Some(Ok(FetchedItem {
+                    href: resource.href,
+                    item: IcsItem::from(content.data),
+                    etag: content.etag.into(),
+                })),
+                Err(StatusCode::NOT_FOUND) => None,
+                Err(e) => Some(Err(
+                    ErrorKind::Io.error(format!("Got status code {} for {}", e, resource.href))
+                )),
             })
             .collect()
     }
