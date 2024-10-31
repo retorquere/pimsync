@@ -162,7 +162,7 @@ where
                 etag: r
                     .details
                     .etag
-                    .ok_or(Error::from(ErrorKind::InvalidData))?
+                    .ok_or(ErrorKind::InvalidData.error("missing Etag"))?
                     .into(),
             });
         }
