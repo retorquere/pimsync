@@ -14,6 +14,7 @@ pub(crate) enum Command {
 pub(crate) struct Cli {
     pub command: Command,
     pub log_level: log::LevelFilter,
+    pub config_file: Option<String>,
     pub pairs: Option<Vec<String>>,
 }
 
@@ -21,6 +22,7 @@ impl Cli {
     pub fn parse(mut args: impl Iterator<Item = String>) -> Result<Cli, lexopt::Error> {
         let mut command = None;
         let mut log_level = log::LevelFilter::Warn;
+        let mut config_file: Option<String> = None;
         let mut pairs = Vec::new();
 
         args.next(); // Skip arg0
@@ -28,6 +30,7 @@ impl Cli {
         while let Some(arg) = parser.next()? {
             match arg {
                 lexopt::Arg::Short('v') => log_level = parser.value()?.parse()?,
+                lexopt::Arg::Short('c') => config_file = Some(parser.value()?.string()?),
                 lexopt::Arg::Short('p') => {
                     let pair_name = parser.value()?.string()?;
                     pairs.push(pair_name);
@@ -89,6 +92,7 @@ impl Cli {
         Ok(Cli {
             command: command.ok_or(lexopt::Error::from("No command specified"))?,
             log_level,
+            config_file,
             pairs: if pairs.is_empty() { None } else { Some(pairs) },
         })
     }

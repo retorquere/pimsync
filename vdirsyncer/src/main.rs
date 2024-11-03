@@ -5,7 +5,9 @@
 #![deny(clippy::unwrap_used)]
 
 use std::{
+    fs::File,
     io::{read_to_string, Seek, Write},
+    path::PathBuf,
     sync::Arc,
     time::Duration,
 };
@@ -404,7 +406,7 @@ impl App {
 async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse(std::env::args()).unwrap_or_else(|err| {
         eprintln!("Bad usage: {err}\n");
-        eprintln!("Usage: vdirsyncer [-v LOGLEVEL] [-p PAIR] COMMAND [ARGS...]");
+        eprintln!("Usage: vdirsyncer [-c CONFIGFILE ] [-v LOGLEVEL] [-p PAIR] COMMAND [ARGS...]");
         eprintln!("Commands:");
         eprintln!("\tcheck\t\t\tcheck configuration and exit");
         eprintln!("\tdaemon -[r READY_FD]\tkeep storages in sync");
@@ -427,7 +429,17 @@ async fn main() -> anyhow::Result<()> {
         .expect("logger should initialise");
     info!("Logging enabled with {} level", cli.log_level);
 
-    let (config_path, config_file) = open_default_path()?;
+    let (config_path, config_file) = match cli.config_file {
+        Some(file) => {
+            let path = PathBuf::from(file);
+            let file = File::open(&path)
+                .with_context(|| format!("Could not open {}.", path.to_string_lossy()))?;
+            debug!("Opened config file {}", path.to_string_lossy());
+            (path, file)
+        }
+        None => open_default_path()?,
+    };
+
     let config_data = read_to_string(config_file)?;
     let config = parse_config(&config_data, &cli.pairs).with_context(|| {
         format!(
