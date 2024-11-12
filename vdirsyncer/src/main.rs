@@ -25,7 +25,7 @@ use vstorage::{
     sync::{
         declare::StoragePair,
         plan::{ItemAction, Plan},
-        status::StatusDatabase,
+        status::{StatusDatabase, StatusError},
         SyncError,
     },
     Etag,
@@ -87,26 +87,21 @@ impl<I: Item> NamedPair<I> {
             .with_context(|| format!("opening or creating status db for {}", self.name))
     }
 
+    // TODO: interval should be per-storage.
+
     /// Sync this pair indefinitely
     ///
     /// Returns an error if an only if a fatal synchronisation error occurred.
-    async fn daemon(self, interval: Duration) -> anyhow::Error {
+    async fn daemon(self, interval: Duration) -> StatusError {
         loop {
-            let lock_0 = self.locks.0.lock().await;
-            let lock_1 = self.locks.1.lock().await;
-            match self.create_plan().await {
-                Ok(plan) => {
-                    self.print_plan(&plan);
-                    if let Err(err) = self.execute_plan(plan).await {
-                        return err;
-                    }
-                }
-                Err(err) => error!("error creating plan for {}: {}", self.name, err),
-            }
-            drop(lock_0);
-            drop(lock_1);
+            if let Err(err) = self.sync_once(false).await {
+                error!("Error synchronising {}: {}", self.name, err);
+                if let Ok(status_error) = err.downcast::<StatusError>() {
+                    return status_error;
+                };
+                // If error was a transient error, continue.
+            };
 
-            // TODO: HTTPS connections are kept open for a while; this should also be configurable.
             warn!(
                 "Monitoring is not implemented, will auto-sync every {} minutes.",
                 interval.as_secs() / 60
@@ -115,16 +110,16 @@ impl<I: Item> NamedPair<I> {
         }
     }
 
-    async fn sync_once(self, dry_run: bool /* ui-lock ? */) -> anyhow::Result<()> {
-        // TODO: take some broadcast channel where events are sent:
-        //       enum Event: CreatePlan, PrintPlan, ExecutePlan, Monitor
+    async fn sync_once(&self, dry_run: bool /* ui-lock ? */) -> anyhow::Result<()> {
         let lock_0 = self.locks.0.lock().await;
         let lock_1 = self.locks.1.lock().await;
         let plan = self.create_plan().await?;
         self.print_plan(&plan);
         if !dry_run {
-            self.execute_plan(plan).await?;
+            let status = self.open_status_rw()?;
+            plan.execute(&status, log_error).await?;
         }
+        // Explicitly drop these here to ensure they survive up to this point.
         drop(lock_0);
         drop(lock_1);
         Ok(())
@@ -136,11 +131,6 @@ impl<I: Item> NamedPair<I> {
     async fn create_plan(&self) -> anyhow::Result<Plan<I>> {
         debug!("Creating plan for storage pair '{}'.", self.name);
         Ok(Plan::new(&self.inner, self.open_status_ro()?.as_ref()).await?)
-    }
-
-    // Execute and consume the current plan.
-    async fn execute_plan(&self, plan: Plan<I>) -> anyhow::Result<()> {
-        Ok(plan.execute(&self.open_status_rw()?, log_error).await?)
     }
 
     async fn discover(&self) -> anyhow::Result<()> {
@@ -362,10 +352,10 @@ impl App {
     async fn sync(self, dry_run: bool) -> anyhow::Result<()> {
         let mut set = JoinSet::new();
         for pair in self.calendar_pairs {
-            set.spawn(pair.sync_once(dry_run));
+            set.spawn(async move { pair.sync_once(dry_run).await });
         }
         for pair in self.contact_pairs {
-            set.spawn(pair.sync_once(dry_run));
+            set.spawn(async move { pair.sync_once(dry_run).await });
         }
 
         while let Some(res) = set.join_next().await {
