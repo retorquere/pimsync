@@ -58,18 +58,16 @@ impl ItemAction {
                 Side::A => create_item(source, status, col_a, b, a, mapping_uid, Side::A).await,
                 Side::B => create_item(source, status, col_b, a, b, mapping_uid, Side::B).await,
             },
-            ItemAction::UpdateInB {
+            ItemAction::Update {
+                side,
                 source,
                 target,
                 old_a,
                 old_b,
-            } => update_item(a, b, source, target, old_a, old_b, status, Side::B).await,
-            ItemAction::UpdateInA {
-                source,
-                target,
-                old_a,
-                old_b,
-            } => update_item(b, a, source, target, old_a, old_b, status, Side::A).await,
+            } => match side {
+                Side::A => update_item(b, a, source, target, old_a, old_b, status, Side::A).await,
+                Side::B => update_item(a, b, source, target, old_a, old_b, status, Side::B).await,
+            },
             ItemAction::Delete { side, target } => {
                 let storage = if *side == Side::A { a } else { b };
                 delete_item(target, status, storage, mapping_uid).await

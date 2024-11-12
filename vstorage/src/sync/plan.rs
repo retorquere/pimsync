@@ -593,13 +593,8 @@ pub enum ItemAction {
         side: Side,
         source: ItemState,
     },
-    UpdateInA {
-        source: Href,
-        target: Href,
-        old_a: ItemRef,
-        old_b: ItemRef,
-    },
-    UpdateInB {
+    Update {
+        side: Side,
         source: Href,
         target: Href,
         old_a: ItemRef,
@@ -704,7 +699,8 @@ impl ItemAction {
                     }
                 } else if a.hash == prev.hash {
                     // Side A has not changed
-                    Some(ItemAction::UpdateInA {
+                    Some(ItemAction::Update {
+                        side: Side::A,
                         source: b.href.clone(),
                         target: a.href.clone(),
                         old_a: a.to_item_ref(),
@@ -715,7 +711,8 @@ impl ItemAction {
                     })
                 } else if b.hash == prev.hash {
                     // Side B has not changed
-                    Some(ItemAction::UpdateInB {
+                    Some(ItemAction::Update {
+                        side: Side::B,
                         source: a.href.clone(),
                         target: b.href.clone(),
                         old_a: ItemRef {
@@ -763,11 +760,8 @@ impl std::fmt::Display for ItemAction {
             ItemAction::Create { side, source } => {
                 write!(f, "create in storage {} (uid: {})", side, source.uid)
             }
-            ItemAction::UpdateInA { source, .. } => {
-                write!(f, "update in storage a (href: {source})")
-            }
-            ItemAction::UpdateInB { source, .. } => {
-                write!(f, "update in storage b (href: {source})")
+            ItemAction::Update { source, side, .. } => {
+                write!(f, "update in storage {side} (href: {source})")
             }
             ItemAction::Delete { side, target } => {
                 write!(f, "delete in storage {} (uid: {})", side, target.uid)

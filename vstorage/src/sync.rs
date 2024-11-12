@@ -13,8 +13,8 @@
 //!   to be executed to synchronise both storages. This instance can also be inspected before
 //!   executing any actions (e.g.: as a from of dry-run).
 //! - The plan may have conflicting items (represented as [`ItemAction::Conflict`]). These MAY be
-//!   replaced with different actions (e.g.: [`ItemAction::UpdateInA`] to overwrite storage A with
-//!   the contents of B).
+//!   replaced with different actions (e.g.: [`ItemAction::Update`] to overwrite data in one
+//!   storage with data from the other).
 //!   - If resolving conflicts requires writing a merged file into both storages, this needs to be
 //!     done using the `Storage` APIs directly. The next synchronisation will detect the resolved
 //!     conflict automatically and update the status database.
@@ -26,7 +26,7 @@
 //!
 //! [orig]: https://unterwaditzer.net/2016/sync-algorithm.html
 //! [`ItemAction::Conflict`]: crate::sync::plan::ItemAction::Conflict
-//! [`ItemAction::UpdateInA`]: crate::sync::plan::ItemAction::UpdateInA
+//! [`ItemAction::Update`]: crate::sync::plan::ItemAction::Update
 
 pub mod declare;
 mod error;
