@@ -7,10 +7,13 @@ build: target/release/vdirsyncer docs
 target/release/vdirsyncer:
 	cargo build -p vdirsyncer --release
 
-docs: vdirsyncer.1 vdirsyncer-migration.7
+docs: vdirsyncer.1 vdirsyncer-config.5 vdirsyncer-migration.7
 
 vdirsyncer.1: vdirsyncer.1.scd
 	scdoc < vdirsyncer.1.scd > vdirsyncer.1
+
+vdirsyncer-config.5: vdirsyncer-config.5.scd
+	scdoc < vdirsyncer-config.5.scd > vdirsyncer-config.5
 
 vdirsyncer-migration.7: vdirsyncer-migration.7.scd
 	scdoc < vdirsyncer-migration.7.scd > vdirsyncer-migration.7
