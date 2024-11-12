@@ -128,6 +128,13 @@ of storage items and other sensitive information.
 
 Please note that our security audit is still ongoing.
 
+# CAVEATS
+
+For vdir storages, checking the etag is subject to race conditions. Vdirsyncer
+will first check that an item has not been modified, and then update it. If an
+external program updates the same item between the check and the modification,
+those changes will be lost.
+
 # SEE ALSO
 
 vdirsyncer-config(5), vdirsyncer-migration(7)
