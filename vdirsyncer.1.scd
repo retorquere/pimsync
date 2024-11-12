@@ -64,7 +64,7 @@ Storages are other parameters are configured via vdirsyncer-config(5).
 
 If *$XDG_CONFIG_HOME* is define, the configuration shall be read from:
 
-	*$XDG_DATA_HOME*/vdirsyncer/config.scfg
+	*$XDG_CONFIG_HOME*/vdirsyncer/config.scfg
 
 If the above is not defined, the configuration file shall be read from:
 
