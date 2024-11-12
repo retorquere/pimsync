@@ -148,7 +148,7 @@ item was modified on both sides:
 	be passed as arguments, followed by the path to two files; one
 	containing the data on storage a, and the other containing the data on
 	storage b. The conflict will be considered resolved if and only if both
-	files are the same when the command exits, and the command exits with
+	files are the same when the command exits and the command exits with
 	exit code zero.
 
 *conflict_resolution keep a*
