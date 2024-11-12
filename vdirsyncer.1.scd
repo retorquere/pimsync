@@ -10,9 +10,16 @@ vdirsyncer - synchronise caldav, carddav, webdav and local storages
 
 # DESCRIPTION
 
-*vdirsyncer* synchronises contacts or calendars between storages. For calendar,
-any combination of *vdir*, *caldav* and *webdav* is supported. For contacts,
-any combination of *vdir* and *carddav* is supported.
+*vdirsyncer* synchronises contacts or calendars between storages.
+
+Supported calendar storages are *vdir*, *caldav* and *webdav*. Any permutation
+of these is supported, except *webdav* to *webdav*. The *webdav* storage is
+read-only, and two read-only storages cannot be synchronised.
+
+Supported contacts storages are *vdir* and *carddav*. Any permutation of these
+is supported.
+
+Storages are other parameters are configured via vdirsyncer-config(5).
 
 # OPTIONS
 
