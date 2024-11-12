@@ -589,10 +589,8 @@ pub enum ItemAction {
     ClearStatus {
         uid: String,
     },
-    CreateInA {
-        source: ItemState,
-    },
-    CreateInB {
+    Create {
+        side: Side,
         source: ItemState,
     },
     UpdateInA {
@@ -634,7 +632,10 @@ impl ItemAction {
             (None, None, Some(_)) => Some(ItemAction::ClearStatus {
                 uid: uid.to_string(),
             }),
-            (None, Some(b), None) => Some(ItemAction::CreateInA { source: b.clone() }),
+            (None, Some(b), None) => Some(ItemAction::Create {
+                side: Side::A,
+                source: b.clone(),
+            }),
             (None, Some(b), Some(prev)) => {
                 if b.hash == prev.hash {
                     Some(ItemAction::Delete {
@@ -643,10 +644,16 @@ impl ItemAction {
                     })
                 } else {
                     warn!("Item deleted in A but changed B: {}.", b.uid);
-                    Some(ItemAction::CreateInA { source: b.clone() })
+                    Some(ItemAction::Create {
+                        side: Side::A,
+                        source: b.clone(),
+                    })
                 }
             }
-            (Some(a), None, None) => Some(ItemAction::CreateInB { source: a.clone() }),
+            (Some(a), None, None) => Some(ItemAction::Create {
+                side: Side::B,
+                source: a.clone(),
+            }),
             (Some(a), None, Some(prev)) => {
                 if a.hash == prev.hash {
                     Some(ItemAction::Delete {
@@ -655,7 +662,10 @@ impl ItemAction {
                     })
                 } else {
                     warn!("Item deleted in B but changed A: {}.", a.uid);
-                    Some(ItemAction::CreateInB { source: a.clone() })
+                    Some(ItemAction::Create {
+                        side: Side::B,
+                        source: a.clone(),
+                    })
                 }
             }
             (Some(a), Some(b), Some(prev)) => {
@@ -750,11 +760,8 @@ impl std::fmt::Display for ItemAction {
                 write!(f, "update in status (a.href: {})", old_a.href)
             }
             ItemAction::ClearStatus { uid } => write!(f, "clear from status (uid: {uid})"),
-            ItemAction::CreateInA { source } => {
-                write!(f, "create in storage a (uid: {})", source.uid)
-            }
-            ItemAction::CreateInB { source } => {
-                write!(f, "create in storage b (uid: {})", source.uid)
+            ItemAction::Create { side, source } => {
+                write!(f, "create in storage {} (uid: {})", side, source.uid)
             }
             ItemAction::UpdateInA { source, .. } => {
                 write!(f, "update in storage a (href: {source})")

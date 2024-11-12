@@ -98,7 +98,7 @@ mod test {
         error::SomeAction,
         execute::ExecutionError,
         plan::{CollectionAction, ItemAction},
-        status::ItemState,
+        status::{ItemState, Side},
     };
 
     use super::SyncError;
@@ -106,7 +106,8 @@ mod test {
     #[test]
     fn test_syncerror_item_display() {
         let err = SyncError {
-            action: SomeAction::Item(Box::from(ItemAction::CreateInA {
+            action: SomeAction::Item(Box::from(ItemAction::Create {
+                side: Side::A,
                 source: ItemState {
                     href: "/path/to/some/file.vcf".into(),
                     uid: "d99ed506-dceb-49f2-a1c9-efa63c68acd0".into(),

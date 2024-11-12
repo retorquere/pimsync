@@ -54,18 +54,16 @@ impl ItemAction {
             ItemAction::ClearStatus { uid } => {
                 status.delete_item(mapping_uid, uid).map(|()| Ok(()))
             }
-            ItemAction::CreateInB { source } => {
-                create_item(source, status, col_b, a, b, mapping_uid, Side::B).await
-            }
+            ItemAction::Create { side, source } => match side {
+                Side::A => create_item(source, status, col_a, b, a, mapping_uid, Side::A).await,
+                Side::B => create_item(source, status, col_b, a, b, mapping_uid, Side::B).await,
+            },
             ItemAction::UpdateInB {
                 source,
                 target,
                 old_a,
                 old_b,
             } => update_item(a, b, source, target, old_a, old_b, status, Side::B).await,
-            ItemAction::CreateInA { source } => {
-                create_item(source, status, col_a, b, a, mapping_uid, Side::A).await
-            }
             ItemAction::UpdateInA {
                 source,
                 target,
