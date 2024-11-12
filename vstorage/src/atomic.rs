@@ -81,7 +81,12 @@ impl AtomicFile {
     }
 
     /// Commit content into the specified path, overwriting if it already exists.
+    ///
+    /// # Caveats
+    ///
+    /// If the file does not exist, this operations also succeeds.
     pub fn commit(self) -> Result<()> {
+        // TODO: must fsync parent directory first
         rustix::fs::renameat(&self.dir, self.temp_name, &self.dir, self.final_name)
             .map_err(|e| Error::new(ErrorKind::Io, e))?;
         Ok(())
@@ -89,6 +94,7 @@ impl AtomicFile {
 
     /// Commit content into the specified path, failing if it already exists.
     pub fn commit_new(self) -> Result<()> {
+        // TODO: must fsync parent directory first
         rustix::fs::linkat(
             &self.dir,
             &self.temp_name,
