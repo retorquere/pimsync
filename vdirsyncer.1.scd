@@ -16,6 +16,10 @@ any combination of *vdir* and *carddav* is supported.
 
 # OPTIONS
 
+*-c* _configfile_
+	Read the configuration file from the specified path, instead of the
+	default. See FILES below.
+
 *-v* _loglevel_
 	Set logger to _loglevel_, which must be one of *trace*, *debug*, *info*,
 	*warn* or *error*. The default is *warn*. When specifying *trace*, logs
