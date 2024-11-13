@@ -222,7 +222,14 @@ impl std::fmt::Display for Error {
     }
 }
 
-impl std::error::Error for Error {}
+impl std::error::Error for Error {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match &self.source {
+            Some(e) => Some(e.as_ref()),
+            None => None,
+        }
+    }
+}
 
 /// An identifier for a specific version of a resource.
 ///
