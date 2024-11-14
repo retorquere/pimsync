@@ -8,7 +8,7 @@ packages:
   - rust-rustfmt
   - rust-clippy
 sources:
-  - https://git.sr.ht/~whynothugo/vdirsyncer-rs
+  - https://git.sr.ht/~whynothugo/pimsync
 environment:
   CARGO_TERM_COLOR: always
 triggers:
@@ -17,18 +17,18 @@ triggers:
     to: Hugo Osvaldo Barrera <hugo@whynothugo.nl>
 tasks:
   - prepare: |
-      cd vdirsyncer-rs
+      cd pimsync
       cargo fetch --locked  # make sure lockfile is up to date
   - build: |
-      cd vdirsyncer-rs
+      cd pimsync
       cargo build
   - lint: |
-      cd vdirsyncer-rs
+      cd pimsync
       cargo fmt --check
       cargo clippy
   - test: |
-      cd vdirsyncer-rs
+      cd pimsync
       cargo test  # includes examples and doctests
   - doc: |
-      cd vdirsyncer-rs
+      cd pimsync
       cargo doc  # fails on broken links

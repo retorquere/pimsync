@@ -156,7 +156,7 @@ pimsync-config(5), pimsync-migration(7)
 For issues and general development inquiries, see the project home currently
 hosted at SourceHut:
 
-	https://git.sr.ht/~whynothugo/vdirsyncer-rs
+	https://sr.ht/~whynothugo/vdirsyncer-rs
 
 # THANKS
 
