@@ -7,7 +7,7 @@ name = "vdirsyncer"
 version = "0.0.1"
 edition = "2021"
 description = "Synchronize calendars and contacts"
-homepage = "https://github.com/pimutils/vdirsyncer/issues/946"
+homepage = "https://sr.ht/~whynothugo/vdirsyncer-rs/"
 license = "EUPL-1.2"
 
 [dependencies]
