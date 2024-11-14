@@ -14,7 +14,9 @@ man: pimsync.1 pimsync-config.5 pimsync-migration.7
 html: pimsync.1.html pimsync-config.5.html pimsync-migration.7.html
 
 %.html: %
-	mandoc -T html -O style=man-style.css < '$<' | sed -E 's,(pimsync[a-z-]*)\(([0-9])\),<a href="\1.\2.html">\1(\2)</a>,g' > '$@'
+	mandoc -T html -O style=man-style.css < '$<' | \
+	sed -E 's,(https://[^[:space:]]+),<a href="\1">\1</a>,g' | \
+	sed -E 's,(pimsync[a-z-]*)\(([0-9])\),<a href="\1.\2.html">\1(\2)</a>,g' > '$@'
 
 %: %.scd
 	scdoc < '$<' > '$@'
@@ -29,6 +31,7 @@ install: build
 clean:
 	cargo clean
 	rm pimsync.1 pimsync-config.5 pimsync-migration.7
+	rm *.html
 
 check:
 	cargo build
