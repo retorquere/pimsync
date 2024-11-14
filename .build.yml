@@ -36,8 +36,10 @@ tasks:
       cd pimsync
       echo "anchor.whynothugo.nl ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE2WacYpYEP5vvevx4NXQn3Ktd53pBkZR/bpPoS3Wkyg" > $HOME/.ssh/known_hosts
       if git diff --no-patch --exit-code origin/main; then
-        rsync -r target/doc/ rsync@anchor.whynothugo.nl:./main
+        rsync -r target/doc/ rsync@anchor.whynothugo.nl:./main/lib
+        rsync -r *.html man-style.css rsync@anchor.whynothugo.nl:./main/
       else
         TAG=$(git describe --tag --exact-match)
-        rsync -r target/doc/ rsync@anchor.whynothugo.nl:./$TAG
+        rsync -r target/doc/ rsync@anchor.whynothugo.nl:./$TAG/lib
+        rsync -r *.html man-style.css rsync@anchor.whynothugo.nl:./$TAG/
       fi
