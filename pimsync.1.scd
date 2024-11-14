@@ -177,6 +177,8 @@ The *vdirsyncer* command was first implemented by Markus Unterwaditzer in 2014.
 The *pimsync* command, strongly inspired by *vdirsyncer*, was implemented by
 Hugo Barrera in 2023.
 
+The acronym *pim* refers to *personal information manager*.
+
 # AUTHORS
 
 This implementation was developed by Hugo O. Barrera <hugo@whynothugo.nl>.
