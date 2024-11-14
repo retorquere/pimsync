@@ -268,5 +268,7 @@ improved.
 
 # SEE ALSO
 
+- pimsync(1)
+- pimsync-config(5)
 - *scfg*, simple configuration format, https://git.sr.ht/~emersion/scfg
 - hiq(1), query a himitsu(7) key store
