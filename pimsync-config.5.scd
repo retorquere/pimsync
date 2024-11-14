@@ -17,6 +17,9 @@ The pimsync configuration file is divided into three main types of sections:
 *pair sections*
 	Rules for synchronising pairs of storages.
 
+See the *FILES* section of *pimsync(1)* for details on the default path for the
+configuration file, and how to specify an alternative path.
+
 # GLOBAL SECTION
 
 The following setting can be set globally:
