@@ -7,6 +7,8 @@
 - Introduce support for Dav over Unix sockets.
 - Allow specifying a custom configuration file.
 - Many documentation improvements.
+- Collection ID was sometimes referred to as "collection name". All references
+  now specify "collection id"
 
 # v2.0.0-beta1
 

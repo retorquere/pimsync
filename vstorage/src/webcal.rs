@@ -29,7 +29,7 @@ use crate::{
 /// A storage which exposes items in remote icalendar resource.
 ///
 /// A webcal storage contains exactly one collection, which contains all the entires found in the
-/// remote resource. The name of this single collection is specified via the `collection_name`
+/// remote resource. The name of this single collection is specified via the `collection_id`
 /// argument.
 ///
 /// This storage is a bit of an odd one (since in reality, there's no concept of collections in
@@ -37,7 +37,7 @@ use crate::{
 ///
 /// # Href
 ///
-/// The `href` for this meaningless. A string matching the `collection_name` property is used to
+/// The `href` for this meaningless. A string matching the `collection_id` property is used to
 /// describe the only available collection.
 // TODO: If an alternative href is provided, it should be used as a path on the same host.
 //       Note that discovery will only support the one matching the input URL.
@@ -45,7 +45,7 @@ pub struct WebCalStorage {
     /// The URL of the remote icalendar resource. Must be HTTP or HTTPS.
     url: Uri,
     /// The href and id to be given to the single collection available.
-    collection_name: CollectionId,
+    collection_id: CollectionId,
     http_client: Client<HttpsConnector<HttpConnector>, String>,
 }
 
@@ -55,7 +55,7 @@ impl WebCalStorage {
     /// # Errors
     ///
     /// If there are errors discovering the CardDav server.
-    pub fn new(url: Uri, collection_name: CollectionId) -> Result<WebCalStorage> {
+    pub fn new(url: Uri, collection_id: CollectionId) -> Result<WebCalStorage> {
         let proto = match &url.scheme().map(Scheme::as_str) {
             Some("http") => HttpsConnectorBuilder::new()
                 .with_native_roots()?
@@ -83,7 +83,7 @@ impl WebCalStorage {
         };
         Ok(WebCalStorage {
             url,
-            collection_name,
+            collection_id,
             http_client: Client::builder(TokioExecutor::new()).build(proto),
         })
     }
@@ -149,7 +149,7 @@ impl Storage<IcsItem> for WebCalStorage {
         // TODO: shouldn't I check that the collection actually exists?
         Ok(vec![DiscoveredCollection::new(
             self.url.path().to_string(),
-            self.collection_name.clone(),
+            self.collection_id.clone(),
         )]
         .into())
     }
@@ -333,14 +333,14 @@ impl Storage<IcsItem> for WebCalStorage {
 
     fn collection_id(&self, collection_href: &str) -> Result<CollectionId> {
         if collection_href == self.url.path() {
-            Ok(self.collection_name.clone())
+            Ok(self.collection_id.clone())
         } else {
             Err(ErrorKind::DoesNotExist.into())
         }
     }
 
     fn href_for_collection_id(&self, id: &CollectionId) -> Result<Href> {
-        if id == &self.collection_name {
+        if id == &self.collection_id {
             Ok(self.url.path().to_string())
         } else {
             Err(Error::new(

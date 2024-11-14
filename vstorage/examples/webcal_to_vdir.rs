@@ -53,13 +53,13 @@ async fn main() {
 /// Copies from `source` to `target` and returns the amount of items copied.
 async fn copy_collection<I: Item>(
     source_storage: Arc<dyn Storage<I>>,
-    source_collection_name: &str,
+    source_collection_id: &str,
     target_storage: Arc<dyn Storage<I>>,
     target_collection_href: &str,
 ) -> usize {
     let mut count = 0;
     for FetchedItem { item, .. } in source_storage
-        .get_all_items(source_collection_name)
+        .get_all_items(source_collection_id)
         .await
         .expect("webcal remote has items")
     {

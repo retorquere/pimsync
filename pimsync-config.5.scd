@@ -83,7 +83,7 @@ Storages of type *http* take the following directives:
 *url* { … }
 	URL of an icalendar file. Scheme must be _http_ or _https_.
 
-*collection_name* _name_
+*collection_id* _name_
 	Name to be used when mapping this collection to another on the other
 	storage.
 
@@ -279,7 +279,7 @@ pair study_calendars {
 
 storage calendars_italki {
   type http
-  collection_name italki
+  collection_id italki
   url {
     cmd hiq -dFurl proto=webcal alias=italki-mine
   }

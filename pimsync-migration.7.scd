@@ -249,7 +249,7 @@ the same name.
 ```
 storage calendars_lessons {
   type http
-  collection_name lessons
+  collection_id lessons
   url {
     cmd hiq -dFurl proto=webcal alias=lessons
   }

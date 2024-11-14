@@ -48,16 +48,13 @@ async fn main() {
     println!("Found {} collections", discovery.collection_count());
     for discovered_collection in discovery.collections() {
         println!("Creating {}", discovered_collection.href());
-        let collection_name = discovered_collection
+        let collection_id = discovered_collection
             .href()
             .trim_end_matches('/')
             .rsplit('/')
             .next()
             .expect("collection has at least one path segument");
-        let new_collection = vdir_storage
-            .create_collection(collection_name)
-            .await
-            .unwrap();
+        let new_collection = vdir_storage.create_collection(collection_id).await.unwrap();
 
         copy_collection(
             caldav_storage.as_ref(),

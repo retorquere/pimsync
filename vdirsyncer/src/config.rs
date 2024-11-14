@@ -450,7 +450,7 @@ fn parse_webcal(mut config: Scfg) -> anyhow::Result<Arc<dyn Storage<IcsItem>>> {
         .context("Resolving webcal URL")?
         .parse()?;
 
-    let collection_name = take_single_param_from_directive(&mut config, "collection_name")?
+    let collection_id = take_single_param_from_directive(&mut config, "collection_id")?
         .parse()
         .context("Parsing webcal url")?;
 
@@ -458,7 +458,7 @@ fn parse_webcal(mut config: Scfg) -> anyhow::Result<Arc<dyn Storage<IcsItem>>> {
     // TODO: authentication fields
     // TODO: TLS fields
 
-    Ok(Arc::new(WebCalStorage::new(url, collection_name)?))
+    Ok(Arc::new(WebCalStorage::new(url, collection_id)?))
 }
 
 fn parse_auth(directive: &mut Scfg) -> anyhow::Result<Auth> {
