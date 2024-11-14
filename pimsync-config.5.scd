@@ -305,3 +305,6 @@ storage unix_b {
 # SEE ALSO
 
 pimsync(1), pimsync-migration(7)
+
+The configuration file follows the scfg syntax.++
+See: https://git.sr.ht/~emersion/scfg
