@@ -166,6 +166,10 @@ See:
 - https://nlnet.nl/project/vdirsyncer/
 - https://www.ngi.eu/ngi-projects/ngi-zero-entrust/
 
+A security audit was completed by Radically Open Security:
+
+- https://www.radicallyopensecurity.com/
+
 # HISTORY
 
 The *vdirsyncer* command was first implemented by Markus Unterwaditzer in 2014.
