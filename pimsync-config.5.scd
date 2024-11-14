@@ -157,6 +157,45 @@ item was modified on both sides:
 *conflict_resolution keep b*
 	In case of conflict, keep the version for storage a.
 
+# COLLECTION SECTIONS
+
+A collections block defines a mapping between two collections that are to be
+synchronised; one of them in *storage_a* and the other in *storage_b*.
+
+Each block must include an alias:
+
+*alias* _name_
+	An alias for this pair of collections that will be used for any output.
+
+Exactly one reference to a collection in *storage_a* must be included:
+
+*id_a* _id_
+	Use a collection with _id_.
+
+*href_a* _href_
+	Use a collection with _href_.
+
+Exactly one reference to a collection in *storage_b* must be included:
+
+*id_b* _id_
+	Use a collection with _id_.
+
+*href_b* _href_
+	Use a collection with _href_.
+
+For example, to syncrhonise a collection with id _work_ with another at path
+_/calendars/mine/work/_, use:
+
+```
+collection {
+  alias work
+  id_a work
+  href_b /calendars/mine/work/
+}
+```
+
+Specifying an id and an href for the same storage is not allowed.
+
 # EXAMPLE
 
 ```
