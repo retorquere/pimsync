@@ -12,9 +12,10 @@ pimsync - synchronise caldav, carddav, webcal and local storages
 
 *pimsync* synchronises contacts or calendars between storages.
 
-Supported calendar storages are *vdir*, *caldav* and *webcal*. Any permutation
-of these is supported, except *webcal* to *webcal*. The *webcal* storage is
-read-only, and two read-only storages cannot be synchronised.
+Supported calendar storages are *vdir*, *caldav* and *webcal*. With the
+exception of *webcal* to *webcal*, all permutations of these are supported. The
+*webcal* storage is read-only, and two read-only storages cannot be synchronised
+with each other.
 
 Supported contacts storages are *vdir* and *carddav*. Any permutation of these
 is supported.
