@@ -76,17 +76,6 @@ pub fn log_error(error: SyncError) {
 }
 
 impl<I: Item> NamedPair<I> {
-    /// Returns `None` if the database doesn't exist.
-    fn open_status_ro(&self) -> anyhow::Result<Option<StatusDatabase>> {
-        StatusDatabase::open_readonly(&self.status_path)
-            .with_context(|| format!("opening status db for {}", self.name))
-    }
-
-    fn open_status_rw(&self) -> anyhow::Result<StatusDatabase> {
-        StatusDatabase::open_or_create(&self.status_path)
-            .with_context(|| format!("opening or creating status db for {}", self.name))
-    }
-
     // TODO: interval should be per-storage.
 
     /// Sync this pair indefinitely
@@ -116,8 +105,9 @@ impl<I: Item> NamedPair<I> {
         let plan = self.create_plan().await?;
         self.print_plan(&plan);
         if !dry_run {
-            let status = self.open_status_rw()?;
-            plan.execute(&status, log_error).await?;
+            let status_rw = StatusDatabase::open_or_create(&self.status_path)
+                .with_context(|| format!("open_or_create status db for {}", self.name))?;
+            plan.execute(&status_rw, log_error).await?;
         }
         // Explicitly drop these here to ensure they survive up to this point.
         drop(lock_0);
@@ -130,7 +120,9 @@ impl<I: Item> NamedPair<I> {
     /// If partial errors occurred during synchronisations, returns `Ok(None)`.
     async fn create_plan(&self) -> anyhow::Result<Plan<I>> {
         debug!("Creating plan for storage pair '{}'.", self.name);
-        Ok(Plan::new(&self.inner, self.open_status_ro()?.as_ref()).await?)
+        let status_ro = StatusDatabase::open_readonly(&self.status_path)
+            .with_context(|| format!("open_readonly status db for {}", self.name))?;
+        Ok(Plan::new(&self.inner, status_ro.as_ref()).await?)
     }
 
     async fn discover(&self) -> anyhow::Result<()> {
