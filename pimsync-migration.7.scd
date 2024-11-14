@@ -120,8 +120,8 @@ password {
 }
 ```
 
-*pimsync(1)* will request passwords in sequence, so no special considerations
-are required to prevent concurrent prompts.
+pimsync(1) will request passwords in sequence, so no special considerations are
+required to prevent concurrent prompts.
 
 # MANUAL DISCOVERY IS NO LONGER REQUIRED
 
@@ -130,7 +130,7 @@ discovered automatically if necessary.
 
 The *discover* command merely prints discovered collections as a convenience for
 manually configuring collections. It does not affect pimsync's internal state.
-See *pimsync(1)* for details.
+See pimsync(1) for details.
 
 # AUTOMATIC CREATION OF COLLECTIONS
 
@@ -269,4 +269,4 @@ improved.
 # SEE ALSO
 
 - *scfg*, simple configuration format, https://git.sr.ht/~emersion/scfg
-- *hiq(1)*, query a *himitsu(7)* key store
+- hiq(1), query a himitsu(7) key store

@@ -17,7 +17,7 @@ The pimsync configuration file is divided into three main types of sections:
 *pair sections*
 	Rules for synchronising pairs of storages.
 
-See the *FILES* section of *pimsync(1)* for details on the default path for the
+See the *FILES* section of pimsync(1) for details on the default path for the
 configuration file, and how to specify an alternative path.
 
 # GLOBAL SECTION
@@ -201,8 +201,7 @@ Specifying an id and an href for the same storage is not allowed.
 
 # COLLECTION ID
 
-The id of a collection is a concept specific to *pimsync(1)* (and
-*vdirsyncer(1)*).
+The id of a collection is a concept specific to pimsync(1) and vdirsyncer(1).
 
 For *vdir* storages, the id of a collection is the name of the directory that
 corresponds to it.
