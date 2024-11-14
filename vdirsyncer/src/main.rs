@@ -115,9 +115,6 @@ impl<I: Item> NamedPair<I> {
         Ok(())
     }
 
-    /// Returns an error only if it is fatal.
-    ///
-    /// If partial errors occurred during synchronisations, returns `Ok(None)`.
     async fn create_plan(&self) -> anyhow::Result<Plan<I>> {
         debug!("Creating plan for storage pair '{}'.", self.name);
         let status_ro = StatusDatabase::open_readonly(&self.status_path)
