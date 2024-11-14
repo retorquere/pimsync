@@ -96,7 +96,7 @@ use the following syntax:
 
 ```
 password {
-  cmd secret-store --get-caldav-password
+	cmd secret-store --get-caldav-password
 }
 ```
 
@@ -191,9 +191,9 @@ _/calendars/mine/work/_, use:
 
 ```
 collection {
-  alias work
-  id_a work
-  href_b /calendars/mine/work/
+	alias work
+	id_a work
+	href_b /calendars/mine/work/
 }
 ```
 
@@ -224,82 +224,82 @@ The following is a complete example of a configuration file:
 status_path "~/.local/share/pimsync/status/"
 
 pair contacts {
-  storage_a contacts_local
-  storage_b contacts_remote
-  collections all
-  conflict_resolution cmd nvim -d
+	storage_a contacts_local
+	storage_b contacts_remote
+	collections all
+	conflict_resolution cmd nvim -d
 }
 
 storage contacts_local {
-  type vdir/vcard
-  path ~/.local/share/contacts/cards/
-  fileext vcf
-  interval 30
+	type vdir/vcard
+	path ~/.local/share/contacts/cards/
+	fileext vcf
+	interval 30
 }
 
 storage contacts_remote {
-  type carddav
-  url https://carddav.example.com/
-  username hugo@example.com
-  password {
-    cmd hiq -dFpassword proto=carddavs username=hugo@example.com
-  }
-  interval 30
+	type carddav
+	url https://carddav.example.com/
+	username hugo@example.com
+	password {
+		cmd hiq -dFpassword proto=carddavs username=hugo@example.com
+	}
+	interval 30
 }
 
 pair calendars {
-  storage_a calendars_local
-  storage_b calendars_remote
-  collections from b
-  conflict_resolution cmd nvim -d
+	storage_a calendars_local
+	storage_b calendars_remote
+	collections from b
+	conflict_resolution cmd nvim -d
 }
 
 storage calendars_local {
-  type vdir/icalendar
-  path ~/.local/share/calendars/
-  fileext ics
-  interval 30
+	type vdir/icalendar
+	path ~/.local/share/calendars/
+	fileext ics
+	interval 30
 }
 
 storage calendars_remote {
-  type caldav
-  url https://caldav.example.com/
-  username hugo@example.com
-  password {
-   cmd hiq -dFpassword proto=caldavs username=hugo@example.com
-  }
-  interval 30
+	type caldav
+	url https://caldav.example.com/
+	username hugo@example.com
+	password {
+	 cmd hiq -dFpassword proto=caldavs username=hugo@example.com
+	}
+	interval 30
 }
 
 pair study_calendars {
-  storage_a calendars_local
-  storage_b calendars_italki
-  collection italki
+	storage_a calendars_local
+	storage_b calendars_italki
+	collection italki
 }
 
 storage calendars_italki {
-  type http
-  collection_id italki
-  url {
-    cmd hiq -dFurl proto=webcal alias=italki-mine
-  }
+	type http
+	collection_id italki
+	url {
+		cmd hiq -dFurl proto=webcal alias=italki-mine
+	}
 }
 
 pair unixtest {
-  storage_a unix_a
-  storage_b unix_b
-  collections all
+	storage_a unix_a
+	storage_b unix_b
+	collections all
 }
 
 storage unix_a {
-  type carddav
-  url unix:///tmp/xandikos.sock
+	type carddav
+	url unix:///tmp/xandikos.sock
 }
 
 storage unix_b {
-  type vdir/vcard
-  path /tmp/test_storage/
-  fileext vcf
+	type vdir/vcard
+	path /tmp/test_storage/
+	fileext vcf
 }
 ```
 

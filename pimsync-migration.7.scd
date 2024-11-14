@@ -48,10 +48,10 @@ Becomes:
 
 ```
 pair contacts {
-  storage_a contacts_local
-  storage_b contacts_fastmail
-  collections all
-  conflict_resolution nvim -d
+	storage_a contacts_local
+	storage_b contacts_fastmail
+	collections all
+	conflict_resolution nvim -d
 }
 ```
 
@@ -68,9 +68,9 @@ Becomes this:
 
 ```
 storage contacts_local {
-  type vdir/vcard
-  path ~/.local/share/contacts/
-  fileext vcf
+	type vdir/vcard
+	path ~/.local/share/contacts/
+	fileext vcf
 }
 ```
 
@@ -89,9 +89,9 @@ Now a block is provided to **password** with a single **cmd** directive
 specifying the command and its arguments.
 
 ```
-  password {
-    cmd hiq -dFpassword proto=carddavs username=...
-  }
+	password {
+		cmd hiq -dFpassword proto=carddavs username=...
+	}
 ```
 
 ## MIGRATING FETCH / SHELL
@@ -106,7 +106,7 @@ Can be replaced with:
 
 ```
 password {
-  cmd sh -c "~/.local/bin/get-my-password | head -n1"
+	cmd sh -c "~/.local/bin/get-my-password | head -n1"
 }
 ```
 
@@ -116,7 +116,7 @@ Use an external prompter instead. For a GUI prompter, consider using:
 
 ```
 password {
-  cmd zenity --password
+	cmd zenity --password
 }
 ```
 
@@ -218,21 +218,21 @@ Two different collections can mapped on each side:
 
 ```
 pair my_pair {
-  # other fields here
+	# other fields here
 
-  # first collection
-  collection {
-      alias personal
-      href_a /calendars/hugo/c037725e-e4fd-4b3e-b73d-d5e27d5a90a9/
-      href_b /personal/
-  }
+	# first collection
+	collection {
+			alias personal
+			href_a /calendars/hugo/c037725e-e4fd-4b3e-b73d-d5e27d5a90a9/
+			href_b /personal/
+	}
 
-  # another collection
-  collection {
-      alias work
-      id_a work
-      href_b /calendars/work/
-  }
+	# another collection
+	collection {
+			alias work
+			id_a work
+			href_b /calendars/work/
+	}
 }
 ```
 
@@ -248,11 +248,11 @@ the same name.
 
 ```
 storage calendars_lessons {
-  type http
-  collection_id lessons
-  url {
-    cmd hiq -dFurl proto=webcal alias=lessons
-  }
+	type http
+	collection_id lessons
+	url {
+		cmd hiq -dFurl proto=webcal alias=lessons
+	}
 }
 ```
 
