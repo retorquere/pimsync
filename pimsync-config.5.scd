@@ -196,6 +196,23 @@ collection {
 
 Specifying an id and an href for the same storage is not allowed.
 
+# COLLECTION ID
+
+The id of a collection is a concept specific to *pimsync(1)* (and
+*vdirsyncer(1)*).
+
+For *vdir* storages, the id of a collection is the name of the directory that
+corresponds to it.
+
+For *caldav* or *carddav* storages, the id of a collection is the last component
+of its URL.
+
+For *webcal* storages, the id must be specified explicitly via the
+*collection_id* configuration directive.
+
+Unless configured otherwise, collections with the same id on both storages are
+synchronised with each other.
+
 # EXAMPLE
 
 The following is a complete example of a configuration file:
