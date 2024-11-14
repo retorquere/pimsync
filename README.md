@@ -21,7 +21,7 @@ Documentation for libraries can be built with `cargo doc`.
 
 The documentation for the latest commits are published at:
 
-- https://mirror.whynothugo.nl/vdirsyncer/main/vstorage/
+- https://mirror.whynothugo.nl/pimsync/main/vstorage/
 
 # Contributing
 
