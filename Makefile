@@ -22,6 +22,7 @@ vdirsyncer-migration.7: vdirsyncer-migration.7.scd
 install: build
 	@install -Dm755 target/release/vdirsyncer 	${DESTDIR}${PREFIX}/bin/vdirsyncer
 	@install -Dm644 vdirsyncer.1	${DESTDIR}${PREFIX}/share/man/man1/vdirsyncer.1
+	@install -Dm644 vdirsyncer-config.5	${DESTDIR}${PREFIX}/share/man/man5/vdirsyncer.5
 	@install -Dm644 vdirsyncer-migration.7	${DESTDIR}${PREFIX}/share/man/man7/vdirsyncer-migration.7
 
 clean:
