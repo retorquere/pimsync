@@ -6,9 +6,9 @@ USER user
 
 WORKDIR /home/user
 
-COPY --chown=user . /home/user/vdirsyncer-rs
+COPY --chown=user . /home/user/pimsync
 
-RUN cd /home/user/vdirsyncer-rs && cargo build
+RUN cd /home/user/pimsync && cargo build
 
 FROM debian:stable-slim
 
@@ -18,6 +18,6 @@ USER user
 
 WORKDIR /home/user
 
-COPY --from=builder /home/user/vdirsyncer-rs/target/debug/vdirsyncer /usr/local/bin/
+COPY --from=builder /home/user/pimsync/target/debug/pimsync /usr/local/bin/
 
-ENTRYPOINT ["/usr/local/bin/vdirsyncer"]
+ENTRYPOINT ["/usr/local/bin/pimsync"]

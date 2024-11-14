@@ -1,14 +1,14 @@
-vdirsyncer-migration(7)
+pimsync-migration(7)
 
 # NAME
 
-vdirsyncer-migration - migration guide for vdirsyncer
+pimsync-migration - migration guide from vdirsyncer to pimsync
 
 # DESCRIPTION
 
-This migration guide covers changes to be kept in mind when migrating from the
-previous implementation (e.g.: the 0.x series). It is geared towards users with
-a working configuration of the previous implementation.
+This migration guide covers changes to be kept in mind when migrating from
+vdirsyncer to pimsync. It is geared towards users with a working configuration
+of the previous implementation.
 
 # MISSING FEATURES
 
@@ -120,17 +120,17 @@ password {
 }
 ```
 
-*vdirsyncer(1)* will request passwords in sequence, so no special
-considerations are required to prevent concurrent prompts.
+*pimsync(1)* will request passwords in sequence, so no special considerations
+are required to prevent concurrent prompts.
 
 # MANUAL DISCOVERY IS NO LONGER REQUIRED
 
 Discovering collections ahead of time is no longer required. Collections are
 discovered automatically if necessary.
 
-The *discover* command merely prints discovered collections as a convenience
-for manually configuring collections. It does not affect vdirsyncer's internal
-state. See *vdirsyncer(1)* for details.
+The *discover* command merely prints discovered collections as a convenience for
+manually configuring collections. It does not affect pimsync's internal state.
+See *pimsync(1)* for details.
 
 # AUTOMATIC CREATION OF COLLECTIONS
 
@@ -262,8 +262,8 @@ Please report issues at:
 
 	https://todo.sr.ht/~whynothugo/vdirsyncer-rs
 
-If you have a working vdirsyncer 0.x configuration, and this page is missing
-details necessary when upgrading, please reach out so this documentation can be
+If you have a working vdirsyncer configuration, and this page is missing details
+necessary when upgrading, please reach out so this documentation can be
 improved.
 
 # SEE ALSO

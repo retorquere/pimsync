@@ -396,7 +396,7 @@ impl App {
 async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse(std::env::args()).unwrap_or_else(|err| {
         eprintln!("Bad usage: {err}\n");
-        eprintln!("Usage: vdirsyncer [-c CONFIGFILE ] [-v LOGLEVEL] [-p PAIR] COMMAND [ARGS...]");
+        eprintln!("Usage: pimsync [-c CONFIGFILE ] [-v LOGLEVEL] [-p PAIR] COMMAND [ARGS...]");
         eprintln!("Commands:");
         eprintln!("\tcheck\t\t\tcheck configuration and exit");
         eprintln!("\tdaemon -[r READY_FD]\tkeep storages in sync");
@@ -404,12 +404,12 @@ async fn main() -> anyhow::Result<()> {
         eprintln!("\tresolve-conflicts [-d]\tmanually resolve conflicts");
         eprintln!("\tdiscover\t\tprint discovered collections");
         eprintln!("\tversion\t\t\tprint version");
-        eprintln!("See 'man vdirsyncer' for details");
+        eprintln!("See 'man pimsync' for details");
         std::process::exit(100);
     });
 
     if let Command::Version = cli.command {
-        println!("vdirsyncer {VERSION}");
+        println!("pimsync {VERSION}");
         return Ok(());
     };
 

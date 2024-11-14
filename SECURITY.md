@@ -1,4 +1,4 @@
-See the **SECURITY CONSIDERATIONS** in **vdirsyncer(1)**.
+See the **SECURITY CONSIDERATIONS** in **pimsync(1)**.
 
 # Manual tasks
 

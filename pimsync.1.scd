@@ -1,16 +1,16 @@
-vdirsyncer(1)
+pimsync(1)
 
 # NAME
 
-vdirsyncer - synchronise caldav, carddav, webdav and local storages
+pimsync - synchronise caldav, carddav, webdav and local storages
 
 # SYNOPSIS
 
-*vdirsyncer* [_options_] _command_ [_arguments_]
+*pimsync* [_options_] _command_ [_arguments_]
 
 # DESCRIPTION
 
-*vdirsyncer* synchronises contacts or calendars between storages.
+*pimsync* synchronises contacts or calendars between storages.
 
 Supported calendar storages are *vdir*, *caldav* and *webdav*. Any permutation
 of these is supported, except *webdav* to *webdav*. The *webdav* storage is
@@ -19,7 +19,7 @@ read-only, and two read-only storages cannot be synchronised.
 Supported contacts storages are *vdir* and *carddav*. Any permutation of these
 is supported.
 
-Storages are other parameters are configured via vdirsyncer-config(5).
+Storages are other parameters are configured via pimsync-config(5).
 
 # OPTIONS
 
@@ -48,7 +48,7 @@ Storages are other parameters are configured via vdirsyncer-config(5).
 
 *discover*
 	Discover and print collections. This command merely provides
-	information, and does in any way alter *vdirsyncer*'s internal state.
+	information, and does in any way alter *pimsync*'s internal state.
 
 *resolve-conflicts*
 	Manually resolve conflicts between storages.
@@ -64,11 +64,11 @@ Storages are other parameters are configured via vdirsyncer-config(5).
 
 If *$XDG_CONFIG_HOME* is define, the configuration shall be read from:
 
-	*$XDG_CONFIG_HOME*/vdirsyncer/config.scfg
+	*$XDG_CONFIG_HOME*/pimsync/config.scfg
 
 If the above is not defined, the configuration file shall be read from:
 
-	~/.config/vdirsyncer/config.scfg
+	~/.config/pimsync/config.scfg
 
 # ENVIRONMENT
 
@@ -80,7 +80,7 @@ If the above is not defined, the configuration file shall be read from:
 
 # READINESS NOTIFICATION
 
-Readiness notification allows a service manager to monitor when vdirsyncer has
+Readiness notification allows a service manager to monitor when pimsync has
 successfully started. It is considered to have successfully started when the
 configuration file has been parsed and all credentials have been resolved. At
 this point, no further human interaction is required.
@@ -104,11 +104,11 @@ collections and items.
 
 Data synchronised is not validated. This is an intentional design choice: if
 your calendar application produces events that are technically invalid,
-vdirsyncer will synchronise, and you will be able to access the exact same data
+pimsync will synchronise, and you will be able to access the exact same data
 on other hosts. You may also need to synchronise invalid data in order to fix
 the invalidity.
 
-In order to map items between storage, vdirsyncer does some minor parsing of
+In order to map items between storage, pimsync does some minor parsing of
 items to extract their UID. Items must be syntactically valid components, even
 if semantically invalid.
 
@@ -130,8 +130,8 @@ write to a single entry should be considered to have access to manipulate the
 entire storage.
 
 Vdirsyncer will retain credentials in memory during its entire lifetime. Any
-actor with read access to vdirsyncer's memory space may extract secret
-credentials from it. Likewise, core dumps from vdirsyncer should not be shared
+actor with read access to pimsync's memory space may extract secret
+credentials from it. Likewise, core dumps from pimsync should not be shared
 with untrusted parties.
 
 When logging with *-v trace*, logs MAY contain credentials, secrets, data inside
@@ -148,7 +148,7 @@ those changes will be lost.
 
 # SEE ALSO
 
-vdirsyncer-config(5), vdirsyncer-migration(7)
+pimsync-config(5), pimsync-migration(7)
 
 # DEVELOPMENT
 
@@ -170,11 +170,14 @@ See:
 
 The *vdirsyncer* command was first implemented by Markus Unterwaditzer in 2014.
 
+The *pimsync* command, strongly inspired by *vdirsyncer*, was implemented by
+Hugo Barrera in 2023.
+
 # AUTHORS
 
 This implementation was developed by Hugo O. Barrera <hugo@whynothugo.nl>.
 
-vdirsyncer is an open source project,  developed for anyone to use freely. If
+pimsync is an open source project,  developed for anyone to use freely. If
 you would like to sponsor this project, see:
 
 	https://whynothugo.nl/sponsor

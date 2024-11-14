@@ -2,32 +2,32 @@ DESTDIR?=/
 PREFIX?=/usr/local
 
 .PHONY: build
-build: target/release/vdirsyncer docs
+build: target/release/pimsync docs
 
-target/release/vdirsyncer:
-	cargo build -p vdirsyncer --release
+target/release/pimsync:
+	cargo build -p pimsync --release
 
-docs: vdirsyncer.1 vdirsyncer-config.5 vdirsyncer-migration.7
+docs: pimsync.1 pimsync-config.5 pimsync-migration.7
 
-vdirsyncer.1: vdirsyncer.1.scd
-	scdoc < vdirsyncer.1.scd > vdirsyncer.1
+pimsync.1: pimsync.1.scd
+	scdoc < pimsync.1.scd > pimsync.1
 
-vdirsyncer-config.5: vdirsyncer-config.5.scd
-	scdoc < vdirsyncer-config.5.scd > vdirsyncer-config.5
+pimsync-config.5: pimsync-config.5.scd
+	scdoc < pimsync-config.5.scd > pimsync-config.5
 
-vdirsyncer-migration.7: vdirsyncer-migration.7.scd
-	scdoc < vdirsyncer-migration.7.scd > vdirsyncer-migration.7
+pimsync-migration.7: pimsync-migration.7.scd
+	scdoc < pimsync-migration.7.scd > pimsync-migration.7
 
 .PHONY: install
 install: build
-	@install -Dm755 target/release/vdirsyncer 	${DESTDIR}${PREFIX}/bin/vdirsyncer
-	@install -Dm644 vdirsyncer.1	${DESTDIR}${PREFIX}/share/man/man1/vdirsyncer.1
-	@install -Dm644 vdirsyncer-config.5	${DESTDIR}${PREFIX}/share/man/man5/vdirsyncer.5
-	@install -Dm644 vdirsyncer-migration.7	${DESTDIR}${PREFIX}/share/man/man7/vdirsyncer-migration.7
+	@install -Dm755 target/release/pimsync 	${DESTDIR}${PREFIX}/bin/pimsync
+	@install -Dm644 pimsync.1	${DESTDIR}${PREFIX}/share/man/man1/pimsync.1
+	@install -Dm644 pimsync-config.5	${DESTDIR}${PREFIX}/share/man/man5/pimsync.5
+	@install -Dm644 pimsync-migration.7	${DESTDIR}${PREFIX}/share/man/man7/pimsync-migration.7
 
 clean:
 	cargo clean
-	rm vdirsyncer.1
+	rm pimsync.1 pimsync-config.5 pimsync-migration.7
 
 check:
 	cargo build

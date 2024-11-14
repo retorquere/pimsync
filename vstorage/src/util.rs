@@ -6,7 +6,7 @@
 use sha2::{Digest, Sha256};
 use vparser::Parser;
 
-// TODO: See (in vdirsyncer-py) IGNORE_PROPS for more props that might make sense to ignore.
+// TODO: See (in vdirsyncer) IGNORE_PROPS for more props that might make sense to ignore.
 const ICS_FIELDS_TO_IGNORE: &[&str] = &[
     // Servers often mutate this; resulting in noise when comparing.
     "PRODID",

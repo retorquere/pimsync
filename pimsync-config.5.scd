@@ -1,15 +1,15 @@
-vdirsyncer-config(5)
+pimsync-config(5)
 
 # NAME
 
-vdirsyncer-config - vdirsyncer configuration file
+pimsync-config - pimsync configuration file
 
 # DESCRIPTION
 
-The vdirsyncer configuration file is divided into three main types of sections:
+The pimsync configuration file is divided into three main types of sections:
 
 *global section*
-	Global settings for vdirsyncer.
+	Global settings for pimsync.
 
 *storage sections*
 	Configuration for individual storages.
@@ -23,8 +23,8 @@ The following setting can be set globally:
 
 *status_path*
 	Path to a directory which will contain the status database internally
-	used by vdirsyncer.
-; Defaults to *XDG_DATA_HOME/vdirsyncer/status/*.
+	used by pimsync.
+; Defaults to *XDG_DATA_HOME/pimsync/status/*.
 
 # STORAGE SECTIONS
 
@@ -160,7 +160,7 @@ item was modified on both sides:
 # EXAMPLE
 
 ```
-status_path "~/.local/share/vdirsyncer/status/"
+status_path "~/.local/share/pimsync/status/"
 
 pair contacts {
   storage_a contacts_local
@@ -244,4 +244,4 @@ storage unix_b {
 
 # SEE ALSO
 
-vdirsyncer(1), vdirsyncer-migration(7)
+pimsync(1), pimsync-migration(7)

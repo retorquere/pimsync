@@ -242,7 +242,7 @@ where
     /// Generally, this type should be an `enum` with each known property represented as a
     /// different variant.
     ///
-    /// These were known as "metadata" in the previous vdirsyncer implementation.
+    /// These were known as "metadata" in the original vdirsyncer implementation.
     ///
     /// See also [`Storage::get_property`] and [`Storage::set_property`].
     type Property: Property;
@@ -401,7 +401,7 @@ fn uid(raw: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     // Note: Some of these examples are NOT valid vcards.
-    // vdirsyncer is expected to handle invalid input gracefully and sync it as-is,
+    // pimsync is expected to handle invalid input gracefully and sync it as-is,
     // so this is not really a problem.
 
     use crate::base::{IcsItem, Item, Storage};

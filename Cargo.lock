@@ -697,6 +697,31 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9b2a4787296e9989611394c33f193f676704af1686e70b8f8033ab5ba9a35a94"
 
 [[package]]
+name = "pimsync"
+version = "0.0.1"
+dependencies = [
+ "anyhow",
+ "camino",
+ "hex",
+ "hyper",
+ "hyper-rustls",
+ "hyper-util",
+ "hyperlocal",
+ "lexopt",
+ "libdav",
+ "log",
+ "rustix",
+ "rustls",
+ "rustls-pemfile",
+ "scfg",
+ "sha2",
+ "simple_logger",
+ "tempfile",
+ "tokio",
+ "vstorage",
+]
+
+[[package]]
 name = "pin-project"
 version = "1.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1305,31 +1330,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f8c5f0a0af699448548ad1a2fbf920fb4bee257eae39953ba95cb84891a0446a"
 dependencies = [
  "getrandom",
-]
-
-[[package]]
-name = "vdirsyncer"
-version = "0.0.1"
-dependencies = [
- "anyhow",
- "camino",
- "hex",
- "hyper",
- "hyper-rustls",
- "hyper-util",
- "hyperlocal",
- "lexopt",
- "libdav",
- "log",
- "rustix",
- "rustls",
- "rustls-pemfile",
- "scfg",
- "sha2",
- "simple_logger",
- "tempfile",
- "tokio",
- "vstorage",
 ]
 
 [[package]]
