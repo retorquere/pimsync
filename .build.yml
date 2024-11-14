@@ -5,10 +5,12 @@
 image: alpine/edge
 packages:
   - cargo
-  - rust
-  - rustfmt
-  - rust-clippy
+  - mandoc
   - rsync
+  - rust
+  - rust-clippy
+  - rustfmt
+  - scdoc
 environment:
   CARGO_TERM_COLOR: always
 triggers:
@@ -24,6 +26,9 @@ tasks:
   - check: |
       cd vdirsyncer-rs
       make check
+  - docs: |
+      cd vdirsyncer-rs
+      make docs
   - main-or-tag: |
       cd vdirsyncer-rs
       git diff --no-patch --exit-code origin/main || git describe --tag --exact-match || complete-build
