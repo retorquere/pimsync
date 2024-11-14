@@ -1,3 +1,13 @@
+# v2.0.0-beta2
+
+- Renamed project to `pimsync`.
+- Redesigned configuration file.
+- Include a man page for `pimsync(1)` and `pimsync-config(5)`.
+- Several minor fixes.
+- Introduce support for Dav over Unix sockets.
+- Allow specifying a custom configuration file.
+- Many documentation improvements.
+
 # v2.0.0-beta1
 
 Documentation improvements:
