@@ -41,13 +41,13 @@ curly braces:
 
 *type* _type_
 	Type can be one of *vdir/icalendar*, *vdir/vcard*, *caldav*, *carddav*
-	or *http* (webdav).
+	or *http* (webcal).
 
 *interval* _seconds_
 	When monitoring a storage is no possible, check for changes every
 	the specified amount of seconds. The default is 300 seconds.
 
-; FIXME: inconsistency between http and webdav
+; FIXME: inconsistency between http and webcal
 
 ; TODO: should point to docs for *vdir*.
 

@@ -2,7 +2,7 @@ pimsync(1)
 
 # NAME
 
-pimsync - synchronise caldav, carddav, webdav and local storages
+pimsync - synchronise caldav, carddav, webcal and local storages
 
 # SYNOPSIS
 
@@ -12,8 +12,8 @@ pimsync - synchronise caldav, carddav, webdav and local storages
 
 *pimsync* synchronises contacts or calendars between storages.
 
-Supported calendar storages are *vdir*, *caldav* and *webdav*. Any permutation
-of these is supported, except *webdav* to *webdav*. The *webdav* storage is
+Supported calendar storages are *vdir*, *caldav* and *webcal*. Any permutation
+of these is supported, except *webcal* to *webcal*. The *webcal* storage is
 read-only, and two read-only storages cannot be synchronised.
 
 Supported contacts storages are *vdir* and *carddav*. Any permutation of these
