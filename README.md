@@ -11,9 +11,9 @@ For the original Python implementation see: <https://github.com/pimutils/vdirsyn
 
 # User documentation
 
-User documentation is included in the `docs` directory and can be built using
-`hugo`. This will likely change in future to something easier to distribute
-along with the binaries.
+User documentation is provided as man pages. They can be built with `make man`.
+The same man pages can be rendered as HTML pages. These can be generated with
+`make html`.
 
 # Developer documentation
 
