@@ -198,6 +198,8 @@ Specifying an id and an href for the same storage is not allowed.
 
 # EXAMPLE
 
+The following is a complete example of a configuration file:
+
 ```
 status_path "~/.local/share/pimsync/status/"
 
