@@ -16,14 +16,8 @@ html: pimsync.1.html pimsync-config.5.html pimsync-migration.7.html
 %.html: %
 	mandoc -T html -O style=man-style.css < '$<' | sed -E 's,(pimsync[a-z-]*)\(([0-9])\),<a href="\1.\2.html">\1(\2)</a>,g' > '$@'
 
-pimsync.1: pimsync.1.scd
-	scdoc < pimsync.1.scd > pimsync.1
-
-pimsync-config.5: pimsync-config.5.scd
-	scdoc < pimsync-config.5.scd > pimsync-config.5
-
-pimsync-migration.7: pimsync-migration.7.scd
-	scdoc < pimsync-migration.7.scd > pimsync-migration.7
+%: %.scd
+	scdoc < '$<' > '$@'
 
 .PHONY: install
 install: build
