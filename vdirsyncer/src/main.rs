@@ -38,7 +38,7 @@ mod config;
 mod stdio;
 mod tls;
 
-pub const VERSION: &str = "2.0.0-alpha0";
+pub const VERSION: &str = env!("PIMSYNC_VERSION");
 
 /// Pair with a name, as defined in the configuration file.
 pub(crate) struct NamedPair<I: Item> {

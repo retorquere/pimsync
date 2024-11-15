@@ -9,6 +9,7 @@ edition = "2021"
 description = "Synchronize calendars and contacts"
 homepage = "https://sr.ht/~whynothugo/vdirsyncer-rs/"
 license = "EUPL-1.2"
+build = "build.rs"
 
 [dependencies]
 anyhow = "1.0.75"
