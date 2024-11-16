@@ -192,6 +192,16 @@ hosted at SourceHut:
 
 	https://sr.ht/~whynothugo/vdirsyncer-rs
 
+# STANDARDS
+
+Calendaring Extensions to WebDAV (CalDAV) is implemented as specified in IETF
+RFC 4791.
+
+vCard Extensions to WebDAV (CardDAV) is implemented as specified in IETF RFC
+4791.
+
+Service discovery is implemented as specified in IETF RFC 6764.
+
 # THANKS
 
 Development of this project is possible thanks to funding and support from the
