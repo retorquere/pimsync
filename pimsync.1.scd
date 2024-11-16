@@ -76,7 +76,6 @@ is supported.
 
 If *$XDG_CONFIG_HOME* is defined, the configuration shall be read from:
 
-TODO: rename to pimsync.conf (also man page)
 	*$XDG_CONFIG_HOME*/pimsync/pimsync.conf
 
 If the above is not defined, the configuration file shall be read from:
