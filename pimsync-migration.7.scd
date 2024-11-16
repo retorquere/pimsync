@@ -205,7 +205,7 @@ Generally, using an *id* is recommended. Using *href* is intended for situations
 where discovery is not possible or where multiple collections have the same
 *id*.
 
-To specify a single collection by name, use:
+To specify a single collection by id, use:
 
 ```
 collection c037725e-e4fd-4b3e-b73d-d5e27d5a90a9
@@ -244,12 +244,12 @@ to an explicitly collection instead.
 The type of the *http* storage is now *webcal*, to better reflect its nature;
 other storages also use HTTP internally.
 
-# WEBCAL COLLECTION NAME
+# WEBCAL COLLECTION ID
 
 Due to its nature, the WebCal storage has a single collection. However, this
-collection has no name. A name must be provided for it explicitly. This
+collection has no id. A collection id must be provided for it explicitly. This
 simplifies configurations where it must be synchronised to another calendar with
-the same name.
+the same collection id.
 
 ```
 storage calendars_lessons {
