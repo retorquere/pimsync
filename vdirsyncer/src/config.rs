@@ -102,10 +102,20 @@ impl Config {
                 OnEmpty::default()
             };
 
-            let conflict_resolution = if let Some(directive) =
+            let conflict_resolution = if let Some(mut directive) =
                 take_single_directive(&mut config, "conflict_resolution")?
             {
-                Some(parse_raw_command(directive).context("Parsing conflict_resolution")?)
+                let mut params = directive.take_params().into_iter();
+                match params.next().as_deref() {
+                    Some("cmd") => {
+                        let command = params
+                            .next()
+                            .context("cmd must define at least one parameter")?;
+                        let args = params.collect();
+                        Some(RawCommand { command, args })
+                    }
+                    _ => bail!("conflict_resolution expects a cmd parameter"),
+                }
             } else {
                 None
             };
