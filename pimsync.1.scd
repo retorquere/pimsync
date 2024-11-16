@@ -90,8 +90,6 @@ See pimsync.conf(5) for details on the configuration file format.
 	If defined, search for the configuration file relative to this
 	directory. See *FILES* above.
 
-; TODO: Use XDG_DATA_HOME for status DB.
-
 # READINESS NOTIFICATION
 
 Readiness notification allows a service manager to monitor when pimsync has
