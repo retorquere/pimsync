@@ -71,7 +71,7 @@ impl RawCommand {
 
 /// Simply log non-fatal errors.
 #[allow(clippy::needless_pass_by_value)]
-pub fn log_error(error: SyncError) {
+pub fn log_error<I: Item>(error: SyncError<I>) {
     error!("{error}");
 }
 

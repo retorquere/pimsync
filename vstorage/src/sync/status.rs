@@ -4,7 +4,10 @@ use std::{fs::create_dir_all, path::Path};
 use log::{debug, error};
 use sqlite::{Connection, ConnectionThreadSafe, OpenFlags, State};
 
-use crate::{base::ItemRef, CollectionId, Etag, Href};
+use crate::{
+    base::{Item, ItemRef},
+    CollectionId, Etag, Href,
+};
 
 const SCHEMA_VERSION: i64 = 2;
 
@@ -52,15 +55,15 @@ impl std::fmt::Display for Side {
 
 /// State for an item at some point in time.
 #[derive(PartialEq, Clone, Debug)]
-pub struct ItemState {
+pub struct ItemState<I: Item> {
     pub href: Href,
     pub uid: String,
     pub etag: Etag,
     pub hash: String,
-    pub data: Option<String>,
+    pub data: Option<I>,
 }
 
-impl ItemState {
+impl<I: Item> ItemState<I> {
     /// Create an `ItemRef` by copying the `href` and `etag`.
     #[must_use]
     pub fn to_item_ref(&self) -> ItemRef {
@@ -209,11 +212,11 @@ impl StatusDatabase {
     }
 
     /// Returns an `ItemState`, if it exists AND has an Etag.
-    pub(super) fn get_item_by_href(
+    pub(super) fn get_item_by_href<I: Item>(
         &self,
         side: Side,
         href: &str,
-    ) -> Result<Option<ItemState>, StatusError> {
+    ) -> Result<Option<ItemState<I>>, StatusError> {
         let query = vec![
             &format!("SELECT ident, href_{side} AS href, hash, etag_{side} AS etag"),
             " FROM items",
@@ -478,7 +481,11 @@ impl StatusDatabase {
 
 #[cfg(test)]
 mod test {
-    use crate::{base::ItemRef, sync::status::StatusError, CollectionId, Etag};
+    use crate::{
+        base::{IcsItem, ItemRef},
+        sync::status::StatusError,
+        CollectionId, Etag,
+    };
 
     use super::{MappingUid, Side, StatusDatabase};
 
@@ -507,13 +514,19 @@ mod test {
         db.insert_item(&mapping_uid, uid, hash, &item_a, &item_b)
             .unwrap();
 
-        let item_a_fetched = db.get_item_by_href(Side::A, &item_a.href).unwrap().unwrap();
+        let item_a_fetched = db
+            .get_item_by_href::<IcsItem>(Side::A, &item_a.href)
+            .unwrap()
+            .unwrap();
         assert_eq!(item_a_fetched.uid, uid);
         assert_eq!(item_a_fetched.hash, hash);
         assert_eq!(item_a_fetched.href, item_a.href);
         assert_eq!(item_a_fetched.etag, item_a.etag);
 
-        let item_b_fetched = db.get_item_by_href(Side::B, &item_b.href).unwrap().unwrap();
+        let item_b_fetched = db
+            .get_item_by_href::<IcsItem>(Side::B, &item_b.href)
+            .unwrap()
+            .unwrap();
         assert_eq!(item_b_fetched.uid, uid);
         assert_eq!(item_b_fetched.hash, hash);
         assert_eq!(item_b_fetched.href, item_b.href);
@@ -531,11 +544,11 @@ mod test {
 
         db.delete_item(&mapping_uid, uid).unwrap();
         assert!(db
-            .get_item_by_href(Side::A, &item_a.href)
+            .get_item_by_href::<IcsItem>(Side::A, &item_a.href)
             .unwrap()
             .is_none());
         assert!(db
-            .get_item_by_href(Side::B, &item_b.href)
+            .get_item_by_href::<IcsItem>(Side::B, &item_b.href)
             .unwrap()
             .is_none());
         assert!(db
@@ -579,13 +592,19 @@ mod test {
         )
         .unwrap();
 
-        let item_a_fetched = db.get_item_by_href(Side::A, &item_a.href).unwrap().unwrap();
+        let item_a_fetched = db
+            .get_item_by_href::<IcsItem>(Side::A, &item_a.href)
+            .unwrap()
+            .unwrap();
         assert_eq!(item_a_fetched.uid, uid);
         assert_eq!(item_a_fetched.hash, updated_hash);
         assert_eq!(item_a_fetched.href, item_a.href);
         assert_eq!(item_a_fetched.etag, updated_etag_a);
 
-        let item_b_fetched = db.get_item_by_href(Side::B, &item_b.href).unwrap().unwrap();
+        let item_b_fetched = db
+            .get_item_by_href::<IcsItem>(Side::B, &item_b.href)
+            .unwrap()
+            .unwrap();
         assert_eq!(item_b_fetched.uid, uid);
         assert_eq!(item_b_fetched.hash, updated_hash);
         assert_eq!(item_b_fetched.href, item_b.href);

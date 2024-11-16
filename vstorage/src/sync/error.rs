@@ -6,6 +6,8 @@
 //!
 //! These types represent non-fatal errors which may occurs during synchronisation.
 
+use crate::base::Item;
+
 use super::{
     execute::ExecutionError,
     plan::{CollectionAction, ItemAction, PropertyAction},
@@ -18,14 +20,14 @@ use super::{
 ///
 /// Use the [`std::fmt::Display`] implementation for a quick description.
 #[derive(Debug)]
-pub struct SyncError {
-    action: SomeAction,
+pub struct SyncError<I: Item> {
+    action: SomeAction<I>,
     error: ExecutionError,
 }
 
-impl SyncError {
+impl<I: Item> SyncError<I> {
     #[must_use]
-    pub fn item(action: ItemAction, error: ExecutionError) -> Self {
+    pub fn item(action: ItemAction<I>, error: ExecutionError) -> Self {
         Self {
             action: SomeAction::Item(Box::from(action)),
             error,
@@ -49,13 +51,13 @@ impl SyncError {
     }
 }
 
-impl std::fmt::Display for SyncError {
+impl<I: Item> std::fmt::Display for SyncError<I> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "Error executing {}: {}", self.action, self.error)
     }
 }
 
-impl std::error::Error for SyncError {
+impl<I: Item> std::error::Error for SyncError<I> {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         Some(&self.error)
     }
@@ -63,8 +65,8 @@ impl std::error::Error for SyncError {
 
 /// An action that has failed to execute. See [`SyncError`].
 #[derive(Debug)]
-pub enum SomeAction {
-    Item(Box<ItemAction>),
+pub enum SomeAction<I: Item> {
+    Item(Box<ItemAction<I>>),
     // TODO: this is missing the details of the collection itself (e.g.: alias?).
     Collection {
         action: CollectionAction,
@@ -74,7 +76,7 @@ pub enum SomeAction {
     Property(PropertyAction),
 }
 
-impl std::fmt::Display for SomeAction {
+impl<I: Item> std::fmt::Display for SomeAction<I> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             SomeAction::Item(action) => {
@@ -94,11 +96,14 @@ impl std::fmt::Display for SomeAction {
 mod test {
     use std::backtrace::Backtrace;
 
-    use crate::sync::{
-        error::SomeAction,
-        execute::ExecutionError,
-        plan::{CollectionAction, ItemAction},
-        status::{ItemState, Side},
+    use crate::{
+        base::IcsItem,
+        sync::{
+            error::SomeAction,
+            execute::ExecutionError,
+            plan::{CollectionAction, ItemAction},
+            status::{ItemState, Side},
+        },
     };
 
     use super::SyncError;
@@ -108,7 +113,7 @@ mod test {
         let err = SyncError {
             action: SomeAction::Item(Box::from(ItemAction::Create {
                 side: Side::A,
-                source: ItemState {
+                source: ItemState::<IcsItem> {
                     href: "/path/to/some/file.vcf".into(),
                     uid: "d99ed506-dceb-49f2-a1c9-efa63c68acd0".into(),
                     etag: "123890".into(),
@@ -137,7 +142,7 @@ mod test {
 
     #[test]
     fn test_syncerror_collection_display() {
-        let err = SyncError {
+        let err = SyncError::<IcsItem> {
             action: SomeAction::Collection {
                 action: CollectionAction::CreateInB,
                 alias: "guests".into(),

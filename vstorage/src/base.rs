@@ -233,10 +233,9 @@ pub trait Property:
 /// This trait defines how to extract the basic information that is required to synchronise
 /// storages. Additional parsing is out of scope here and should be done by inspecting the raw data
 /// inside an item via [`Item::as_str`].
-pub trait Item: Sync + Send + std::fmt::Debug
+pub trait Item: Sync + Send + std::fmt::Debug + Clone
 where
     Self: From<String>,
-    Self: Into<String>,
 {
     /// Property types supported by storages.
     ///
@@ -283,7 +282,7 @@ where
 /// Note that this is not a proper validating parser for icalendar or vcard; it's a very simple
 /// one with the sole purpose of extracing a UID. Proper parsing of components is out of scope,
 /// since supporting potentially invalid items is required.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct IcsItem {
     raw: String,
 }
@@ -326,12 +325,6 @@ impl Property for CalendarProperty {
             CalendarProperty::Description => "description".into(),
             CalendarProperty::Order => "order".into(),
         }
-    }
-}
-
-impl From<IcsItem> for String {
-    fn from(item: IcsItem) -> Self {
-        item.raw
     }
 }
 
@@ -526,7 +519,7 @@ mod tests {
 /// Note that this is not a proper validating parser for vcard; it's a very simple one with the
 /// sole purpose of extracing a UID. Proper parsing of components is out of scope, since we want to
 /// enable operating on potentially invalid items too.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct VcardItem {
     raw: String,
 }
@@ -557,12 +550,6 @@ impl Property for AddressBookProperty {
             AddressBookProperty::DisplayName => "displayname".into(),
             AddressBookProperty::Description => "description".into(),
         }
-    }
-}
-
-impl From<VcardItem> for String {
-    fn from(item: VcardItem) -> Self {
-        item.raw
     }
 }
 

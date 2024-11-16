@@ -18,13 +18,13 @@ use super::{
     status::{ItemState, MappingUid, Side, StatusDatabase, StatusError},
 };
 
-impl ItemAction {
+impl<I: Item> ItemAction<I> {
     /// Execution the action on the item.
     ///
     /// The `state_a` or `state_b` variables should only be `None` if the collection does not exist
     /// in that storage. That should only really happen if the storage has been deleted.
     #[inline]
-    async fn execute<I: Item>(
+    async fn execute(
         &self,
         a: &dyn Storage<I>,
         b: &dyn Storage<I>,
@@ -92,7 +92,7 @@ pub enum ExecutionError {
 }
 
 async fn create_item<I: Item>(
-    source: &ItemState,
+    source: &ItemState<I>,
     status: &StatusDatabase,
     target_collection: &Href,
     src_storage: &dyn Storage<I>,
@@ -103,7 +103,7 @@ async fn create_item<I: Item>(
     debug!("Creating item from {}", source.href);
 
     let (item_data, source_etag) = match &source.data {
-        Some(data) => (I::from(data.to_string()), source.etag.clone()),
+        Some(data) => (data.clone(), source.etag.clone()),
         None => match src_storage.get_item(&source.href).await {
             Ok((i, e)) => (i, e),
             Err(err) => return Ok(Err(ExecutionError::Storage(err))),
@@ -133,7 +133,7 @@ async fn create_item<I: Item>(
 async fn update_item<I: Item>(
     src_storage: &dyn Storage<I>,
     dst_storage: &dyn Storage<I>,
-    source: &ItemState,
+    source: &ItemState<I>,
     target: &Href,
     old_a: &ItemRef,
     old_b: &ItemRef,
@@ -142,7 +142,7 @@ async fn update_item<I: Item>(
 ) -> Result<Result<(), ExecutionError>, StatusError> {
     debug!("Updating from {}", source.href);
     let (source_item, source_etag) = match &source.data {
-        Some(data) => (I::from(data.to_string()), source.etag.clone()),
+        Some(data) => (data.clone(), source.etag.clone()),
         None => match src_storage.get_item(&source.href).await {
             Ok((i, e)) => (i, e),
             Err(err) => return Ok(Err(ExecutionError::Storage(err))),
@@ -196,7 +196,7 @@ async fn update_item<I: Item>(
 }
 
 async fn delete_item<I: Item>(
-    target: &ItemState,
+    target: &ItemState<I>,
     status: &StatusDatabase,
     storage: &dyn Storage<I>,
     mapping_uid: &MappingUid,
@@ -234,7 +234,7 @@ impl<I: Item> Plan<I> {
     pub async fn execute(
         self,
         status: &StatusDatabase,
-        on_error: impl Fn(SyncError),
+        on_error: impl Fn(SyncError<I>),
     ) -> Result<(), StatusError> {
         let storage_a = self.storage_a.as_ref();
         let storage_b = self.storage_b.as_ref();

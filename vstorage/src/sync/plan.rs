@@ -469,7 +469,7 @@ fn resolve_mapping_counterpart<I: Item>(
 #[derive(Debug)]
 pub struct CollectionPlan<I: Item> {
     pub collection_action: CollectionAction,
-    pub item_actions: Vec<ItemAction>,
+    pub item_actions: Vec<ItemAction<I>>,
     pub property_actions: Vec<PropertyPlan<I>>,
     pub(super) mapping: ResolvedMapping,
 }
@@ -569,11 +569,11 @@ impl<I: Item> CollectionPlan<I> {
 
 /// Operation to execute on an item during synchronising.
 #[derive(PartialEq, Debug, Clone)]
-pub enum ItemAction {
+pub enum ItemAction<I: Item> {
     /// Item is new and identical on both sides.
     SaveToStatus {
-        a: ItemState,
-        b: ItemState,
+        a: ItemState<I>,
+        b: ItemState<I>,
     },
     /// Item has changed and is identical on both sides.
     UpdateStatus {
@@ -591,37 +591,37 @@ pub enum ItemAction {
     },
     Create {
         side: Side,
-        source: ItemState,
+        source: ItemState<I>,
     },
     Update {
         side: Side,
-        source: ItemState,
+        source: ItemState<I>,
         target: Href,
         old_a: ItemRef,
         old_b: ItemRef,
     },
     Delete {
         side: Side,
-        target: ItemState,
+        target: ItemState<I>,
     },
     /// Item is in conflict which needs to be resolved externally.
     Conflict {
-        a: ItemState,
-        b: ItemState,
+        a: ItemState<I>,
+        b: ItemState<I>,
         // Indicates that the item is new on both sides.
         is_new: bool,
     },
 }
 
-impl ItemAction {
+impl<I: Item> ItemAction<I> {
     #[allow(clippy::too_many_lines)]
     #[must_use]
     fn for_item(
-        current_a: Option<&ItemState>,
-        current_b: Option<&ItemState>,
+        current_a: Option<&ItemState<I>>,
+        current_b: Option<&ItemState<I>>,
         previous: Option<StatusForItem>,
         uid: &str,
-    ) -> Option<ItemAction> {
+    ) -> Option<ItemAction<I>> {
         match (current_a, current_b, previous) {
             (None, None, None) => unreachable!("no action for item that doesn't exist anywhere"),
             (None, None, Some(_)) => Some(ItemAction::ClearStatus {
@@ -748,7 +748,7 @@ impl ItemAction {
     }
 }
 
-impl std::fmt::Display for ItemAction {
+impl<I: Item> std::fmt::Display for ItemAction<I> {
     /// This function is mostly implemented to be used for error reporting.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -842,7 +842,7 @@ async fn items_for_collection<I: Item>(
     storage: &dyn Storage<I>,
     collection: &Href,
     side: Side,
-) -> Result<Vec<ItemState>, PlanError> {
+) -> Result<Vec<ItemState<I>>, PlanError> {
     debug!("Resolving state for collection: {}.", collection);
     let mut items = Vec::new();
 
@@ -885,7 +885,7 @@ async fn items_for_collection<I: Item>(
             uid: item.ident(),
             etag,
             hash: item.hash(),
-            data: Some(item.into()),
+            data: Some(item),
         });
     items.extend(prefetched);
 
