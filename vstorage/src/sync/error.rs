@@ -113,6 +113,7 @@ mod test {
                     uid: "d99ed506-dceb-49f2-a1c9-efa63c68acd0".into(),
                     etag: "123890".into(),
                     hash: "AAAAAZZZZZ".into(),
+                    data: None,
                 },
             })),
             error: ExecutionError::Storage(crate::Error {

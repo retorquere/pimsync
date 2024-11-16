@@ -133,17 +133,20 @@ async fn create_item<I: Item>(
 async fn update_item<I: Item>(
     src_storage: &dyn Storage<I>,
     dst_storage: &dyn Storage<I>,
-    source: &Href,
+    source: &ItemState,
     target: &Href,
     old_a: &ItemRef,
     old_b: &ItemRef,
     status: &StatusDatabase,
     side: Side,
 ) -> Result<Result<(), ExecutionError>, StatusError> {
-    debug!("Updating from {}", source);
-    let (source_item, source_etag) = match src_storage.get_item(source).await {
-        Ok(i) => i,
-        Err(err) => return Ok(Err(ExecutionError::Storage(err))),
+    debug!("Updating from {}", source.href);
+    let (source_item, source_etag) = match &source.data {
+        Some(data) => (I::from(data.to_string()), source.etag.clone()),
+        None => match src_storage.get_item(&source.href).await {
+            Ok((i, e)) => (i, e),
+            Err(err) => return Ok(Err(ExecutionError::Storage(err))),
+        },
     };
 
     let old_etag = match side {
@@ -170,7 +173,7 @@ async fn update_item<I: Item>(
                 etag: new_etag,
             },
             &ItemRef {
-                href: source.clone(),
+                href: source.href.clone(),
                 etag: source_etag,
             },
         ),
@@ -179,7 +182,7 @@ async fn update_item<I: Item>(
             old_a,
             old_b,
             &ItemRef {
-                href: source.clone(),
+                href: source.href.clone(),
                 etag: source_etag,
             },
             &ItemRef {

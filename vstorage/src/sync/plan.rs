@@ -595,7 +595,7 @@ pub enum ItemAction {
     },
     Update {
         side: Side,
-        source: Href,
+        source: ItemState,
         target: Href,
         old_a: ItemRef,
         old_b: ItemRef,
@@ -701,7 +701,7 @@ impl ItemAction {
                     // Side A has not changed
                     Some(ItemAction::Update {
                         side: Side::A,
-                        source: b.href.clone(),
+                        source: b.clone(),
                         target: a.href.clone(),
                         old_a: a.to_item_ref(),
                         old_b: ItemRef {
@@ -713,7 +713,7 @@ impl ItemAction {
                     // Side B has not changed
                     Some(ItemAction::Update {
                         side: Side::B,
-                        source: a.href.clone(),
+                        source: a.clone(),
                         target: b.href.clone(),
                         old_a: ItemRef {
                             href: prev.href_a,
@@ -761,7 +761,7 @@ impl std::fmt::Display for ItemAction {
                 write!(f, "create in storage {} (uid: {})", side, source.uid)
             }
             ItemAction::Update { source, side, .. } => {
-                write!(f, "update in storage {side} (href: {source})")
+                write!(f, "update in storage {side} (href: {})", source.href)
             }
             ItemAction::Delete { side, target } => {
                 write!(f, "delete in storage {} (uid: {})", side, target.uid)
