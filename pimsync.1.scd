@@ -140,6 +140,10 @@ is resolved using DNS records. The system's DNS resolver is used. It is expected
 that the system resolver performs DNSSEC validation and will not return invalid
 results. Pimsync does not perform DNSSEC validation itself.
 
+Pimsync will follow symlinks when reading items. Care should be taken when a
+user has write permission to a storage, but another user runs pimsync on that
+same storage. This may change at a future date.
+
 Items across storages are considered the same if they share the same UID. An
 actor who can write a single item into a storage on either side can potentially
 trigger an overwrite of another item on the other storage. An actor who can
@@ -153,8 +157,6 @@ parties.
 
 When logging with *-v trace*, logs MAY contain credentials, secrets, data inside
 of storage items and other sensitive information.
-
-Please note that our security audit is still ongoing.
 
 # CAVEATS
 
