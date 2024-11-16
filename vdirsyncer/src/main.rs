@@ -195,6 +195,7 @@ impl<I: Item> NamedPair<I> {
             println!("Next is item {}/{total}", i + 1);
             continue_or_abort(&lock)?;
 
+            // TODO: should use pre-fetched data, if available.
             // TODO: improve logging here.
             // TODO: move duplicated logic into a "read_item_to_tempfile" function.
             let (mut temp_a, etag_a) = save_item_to_tempfile(self.inner.storage_a(), &a.href)
