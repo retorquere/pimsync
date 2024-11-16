@@ -10,6 +10,7 @@ use std::{
     path::PathBuf,
     sync::Arc,
     time::Duration,
+    vec::IntoIter,
 };
 
 use anyhow::{bail, Context};
@@ -66,6 +67,18 @@ impl RawCommand {
         let mut cmd = std::process::Command::new(&self.command);
         cmd.args(&self.args);
         cmd
+    }
+}
+
+impl TryFrom<IntoIter<String>> for RawCommand {
+    type Error = anyhow::Error;
+
+    fn try_from(mut value: IntoIter<String>) -> anyhow::Result<Self> {
+        let command = value
+            .next()
+            .context("cmd must define at least one parameter")?;
+        let args = value.collect();
+        Ok(RawCommand { command, args })
     }
 }
 

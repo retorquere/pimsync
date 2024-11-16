@@ -108,11 +108,7 @@ impl Config {
                 let mut params = directive.take_params().into_iter();
                 match params.next().as_deref() {
                     Some("cmd") => {
-                        let command = params
-                            .next()
-                            .context("cmd must define at least one parameter")?;
-                        let args = params.collect();
-                        Some(RawCommand { command, args })
+                        Some(RawCommand::try_from(params).context("parsing conflict_resolution")?)
                     }
                     _ => bail!("conflict_resolution expects a cmd parameter"),
                 }
@@ -507,16 +503,12 @@ fn parse_raw_command(mut directive: Directive) -> anyhow::Result<RawCommand> {
     let mut block = directive
         .take_child()
         .context("Must define a parameter or a block")?;
-    let mut params = take_single_directive(&mut block, "cmd")?
+    let params = take_single_directive(&mut block, "cmd")?
         .context("Block must define a cmd directive")?
         .take_params()
         .into_iter();
 
-    let command = params
-        .next()
-        .context("cmd must define at least one parameter")?;
-    let args = params.collect();
-    Ok(RawCommand { command, args })
+    RawCommand::try_from(params)
 }
 
 #[derive(Debug, Default)]
