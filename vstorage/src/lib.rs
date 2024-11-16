@@ -150,7 +150,6 @@ impl ErrorKind {
             ErrorKind::Uncategorised => "uncategorised error",
         }
     }
-    // TODO: generate rustdoc for each variant using this method?
 }
 
 /// A common error type used by all Storage implementations.
@@ -377,7 +376,6 @@ impl FromStr for CollectionId {
     /// let collection_id: CollectionId = "personal".parse().unwrap();
     /// ```
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
-        // TODO: validation should not iterate string thrice.
         Self::validate(s)?;
 
         Ok(CollectionId {
