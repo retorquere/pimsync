@@ -166,6 +166,25 @@ external program updates the same item between the check and the modification,
 those changes will be lost. It is unlikely that this issue can be resolved with
 existing filesystem primitives.
 
+# EXAMPLES
+
+Run daemon with verbose logging:
+
+```
+pimsync -v info daemon
+```
+
+Interactive conflict resolution for pair named _contacts_:
+
+```
+pimsync -p contacts resolve-conflicts
+```
+
+Show version and exit:
+
+```
+pimsync version
+```
 
 # SEE ALSO
 
