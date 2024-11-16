@@ -2,7 +2,7 @@ pimsync(1)
 
 # NAME
 
-pimsync - synchronise caldav, carddav, webcal and local storages
+pimsync - synchronise caldav, carddav, webcal and local directories
 
 # SYNOPSIS
 
@@ -10,7 +10,10 @@ pimsync - synchronise caldav, carddav, webcal and local storages
 
 # DESCRIPTION
 
-*pimsync* synchronises contacts or calendars between storages.
+*pimsync* synchronizes calendars and contacts between two storages. The most
+popular usage is to synchronize a CalDAV/CardDAV server with a local directory.
+The local data can then be accessed by a variety of programs, none of which have
+to know or worry about synchronisation, network connectivity, or remote servers.
 
 Supported calendar storages are *vdir*, *caldav* and *webcal*. With the
 exception of *webcal* to *webcal*, all permutations of these are supported. The
@@ -19,8 +22,6 @@ with each other.
 
 Supported contacts storages are *vdir* and *carddav*. Any permutation of these
 is supported.
-
-Storages are other parameters are configured via pimsync-config(5).
 
 # OPTIONS
 
@@ -47,9 +48,13 @@ Storages are other parameters are configured via pimsync-config(5).
 	Continuously keep storages in sync. The *-r* _READY_FD_ argument may be
 	used to provide a readiness notification file descriptor.
 
+	Once it has reached its ready state, the demon will monitor storages for
+	changes and synchronise them. In case of non-fatal errors, pimsync will
+	continue running the background and try again later.
+
 *discover*
 	Discover and print collections. This command merely provides
-	information, and does in any way alter *pimsync*'s internal state.
+	information, and does in any way alter pimsync's internal state.
 
 *resolve-conflicts*
 	Manually resolve conflicts between storages.
@@ -61,9 +66,17 @@ Storages are other parameters are configured via pimsync-config(5).
 	Print version information and exit. The *-p* option has no effect when
 	using this command.
 
+# CONFLICT RESOLUTION
+
+When synchronising two storages, if a single item has been modified on both
+sides, it is said to be in conflict. This needs to be resolved manually.
+
+The *resolve-conflicts* command shall prompt to reconcile conflicting items
+using an external command. At this time, generic text diff
+
 # FILES
 
-If *$XDG_CONFIG_HOME* is define, the configuration shall be read from:
+If *$XDG_CONFIG_HOME* is defined, the configuration shall be read from:
 
 	*$XDG_CONFIG_HOME*/pimsync/config.scfg
 
@@ -71,11 +84,13 @@ If the above is not defined, the configuration file shall be read from:
 
 	~/.config/pimsync/config.scfg
 
+See pimsync-config(5) for details on the configuration file format.
+
 # ENVIRONMENT
 
 *XDG_CONFIG_HOME*
 	If defined, search for the configuration file relative to this
-	directory. See *FILES*.
+	directory. See *FILES* above.
 
 ; TODO: Use XDG_DATA_HOME for status DB.
 
@@ -145,11 +160,13 @@ Please note that our security audit is still ongoing.
 For vdir storages, checking the etag is subject to race conditions. Vdirsyncer
 will first check that an item has not been modified, and then update it. If an
 external program updates the same item between the check and the modification,
-those changes will be lost.
+those changes will be lost. It is unlikely that this issue can be resolved with
+existing filesystem primitives.
+
 
 # SEE ALSO
 
-pimsync-config(5), pimsync-migration(7)
+pimsync-config(5), pimsync-migration(7), khal(1), todo(1)
 
 # DEVELOPMENT
 
@@ -175,7 +192,7 @@ A security audit was completed by Radically Open Security:
 
 The *vdirsyncer* command was first implemented by Markus Unterwaditzer in 2014.
 
-The *pimsync* command, strongly inspired by *vdirsyncer*, was implemented by
+Work on the *pimsync* command, strongly inspired by *vdirsyncer*, was started by
 Hugo Barrera in 2023.
 
 The acronym *pim* refers to *personal information manager*.
