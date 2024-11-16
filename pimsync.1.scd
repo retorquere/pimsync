@@ -59,20 +59,18 @@ is supported.
 *resolve-conflicts*
 	Manually resolve conflicts between storages.
 
+	When synchronising two storages, if a single item has been modified on
+	both sides, that item is said to be in conflict. This conflict needs to
+	be resolved by an some external program, specified in the configuration
+	file. This command executes the conflict resolution program for each
+	conflicting item.
+
 *sync*
 	Synchronise storages once and exit.
 
 *version*
 	Print version information and exit. The *-p* option has no effect when
 	using this command.
-
-# CONFLICT RESOLUTION
-
-When synchronising two storages, if a single item has been modified on both
-sides, it is said to be in conflict. This needs to be resolved manually.
-
-The *resolve-conflicts* command shall prompt to reconcile conflicting items
-using an external command. At this time, generic text diff
 
 # FILES
 
