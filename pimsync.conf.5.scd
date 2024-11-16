@@ -41,13 +41,11 @@ curly braces:
 
 *type* _type_
 	Type can be one of *vdir/icalendar*, *vdir/vcard*, *caldav*, *carddav*
-	or *http* (webcal).
+	or *webcal*.
 
 *interval* _seconds_
 	When monitoring a storage is no possible, check for changes every
 	the specified amount of seconds. The default is 300 seconds.
-
-; FIXME: inconsistency between http and webcal
 
 ; TODO: should point to docs for *vdir*.
 
@@ -77,11 +75,12 @@ Storages of type *caldav* or *carddav* take the following directives:
 *password* { … }
 	Optional. Password to use for HTTP Basic Auth.
 
-Storages of type *http* take the following directives:
+Storages of type *webcal* take the following directives:
 
 *url* _url_++
 *url* { … }
-	URL of an icalendar file. Scheme must be _http_ or _https_.
+	URL of an icalendar file. This file may contain multiple calendar
+	items. Scheme must be _http_ or _https_.
 
 *collection_id* _name_
 	Name to be used when mapping this collection to another on the other
@@ -277,7 +276,7 @@ pair study_calendars {
 }
 
 storage calendars_italki {
-	type http
+	type webcal
 	collection_id italki
 	url {
 		cmd hiq -dFurl proto=webcal alias=italki-mine

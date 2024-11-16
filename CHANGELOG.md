@@ -9,6 +9,7 @@
 - Many documentation improvements.
 - Collection ID was sometimes referred to as "collection name". All references
   now specify "collection id"
+- The `http` storage is now named `webcal`.
 
 # v2.0.0-beta1
 

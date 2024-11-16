@@ -239,6 +239,11 @@ pair my_pair {
 Specifying collection *null* is no longer allowed; configuration should point
 to an explicitly collection instead.
 
+# HTTP STORAGE IS NOW CALLED WEBCAL
+
+The type of the *http* storage is now *webcal*, to better reflect its nature;
+other storages also use HTTP internally.
+
 # WEBCAL COLLECTION NAME
 
 Due to its nature, the WebCal storage has a single collection. However, this

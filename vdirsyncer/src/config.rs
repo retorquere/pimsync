@@ -197,7 +197,7 @@ async fn init_storage(
             // TODO: should not await here; return a FutureStorage instead.
             "carddav" => EitherStorage::AddressBook(parse_carddav(config).await?),
             "caldav" => EitherStorage::Calendar(parse_caldav(config).await?),
-            "http" => EitherStorage::Calendar(parse_webcal(config)?),
+            "webcal" => EitherStorage::Calendar(parse_webcal(config)?),
             _ => bail!("Unknown storage type: {type_}"),
         };
 
