@@ -493,7 +493,7 @@ impl<I: Item> CollectionPlan<I> {
         )?;
 
         let status_uids = match (status, &mapping_uid) {
-            (Some(s), Some(m)) => s.all_uids(m)?,
+            (Some(s), Some(m)) => s.all_uids(*m)?,
             _ => Vec::new(),
         };
 
@@ -526,7 +526,7 @@ impl<I: Item> CollectionPlan<I> {
                 let item_b = items_b.iter().find(|i| i.uid == *uid);
 
                 let previous = match (status, &mapping_uid) {
-                    (Some(s), Some(m)) => s.get_item_hash_by_uid(m, uid)?,
+                    (Some(s), Some(m)) => s.get_item_hash_by_uid(*m, uid)?,
                     _ => None,
                 };
 
@@ -536,7 +536,7 @@ impl<I: Item> CollectionPlan<I> {
             .collect::<Result<Vec<_>, PlanError>>()?;
 
         let collection_action =
-            CollectionAction::new(mapping.a.exists, mapping.b.exists, mapping_uid.clone());
+            CollectionAction::new(mapping.a.exists, mapping.b.exists, mapping_uid);
 
         // TODO: need to pass items_a and items_b to map Href->UID for item properties.
         let property_actions =
@@ -934,7 +934,7 @@ impl<I: Item> PropertyPlan<I> {
         let props_b = pair.storage_b().list_properties(&mapping.b.href).await?;
 
         let props_status = match (status, uid) {
-            (Some(s), Some(u)) => s.list_properties_for_collection(&u)?,
+            (Some(s), Some(u)) => s.list_properties_for_collection(u)?,
             _ => Vec::new(),
         };
 

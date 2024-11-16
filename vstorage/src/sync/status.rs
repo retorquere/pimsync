@@ -91,7 +91,7 @@ pub(super) struct PropertyStatus {
 /// A unique ID used for a mapping between two collections.
 ///
 /// This is an opaque identifier, and can only be obtained from a status database.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Copy)]
 pub struct MappingUid(i64);
 
 /// Connection to an on-disk status database.
@@ -245,7 +245,7 @@ impl StatusDatabase {
 
     pub(super) fn get_item_hash_by_uid(
         &self,
-        mapping_uid: &MappingUid,
+        mapping_uid: MappingUid,
         uid: &str,
     ) -> Result<Option<StatusForItem>, StatusError> {
         let query = concat!(
@@ -269,7 +269,7 @@ impl StatusDatabase {
         }
     }
 
-    pub(super) fn all_uids(&self, mapping: &MappingUid) -> Result<Vec<String>, StatusError> {
+    pub(super) fn all_uids(&self, mapping: MappingUid) -> Result<Vec<String>, StatusError> {
         let query = "SELECT DISTINCT ident FROM items WHERE mapping_uid = ?";
 
         let mut statement = self.conn.prepare(query)?;
@@ -300,7 +300,7 @@ impl StatusDatabase {
         }
     }
 
-    pub(super) fn remove_collection(&self, mapping_uid: &MappingUid) -> Result<(), StatusError> {
+    pub(super) fn remove_collection(&self, mapping_uid: MappingUid) -> Result<(), StatusError> {
         let query = "DELETE FROM collections WHERE uid = ?";
         let mut statement = self.conn.prepare(query)?;
         statement.bind((1, mapping_uid.0))?;
@@ -340,7 +340,7 @@ impl StatusDatabase {
 
     pub(super) fn insert_item(
         &self,
-        mapping_uid: &MappingUid,
+        mapping_uid: MappingUid,
         uid: &str,
         hash: &str,
         ref_a: &ItemRef,
@@ -401,7 +401,7 @@ impl StatusDatabase {
 
     pub(super) fn delete_item(
         &self,
-        mapping_uid: &MappingUid,
+        mapping_uid: MappingUid,
         uid: &str,
         // FIXME: should take etag, in case another instance raced us and updated the item?
     ) -> Result<(), StatusError> {
@@ -415,7 +415,7 @@ impl StatusDatabase {
 
     pub(super) fn list_properties_for_collection(
         &self,
-        mapping_uid: &MappingUid,
+        mapping_uid: MappingUid,
     ) -> Result<Vec<PropertyStatus>, StatusError> {
         let query = concat!(
             "SELECT property, value",
@@ -437,7 +437,7 @@ impl StatusDatabase {
 
     pub(super) fn set_property(
         &self,
-        mapping_uid: &MappingUid,
+        mapping_uid: MappingUid,
         href_a: &str,
         href_b: &str,
         property: &str,
@@ -459,7 +459,7 @@ impl StatusDatabase {
 
     pub(super) fn delete_property(
         &self,
-        mapping_uid: &MappingUid,
+        mapping_uid: MappingUid,
         href_a: &str,
         href_b: &str,
         property: &str,
@@ -511,7 +511,7 @@ mod test {
             href: "work/item.ics".into(),
             etag: "abc000".into(),
         };
-        db.insert_item(&mapping_uid, uid, hash, &item_a, &item_b)
+        db.insert_item(mapping_uid, uid, hash, &item_a, &item_b)
             .unwrap();
 
         let item_a_fetched = db
@@ -533,16 +533,16 @@ mod test {
         assert_eq!(item_b_fetched.etag, item_b.etag);
 
         let item_status = db
-            .get_item_hash_by_uid(&mapping_uid, uid)
+            .get_item_hash_by_uid(mapping_uid, uid)
             .unwrap()
             .expect("status should return items that were just inserted");
         assert_eq!(item_status.hash, hash);
 
-        let all = db.all_uids(&mapping_uid).unwrap();
+        let all = db.all_uids(mapping_uid).unwrap();
         let all_expected = vec![uid];
         assert_eq!(all, all_expected);
 
-        db.delete_item(&mapping_uid, uid).unwrap();
+        db.delete_item(mapping_uid, uid).unwrap();
         assert!(db
             .get_item_by_href::<IcsItem>(Side::A, &item_a.href)
             .unwrap()
@@ -551,11 +551,8 @@ mod test {
             .get_item_by_href::<IcsItem>(Side::B, &item_b.href)
             .unwrap()
             .is_none());
-        assert!(db
-            .get_item_hash_by_uid(&mapping_uid, uid)
-            .unwrap()
-            .is_none());
-        assert!(db.all_uids(&mapping_uid).unwrap().is_empty());
+        assert!(db.get_item_hash_by_uid(mapping_uid, uid).unwrap().is_none());
+        assert!(db.all_uids(mapping_uid).unwrap().is_empty());
     }
     #[test]
     fn test_insert_update_and_get_item() {
@@ -571,7 +568,7 @@ mod test {
             href: "work/item.ics".into(),
             etag: "abc000".into(),
         };
-        db.insert_item(&mapping_uid, uid, hash, &item_a, &item_b)
+        db.insert_item(mapping_uid, uid, hash, &item_a, &item_b)
             .unwrap();
 
         let updated_hash = "ANOTHERHASH";
@@ -611,12 +608,12 @@ mod test {
         assert_eq!(item_b_fetched.etag, updated_etag_b);
 
         let item_status = db
-            .get_item_hash_by_uid(&mapping_uid, uid)
+            .get_item_hash_by_uid(mapping_uid, uid)
             .unwrap()
             .expect("status should return items that were just inserted");
         assert_eq!(item_status.hash, updated_hash);
 
-        let all = db.all_uids(&mapping_uid).unwrap();
+        let all = db.all_uids(mapping_uid).unwrap();
         let all_expected = vec![uid];
         assert_eq!(all, all_expected);
     }
@@ -634,7 +631,7 @@ mod test {
             href: "work/item.ics".into(),
             etag: "abc000".into(),
         };
-        db.insert_item(&mapping_uid, uid, hash, &item_a, &item_b)
+        db.insert_item(mapping_uid, uid, hash, &item_a, &item_b)
             .unwrap();
 
         let updated_hash = "ANOTHERHASH";
@@ -677,7 +674,7 @@ mod test {
             .expect("should obtain mapping that was just inserted");
         assert_eq!(mapping_uid, gotten_uid);
 
-        db.remove_collection(&mapping_uid).unwrap();
+        db.remove_collection(mapping_uid).unwrap();
 
         let gotten_uid = db
             .get_mapping_uid(&href_a.to_string(), &href_b.to_string())

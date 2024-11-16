@@ -31,7 +31,7 @@ impl<I: Item> ItemAction<I> {
         col_a: &Href,
         col_b: &Href,
         status: &StatusDatabase,
-        mapping_uid: &MappingUid,
+        mapping_uid: MappingUid,
     ) -> Result<Result<(), ExecutionError>, StatusError> {
         debug!("Executing item action: {self}");
         match self {
@@ -97,7 +97,7 @@ async fn create_item<I: Item>(
     target_collection: &Href,
     src_storage: &dyn Storage<I>,
     dst_storage: &dyn Storage<I>,
-    mapping_uid: &MappingUid,
+    mapping_uid: MappingUid,
     side: Side,
 ) -> Result<Result<(), ExecutionError>, StatusError> {
     debug!("Creating item from {}", source.href);
@@ -199,7 +199,7 @@ async fn delete_item<I: Item>(
     target: &ItemState<I>,
     status: &StatusDatabase,
     storage: &dyn Storage<I>,
-    mapping_uid: &MappingUid,
+    mapping_uid: MappingUid,
 ) -> Result<Result<(), ExecutionError>, StatusError> {
     debug!("Deleting {}", target.href);
     match storage.delete_item(&target.href, &target.etag).await {
@@ -212,7 +212,7 @@ async fn delete_collection<I: Item>(
     href: &Href,
     status: &StatusDatabase,
     storage: &dyn Storage<I>,
-    mapping_uid: &MappingUid,
+    mapping_uid: MappingUid,
 ) -> Result<Result<(), ExecutionError>, StatusError> {
     match storage.destroy_collection(href).await {
         Ok(()) => Ok(Ok(status.remove_collection(mapping_uid)?)),
@@ -249,7 +249,6 @@ impl<I: Item> Plan<I> {
             let ResolvedMapping { alias, a, b } = mapping;
 
             let (mapping_uid, side_to_delete) = match collection_action
-                .clone() // FIXME: cloning is a bit of a hack here
                 .execute(status, &a.href, &b.href, a.id, b.id, storage_a, storage_b)
                 .await?
             {
@@ -262,7 +261,7 @@ impl<I: Item> Plan<I> {
 
             for item_action in item_actions {
                 if let Err(err) = item_action
-                    .execute(storage_a, storage_b, &a.href, &b.href, status, &mapping_uid)
+                    .execute(storage_a, storage_b, &a.href, &b.href, status, mapping_uid)
                     .await?
                 {
                     on_error(SyncError::item(item_action, err));
@@ -272,7 +271,7 @@ impl<I: Item> Plan<I> {
             for prop_action in property_actions {
                 if let Err(err) = prop_action
                     // FIXME: won't work for item properties
-                    .execute(storage_a, storage_b, status, &mapping_uid, &a.href, &b.href)
+                    .execute(storage_a, storage_b, status, mapping_uid, &a.href, &b.href)
                     .await?
                 {
                     on_error(SyncError::property(prop_action.action, err));
@@ -283,7 +282,7 @@ impl<I: Item> Plan<I> {
                 None => {}
                 Some(Side::A) => {
                     if let Err(err) =
-                        delete_collection(&a.href, status, storage_a, &mapping_uid).await?
+                        delete_collection(&a.href, status, storage_a, mapping_uid).await?
                     {
                         let action = CollectionAction::Delete(mapping_uid, Side::A);
                         on_error(SyncError::collection(action, alias, err));
@@ -291,7 +290,7 @@ impl<I: Item> Plan<I> {
                 }
                 Some(Side::B) => {
                     if let Err(err) =
-                        delete_collection(&b.href, status, storage_b, &mapping_uid).await?
+                        delete_collection(&b.href, status, storage_b, mapping_uid).await?
                     {
                         let action = CollectionAction::Delete(mapping_uid, Side::B);
                         on_error(SyncError::collection(action, alias, err));
@@ -313,7 +312,7 @@ impl CollectionAction {
     /// any.
     #[allow(clippy::too_many_arguments)]
     async fn execute<I: Item>(
-        self,
+        &self,
         status: &StatusDatabase,
         href_a: &Href,
         href_b: &Href,
@@ -323,7 +322,7 @@ impl CollectionAction {
         storage_b: &dyn Storage<I>,
     ) -> Result<Result<(MappingUid, Option<Side>), ExecutionError>, StatusError> {
         match self {
-            CollectionAction::NoAction(mapping_uid) => Ok(Ok((mapping_uid, None))),
+            CollectionAction::NoAction(mapping_uid) => Ok(Ok((*mapping_uid, None))),
             CollectionAction::SaveToStatus => status
                 .get_or_add_collection(href_a, href_b, id_a.as_ref(), id_b.as_ref())
                 .map(|mu| Ok((mu, None))),
@@ -360,7 +359,7 @@ impl CollectionAction {
             )
             .await
             .map(|r| r.map(|mu| (mu, None))),
-            CollectionAction::Delete(mapping, side) => Ok(Ok((mapping, Some(side)))),
+            CollectionAction::Delete(mapping, side) => Ok(Ok((*mapping, Some(*side)))),
         }
     }
 }
@@ -449,7 +448,7 @@ impl<I: Item> PropertyPlan<I> {
         a: &dyn Storage<I>,
         b: &dyn Storage<I>,
         status: &StatusDatabase,
-        mapping_uid: &MappingUid,
+        mapping_uid: MappingUid,
         href_a: &str,
         href_b: &str,
     ) -> Result<Result<(), ExecutionError>, StatusError> {
