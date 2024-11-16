@@ -57,6 +57,7 @@ pub struct ItemState {
     pub uid: String,
     pub etag: Etag,
     pub hash: String,
+    pub data: Option<String>,
 }
 
 impl ItemState {
@@ -232,6 +233,7 @@ impl StatusDatabase {
                 uid: statement.read::<String, _>("ident")?,
                 etag: Etag::from(etag),
                 hash: statement.read::<String, _>("hash")?,
+                data: None,
             }))
         } else {
             Ok(None)

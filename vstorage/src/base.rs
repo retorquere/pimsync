@@ -236,6 +236,7 @@ pub trait Property:
 pub trait Item: Sync + Send + std::fmt::Debug
 where
     Self: From<String>,
+    Self: Into<String>,
 {
     /// Property types supported by storages.
     ///
@@ -325,6 +326,12 @@ impl Property for CalendarProperty {
             CalendarProperty::Description => "description".into(),
             CalendarProperty::Order => "order".into(),
         }
+    }
+}
+
+impl From<IcsItem> for String {
+    fn from(item: IcsItem) -> Self {
+        item.raw
     }
 }
 
@@ -550,6 +557,12 @@ impl Property for AddressBookProperty {
             AddressBookProperty::DisplayName => "displayname".into(),
             AddressBookProperty::Description => "description".into(),
         }
+    }
+}
+
+impl From<VcardItem> for String {
+    fn from(item: VcardItem) -> Self {
+        item.raw
     }
 }
 

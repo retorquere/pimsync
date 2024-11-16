@@ -102,9 +102,12 @@ async fn create_item<I: Item>(
 ) -> Result<Result<(), ExecutionError>, StatusError> {
     debug!("Creating item from {}", source.href);
 
-    let (item_data, source_etag) = match src_storage.get_item(&source.href).await {
-        Ok((i, e)) => (i, e),
-        Err(err) => return Ok(Err(ExecutionError::Storage(err))),
+    let (item_data, source_etag) = match &source.data {
+        Some(data) => (I::from(data.to_string()), source.etag.clone()),
+        None => match src_storage.get_item(&source.href).await {
+            Ok((i, e)) => (i, e),
+            Err(err) => return Ok(Err(ExecutionError::Storage(err))),
+        },
     };
     let uid = item_data.ident();
     let new_item = match dst_storage.add_item(target_collection, &item_data).await {

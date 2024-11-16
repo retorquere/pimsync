@@ -885,6 +885,7 @@ async fn items_for_collection<I: Item>(
             uid: item.ident(),
             etag,
             hash: item.hash(),
+            data: Some(item.into()),
         });
     items.extend(prefetched);
 
