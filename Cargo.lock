@@ -1351,6 +1351,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "camino",
+ "futures-util",
  "http",
  "http-body-util",
  "hyper",

@@ -10,6 +10,7 @@
 //! [`vdir`]: https://vdirsyncer.pimutils.org/en/stable/vdir.html
 use async_trait::async_trait;
 use camino::{Utf8Component, Utf8Path, Utf8PathBuf};
+use futures_util::{StreamExt as _, TryStreamExt as _};
 use std::ffi::OsStr;
 use std::marker::PhantomData;
 use std::os::unix::prelude::MetadataExt;
@@ -133,17 +134,16 @@ where
     }
 
     async fn get_many_items(&self, hrefs: &[&str]) -> Result<Vec<FetchedItem<I>>> {
-        // No specialisation for this type; it's fast enough for now.
-        let mut items = Vec::with_capacity(hrefs.len());
-        for href in hrefs {
-            let (item, etag) = self.get_item(href).await?;
-            items.push(FetchedItem {
-                href: String::from(*href),
-                item,
-                etag,
-            });
-        }
-        Ok(items)
+        futures_util::stream::iter(hrefs)
+            .then(|href| async move {
+                self.get_item(href).await.map(|(item, etag)| FetchedItem {
+                    href: String::from(*href),
+                    item,
+                    etag,
+                })
+            })
+            .try_collect()
+            .await
     }
 
     async fn get_all_items(&self, collection_href: &str) -> Result<Vec<FetchedItem<I>>> {
