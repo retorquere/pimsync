@@ -9,9 +9,9 @@ target/release/pimsync:
 
 docs: man html
 
-man: pimsync.1 pimsync-config.5 pimsync-migration.7
+man: pimsync.1 pimsync.conf.5 pimsync-migration.7
 
-html: pimsync.1.html pimsync-config.5.html pimsync-migration.7.html
+html: pimsync.1.html pimsync.conf.5.html pimsync-migration.7.html
 
 %.html: %
 	mandoc -T html -O style=man-style.css < '$<' | \
@@ -25,12 +25,12 @@ html: pimsync.1.html pimsync-config.5.html pimsync-migration.7.html
 install: build
 	@install -Dm755 target/release/pimsync 	${DESTDIR}${PREFIX}/bin/pimsync
 	@install -Dm644 pimsync.1	${DESTDIR}${PREFIX}/share/man/man1/pimsync.1
-	@install -Dm644 pimsync-config.5	${DESTDIR}${PREFIX}/share/man/man5/pimsync.5
+	@install -Dm644 pimsync.conf.5	${DESTDIR}${PREFIX}/share/man/man5/pimsync.conf.5
 	@install -Dm644 pimsync-migration.7	${DESTDIR}${PREFIX}/share/man/man7/pimsync-migration.7
 
 clean:
 	cargo clean
-	rm pimsync.1 pimsync-config.5 pimsync-migration.7
+	rm pimsync.1 pimsync.conf.5 pimsync-migration.7
 	rm *.html
 
 check:

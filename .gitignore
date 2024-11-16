@@ -4,6 +4,6 @@
 
 /target
 pimsync.1
-pimsync-config.5
+pimsync.conf.5
 pimsync-migration.7
 *.html

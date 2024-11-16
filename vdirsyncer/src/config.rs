@@ -732,11 +732,11 @@ pub(crate) fn parse_config(
 /// Returns the path of the file opened and the file itself.
 pub(crate) fn open_default_path() -> anyhow::Result<(PathBuf, File)> {
     let path = if let Some(xdg) = std::env::var_os("XDG_CONFIG_HOME") {
-        PathBuf::from(xdg).join("pimsync/config.scfg")
+        PathBuf::from(xdg).join("pimsync/pimsync.conf")
     } else {
         #[allow(deprecated)]
         let home = std::env::home_dir().context("Could not resolve $XDG_CONFIG_HOME nor $HOME.")?;
-        home.join(".config/pimsync/config.scfg")
+        home.join(".config/pimsync/pimsync.conf")
     };
 
     let file =

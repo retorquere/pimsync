@@ -2,7 +2,7 @@
 
 - Renamed project to `pimsync`.
 - Redesigned configuration file.
-- Include a man page for `pimsync(1)` and `pimsync-config(5)`.
+- Include a man page for `pimsync(1)` and `pimsync.conf(5)`.
 - Several minor fixes.
 - Introduce support for Dav over Unix sockets.
 - Allow specifying a custom configuration file.

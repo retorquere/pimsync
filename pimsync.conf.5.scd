@@ -1,8 +1,8 @@
-pimsync-config(5)
+pimsync.conf(5)
 
 # NAME
 
-pimsync-config - pimsync configuration file
+pimsync.conf - pimsync configuration file
 
 # DESCRIPTION
 

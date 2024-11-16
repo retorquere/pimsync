@@ -78,13 +78,14 @@ using an external command. At this time, generic text diff
 
 If *$XDG_CONFIG_HOME* is defined, the configuration shall be read from:
 
-	*$XDG_CONFIG_HOME*/pimsync/config.scfg
+TODO: rename to pimsync.conf (also man page)
+	*$XDG_CONFIG_HOME*/pimsync/pimsync.conf
 
 If the above is not defined, the configuration file shall be read from:
 
-	~/.config/pimsync/config.scfg
+	~/.config/pimsync/pimsync.conf
 
-See pimsync-config(5) for details on the configuration file format.
+See pimsync.conf(5) for details on the configuration file format.
 
 # ENVIRONMENT
 
@@ -166,7 +167,7 @@ existing filesystem primitives.
 
 # SEE ALSO
 
-pimsync-config(5), pimsync-migration(7), khal(1), todo(1)
+pimsync.conf(5), pimsync-migration(7), khal(1), todo(1)
 
 # DEVELOPMENT
 
