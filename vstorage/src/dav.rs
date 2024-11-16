@@ -44,27 +44,23 @@ pub(crate) fn collection_id_for_href(href: &str) -> Result<CollectionId, Collect
 }
 
 pub(crate) fn parse_list_items(response: Vec<ListedResource>) -> Result<Vec<ItemRef>> {
-    let mut items = Vec::with_capacity(response.len());
     // TODO: should actually check that href's path matches the requested path.
     if response.len() == 1 && response[0].status == Some(StatusCode::NOT_FOUND) {
         return Err(ErrorKind::DoesNotExist.into());
     }
-    for r in response {
-        match r.status {
-            Some(StatusCode::OK) | None => {}
-            Some(status) => {
-                warn!("Item in response is not OK: {status}.");
-                continue;
+
+    response
+        .into_iter()
+        .filter_map(|r| match (r.status, r.details.etag) {
+            (Some(StatusCode::OK) | None, Some(etag)) => Some(Ok(ItemRef {
+                href: r.href,
+                etag: etag.into(),
+            })),
+            (Some(status), _) => {
+                warn!("Got status code {status} for item: {}.", r.href);
+                None
             }
-        };
-        items.push(ItemRef {
-            href: r.href,
-            etag: r
-                .details
-                .etag
-                .ok_or(ErrorKind::InvalidData.error("missing Etag"))?
-                .into(),
-        });
-    }
-    Ok(items)
+            (_, None) => Some(Err(ErrorKind::InvalidData.error("missing Etag"))),
+        })
+        .collect()
 }
