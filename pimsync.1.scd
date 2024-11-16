@@ -138,7 +138,7 @@ included to address this scenario.
 When service discovery is enabled, the real hostname and port of the Dav server
 is resolved using DNS records. The system's DNS resolver is used. It is expected
 that the system resolver performs DNSSEC validation and will not return invalid
-results. Vdirsyncer does not perform DNSSEC validation itself.
+results. Pimsync does not perform DNSSEC validation itself.
 
 Items across storages are considered the same if they share the same UID. An
 actor who can write a single item into a storage on either side can potentially
@@ -146,10 +146,10 @@ trigger an overwrite of another item on the other storage. An actor who can
 write to a single entry should be considered to have access to manipulate the
 entire storage.
 
-Vdirsyncer will retain credentials in memory during its entire lifetime. Any
-actor with read access to pimsync's memory space may extract secret
-credentials from it. Likewise, core dumps from pimsync should not be shared
-with untrusted parties.
+Pimsync will retain credentials in memory during its entire lifetime. Any actor
+with read access to pimsync's memory space may extract secret credentials from
+it. Likewise, core dumps from pimsync should not be shared with untrusted
+parties.
 
 When logging with *-v trace*, logs MAY contain credentials, secrets, data inside
 of storage items and other sensitive information.
@@ -158,8 +158,8 @@ Please note that our security audit is still ongoing.
 
 # CAVEATS
 
-For vdir storages, checking the etag is subject to race conditions. Vdirsyncer
-will first check that an item has not been modified, and then update it. If an
+For vdir storages, checking the etag is subject to race conditions. Pimsync will
+first check that an item has not been modified, and then update it. If an
 external program updates the same item between the check and the modification,
 those changes will be lost. It is unlikely that this issue can be resolved with
 existing filesystem primitives.
