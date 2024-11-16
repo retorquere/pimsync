@@ -110,6 +110,7 @@ impl Config {
                     Some("cmd") => {
                         Some(RawCommand::try_from(params).context("parsing conflict_resolution")?)
                     }
+                    // TODO: other 'keep a', 'keep b'.
                     _ => bail!("conflict_resolution expects a cmd parameter"),
                 }
             } else {
