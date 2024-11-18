@@ -283,6 +283,7 @@ impl StatusDatabase {
         Ok(results)
     }
 
+    /// Get the (internal) UID for a collection mapping.
     pub(super) fn get_mapping_uid(
         &self,
         href_a: &Href,
