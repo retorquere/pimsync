@@ -117,15 +117,19 @@ curly braces:
 
 *collections all*
 	Synchronise all collections found in both storages. Collections will be
-	synchronised to others with a matching id on the other side.
+	synchronised to others with a matching id on the other side. The is the
+	recommended value if you simply want to synchronise all collections from
+	both storages.
 
 *collections from a*
-	Synchronise all collections found in storage a. Collections will be
-	synchronised to others with a matching id on the other side.
+	Synchronise all collections found in *storage_a*. Each collection shall
+	be synchronised with the collection which has the same collection id on
+	*storage_b*.
 
 *collections from b*
-	Synchronise all collections found in storage b. Collections will be
-	synchronised to others with a matching id on the other side.
+	Synchronise all collections found in *storage_b*. Each collection shall
+	be synchronised with the collection which has the same collection id on
+	*storage_a*.
 
 *collection* _id_
 	Synchronise collection with id _id_. May be specified more than once.
@@ -140,6 +144,9 @@ curly braces:
 
 *on_empty sync*
 	When a collection is entire empty on one side, empty its counterpart on
+	the other side. Take great care when using this option. If you
+	completely delete a collection on one side, pimsync(1) won't restore it.
+	Instead, it will delete the same collection (and all of its items) on
 	the other side.
 
 The *conflict_resolution* directive specifies which action should be taken if an
@@ -163,6 +170,10 @@ item was modified on both sides:
 
 A collections block defines a mapping between two collections that are to be
 synchronised; one of them in *storage_a* and the other in *storage_b*.
+
+These sections are only used in advanced configurations which need to map
+existing collections to each other without changing their location on either
+side.
 
 Each block must include an alias:
 
