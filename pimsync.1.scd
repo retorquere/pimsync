@@ -155,19 +155,19 @@ of storage items and other sensitive information.
 
 # SYNCHRONISATION ALGORITHM
 
-After pimsync synchronises two storages, it will store metadata on the items
-that it has synchronised into its internal status database. In a future
-synchronisation, if the items on both storages don't match, the status database
-is used to determine which side has changed and which side remains the same.
-This information is then used to plan which of the item should be kept. If both
-items have changed, they are said to be in conflict, and the conflict must be
-resolved manually (See *CONFLICT RESOLUTION* above).
+After pimsync synchronises two storages, it will store metadata from the items
+that it has synchronised into its internal status database. During future
+synchronisation processes, if the items on both storages don't match, the status
+database is used to determine which side has changed and which side remains the
+same. This information is then used to plan which of the item should be kept. If
+both items have changed, they are said to be in conflict, and the conflict must
+be resolved manually (See *CONFLICT RESOLUTION* above).
 
-The storage database associates item metadata with the pair collections that
+The storage database associates item metadata with the pair of collections that
 were being synchronised (called a "mapping"). If the configuration changes, and
 different collections are being synchronised with each other, then the status
-data for the previous mapping is ignored. This prevents using accidentally using
-the wrong data when mappings have been reconfigured.
+data for their items no longer applies and is ignored. This prevents using
+accidentally using the wrong data when mappings have been reconfigured.
 
 The algorithm is closely based on the original one for vdirsyncer(1). Further
 details are available at https://unterwaditzer.net/2016/sync-algorithm.html.
