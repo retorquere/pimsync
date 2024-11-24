@@ -835,7 +835,7 @@ impl std::fmt::Display for CollectionAction {
 /// Returns the state of all items for a collection.
 ///
 /// Returns only items that currently exist in the remote storage.
-///
+/// Only items that have changed shall have any `data`.
 /// If an item has changed `href`, the updated `href` is returned.
 async fn items_for_collection<I: Item>(
     status: Option<&StatusDatabase>,
@@ -872,7 +872,7 @@ async fn items_for_collection<I: Item>(
         storage.get_many_items(&to_prefetch).await?
     } else {
         match storage.get_all_items(collection).await {
-            Ok(items) => items,
+            Ok(i) => i,
             Err(err) if err.kind == ErrorKind::DoesNotExist => Vec::new(),
             Err(err) => return Err(PlanError::from(err)),
         }
