@@ -227,7 +227,11 @@ synchronised with each other.
 
 # EXAMPLE
 
-The following is a complete example of a configuration file:
+This example synchronises two storages with address books. The first is a local
+set of directories which contain vcard files, the second is a remote carddav
+servers. Credentials are supplied via the *hiq* command line tool.
+
+; TODO: link vdir man page above
 
 ```
 status_path "~/.local/share/pimsync/status/"
@@ -255,6 +259,13 @@ storage contacts_remote {
 	}
 	interval 30
 }
+```
+
+The following example synchronises two storages with calendar data. The first is
+local directories with icalendar files, the second is a remote caldav servers.
+
+```
+status_path "~/.local/share/pimsync/status/"
 
 pair calendars {
 	storage_a calendars_local
@@ -279,11 +290,32 @@ storage calendars_remote {
 	}
 	interval 30
 }
+```
+
+The following example synchronises two storages with calendar data. The first is
+a local directory named "italki" with icalendar files, the second is an http
+server publishing an icalendar file.
+
+Note that the first storage is the same as the one above, and should be
+specified only once if both configurations were to be merged.
+
+The exact URL to the icalendar file exposed via http is fetched via the *hiq*
+tool, used to query the *himitsu* secret store.
+
+```
+status_path "~/.local/share/pimsync/status/"
 
 pair study_calendars {
 	storage_a calendars_local
 	storage_b calendars_italki
 	collection italki
+}
+
+storage calendars_local {
+	type vdir/icalendar
+	path ~/.local/share/calendars/
+	fileext ics
+	interval 30
 }
 
 storage calendars_italki {
@@ -293,6 +325,14 @@ storage calendars_italki {
 		cmd hiq -dFurl proto=webcal alias=italki-mine
 	}
 }
+```
+
+This example synchronises two storages with calendar data. The first is a carddav
+server, reached via a unix domain socket. The second is storage uses a local
+filesystem with vcard files.
+
+```
+status_path "~/.local/share/pimsync/status/"
 
 pair unixtest {
 	storage_a unix_a
