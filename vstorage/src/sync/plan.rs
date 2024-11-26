@@ -381,6 +381,7 @@ impl ResolvedMapping {
 /// A collection as resolved based on existing data.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct ResolvedCollection {
+    /// Is None if collection does not exist and was specified by href.
     pub(super) id: Option<CollectionId>,
     pub(super) href: Href,
     exists: bool,
