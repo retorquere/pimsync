@@ -495,7 +495,7 @@ impl<I: Item> CollectionPlan<I> {
 
         let status_uids = match (status, &mapping_uid) {
             (Some(s), Some(m)) => s.all_uids(*m)?,
-            _ => Vec::new(),
+            _ => Vec::with_capacity(0),
         };
 
         if (items_a.is_empty() || items_b.is_empty())
@@ -507,8 +507,8 @@ impl<I: Item> CollectionPlan<I> {
             warn!("Collection has been emptied on one side; skipping.");
             return Ok(CollectionPlan {
                 collection_action: CollectionAction::NoAction(mapping_uid),
-                item_actions: Vec::new(),
-                property_actions: Vec::new(),
+                item_actions: Vec::with_capacity(0),
+                property_actions: Vec::with_capacity(0),
                 mapping,
             });
         }
@@ -874,7 +874,7 @@ async fn items_for_collection<I: Item>(
     } else {
         match storage.get_all_items(collection).await {
             Ok(i) => i,
-            Err(err) if err.kind == ErrorKind::DoesNotExist => Vec::new(),
+            Err(err) if err.kind == ErrorKind::DoesNotExist => Vec::with_capacity(0),
             Err(err) => return Err(PlanError::from(err)),
         }
     };
@@ -936,7 +936,7 @@ impl<I: Item> PropertyPlan<I> {
 
         let props_status = match (status, uid) {
             (Some(s), Some(u)) => s.list_properties_for_collection(u)?,
-            _ => Vec::new(),
+            _ => Vec::with_capacity(0),
         };
 
         let all_props = props_a
