@@ -82,7 +82,7 @@
 //! An `Etag` is a value that changes whenever an item has changed in a collection. It is inspired
 //! on the HTTP header with the same name (used extensively in WebDav). See [`Etag`].
 
-use std::{backtrace::Backtrace, str::FromStr};
+use std::{backtrace::Backtrace, str::FromStr, sync::Arc};
 
 mod atomic;
 pub mod base;
@@ -291,8 +291,9 @@ pub type Href = String;
 /// An identifier for a collection.
 ///
 /// Collection identifiers are a short string that uniquely identify a collection inside a storage.
-/// They are based on the `href` of a collection, which never changes. The `CollectionId` is
-/// intended as a more human-friendly substitute for collection `href`s.
+/// They are based on the `href` of a collection, which never changes. A `CollectionId` is
+/// intended as a more human-friendly substitute for collection `href`s, and an attribute which is
+/// more storage-agnostic.
 ///
 /// The following limitations exist, given that such values would produce ambiguous results with
 /// the implementation of [`VdirStorage`], [`CalDavStorage`], and [`CardDavStorage`]:
@@ -305,35 +306,22 @@ pub type Href = String;
 /// [`CalDavStorage`]: crate::caldav::CalDavStorage
 /// [`CardDavStorage`]: crate::carddav::CardDavStorage
 ///
-/// # Creating instances
+/// Instances of `CollectionId` always contain previously validated data. Instances are internally
+/// reference counted and cheap to [`clone`][`Clone::clone`].
 ///
-/// Instances of `CollectionId` always contain previously validated data.
+/// # Example
 ///
-/// See: [`CollectionId::try_from`] and [`CollectionId::from_str`].
+/// ```
+/// # use vstorage::CollectionId;
+/// let collection_id: CollectionId = "personal".parse().unwrap();
+/// ```
 #[derive(PartialEq, Debug, Clone, Eq, Hash)]
 // INVARIANT: matches rules in documentation above.
-pub struct CollectionId(String);
-
-impl CollectionId {
-    #[inline]
-    fn validate(value: &str) -> std::result::Result<(), CollectionIdError> {
-        if value.chars().any(|c| c == '/') {
-            return Err(CollectionIdError::Slash);
-        }
-        if value == ".." {
-            return Err(CollectionIdError::DoublePeriod);
-        }
-        if value == "." {
-            return Err(CollectionIdError::SinglePeriod);
-        }
-
-        Ok(())
-    }
-}
+pub struct CollectionId(Arc<str>);
 
 impl AsRef<str> for CollectionId {
     fn as_ref(&self) -> &str {
-        self.0.as_ref()
+        &self.0
     }
 }
 
@@ -343,6 +331,7 @@ impl std::fmt::Display for CollectionId {
     }
 }
 
+/// Error type when creating a new [`CollectionId`].
 #[derive(Debug, thiserror::Error)]
 pub enum CollectionIdError {
     #[error("collection id must not contain a slash")]
@@ -356,33 +345,13 @@ pub enum CollectionIdError {
 impl FromStr for CollectionId {
     type Err = CollectionIdError;
 
-    /// Creates a new `CollectionId` with the input data.
-    ///
-    /// When converting a `String`, use [`CollectionId::try_from`] instead to avoid re-allocating
-    /// the string data.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use vstorage::CollectionId;
-    /// let collection_id: CollectionId = "personal".parse().unwrap();
-    /// ```
+    /// Allocates a new [`CollectionId`] with the input data.
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
-        Self::validate(s)?;
-        Ok(CollectionId(s.to_string()))
-    }
-}
-
-impl TryFrom<String> for CollectionId {
-    type Error = CollectionIdError;
-
-    /// Converts a `String` instance into a `CollectionId`.
-    ///
-    /// Note that manually allocating a `String` before calling this method is an anti-pattern; the
-    /// cost of the re-allocation is paid even if the validation fails. For converting [`&str`],
-    /// see [`CollectionId::from_str`].
-    fn try_from(value: String) -> std::result::Result<Self, Self::Error> {
-        Self::validate(&value)?;
-        Ok(CollectionId(value))
+        match s {
+            s if s.chars().any(|c| c == '/') => Err(CollectionIdError::Slash),
+            ".." => Err(CollectionIdError::DoublePeriod),
+            "." => Err(CollectionIdError::SinglePeriod),
+            s => Ok(CollectionId(Arc::from(s))),
+        }
     }
 }

@@ -461,7 +461,7 @@ fn parse_webcal(mut config: Scfg) -> anyhow::Result<Arc<dyn Storage<IcsItem>>> {
         take_single_directive(&mut config, "url")?.context("Webcal storage must define a url")?;
     let url = parse_into_string(url)
         .context("Parsing webcal URL")?
-        .into_string()
+        .into_string() // TODO: don't allocate this into string.
         .context("Resolving webcal URL")?
         .parse()?;
 
