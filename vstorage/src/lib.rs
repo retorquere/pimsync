@@ -311,10 +311,8 @@ pub type Href = String;
 ///
 /// See: [`CollectionId::try_from`] and [`CollectionId::from_str`].
 #[derive(PartialEq, Debug, Clone, Eq, Hash)]
-pub struct CollectionId {
-    // INVARIANT: matches rules in documentation above.
-    inner: String,
-}
+// INVARIANT: matches rules in documentation above.
+pub struct CollectionId(String);
 
 impl CollectionId {
     #[inline]
@@ -335,19 +333,13 @@ impl CollectionId {
 
 impl AsRef<str> for CollectionId {
     fn as_ref(&self) -> &str {
-        self.inner.as_ref()
-    }
-}
-
-impl From<CollectionId> for String {
-    fn from(value: CollectionId) -> String {
-        value.inner
+        self.0.as_ref()
     }
 }
 
 impl std::fmt::Display for CollectionId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.inner.fmt(f)
+        self.0.fmt(f)
     }
 }
 
@@ -377,10 +369,7 @@ impl FromStr for CollectionId {
     /// ```
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
         Self::validate(s)?;
-
-        Ok(CollectionId {
-            inner: s.to_string(),
-        })
+        Ok(CollectionId(s.to_string()))
     }
 }
 
@@ -394,6 +383,6 @@ impl TryFrom<String> for CollectionId {
     /// see [`CollectionId::from_str`].
     fn try_from(value: String) -> std::result::Result<Self, Self::Error> {
         Self::validate(&value)?;
-        Ok(CollectionId { inner: value })
+        Ok(CollectionId(value))
     }
 }
