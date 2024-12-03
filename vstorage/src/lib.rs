@@ -250,7 +250,7 @@ pub struct Etag(String);
 impl Etag {
     #[must_use]
     pub fn as_str(&self) -> &str {
-        return self.0.as_str();
+        self.0.as_str()
     }
 }
 
