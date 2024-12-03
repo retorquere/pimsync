@@ -115,12 +115,14 @@ impl<I: Item> NamedPair<I> {
     async fn sync_once(&self, dry_run: bool /* ui-lock ? */) -> anyhow::Result<()> {
         let lock_0 = self.locks.0.lock().await;
         let lock_1 = self.locks.1.lock().await;
-        let plan = self.create_plan().await?;
+        let plan = self.create_plan().await.context("creating plan")?;
         self.print_plan(&plan);
         if !dry_run {
             let status_rw = StatusDatabase::open_or_create(&self.status_path)
                 .with_context(|| format!("open_or_create status db for {}", self.name))?;
-            plan.execute(&status_rw, log_error).await?;
+            plan.execute(&status_rw, log_error)
+                .await
+                .context("executing plan")?;
         }
         // Explicitly drop these here to ensure they survive up to this point.
         drop(lock_0);
@@ -345,8 +347,8 @@ impl App {
 
         while let Some(res) = set.join_next().await {
             match res {
-                Ok(err) => error!("Error in sync task: {}.", err),
-                Err(joinerr) => error!("Sync task aborted: {}.", joinerr),
+                Ok(err) => error!("Error in daemon task: {}.", err),
+                Err(joinerr) => error!("Daemon task aborted: {}.", joinerr),
             }
         }
         anyhow::bail!("All sync tasks exited.");
