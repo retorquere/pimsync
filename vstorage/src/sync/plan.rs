@@ -539,8 +539,9 @@ impl<I: Item> CollectionPlan<I> {
         let collection_action =
             CollectionAction::new(mapping.a.exists, mapping.b.exists, mapping_uid);
 
-        // TODO: need to pass items_a and items_b to map Href->UID for item properties.
-        let property_actions =
+        let property_actions = if let CollectionAction::Delete(_, _) = collection_action {
+            Vec::new()
+        } else {
             match PropertyPlan::create_for_collection(pair, &mapping, status, mapping_uid).await {
                 Ok(plan) => plan,
                 Err(err) => 'unsupported: {
@@ -556,7 +557,8 @@ impl<I: Item> CollectionPlan<I> {
                     }
                     return Err(err);
                 }
-            };
+            }
+        };
 
         Ok(CollectionPlan {
             collection_action,
