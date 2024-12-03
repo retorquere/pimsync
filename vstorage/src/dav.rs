@@ -83,6 +83,9 @@ impl From<libdav::dav::WebDavError> for Error {
             WebDavError::BadStatusCode(StatusCode::NOT_FOUND) => {
                 Error::new(ErrorKind::DoesNotExist, value)
             }
+            WebDavError::BadStatusCode(StatusCode::FORBIDDEN) => {
+                Error::new(ErrorKind::AccessDenied, value)
+            }
             err => Error::new(ErrorKind::Uncategorised, err), // TODO
         }
     }
