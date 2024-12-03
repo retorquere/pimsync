@@ -543,10 +543,14 @@ impl<I: Item> CollectionPlan<I> {
         let property_actions =
             match PropertyPlan::create_for_collection(pair, &mapping, status, mapping_uid).await {
                 Ok(plan) => plan,
-                // If a storage doesn't support properties, don't bail, simply no-op.
                 Err(err) => 'unsupported: {
                     if let PlanError::Storage(e) = &err {
+                        // If a storage doesn't support properties, don't bail, simply no-op.
                         if e.kind == ErrorKind::Unsupported {
+                            break 'unsupported Vec::<PropertyPlan<I>>::new();
+                        }
+                        // Ditto if the storage doesn't exist.
+                        if e.kind == ErrorKind::DoesNotExist {
                             break 'unsupported Vec::<PropertyPlan<I>>::new();
                         }
                     }
