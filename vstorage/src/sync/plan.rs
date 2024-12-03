@@ -542,22 +542,7 @@ impl<I: Item> CollectionPlan<I> {
         let property_actions = if let CollectionAction::Delete(_, _) = collection_action {
             Vec::new()
         } else {
-            match PropertyPlan::create_for_collection(pair, &mapping, status, mapping_uid).await {
-                Ok(plan) => plan,
-                Err(err) => 'unsupported: {
-                    if let PlanError::Storage(e) = &err {
-                        // If a storage doesn't support properties, don't bail, simply no-op.
-                        if e.kind == ErrorKind::Unsupported {
-                            break 'unsupported Vec::<PropertyPlan<I>>::new();
-                        }
-                        // Ditto if the storage doesn't exist.
-                        if e.kind == ErrorKind::DoesNotExist {
-                            break 'unsupported Vec::<PropertyPlan<I>>::new();
-                        }
-                    }
-                    return Err(err);
-                }
-            }
+            PropertyPlan::create_for_collection(pair, &mapping, status, mapping_uid).await?
         };
 
         Ok(CollectionPlan {
@@ -937,8 +922,21 @@ impl<I: Item> PropertyPlan<I> {
         status: Option<&StatusDatabase>,
         uid: Option<MappingUid>,
     ) -> Result<Vec<PropertyPlan<I>>, PlanError> {
-        let props_a = pair.storage_a().list_properties(&mapping.a.href).await?;
-        let props_b = pair.storage_b().list_properties(&mapping.b.href).await?;
+        let (props_a, props_b) = match tokio::try_join!(
+            pair.storage_a().list_properties(&mapping.a.href),
+            pair.storage_b().list_properties(&mapping.b.href),
+        ) {
+            Ok((a, b)) => (a, b),
+            Err(error) => {
+                // If a storage doesn't support properties or does not exist,
+                // simply no-op (but don't return error).
+                return if let ErrorKind::DoesNotExist | ErrorKind::Unsupported = error.kind {
+                    Ok(Vec::<PropertyPlan<I>>::new())
+                } else {
+                    Err(error.into())
+                };
+            }
+        };
 
         let props_status = match (status, uid) {
             (Some(s), Some(u)) => s.list_properties_for_collection(u)?,
