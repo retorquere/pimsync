@@ -31,7 +31,7 @@ pub struct StdIoLock<'a> {
     stdin: MutexGuard<'a, Stdin>,
 }
 
-impl<'a> StdIoLock<'a> {
+impl StdIoLock<'_> {
     pub fn stdin(&self) -> &Stdin {
         &self.stdin
     }
