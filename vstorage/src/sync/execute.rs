@@ -83,8 +83,6 @@ impl<I: Item> ItemAction<I> {
 /// Error during execution of a synchronisation [`Plan`]. See [`SyncError`].
 #[derive(thiserror::Error, Debug)]
 pub enum ExecutionError {
-    #[error("collection missing from status when creating item")]
-    MissingCollection,
     #[error("storage operation returned error: {0}")]
     Storage(#[from] crate::Error),
     #[error("created collection {1} on side {0:?} does not have the expected id, it has: {2:?}")]
