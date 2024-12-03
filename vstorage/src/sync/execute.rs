@@ -85,7 +85,7 @@ impl<I: Item> ItemAction<I> {
 pub enum ExecutionError {
     #[error("storage operation returned error: {0}")]
     Storage(#[from] crate::Error),
-    #[error("created collection {1} on side {0:?} does not have the expected id, it has: {2:?}")]
+    #[error("created collection {1} on side {0} does not have the expected id, it has: {2:?}")]
     IdMismatch(Side, Href, Option<CollectionId>),
 }
 
