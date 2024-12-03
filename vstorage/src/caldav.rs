@@ -7,7 +7,7 @@
 use async_trait::async_trait;
 use http::{StatusCode, Uri};
 use hyper_util::client::legacy::connect::Connect;
-use libdav::dav::mime_types;
+use libdav::dav::{mime_types, WebDavError};
 use libdav::sd::BootstrapError;
 use libdav::CalDavClient;
 
@@ -58,8 +58,12 @@ impl From<BootstrapError> for Error {
 
 impl From<libdav::dav::WebDavError> for Error {
     fn from(value: libdav::dav::WebDavError) -> Self {
-        // TODO: not implemented
-        Error::new(ErrorKind::Uncategorised, value)
+        match value {
+            WebDavError::BadStatusCode(StatusCode::NOT_FOUND) => {
+                Error::new(ErrorKind::DoesNotExist, value)
+            }
+            err => Error::new(ErrorKind::Uncategorised, err), // TODO
+        }
     }
 }
 
