@@ -133,7 +133,6 @@ mod test {
         let msg = err.to_string();
         let expected = concat!(
             "Error executing item action 'create in storage a (uid: d99ed506-dceb-49f2-a1c9-efa63c68acd0)': ",
-            "storage operation returned error: ",
             "access to the resource was denied: ",
             "Not enough mana"
         );
@@ -159,7 +158,6 @@ mod test {
         let msg = err.to_string();
         let expected = concat!(
             "Error executing collection action 'create in storage b' for 'guests': ",
-            "storage operation returned error: ",
             "access to the resource was denied: ",
             "Creating new collections is forbidden"
         );
