@@ -378,9 +378,8 @@ async fn create_collection<I: Item>(
     };
     let new_href = new_collection.href();
 
-    match check_id_matches_expected(expected_id, storage, new_href, side).await {
-        Ok(()) => (),
-        Err(err) => return Ok(Err(err)),
+    if let Err(err) = check_id_matches_expected(expected_id, storage, new_href, side).await {
+        return Ok(Err(err));
     };
     let mapping_uid = match side {
         Side::A => status.get_or_add_collection(href, opposite_href, expected_id, opposite_id),
