@@ -426,11 +426,9 @@ async fn check_id_matches_expected<I: Item>(
 ) -> Result<(), ExecutionError> {
     if let Some(expected_id) = expected_id {
         let disco = storage.discover_collections().await?;
-        let created_id = disco
-            .collections()
-            .iter()
-            .find(|c| c.href() == collection)
-            .map(DiscoveredCollection::id);
+        let created = disco.collections().iter().find(|c| c.href() == collection);
+        // FIXME: returned error description is incorrect in case of None.
+        let created_id = created.map(DiscoveredCollection::id);
         if created_id != Some(expected_id) {
             return Err(ExecutionError::IdMismatch(
                 side,
