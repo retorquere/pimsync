@@ -318,14 +318,18 @@ impl StatusDatabase {
     ) -> Result<MappingUid, StatusError> {
         let query = concat!(
             "INSERT OR IGNORE INTO collections(id_a, href_a, id_b, href_b)",
-            " VALUES (?, ?, ?, ?)"
+            " VALUES (?, ?, ?, ?)",
+            " RETURNING uid",
         );
         let mut statement = self.conn.prepare(query)?;
         statement.bind((1, id_a.map(CollectionId::as_ref)))?;
         statement.bind((2, href_a))?;
         statement.bind((3, id_b.map(CollectionId::as_ref)))?;
         statement.bind((4, href_b))?;
-        statement.next()?;
+        // If a uid was returned (just inserted) return that.
+        if statement.next()? == State::Row {
+            return Ok(MappingUid(statement.read::<i64, _>("uid")?));
+        };
 
         let query = "SELECT uid FROM collections WHERE href_a = ? AND href_b = ?";
         let mut statement = self.conn.prepare(query)?;
@@ -335,6 +339,7 @@ impl StatusDatabase {
         if let State::Row = statement.next()? {
             Ok(MappingUid(statement.read::<i64, _>("uid")?))
         } else {
+            // FIXME: reachable if existing an existing HREF conflicted only one row.
             unreachable!("uid missing for mapping immediately after INSERT");
         }
     }
