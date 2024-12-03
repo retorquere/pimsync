@@ -112,7 +112,7 @@ where
         let extension = OsStr::new(self.extension.as_str());
         while let Some(entry) = read_dir.next_entry().await? {
             let path = entry.path();
-            if !path.extension().is_some_and(|e| e == extension) {
+            if path.extension() != Some(extension) {
                 continue;
             }
             let href = self.href_for_path(&path)?;
@@ -153,7 +153,7 @@ where
         let extension = OsStr::new(self.extension.as_str());
         while let Some(entry) = read_dir.next_entry().await? {
             let path = entry.path();
-            if !path.extension().is_some_and(|e| e == extension) {
+            if path.extension() != Some(extension) {
                 continue;
             }
 
@@ -337,7 +337,7 @@ impl<I: Item> VdirStorage<I> {
         };
         if let Some(Utf8Component::Normal(name)) = components.next() {
             let name = Utf8Path::new(name);
-            if !name.extension().is_some_and(|e| e == self.extension) {
+            if name.extension() != Some(&self.extension) {
                 Err(Error::new(
                     ErrorKind::InvalidInput,
                     "item href does not have an extension matching this storage",
