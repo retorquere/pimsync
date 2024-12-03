@@ -6,7 +6,8 @@ use log::warn;
 
 use crate::{base::ItemRef, CollectionId, CollectionIdError, Error, ErrorKind, Result};
 
-pub(crate) fn path_for_collection_in_home_set(home_set: &Uri, name: &str) -> String {
+/// Generate a path for a collection expected to have id `id`.
+pub(crate) fn path_for_collection_in_home_set(home_set: &Uri, id: &str) -> String {
     // TODO: can be simplified with: https://github.com/hyperium/http/pull/623
     let mut path = match home_set.clone().into_parts().path_and_query {
         Some(ref pq) => pq.path(),
@@ -21,7 +22,8 @@ pub(crate) fn path_for_collection_in_home_set(home_set: &Uri, name: &str) -> Str
     if !path.ends_with('/') {
         path.push('/');
     }
-    path.push_str(name);
+    path.push_str(id);
+    path.push('/');
     path
 }
 
