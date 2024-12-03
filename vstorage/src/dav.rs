@@ -1,7 +1,10 @@
 //! Common bits and pieces shared between CalDav and CardDav
 
 use http::{StatusCode, Uri};
-use libdav::dav::ListedResource;
+use libdav::{
+    dav::{ListedResource, WebDavError},
+    sd::BootstrapError,
+};
 use log::warn;
 
 use crate::{base::ItemRef, CollectionId, CollectionIdError, Error, ErrorKind, Result};
@@ -65,4 +68,22 @@ pub(crate) fn parse_list_items(response: Vec<ListedResource>) -> Result<Vec<Item
             (_, None) => Some(Err(ErrorKind::InvalidData.error("missing Etag"))),
         })
         .collect()
+}
+
+impl From<BootstrapError> for Error {
+    fn from(value: BootstrapError) -> Self {
+        // TODO: not implemented
+        Error::new(ErrorKind::Uncategorised, value)
+    }
+}
+
+impl From<libdav::dav::WebDavError> for Error {
+    fn from(value: libdav::dav::WebDavError) -> Self {
+        match value {
+            WebDavError::BadStatusCode(StatusCode::NOT_FOUND) => {
+                Error::new(ErrorKind::DoesNotExist, value)
+            }
+            err => Error::new(ErrorKind::Uncategorised, err), // TODO
+        }
+    }
 }

@@ -7,8 +7,7 @@
 use async_trait::async_trait;
 use http::{StatusCode, Uri};
 use hyper_util::client::legacy::connect::Connect;
-use libdav::dav::{mime_types, WebDavError};
-use libdav::sd::BootstrapError;
+use libdav::dav::mime_types;
 use libdav::CalDavClient;
 
 use crate::base::{
@@ -46,24 +45,6 @@ where
             client,
             calendar_home_set,
         })
-    }
-}
-
-impl From<BootstrapError> for Error {
-    fn from(value: BootstrapError) -> Self {
-        // TODO: not implemented
-        Error::new(ErrorKind::Uncategorised, value)
-    }
-}
-
-impl From<libdav::dav::WebDavError> for Error {
-    fn from(value: libdav::dav::WebDavError) -> Self {
-        match value {
-            WebDavError::BadStatusCode(StatusCode::NOT_FOUND) => {
-                Error::new(ErrorKind::DoesNotExist, value)
-            }
-            err => Error::new(ErrorKind::Uncategorised, err), // TODO
-        }
     }
 }
 
