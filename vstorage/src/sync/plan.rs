@@ -476,6 +476,15 @@ pub struct CollectionPlan<I: Item> {
 }
 
 impl<I: Item> CollectionPlan<I> {
+    fn no_action(uid: MappingUid, mapping: ResolvedMapping) -> CollectionPlan<I> {
+        CollectionPlan {
+            collection_action: CollectionAction::NoAction(uid),
+            item_actions: Vec::new(),
+            property_actions: Vec::new(),
+            mapping,
+        }
+    }
+
     /// Calculate actions to sync a collection between two storages.
     async fn new(
         pair: &StoragePair<I>,
@@ -494,24 +503,19 @@ impl<I: Item> CollectionPlan<I> {
         )?;
 
         let status_uids = match (status, &mapping_uid) {
-            (Some(s), Some(m)) => s.all_uids(*m)?,
+            (Some(s), Some(m)) => {
+                let uids = s.all_uids(*m)?;
+                if !uids.is_empty()
+                    && pair.on_empty == OnEmpty::Skip
+                    && (items_a.is_empty() ^ items_b.is_empty())
+                {
+                    warn!("Collection {} has been emptied on one side.", mapping.alias);
+                    return Ok(Self::no_action(*m, mapping));
+                }
+                uids
+            }
             _ => Vec::with_capacity(0),
         };
-
-        if !status_uids.is_empty()
-            && pair.on_empty == OnEmpty::Skip
-            && (items_a.is_empty() ^ items_b.is_empty())
-        {
-            let mapping_uid =
-                mapping_uid.expect("If mapping_uid is None, then status_uid must be empty.");
-            warn!("Collection has been emptied on one side; skipping.");
-            return Ok(CollectionPlan {
-                collection_action: CollectionAction::NoAction(mapping_uid),
-                item_actions: Vec::with_capacity(0),
-                property_actions: Vec::with_capacity(0),
-                mapping,
-            });
-        }
 
         let all_uids = items_a
             .iter()
@@ -791,7 +795,7 @@ impl CollectionAction {
     /// - Explicitly configured collections
     /// - Discovered collections
     ///
-    /// It SHOULD NOT be called with collections that only exist in the status database.
+    /// This function MUST NOT be called with collections that only exist in the status database.
     ///
     /// Collections previously auto-discovered and deleted on both sides should never reach this
     /// stage. Explicit collections removed from configuration will also not reach this stage.
