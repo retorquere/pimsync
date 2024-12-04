@@ -503,12 +503,12 @@ fn parse_into_string(directive: Directive) -> anyhow::Result<IntoString> {
     let result = if let Some(param) = directive.params().first() {
         IntoString::Raw(param.to_owned())
     } else {
-        IntoString::Cmd(parse_raw_command(directive)?)
+        IntoString::Cmd(parse_block_with_raw_cmd(directive)?)
     };
     Ok(result)
 }
 
-fn parse_raw_command(mut directive: Directive) -> anyhow::Result<RawCommand> {
+fn parse_block_with_raw_cmd(mut directive: Directive) -> anyhow::Result<RawCommand> {
     let mut block = directive
         .take_child()
         .context("Must define a parameter or a block")?;
