@@ -17,7 +17,9 @@ use crate::{base::Item, sync::declare::StoragePair};
 use crate::{CollectionId, ErrorKind, Href};
 
 use super::declare::{CollectionDescription, DeclaredMapping, OnEmpty};
-use super::status::{ItemState, MappingUid, Side, StatusDatabase, StatusError, StatusForItem};
+use super::status::{
+    FindStaleMappingsError, ItemState, MappingUid, Side, StatusDatabase, StatusError, StatusForItem,
+};
 
 /// Error that occurs when creating a [`Plan`].
 #[derive(thiserror::Error, Debug)]
@@ -39,12 +41,16 @@ pub enum PlanError {
     DiscoveryFailedB(#[source] crate::Error),
 
     /// Error occurred interacting with a storage.
-    #[error("Error interacting with underlying storage: {0}")]
+    #[error("Interacting with underlying storage: {0}")]
     Storage(#[from] crate::Error),
 
     /// Error occurred reading the status database.
     #[error("Error querying status database: {0}")]
     StatusDb(#[from] StatusError),
+
+    /// Error querying status database for stale mappings.
+    #[error("Error finding stale mappings: {0}")]
+    FindStaleMappings(#[from] FindStaleMappingsError),
 }
 
 /// Actions that would synchronise a pair of storages.
@@ -60,6 +66,7 @@ pub struct Plan<I: Item> {
     pub(super) storage_a: Arc<dyn Storage<I>>,
     pub(super) storage_b: Arc<dyn Storage<I>>,
     pub collection_plans: Vec<CollectionPlan<I>>,
+    pub stale_collections: Vec<MappingUid>,
 }
 
 /// Show details of the plan itself.
@@ -75,14 +82,15 @@ impl<I: Item> std::fmt::Debug for Plan<I> {
 impl<I: Item> Plan<I> {
     /// Create a new plan for a given storage pair.
     ///
+    /// Analyses the provided [`StoragePair`], fetches necessary metadata, and prepares a plan of
+    /// actions required to synchronise both storages.
+    ///
+    /// This function only performs read operations. The status database should be opened in
+    /// read-only mode.
+    ///
     /// # Errors
     ///
-    /// Returns an error if:
-    ///
-    /// - There is an error discovering remote collections.
-    /// - A mapping is defined by collection id, but the id is invalid for the underlying storage.
-    /// - There is an error reading the state of existing items.
-    /// - The same collection is mapped more than once.
+    /// See: [`PlanError`].
     pub async fn new(
         pair: &StoragePair<I>,
         status: Option<&StatusDatabase>,
@@ -94,10 +102,21 @@ impl<I: Item> Plan<I> {
             collection_plans.push(CollectionPlan::new(pair, m, status).await?);
         }
 
+        // Remove UIDs not present above from the status db.
+        let stale_collections = if let Some(status) = status {
+            let active_uids = collection_plans
+                .iter()
+                .filter_map(|c| c.collection_action.mapping_uid());
+            status.find_stale_mappings(active_uids)?
+        } else {
+            Vec::new()
+        };
+
         Ok(Plan {
             storage_a: pair.storage_a.clone(),
             storage_b: pair.storage_b.clone(),
             collection_plans,
+            stale_collections,
         })
     }
 
@@ -808,6 +827,15 @@ impl CollectionAction {
             (false, true, None) => CollectionAction::CreateInA,  // New in B
             (true, false, None) => CollectionAction::CreateInB,  // New in A
             (true, false, Some(m)) => CollectionAction::Delete(m, Side::A), // Deleted from B.
+        }
+    }
+
+    fn mapping_uid(&self) -> Option<MappingUid> {
+        match self {
+            CollectionAction::NoAction(mapping_uid) | CollectionAction::Delete(mapping_uid, _) => {
+                Some(*mapping_uid)
+            }
+            _ => None,
         }
     }
 }

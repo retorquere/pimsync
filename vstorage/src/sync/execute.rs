@@ -4,7 +4,7 @@
 
 //! See [`Plan::execute`](Plan::execute).
 
-use log::{debug, error};
+use log::{debug, error, info};
 
 use crate::{
     base::{Item, ItemRef, Property, Storage},
@@ -296,7 +296,10 @@ impl<I: Item> Plan<I> {
             };
         }
 
-        // TODO: should flush state for any collections that are stale.
+        if !self.stale_collections.is_empty() {
+            info!("Flushing stale collections: {:?}", self.stale_collections);
+            status.flush_stale_mappings(self.stale_collections)?;
+        }
 
         Ok(())
     }

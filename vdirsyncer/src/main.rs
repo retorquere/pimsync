@@ -174,6 +174,7 @@ impl<I: Item> NamedPair<I> {
                 info!("property: {:?}", prop);
             }
         }
+        info!("Stale mappings: {:?}", plan.stale_collections);
     }
 
     async fn resolve_conflicts(self, stdio: Arc<StdIo>) -> anyhow::Result<()> {

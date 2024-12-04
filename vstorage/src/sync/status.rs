@@ -22,6 +22,10 @@ pub enum StatusError {
     ParentDirs(#[source] std::io::Error),
 }
 
+#[derive(thiserror::Error, Debug)]
+#[error("Finding stale mapping: {0}")]
+pub struct FindStaleMappingsError(#[from] sqlite::Error);
+
 /// Storages are synchronised between two "sides", 'a' or 'b'.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Side {
@@ -480,6 +484,46 @@ impl StatusDatabase {
         statement.bind((":href_a", href_a))?;
         statement.bind((":href_b", href_b))?;
         statement.bind((":property", property))?;
+        statement.next()?;
+        Ok(())
+    }
+
+    pub(super) fn find_stale_mappings(
+        &self,
+        active: impl Iterator<Item = MappingUid>,
+    ) -> Result<Vec<MappingUid>, FindStaleMappingsError> {
+        let params = active
+            .map(|uid| uid.0.to_string())
+            .collect::<Vec<_>>()
+            .join(",");
+
+        // No support for arrays. See: https://github.com/stainless-steel/sqlite/issues/38
+        // The replacement String is constructed inside this function and its input is an i64.
+        let query = "SELECT uid FROM collections WHERE uid NOT IN (?)".replace('?', &params);
+        let mut statement = self.conn.prepare(query)?;
+
+        let mut results = Vec::new();
+        while let Ok(State::Row) = statement.next() {
+            results.push(MappingUid(statement.read::<i64, _>("uid")?));
+        }
+        Ok(results)
+    }
+
+    pub(super) fn flush_stale_mappings(
+        &self,
+        active: impl IntoIterator<Item = MappingUid>,
+    ) -> Result<(), StatusError> {
+        let params = active
+            .into_iter()
+            .map(|uid| uid.0.to_string())
+            .collect::<Vec<_>>()
+            .join(",");
+
+        // No support for arrays. See: https://github.com/stainless-steel/sqlite/issues/38
+        // The replacement String is constructed inside this function and its input is an i64.
+        let query = "DELETE FROM collections WHERE uid IN (?)".replace('?', &params);
+        let mut statement = self.conn.prepare(query)?;
+
         statement.next()?;
         Ok(())
     }
