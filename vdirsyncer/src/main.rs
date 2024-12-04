@@ -85,7 +85,7 @@ impl TryFrom<IntoIter<String>> for RawCommand {
 /// Simply log non-fatal errors.
 #[allow(clippy::needless_pass_by_value)]
 pub fn log_error<I: Item>(error: SyncError<I>) {
-    error!("{error}");
+    error!("{error:?}");
 }
 
 impl<I: Item> NamedPair<I> {
@@ -97,7 +97,7 @@ impl<I: Item> NamedPair<I> {
     async fn daemon(self, interval: Duration) -> StatusError {
         loop {
             if let Err(err) = self.sync_once(false).await {
-                error!("Error synchronising {}: {}", self.name, err);
+                error!("Error synchronising {}: {:?}", self.name, err);
                 if let Ok(status_error) = err.downcast::<StatusError>() {
                     return status_error;
                 };
@@ -347,8 +347,8 @@ impl App {
 
         while let Some(res) = set.join_next().await {
             match res {
-                Ok(err) => error!("Error in daemon task: {}.", err),
-                Err(joinerr) => error!("Daemon task aborted: {}.", joinerr),
+                Ok(err) => error!("Error in daemon task: {:?}.", err),
+                Err(joinerr) => error!("Daemon task aborted: {:?}.", joinerr),
             }
         }
         anyhow::bail!("All sync tasks exited.");
@@ -366,8 +366,8 @@ impl App {
         while let Some(res) = set.join_next().await {
             match res {
                 Ok(Ok(())) => {}
-                Ok(Err(err)) => error!("Error in sync task: {}.", err),
-                Err(joinerr) => error!("Sync task aborted: {}.", joinerr),
+                Ok(Err(err)) => error!("Error in sync task: {:?}.", err),
+                Err(joinerr) => error!("Sync task aborted: {:?}.", joinerr),
             }
         }
         Ok(())
@@ -389,8 +389,8 @@ impl App {
         while let Some(res) = set.join_next().await {
             match res {
                 Ok(Ok(())) => {}
-                Ok(Err(err)) => error!("Error resolving conflicts: {}.", err),
-                Err(joinerr) => error!("Sync task aborted: {}.", joinerr),
+                Ok(Err(err)) => error!("Error resolving conflicts: {:?}.", err),
+                Err(joinerr) => error!("Sync task aborted: {:?}.", joinerr),
             }
         }
         Ok(())
