@@ -55,7 +55,7 @@ pub(crate) struct NamedPair<I: Item> {
 
 /// Data necessary to create a new `Command` instance.
 ///
-/// This helper is used for commands that need to be executed multiple times.
+/// Contrary to [`std::process::Command`], this can be used more than once.
 pub struct RawCommand {
     command: String,
     args: Vec<String>,
