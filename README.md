@@ -9,7 +9,7 @@ This is the repository for `pimsync`, the rewrite and successor of [vdirsyncer].
 
 [vdirsyncer]: https://github.com/pimutils/vdirsyncer
 
-# Requirements
+## Requirements
 
 Compiling pimsync requires:
 
@@ -23,7 +23,7 @@ Running pimsync requires:
 - libc
 - libsqlite3 (runtime package)
 
-# Compilation
+## Compilation
 
 Use `make build` to compile pimsync. The build process uses Cargo to produce a
 binary and scdoc to compile documentation.
@@ -31,11 +31,11 @@ binary and scdoc to compile documentation.
 The compiled binary is placed in `./target/release/pimsync`. It can be executed
 directly, or copied into your `$PATH`.
 
-# Installation
+## Installation
 
 Use `make install` to install to `/usr/local/`.
 
-# Usage
+## Usage
 
 End user documentation is provided as man pages. Please see `man pimsync` and
 `man pimsync.conf` as starting points.
@@ -44,7 +44,7 @@ Manual pages are built when running `make build`. They can also be built
 independently using `make man`. These same man pages can be rendered as HTML
 pages by using `make html`.
 
-# Developer documentation
+## Developer documentation
 
 The underlying synchronisation implementation is implemented in the `vstorage`
 library, which is part of this repository. If you want to make a different user
@@ -73,11 +73,11 @@ at:
 
 - <https://mirror.whynothugo.nl/pimsync/main/lib/vstorage/>
 
-# Contributing
+## Contributing
 
 See [HACKING.md].
 
-# Credits
+## Credits
 
 Special thanks to the [NLnet foundation] that helped receive financial support from
 the [NGI Zero Entrust] program of the European Commission since early 2023.
@@ -85,7 +85,7 @@ the [NGI Zero Entrust] program of the European Commission since early 2023.
 [NLnet foundation]: https://nlnet.nl/project/vdirsyncer/
 [NGI Zero Entrust]: https://www.ngi.eu/ngi-projects/ngi-zero-entrust/
 
-# Licence
+## Licence
 
 Copyright 2023-2024 Hugo Osvaldo Barrera  
 Licensed under the EUPL, Version 1.2 only  
