@@ -498,9 +498,9 @@ impl<I: Item> CollectionPlan<I> {
             _ => Vec::with_capacity(0),
         };
 
-        if (items_a.is_empty() || items_b.is_empty())
-            && !status_uids.is_empty()
+        if !status_uids.is_empty()
             && pair.on_empty == OnEmpty::Skip
+            && (items_a.is_empty() ^ items_b.is_empty())
         {
             let mapping_uid =
                 mapping_uid.expect("If mapping_uid is None, then status_uid must be empty.");
