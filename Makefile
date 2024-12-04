@@ -37,7 +37,7 @@ clean:
 	rm *.html
 
 check:
-	cargo build
+	cargo check
 	cargo fmt --check
 	cargo clippy --all-targets
 	cargo test  # includes examples and doctests
