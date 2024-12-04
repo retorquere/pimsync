@@ -303,14 +303,7 @@ async fn test_empty_protection_enabled() {
         .unwrap();
 
     let plan = Plan::new(&pair, Some(&status)).await.unwrap();
-    assert_eq!(plan.collection_plans.len(), 1);
-    // Plan should be empty due to protection:
-    assert!(plan
-        .collection_plans
-        .first()
-        .unwrap()
-        .item_actions
-        .is_empty());
+    assert!(plan.collection_plans.is_empty());
 }
 
 #[tokio::test]

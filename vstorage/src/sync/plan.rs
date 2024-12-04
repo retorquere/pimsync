@@ -112,6 +112,8 @@ impl<I: Item> Plan<I> {
             Vec::new()
         };
 
+        collection_plans.retain(|c| !c.is_noop());
+
         Ok(Plan {
             storage_a: pair.storage_a.clone(),
             storage_b: pair.storage_b.clone(),
@@ -579,6 +581,15 @@ impl<I: Item> CollectionPlan<I> {
     #[must_use]
     pub fn alias(&self) -> &str {
         &self.mapping.alias
+    }
+
+    /// Returns `true` if executing this plan is nilpotent.
+    fn is_noop(&self) -> bool {
+        if let CollectionAction::NoAction(_) = self.collection_action {
+            self.item_actions.is_empty() && self.property_actions.is_empty()
+        } else {
+            false
+        }
     }
 }
 
