@@ -56,11 +56,13 @@ The following libraries were also developed as part of this project:
 
 - `libdav`: CalDav and CardDav client implementations.
   [Repository][libdav-repo], [documentation][libdav-docs].
+- `davcli`: CalDav and CardDav command line tool. [Repository][davcli-repo].
 - `vparser`: Non-validating flexible parser for iCalendar and vCard data.
   [Repository][vparser-repo], [documentation][vparser-docs].
 
 [libdav-repo]: https://git.sr.ht/~whynothugo/libdav
 [libdav-docs]: https://docs.rs/libdav/
+[davcli-repo]: https://git.sr.ht/~whynothugo/davcli
 [vparser-repo]: https://git.sr.ht/~whynothugo/vparser
 [vparser-docs]: https://docs.rs/vparser/
 
