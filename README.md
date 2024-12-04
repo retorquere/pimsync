@@ -77,7 +77,7 @@ at:
 
 See [HACKING.md].
 
-## Credits
+## Thanks
 
 Special thanks to the [NLnet foundation] that helped receive financial support from
 the [NGI Zero Entrust] program of the European Commission since early 2023.
