@@ -1,7 +1,6 @@
 DESTDIR?=/
 PREFIX?=/usr/local
 
-.PHONY: build
 build: target/release/pimsync docs
 
 target/release/pimsync:
