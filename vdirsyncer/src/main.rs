@@ -6,7 +6,7 @@
 
 use std::{
     fs::File,
-    io::{read_to_string, Seek, Write},
+    io::{read_to_string, stdin, BufRead as _, Seek, StdinLock, Write},
     path::PathBuf,
     sync::Arc,
     time::Duration,
@@ -18,7 +18,6 @@ use camino::Utf8PathBuf;
 use config::{open_default_path, parse_config};
 use log::{debug, error, info, trace, warn};
 use rustix::fs::sync;
-use stdio::{StdIo, StdIoLock};
 use tempfile::NamedTempFile;
 use tokio::{sync::Mutex, task::JoinSet};
 use vstorage::{
@@ -36,7 +35,6 @@ use crate::cli::{Cli, Command};
 
 mod cli;
 mod config;
-mod stdio;
 mod tls;
 
 pub const VERSION: &str = env!("PIMSYNC_VERSION");
@@ -177,18 +175,18 @@ impl<I: Item> NamedPair<I> {
         info!("Stale mappings: {:?}", plan.stale_collections);
     }
 
-    async fn resolve_conflicts(self, stdio: Arc<StdIo>) -> anyhow::Result<()> {
+    /// Performs conflict resolution for this storage pair.
+    // TODO: The UI can run in a deducted thread, taking a channel of conflicts to be resolved.
+    //       All the related I/O would continue on other threads, asynchronously.
+    async fn resolve_conflicts(self, stdin_lock: &mut StdinLock<'_>) -> anyhow::Result<()> {
         // TODO: are storage locks necessary here?
         let Some(ref raw_cmd) = self.conflict_resolution else {
-            error!("No conflict resolution command for {}.", self.name);
-            return Ok(());
+            bail!("No conflict resolution command for {}.", self.name);
         };
         info!("Resolving conflicts for pair {}.", self.name);
 
         let plan = self.create_plan().await?;
         self.print_plan(&plan);
-
-        // TODO: when we parallelise, should take lock on stdin here.
 
         let conflicts = plan
             .collection_plans
@@ -203,13 +201,9 @@ impl<I: Item> NamedPair<I> {
 
         let total = conflicts.len();
 
-        trace!("Taking stdio lock...");
-        let lock = stdio.lock().await;
-        trace!("Stdio lock taken.");
-
         for (i, (a, b)) in conflicts.into_iter().enumerate() {
             println!("Next is item {}/{total}", i + 1);
-            continue_or_abort(&lock)?;
+            continue_or_abort(stdin_lock)?;
 
             // TODO: should use pre-fetched data, if available.
             // TODO: improve logging here.
@@ -299,14 +293,12 @@ async fn save_item_to_tempfile<I: Item>(
 }
 
 /// Returns an error if user chooses to abort.
-fn continue_or_abort(stdio: &StdIoLock) -> anyhow::Result<()> {
-    let input = stdio.stdin();
-
+fn continue_or_abort(stdin: &mut StdinLock) -> anyhow::Result<()> {
     loop {
         println!("Continue? [Y/n]");
         // Need to read entire lines because the stdlib implicitly buffers stdin.
         let mut response = String::new();
-        input
+        stdin
             .read_line(&mut response)
             .context("Reading response from stdin")?;
 
@@ -322,7 +314,6 @@ pub(crate) struct App {
     interval: Duration,
     calendar_pairs: Vec<NamedPair<IcsItem>>,
     contact_pairs: Vec<NamedPair<VcardItem>>,
-    stdio: Arc<StdIo>,
 }
 
 impl App {
@@ -374,26 +365,28 @@ impl App {
         Ok(())
     }
 
+    /// Interactively resolve conflicts.
+    ///
+    /// Storages are resolved sequentially, since each item will require user intervention.
     async fn resolve_conflicts(self, dry_run: bool) -> anyhow::Result<()> {
         if dry_run {
             bail!("dry_run is not implemented for resolve-conflicts");
         }
 
-        let mut set = JoinSet::new();
-        for pair in self.calendar_pairs {
-            set.spawn(pair.resolve_conflicts(self.stdio.clone()));
-        }
-        for pair in self.contact_pairs {
-            set.spawn(pair.resolve_conflicts(self.stdio.clone()));
-        }
+        // Functions which do interactive IO take a stdin lock to prevent races.
+        let mut stdin_lock = stdin().lock();
 
-        while let Some(res) = set.join_next().await {
-            match res {
-                Ok(Ok(())) => {}
-                Ok(Err(err)) => error!("Error resolving conflicts: {:?}.", err),
-                Err(joinerr) => error!("Sync task aborted: {:?}.", joinerr),
+        for pair in self.calendar_pairs {
+            if let Err(err) = pair.resolve_conflicts(&mut stdin_lock).await {
+                error!("Error resolving conflicts: {:?}.", err);
             }
         }
+        for pair in self.contact_pairs {
+            if let Err(err) = pair.resolve_conflicts(&mut stdin_lock).await {
+                error!("Error resolving conflicts: {:?}.", err);
+            }
+        }
+
         Ok(())
     }
 }
