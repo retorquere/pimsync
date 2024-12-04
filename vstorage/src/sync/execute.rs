@@ -268,7 +268,6 @@ impl<I: Item> Plan<I> {
 
             for prop_action in property_actions {
                 if let Err(err) = prop_action
-                    // FIXME: won't work for item properties
                     .execute(storage_a, storage_b, status, mapping_uid, &a.href, &b.href)
                     .await?
                 {
