@@ -37,6 +37,7 @@ mod auth;
 mod cli;
 mod config;
 mod tls;
+mod ua;
 
 pub const VERSION: &str = env!("PIMSYNC_VERSION");
 

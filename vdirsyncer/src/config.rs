@@ -8,7 +8,7 @@ use std::{
 
 use anyhow::{bail, ensure, Context};
 use camino::Utf8PathBuf;
-use hyper::Uri;
+use hyper::{header::HeaderValue, Uri};
 use hyper_rustls::{ConfigBuilderExt, HttpsConnector, HttpsConnectorBuilder};
 use hyper_util::{
     client::legacy::{connect::HttpConnector, Client as HyperClient},
@@ -35,7 +35,8 @@ use crate::{
         cert_and_key_from_pemfile, certs_from_pemfile, key_from_pemfile,
         FingerprintAndWebPkiVerifier, FingerprintVerifier,
     },
-    App, NamedPair, RawCommand,
+    ua::UserAgent,
+    App, NamedPair, RawCommand, VERSION,
 };
 
 /// A deserialised configuration file.
@@ -401,7 +402,7 @@ impl IntoString {
 }
 
 type CustomWebDav =
-    WebDavClient<AddAuthorization<HyperClient<HttpsConnector<HttpConnector>, String>>>;
+    WebDavClient<UserAgent<AddAuthorization<HyperClient<HttpsConnector<HttpConnector>, String>>>>;
 
 async fn parse_carddav(mut config: Scfg) -> anyhow::Result<Arc<dyn Storage<VcardItem>>> {
     let url = take_single_param_from_directive(&mut config, "url")?;
@@ -416,7 +417,8 @@ async fn parse_carddav(mut config: Scfg) -> anyhow::Result<Arc<dyn Storage<Vcard
         let raw_client =
             HyperClient::builder(TokioExecutor::new()).build(hyperlocal::UnixConnector);
         let auth_client = AddAuthorization::auto(raw_client, auth);
-        let webdav = WebDavClient::new(url, auth_client);
+        let ua_client = UserAgent::new(auth_client, default_user_agent());
+        let webdav = WebDavClient::new(url, ua_client);
         let client = CardDavClient::new(webdav);
         Ok(Arc::new(CardDavStorage::new(client).await?))
     } else {
@@ -444,7 +446,8 @@ async fn parse_caldav(mut config: Scfg) -> anyhow::Result<Arc<dyn Storage<IcsIte
         let raw_client =
             HyperClient::builder(TokioExecutor::new()).build(hyperlocal::UnixConnector);
         let auth_client = AddAuthorization::auto(raw_client, auth);
-        let webdav = WebDavClient::new(url, auth_client);
+        let ua_client = UserAgent::new(auth_client, default_user_agent());
+        let webdav = WebDavClient::new(url, ua_client);
         let client = CalDavClient::new(webdav);
         Ok(Arc::new(CalDavStorage::new(client).await?))
     } else {
@@ -463,7 +466,16 @@ fn parse_webdav_client(mut config: Scfg, url: Uri) -> anyhow::Result<CustomWebDa
     let connector = network_opts.into_connector()?;
     let raw_client = HyperClient::builder(TokioExecutor::new()).build(connector);
     let auth_client = AddAuthorization::auto(raw_client, auth);
-    Ok(WebDavClient::new(url, auth_client))
+    let ua_client = UserAgent::new(auth_client, default_user_agent());
+    Ok(WebDavClient::new(url, ua_client))
+}
+
+// INVARIANT: Does not panic; function is idempotent and has a dedicated test.
+fn default_user_agent() -> HeaderValue {
+    // Ideally this should be const and computed at compile-time.
+    format!("pimsync/{}", VERSION.strip_prefix("v").unwrap_or(VERSION))
+        .try_into()
+        .expect("default UA is a valid header value")
 }
 
 fn parse_webcal(mut config: Scfg) -> anyhow::Result<Arc<dyn Storage<IcsItem>>> {
@@ -483,6 +495,7 @@ fn parse_webcal(mut config: Scfg) -> anyhow::Result<Arc<dyn Storage<IcsItem>>> {
     // TODO: authentication fields
     // TODO: TLS fields
 
+    // TODO: User-Agent
     Ok(Arc::new(WebCalStorage::new(url, collection_id)?))
 }
 
@@ -764,4 +777,15 @@ pub(crate) fn open_default_path() -> anyhow::Result<(PathBuf, File)> {
         File::open(&path).with_context(|| format!("Could not open {}.", path.to_string_lossy()))?;
     debug!("Opened config file {}", path.to_string_lossy());
     Ok((path, file))
+}
+
+#[cfg(test)]
+mod test {
+    use super::default_user_agent;
+
+    #[test]
+    fn test_default_user_agent() {
+        // Validate invariant; function does not panic.
+        let _ = default_user_agent();
+    }
 }
