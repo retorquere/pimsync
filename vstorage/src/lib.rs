@@ -80,7 +80,7 @@
 //! ## Entity tags
 //!
 //! An `Etag` is a value that changes whenever an item has changed in a collection. It is inspired
-//! on the HTTP header with the same name (used extensively in WebDav). See [`Etag`].
+//! on the HTTP header with the same name (used extensively in WebDAV). See [`Etag`].
 
 use std::{backtrace::Backtrace, str::FromStr, sync::Arc};
 
@@ -239,8 +239,8 @@ impl std::error::Error for Error {
 /// This is strongly inspired on the [HTTP header of the same name][MDN].
 ///
 /// It is assumed that all `Etag` values are valid UTF-8 strings. As of HTTP 1.1, all header values
-/// are restricted to visible characters in the ASCII range, so this is not a problem for CalDav or
-/// CardDav storages. Other storages with no native `Etag` concept should attempt to use the most
+/// are restricted to visible characters in the ASCII range, so this is not a problem for CalDAV or
+/// CardDAV storages. Other storages with no native `Etag` concept should attempt to use the most
 /// suitable approximation.
 ///
 /// [MDN]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/ETag
@@ -277,7 +277,7 @@ impl std::fmt::Display for Etag {
 
 /// The path to the item inside the collection.
 ///
-/// For example, for carddav collections this is the path of the entry inside the collection. For
+/// For example, for CardDAV collections this is the path of the entry inside the collection. For
 /// [`vdir::VdirStorage`], this the file's relative path, etc. `Href`s MUST be valid UTF-8 sequences.
 /// Implementations MUST define their `Href` in a way that it is possible to infer:
 ///

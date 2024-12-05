@@ -1,4 +1,4 @@
-//! Common bits and pieces shared between CalDav and CardDav
+//! Common bits and pieces shared between CalDAV and CardDAV
 
 use http::{StatusCode, Uri};
 use libdav::{

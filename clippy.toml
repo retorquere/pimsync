@@ -2,5 +2,5 @@
 #
 # SPDX-License-Identifier: EUPL-1.2
 
-doc-valid-idents = ["WebDav", "CalDav", "CardDav", ".."]
+doc-valid-idents = ["WebDAV", "CalDAV", "CardDAV", ".."]
 allow-unwrap-in-tests = true

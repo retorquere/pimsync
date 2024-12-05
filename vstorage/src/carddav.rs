@@ -29,7 +29,7 @@ where
     ///
     /// # Errors
     ///
-    /// If there are errors discovering the CardDav server.
+    /// If there are errors discovering the CardDAV server.
     pub async fn new(client: CardDavClient<C>) -> Result<CardDavStorage<C>> {
         let principal = client
             .find_current_user_principal()

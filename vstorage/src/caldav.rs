@@ -29,7 +29,7 @@ where
     ///
     /// # Errors
     ///
-    /// If there are errors discovering the CalDav server.
+    /// If there are errors discovering the CalDAV server.
     pub async fn new(client: CalDavClient<C>) -> Result<CalDavStorage<C>> {
         let principal = client
             .find_current_user_principal()
@@ -48,7 +48,7 @@ where
     }
 }
 
-/// A storage backed by a caldav server.
+/// A storage backed by a CalDAV server.
 ///
 /// A single storage represents a single server with a specific set of credentials.
 pub struct CalDavStorage<C: Connect + Clone + Sync + Send + 'static> {
@@ -100,7 +100,7 @@ where
         Ok(Collection::new(href.to_string()))
     }
 
-    /// Deletes a caldav collection.
+    /// Deletes a CalDAV collection.
     ///
     /// This method does multiple network calls to ensure that the collection is empty. If the
     /// server property supports `Etag` (it MUST as per the spec), this method guarantees that the

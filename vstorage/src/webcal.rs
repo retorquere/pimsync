@@ -54,7 +54,7 @@ impl WebCalStorage {
     ///
     /// # Errors
     ///
-    /// If there are errors discovering the CardDav server.
+    /// If there are errors discovering the CardDAV server.
     pub fn new(url: Uri, collection_id: CollectionId) -> Result<WebCalStorage> {
         let proto = match &url.scheme().map(Scheme::as_str) {
             Some("http") => HttpsConnectorBuilder::new()
