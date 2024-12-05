@@ -75,11 +75,6 @@ Storages of type *caldav* or *carddav* take the following directives:
 *password* { … }
 	Optional. Password to use for HTTP Basic Auth.
 
-*user_agent* _user-agent_
-	Optional. Set a custom User-Agent header on outgoing HTTP requests. The
-	default uses *pimsync/* followed by the current version number. E.g.:
-	*pimsync/1.0.0*.
-
 Storages of type *webcal* take the following directives:
 
 *url* _url_++
@@ -92,6 +87,13 @@ Storages of type *webcal* take the following directives:
 	storage.
 
 ; TODO: auth for webcal?
+
+Storages of type *caldav*, *carddav* or *webcal* take the following directive:
+
+*user_agent* _user-agent_
+	Optional. Set a custom User-Agent header on outgoing HTTP requests. The
+	default uses *pimsync/* followed by the current version number. E.g.:
+	*pimsync/1.0.0*.
 
 The *url*, *username* and *password* fields may be defined in the configuration
 file, or may specify a command to retrieve this value from an external store. To

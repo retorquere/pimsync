@@ -15,6 +15,8 @@
 
 use camino::Utf8PathBuf;
 use http::Uri;
+use hyper_rustls::HttpsConnectorBuilder;
+use hyper_util::{client::legacy::Client as HyperClient, rt::TokioExecutor};
 use std::sync::Arc;
 use vstorage::base::FetchedItem;
 use vstorage::base::Item;
@@ -34,9 +36,16 @@ async fn main() {
     let url = Uri::try_from(raw_url.as_str()).expect("provided URL must be valid");
     let path = Utf8PathBuf::from(raw_path);
 
-    let webcal = Arc::from(
-        WebCalStorage::new(url, "holidays_nl".parse().unwrap()).expect("can create webcal storage"),
-    );
+    let connector = HttpsConnectorBuilder::new()
+        .with_native_roots()
+        .unwrap()
+        .https_or_http()
+        .enable_http1()
+        .build();
+    let http_client = HyperClient::builder(TokioExecutor::new()).build(connector);
+    let webcal = WebCalStorage::new(http_client, url, "holidays_nl".parse().unwrap())
+        .expect("can create webcal storage");
+    let webcal = Arc::from(webcal);
     let fs = Arc::new(VdirStorage::new(path, String::from("ics")));
 
     let webcal_collection = "holidays_nl";

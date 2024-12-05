@@ -9,13 +9,10 @@
 //! See the [Webcal wikipedia page](https://en.wikipedia.org/wiki/Webcal).
 
 use async_trait::async_trait;
-use http::{uri::Scheme, StatusCode, Uri};
+use http::{Method, Request, Response, StatusCode, Uri};
 use http_body_util::BodyExt;
-use hyper_rustls::{HttpsConnector, HttpsConnectorBuilder};
-use hyper_util::{
-    client::legacy::{connect::HttpConnector, Client},
-    rt::TokioExecutor,
-};
+use hyper::body::Incoming;
+use tower::Service;
 
 use crate::{
     base::{
@@ -41,50 +38,39 @@ use crate::{
 /// describe the only available collection.
 // TODO: If an alternative href is provided, it should be used as a path on the same host.
 //       Note that discovery will only support the one matching the input URL.
-pub struct WebCalStorage {
+pub struct WebCalStorage<C>
+where
+    // XXX: Clone can be dropped after tower drops it `mut` for `tower_service::Service::call`
+    //      See: https://github.com/hyperium/hyper/issues/3784#issuecomment-2491667302
+    //      See: https://github.com/tower-rs/tower/issues/753
+    C: Service<Request<String>, Response = Response<Incoming>> + Send + Sync + Clone + 'static,
+    C::Error: std::error::Error + Send + Sync,
+    C::Future: Send + Sync,
+{
     /// The URL of the remote icalendar resource. Must be HTTP or HTTPS.
     url: Uri,
     /// The href and id to be given to the single collection available.
     collection_id: CollectionId,
-    http_client: Client<HttpsConnector<HttpConnector>, String>,
+    http_client: C,
 }
 
-impl WebCalStorage {
+impl<C> WebCalStorage<C>
+where
+    C: Service<Request<String>, Response = Response<Incoming>> + Send + Sync + Clone + 'static,
+    C::Error: std::error::Error + Send + Sync,
+    C::Future: Send + Sync,
+{
     /// Build a new `Storage` instance.
     ///
     /// # Errors
     ///
     /// If there are errors discovering the CardDAV server.
-    pub fn new(url: Uri, collection_id: CollectionId) -> Result<WebCalStorage> {
-        let proto = match &url.scheme().map(Scheme::as_str) {
-            Some("http") => HttpsConnectorBuilder::new()
-                .with_native_roots()?
-                .https_or_http()
-                .enable_http1()
-                .build(),
-            Some("https") => HttpsConnectorBuilder::new()
-                .with_native_roots()?
-                .https_only()
-                .enable_http1()
-                .build(),
-            // TODO: support webcal and webcals
-            Some(_) => {
-                return Err(Error::new(
-                    ErrorKind::InvalidInput,
-                    "URL scheme must be http or https",
-                ));
-            }
-            None => {
-                return Err(Error::new(
-                    ErrorKind::InvalidInput,
-                    "webcal URL requires a scheme/protocol",
-                ));
-            }
-        };
+    // TODO: take custom client as input.
+    pub fn new(http_client: C, url: Uri, collection_id: CollectionId) -> Result<WebCalStorage<C>> {
         Ok(WebCalStorage {
             url,
             collection_id,
-            http_client: Client::builder(TokioExecutor::new()).build(proto),
+            http_client,
         })
     }
 
@@ -92,10 +78,15 @@ impl WebCalStorage {
     ///
     /// Be warned! This swallows headers (including `Etag`!).
     async fn fetch_raw(&self, url: &Uri) -> Result<String> {
+        let req = Request::builder()
+            .method(Method::GET)
+            .uri(url)
+            .body(String::new())
+            .map_err(|e| Error::new(ErrorKind::InvalidInput, e))?;
         let response = self
             .http_client
-            // TODO: upstream should impl IntoURL for &Uri
-            .get(url.clone())
+            .clone()
+            .call(req)
             .await
             .map_err(|e| Error::new(ErrorKind::Io, e))?;
 
@@ -129,7 +120,12 @@ impl WebCalStorage {
 }
 
 #[async_trait]
-impl Storage<IcsItem> for WebCalStorage {
+impl<C> Storage<IcsItem> for WebCalStorage<C>
+where
+    C: Service<Request<String>, Response = Response<Incoming>> + Send + Sync + Clone + 'static,
+    C::Error: std::error::Error + Send + Sync,
+    C::Future: Send + Sync,
+{
     /// Checks that the remove resource exists and whether it looks like an icalendar resource.
     async fn check(&self) -> Result<()> {
         // TODO: Should map status codes to io::Error. if 404 -> NotFound, etc.
@@ -361,6 +357,8 @@ impl Storage<IcsItem> for WebCalStorage {
 #[cfg(test)]
 mod test {
     use http::Uri;
+    use hyper_rustls::HttpsConnectorBuilder;
+    use hyper_util::{client::legacy::Client, rt::TokioExecutor};
 
     use crate::{base::Storage, webcal::WebCalStorage};
 
@@ -370,7 +368,15 @@ mod test {
     #[tokio::test]
     #[ignore = "uses internet resource"]
     async fn test_dummy() {
+        let connector = HttpsConnectorBuilder::new()
+            .with_native_roots()
+            .unwrap()
+            .https_or_http()
+            .enable_http1()
+            .build();
+        let client = Client::builder(TokioExecutor::new()).build(connector);
         let storage = WebCalStorage::new(
+            client,
             Uri::try_from("https://www.officeholidays.com/ics/netherlands").unwrap(),
             "holidays".parse().unwrap(),
         )

@@ -498,17 +498,19 @@ fn parse_webcal(mut config: Scfg) -> anyhow::Result<Arc<dyn Storage<IcsItem>>> {
         .into_string() // TODO: don't allocate this into string.
         .context("Resolving webcal URL")?
         .parse()?;
+    let network_opts = parse_tls_config(&mut config)?;
+    let user_agent = parse_user_agent(&mut config)?;
 
     let collection_id = take_single_param_from_directive(&mut config, "collection_id")?
         .parse()
         .context("Parsing webcal url")?;
 
-    // TODO: network_opts
     // TODO: authentication fields
-    // TODO: TLS fields
 
-    // TODO: User-Agent
-    Ok(Arc::new(WebCalStorage::new(url, collection_id)?))
+    let connector = network_opts.into_connector()?;
+    let raw_client = HyperClient::builder(TokioExecutor::new()).build(connector);
+    let ua_client = UserAgent::new(raw_client, user_agent);
+    Ok(Arc::new(WebCalStorage::new(ua_client, url, collection_id)?))
 }
 
 /// Returns a `username` and `password` tuple.
@@ -562,6 +564,7 @@ struct HttpsConfig {
     auth_cert: Option<ClientCert>,
 }
 
+/// Parse TLS configuration directives, if any, or return the default.
 fn parse_tls_config(config: &mut Scfg) -> anyhow::Result<HttpsConfig> {
     let mut tls = HttpsConfig::default();
 
