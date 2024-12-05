@@ -43,7 +43,7 @@ impl<I: Item> ItemAction<I> {
                     &a.to_item_ref(),
                     &b.to_item_ref(),
                 )
-                .map(|()| Ok(())),
+                .map(Ok),
             ItemAction::UpdateStatus {
                 hash,
                 old_a,
@@ -51,9 +51,7 @@ impl<I: Item> ItemAction<I> {
                 new_a,
                 new_b,
             } => status.update_item(hash, old_a, old_b, new_a, new_b).map(Ok),
-            ItemAction::ClearStatus { uid } => {
-                status.delete_item(mapping_uid, uid).map(|()| Ok(()))
-            }
+            ItemAction::ClearStatus { uid } => status.delete_item(mapping_uid, uid).map(Ok),
             ItemAction::Create { side, source } => match side {
                 Side::A => create_item(source, status, col_a, b, a, mapping_uid, Side::A).await,
                 Side::B => create_item(source, status, col_b, a, b, mapping_uid, Side::B).await,
@@ -161,33 +159,17 @@ async fn update_item<I: Item>(
     };
 
     let hash = source_item.hash();
+    let target_ref = &ItemRef {
+        href: target.clone(),
+        etag: new_etag,
+    };
+    let source_ref = &ItemRef {
+        href: source.href.clone(),
+        etag: source_etag,
+    };
     match side {
-        Side::A => status.update_item(
-            &hash,
-            old_a,
-            old_b,
-            &ItemRef {
-                href: target.clone(),
-                etag: new_etag,
-            },
-            &ItemRef {
-                href: source.href.clone(),
-                etag: source_etag,
-            },
-        ),
-        Side::B => status.update_item(
-            &hash,
-            old_a,
-            old_b,
-            &ItemRef {
-                href: source.href.clone(),
-                etag: source_etag,
-            },
-            &ItemRef {
-                href: target.clone(),
-                etag: new_etag,
-            },
-        ),
+        Side::A => status.update_item(&hash, old_a, old_b, target_ref, source_ref),
+        Side::B => status.update_item(&hash, old_a, old_b, source_ref, target_ref),
     }?;
 
     Ok(Ok(()))
