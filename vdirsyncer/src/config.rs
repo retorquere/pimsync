@@ -399,24 +399,17 @@ impl IntoString {
     }
 }
 
-type CustomWebDav =
+type NetworkWebDav =
     WebDavClient<UserAgent<AddAuthorization<HyperClient<HttpsConnector<HttpConnector>, String>>>>;
+
+type UnixSocketWebDav =
+    WebDavClient<UserAgent<AddAuthorization<HyperClient<hyperlocal::UnixConnector, String>>>>;
 
 async fn parse_carddav(mut config: Scfg) -> anyhow::Result<Arc<dyn Storage<VcardItem>>> {
     let url = take_single_param_from_directive(&mut config, "url")?;
 
     if let Some(socket) = url.strip_prefix("unix://") {
-        let host = hex::encode(socket.as_bytes());
-        let url = (format!("unix://{host}:0/"))
-            .parse()
-            .context("Building pseudo-url for socket connection")?;
-        let auth = parse_auth(&mut config).context("Parsing carddav storage auth")?;
-
-        let raw_client =
-            HyperClient::builder(TokioExecutor::new()).build(hyperlocal::UnixConnector);
-        let auth_client = AddAuthorization::auto(raw_client, auth);
-        let ua_client = UserAgent::new(auth_client, default_user_agent());
-        let webdav = WebDavClient::new(url, ua_client);
+        let webdav = parse_socket_webdav_client(config, socket)?;
         let client = CardDavClient::new(webdav);
         Ok(Arc::new(CardDavStorage::new(client).await?))
     } else {
@@ -435,17 +428,7 @@ async fn parse_caldav(mut config: Scfg) -> anyhow::Result<Arc<dyn Storage<IcsIte
     // TODO: item_types
 
     if let Some(socket) = url.strip_prefix("unix://") {
-        let host = hex::encode(socket.as_bytes());
-        let url = (format!("unix://{host}:0/"))
-            .parse()
-            .context("Building pseudo-url for socket connection")?;
-        let auth = parse_auth(&mut config).context("Parsing caldav storage auth")?;
-
-        let raw_client =
-            HyperClient::builder(TokioExecutor::new()).build(hyperlocal::UnixConnector);
-        let auth_client = AddAuthorization::auto(raw_client, auth);
-        let ua_client = UserAgent::new(auth_client, default_user_agent());
-        let webdav = WebDavClient::new(url, ua_client);
+        let webdav = parse_socket_webdav_client(config, socket)?;
         let client = CalDavClient::new(webdav);
         Ok(Arc::new(CalDavStorage::new(client).await?))
     } else {
@@ -457,12 +440,25 @@ async fn parse_caldav(mut config: Scfg) -> anyhow::Result<Arc<dyn Storage<IcsIte
 }
 
 /// Parse options common to CalDAV and CardDAV and build the inner `WebDavClient`.
-fn parse_webdav_client(mut config: Scfg, url: Uri) -> anyhow::Result<CustomWebDav> {
+fn parse_webdav_client(mut config: Scfg, url: Uri) -> anyhow::Result<NetworkWebDav> {
     let auth = parse_auth(&mut config).context("Parsing carddav storage auth")?;
     let network_opts = parse_tls_config(&mut config)?;
 
     let connector = network_opts.into_connector()?;
     let raw_client = HyperClient::builder(TokioExecutor::new()).build(connector);
+    let auth_client = AddAuthorization::auto(raw_client, auth);
+    let ua_client = UserAgent::new(auth_client, default_user_agent());
+    Ok(WebDavClient::new(url, ua_client))
+}
+
+fn parse_socket_webdav_client(mut config: Scfg, socket: &str) -> anyhow::Result<UnixSocketWebDav> {
+    let host = hex::encode(socket.as_bytes());
+    let url = (format!("unix://{host}:0/"))
+        .parse()
+        .context("Building pseudo-url for socket connection")?;
+    let auth = parse_auth(&mut config).context("Parsing carddav storage auth")?;
+
+    let raw_client = HyperClient::builder(TokioExecutor::new()).build(hyperlocal::UnixConnector);
     let auth_client = AddAuthorization::auto(raw_client, auth);
     let ua_client = UserAgent::new(auth_client, default_user_agent());
     Ok(WebDavClient::new(url, ua_client))
