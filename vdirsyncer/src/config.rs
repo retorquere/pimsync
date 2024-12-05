@@ -262,32 +262,30 @@ fn init_pair<I: Item>(
 }
 
 fn parse_collection_directive(mut directive: Directive) -> anyhow::Result<Collections> {
-    let mut params = directive.take_params();
-    match params.len() {
-        1 => params
-            .remove(0)
+    let mut params = directive.take_params().into_iter();
+
+    if let Some(param) = params.next() {
+        if let Some(next) = params.next() {
+            bail!("unexpected second parameter {next} in collection directive");
+        }
+        param
             .parse()
             .context("Parsing collection id")
-            .map(Collections::Named),
-        2.. => bail!(
-            "unexpected second parameter {} in collection directive",
-            params[1]
-        ),
-        0 => {
-            let mut child = directive
-                .take_child()
-                .context("Collection directive must specify an id or a block")?;
+            .map(Collections::Named)
+    } else {
+        let mut child = directive
+            .take_child()
+            .context("Collection directive must specify an id or a block")?;
 
-            let alias = take_single_param_from_directive(&mut child, "alias")?;
-            let id_a = take_single_directive(&mut child, "id_a")?;
-            let href_a = take_single_directive(&mut child, "href_a")?;
-            let id_b = take_single_directive(&mut child, "id_b")?;
-            let href_b = take_single_directive(&mut child, "href_b")?;
+        let alias = take_single_param_from_directive(&mut child, "alias")?;
+        let id_a = take_single_directive(&mut child, "id_a")?;
+        let href_a = take_single_directive(&mut child, "href_a")?;
+        let id_b = take_single_directive(&mut child, "id_b")?;
+        let href_b = take_single_directive(&mut child, "href_b")?;
 
-            let a = parse_individual_collection(id_a, href_a)?;
-            let b = parse_individual_collection(id_b, href_b)?;
-            Ok(Collections::Mapped(alias, a, b))
-        }
+        let a = parse_individual_collection(id_a, href_a)?;
+        let b = parse_individual_collection(id_b, href_b)?;
+        Ok(Collections::Mapped(alias, a, b))
     }
 }
 
