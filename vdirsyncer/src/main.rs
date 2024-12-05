@@ -33,6 +33,7 @@ use vstorage::{
 
 use crate::cli::{Cli, Command};
 
+mod auth;
 mod cli;
 mod config;
 mod tls;

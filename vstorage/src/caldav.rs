@@ -5,10 +5,11 @@
 //! A [`CalDavStorage`] is a single caldav repository, as specified in rfc4791.
 
 use async_trait::async_trait;
-use http::{StatusCode, Uri};
-use hyper_util::client::legacy::connect::Connect;
+use http::{Request, Response, StatusCode, Uri};
+use hyper::body::Incoming;
 use libdav::dav::mime_types;
 use libdav::CalDavClient;
+use tower::Service;
 
 use crate::base::{
     CalendarProperty, Collection, FetchedItem, IcsItem, Item, ItemRef, ListedProperty, Storage,
@@ -23,7 +24,9 @@ use crate::{CollectionId, Error, ErrorKind, Etag, Href, Result};
 
 impl<C> CalDavStorage<C>
 where
-    C: Connect + Send + Sync + Clone + std::fmt::Debug,
+    C: Service<Request<String>, Response = Response<Incoming>> + Send + Sync + 'static,
+    C::Error: std::error::Error + Send + Sync,
+    C::Future: Send + Sync,
 {
     /// Build a new `Storage` instance.
     ///
@@ -51,7 +54,12 @@ where
 /// A storage backed by a CalDAV server.
 ///
 /// A single storage represents a single server with a specific set of credentials.
-pub struct CalDavStorage<C: Connect + Clone + Sync + Send + 'static> {
+pub struct CalDavStorage<C>
+where
+    C: Service<Request<String>, Response = Response<Incoming>> + Send + Sync + 'static,
+    C::Error: std::error::Error + Send + Sync,
+    C::Future: Send + Sync,
+{
     client: CalDavClient<C>,
     calendar_home_set: Vec<Uri>,
 }
@@ -59,7 +67,9 @@ pub struct CalDavStorage<C: Connect + Clone + Sync + Send + 'static> {
 #[async_trait]
 impl<C> Storage<IcsItem> for CalDavStorage<C>
 where
-    C: Connect + Sync + Send + Clone,
+    C: Service<Request<String>, Response = Response<Incoming>> + Send + Sync + 'static,
+    C::Error: std::error::Error + Send + Sync,
+    C::Future: Send + Sync,
 {
     async fn check(&self) -> Result<()> {
         self.client
@@ -370,21 +380,23 @@ fn join_hrefs(collection_href: &str, item_href: &str) -> String {
 #[cfg(test)]
 mod test {
     use hyper_rustls::HttpsConnectorBuilder;
-    use libdav::{auth::Auth, dav::WebDavClient, CalDavClient};
+    use hyper_util::{client::legacy::Client, rt::TokioExecutor};
+    use libdav::{dav::WebDavClient, CalDavClient};
 
     use crate::{base::Storage, caldav::CalDavStorage};
 
     #[test]
     fn test_collection_id() {
         let test_client = {
-            let https = HttpsConnectorBuilder::new()
+            let https_connector = HttpsConnectorBuilder::new()
                 .with_native_roots()
                 .unwrap()
                 .https_or_http()
                 .enable_http1()
                 .build();
+            let https_client = Client::builder(TokioExecutor::new()).build(https_connector);
             let base_url = "https://example.com".parse().unwrap();
-            let webdav = WebDavClient::new(base_url, Auth::None, https);
+            let webdav = WebDavClient::new(base_url, https_client);
             let client = CalDavClient::new(webdav);
 
             CalDavStorage {

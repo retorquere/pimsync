@@ -5,10 +5,11 @@
 //! A [`CardDavStorage`] is a single carddav repository, as specified in rfc6352.
 
 use async_trait::async_trait;
-use http::{StatusCode, Uri};
-use hyper_util::client::legacy::connect::Connect;
+use http::{Request, Response, StatusCode, Uri};
+use hyper::body::Incoming;
 use libdav::dav::mime_types;
 use libdav::CardDavClient;
+use tower::Service;
 
 use crate::base::{
     AddressBookProperty, Collection, FetchedItem, Item, ItemRef, ListedProperty, Storage, VcardItem,
@@ -23,7 +24,9 @@ use crate::{CollectionId, Error, ErrorKind, Etag, Href, Result};
 
 impl<C> CardDavStorage<C>
 where
-    C: Connect + Send + Sync + Clone + std::fmt::Debug,
+    C: Service<Request<String>, Response = Response<Incoming>> + Send + Sync + 'static,
+    C::Error: std::error::Error + Send + Sync,
+    C::Future: Send + Sync,
 {
     /// Build a new `Storage` instance.
     ///
@@ -51,7 +54,12 @@ where
 /// A storage backed by a carddav server.
 ///
 /// A single storage represents a single server with a specific set of credentials.
-pub struct CardDavStorage<C: Connect + Clone + Sync + Send + 'static> {
+pub struct CardDavStorage<C>
+where
+    C: Service<Request<String>, Response = Response<Incoming>> + Send + Sync + 'static,
+    C::Error: std::error::Error + Send + Sync,
+    C::Future: Send + Sync,
+{
     client: CardDavClient<C>,
     address_book_home_set: Vec<Uri>,
 }
@@ -59,7 +67,9 @@ pub struct CardDavStorage<C: Connect + Clone + Sync + Send + 'static> {
 #[async_trait]
 impl<C> Storage<VcardItem> for CardDavStorage<C>
 where
-    C: Connect + Clone + Sync + Send,
+    C: Service<Request<String>, Response = Response<Incoming>> + Send + Sync + 'static,
+    C::Error: std::error::Error + Send + Sync,
+    C::Future: Send + Sync,
 {
     async fn check(&self) -> Result<()> {
         self.client

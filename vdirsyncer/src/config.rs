@@ -8,13 +8,13 @@ use std::{
 
 use anyhow::{bail, ensure, Context};
 use camino::Utf8PathBuf;
+use hyper::Uri;
 use hyper_rustls::{ConfigBuilderExt, HttpsConnector, HttpsConnectorBuilder};
-use hyper_util::client::legacy::connect::HttpConnector;
-use libdav::{
-    auth::{Auth, Password},
-    dav::WebDavClient,
-    CalDavClient, CardDavClient,
+use hyper_util::{
+    client::legacy::{connect::HttpConnector, Client as HyperClient},
+    rt::TokioExecutor,
 };
+use libdav::{dav::WebDavClient, CalDavClient, CardDavClient};
 use log::{debug, error, info};
 use rustls::{client::danger::DangerousClientConfigBuilder, ClientConfig, RootCertStore};
 use scfg::{Directive, Scfg};
@@ -30,6 +30,7 @@ use vstorage::{
 };
 
 use crate::{
+    auth::AddAuthorization,
     tls::{
         cert_and_key_from_pemfile, certs_from_pemfile, key_from_pemfile,
         FingerprintAndWebPkiVerifier, FingerprintVerifier,
@@ -397,32 +398,30 @@ impl IntoString {
             }
         }
     }
-
-    fn into_password(self) -> anyhow::Result<Password> {
-        let string = self.into_string()?;
-        if string.is_empty() {
-            bail!("Command returned an empty password. This is likely a misconfiguration.")
-        }
-        Ok(Password::from(string))
-    }
 }
+
+type CustomWebDav =
+    WebDavClient<AddAuthorization<HyperClient<HttpsConnector<HttpConnector>, String>>>;
 
 async fn parse_carddav(mut config: Scfg) -> anyhow::Result<Arc<dyn Storage<VcardItem>>> {
     let url = take_single_param_from_directive(&mut config, "url")?;
-    let auth = parse_auth(&mut config).context("Parsing carddav storage auth")?;
+
     if let Some(socket) = url.strip_prefix("unix://") {
         let host = hex::encode(socket.as_bytes());
         let url = (format!("unix://{host}:0/"))
             .parse()
             .context("Building pseudo-url for socket connection")?;
+        let auth = parse_auth(&mut config).context("Parsing carddav storage auth")?;
 
-        let webdav = WebDavClient::new(url, auth, hyperlocal::UnixConnector);
+        let raw_client =
+            HyperClient::builder(TokioExecutor::new()).build(hyperlocal::UnixConnector);
+        let auth_client = AddAuthorization::auto(raw_client, auth);
+        let webdav = WebDavClient::new(url, auth_client);
         let client = CardDavClient::new(webdav);
         Ok(Arc::new(CardDavStorage::new(client).await?))
     } else {
         let url = url.parse().context("Parsing carddav url")?;
-        let network_opts = parse_tls_config(&mut config)?;
-        let webdav = WebDavClient::new(url, auth, network_opts.into_connector()?);
+        let webdav = parse_webdav_client(config, url)?;
         let client = CardDavClient::new_via_bootstrap(webdav).await?;
         Ok(Arc::new(CardDavStorage::new(client).await?))
     }
@@ -430,7 +429,6 @@ async fn parse_carddav(mut config: Scfg) -> anyhow::Result<Arc<dyn Storage<Vcard
 
 async fn parse_caldav(mut config: Scfg) -> anyhow::Result<Arc<dyn Storage<IcsItem>>> {
     let url = take_single_param_from_directive(&mut config, "url")?;
-    let auth = parse_auth(&mut config).context("Parsing caldav storage auth")?;
 
     // TODO: start_date
     // TODO: end_date
@@ -441,17 +439,31 @@ async fn parse_caldav(mut config: Scfg) -> anyhow::Result<Arc<dyn Storage<IcsIte
         let url = (format!("unix://{host}:0/"))
             .parse()
             .context("Building pseudo-url for socket connection")?;
+        let auth = parse_auth(&mut config).context("Parsing caldav storage auth")?;
 
-        let webdav = WebDavClient::new(url, auth, hyperlocal::UnixConnector);
+        let raw_client =
+            HyperClient::builder(TokioExecutor::new()).build(hyperlocal::UnixConnector);
+        let auth_client = AddAuthorization::auto(raw_client, auth);
+        let webdav = WebDavClient::new(url, auth_client);
         let client = CalDavClient::new(webdav);
         Ok(Arc::new(CalDavStorage::new(client).await?))
     } else {
         let url = url.parse().context("Parsing caldav url")?;
-        let network_opts = parse_tls_config(&mut config)?;
-        let webdav = WebDavClient::new(url, auth, network_opts.into_connector()?);
+        let webdav = parse_webdav_client(config, url)?;
         let client = CalDavClient::new_via_bootstrap(webdav).await?;
         Ok(Arc::new(CalDavStorage::new(client).await?))
     }
+}
+
+/// Parse options common to CalDAV and CardDAV and build the inner `WebDavClient`.
+fn parse_webdav_client(mut config: Scfg, url: Uri) -> anyhow::Result<CustomWebDav> {
+    let auth = parse_auth(&mut config).context("Parsing carddav storage auth")?;
+    let network_opts = parse_tls_config(&mut config)?;
+
+    let connector = network_opts.into_connector()?;
+    let raw_client = HyperClient::builder(TokioExecutor::new()).build(connector);
+    let auth_client = AddAuthorization::auto(raw_client, auth);
+    Ok(WebDavClient::new(url, auth_client))
 }
 
 fn parse_webcal(mut config: Scfg) -> anyhow::Result<Arc<dyn Storage<IcsItem>>> {
@@ -474,27 +486,27 @@ fn parse_webcal(mut config: Scfg) -> anyhow::Result<Arc<dyn Storage<IcsItem>>> {
     Ok(Arc::new(WebCalStorage::new(url, collection_id)?))
 }
 
-fn parse_auth(directive: &mut Scfg) -> anyhow::Result<Auth> {
+/// Returns a `username` and `password` tuple.
+fn parse_auth(directive: &mut Scfg) -> anyhow::Result<Option<(String, String)>> {
     let username = take_single_directive(directive, "username")?
         .map(parse_into_string)
         .transpose()
-        .context("Parsing username directive")?;
+        .context("Parsing username directive")?
+        .map(IntoString::into_string)
+        .transpose()
+        .context("Resolving username")?;
     let password = take_single_directive(directive, "password")?
         .map(parse_into_string)
         .transpose()
-        .context("Parsing username directive")?;
+        .context("Parsing username directive")?
+        .map(IntoString::into_string)
+        .transpose()
+        .context("Resolving password")?;
 
-    let auth = match username {
-        Some(x) => Auth::Basic {
-            username: x.into_string().context("Resolving username")?,
-            password: match password {
-                Some(y) => Some(y.into_password().context("Resolving password")?),
-                None => None,
-            },
-        },
-        None => Auth::None,
-    };
-    Ok(auth)
+    match username {
+        Some(u) => Ok(Some((u, password.unwrap_or_default()))),
+        None => Ok(None),
+    }
 }
 
 fn parse_into_string(directive: Directive) -> anyhow::Result<IntoString> {

@@ -3,7 +3,7 @@
 # Copyright 2023-2024 Hugo Osvaldo Barrera
 #
 # SPDX-License-Identifier: EUPL-1.2
-version = 3
+version = 4
 
 [[package]]
 name = "addr2line"
@@ -74,6 +74,12 @@ name = "base64"
 version = "0.21.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "414dcefbc63d77c526a76b3afcf6fbb9b5e2791c19c3aa2297733208750c6e53"
+
+[[package]]
+name = "base64"
+version = "0.22.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
 
 [[package]]
 name = "bitflags"
@@ -485,7 +491,7 @@ dependencies = [
  "pin-project-lite",
  "socket2",
  "tokio",
- "tower",
+ "tower 0.4.13",
  "tower-service",
  "tracing",
 ]
@@ -540,21 +546,23 @@ checksum = "8e9489c2807c139ffd9c1794f4af0ebe86a828db53ecdc7fea2111d0fed085d1"
 
 [[package]]
 name = "libdav"
-version = "0.5.1"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9706ad04ced28fe7b8b2db0990b0b19ba5ed7386c2903f347f15547207da50bf"
+checksum = "5615314c5830218da3f9e03e763c57806db10c79a5cbf12547b942c8f446edf1"
 dependencies = [
- "base64",
+ "base64 0.21.3",
  "domain",
  "email_address",
  "http",
  "http-body-util",
  "hyper",
- "hyper-util",
  "log",
  "percent-encoding",
  "roxmltree",
  "thiserror",
+ "tokio",
+ "tower 0.5.1",
+ "tower-http",
 ]
 
 [[package]]
@@ -584,6 +592,12 @@ name = "memchr"
 version = "2.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5486aed0026218e61b8a01d5fbd5a0a134649abb71a0e53b7bc088529dced86e"
+
+[[package]]
+name = "mime"
+version = "0.3.17"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6877bb514081ee2a7ff5ef9de3281f14a4dd4bceac4c09388074a6b5df8a139a"
 
 [[package]]
 name = "miniz_oxide"
@@ -701,6 +715,7 @@ name = "pimsync"
 version = "0.0.1"
 dependencies = [
  "anyhow",
+ "base64 0.22.1",
  "camino",
  "hex",
  "hyper",
@@ -718,6 +733,7 @@ dependencies = [
  "simple_logger",
  "tempfile",
  "tokio",
+ "tower 0.5.1",
  "vstorage",
 ]
 
@@ -930,7 +946,7 @@ version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "35e4980fa29e4c4b212ffb3db068a564cbf560e51d3944b7c88bd8bf5bec64f4"
 dependencies = [
- "base64",
+ "base64 0.21.3",
  "rustls-pki-types",
 ]
 
@@ -1251,6 +1267,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "tower"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2873938d487c3cfb9aed7546dc9f2711d867c9f90c46b889989a2cb84eba6b4f"
+dependencies = [
+ "tower-layer",
+ "tower-service",
+]
+
+[[package]]
+name = "tower-http"
+version = "0.6.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "403fa3b783d4b626a8ad51d766ab03cb6d2dbfc46b1c5d4448395e6628dc9697"
+dependencies = [
+ "base64 0.22.1",
+ "bitflags 2.4.0",
+ "bytes",
+ "http",
+ "mime",
+ "pin-project-lite",
+ "tower-layer",
+ "tower-service",
+]
+
+[[package]]
 name = "tower-layer"
 version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1258,9 +1300,9 @@ checksum = "121c2a6cda46980bb0fcd1647ffaf6cd3fc79a013de288782836f6df9c48780e"
 
 [[package]]
 name = "tower-service"
-version = "0.3.2"
+version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b6bc1c9ce2b5135ac7f93c72918fc37feb872bdc6a5533a8b85eb4b86bfdae52"
+checksum = "8df9b6e13f2d32c91b9bd719c00d1958837bc7dec474d94952798cc8e69eeec3"
 
 [[package]]
 name = "tracing"
@@ -1366,6 +1408,8 @@ dependencies = [
  "tempfile",
  "thiserror",
  "tokio",
+ "tower 0.5.1",
+ "tower-http",
  "vparser",
 ]
 

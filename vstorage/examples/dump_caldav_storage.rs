@@ -5,7 +5,9 @@
 use std::sync::Arc;
 
 use hyper_rustls::HttpsConnectorBuilder;
-use libdav::{auth::Auth, dav::WebDavClient, CalDavClient};
+use hyper_util::{client::legacy::Client as HyperClient, rt::TokioExecutor};
+use libdav::{dav::WebDavClient, CalDavClient};
+use tower_http::auth::AddAuthorization;
 use vstorage::{
     base::{FetchedItem, IcsItem, Storage},
     caldav::CalDavStorage,
@@ -15,7 +17,7 @@ use vstorage::{
 async fn create_caldav_from_env() -> Arc<dyn Storage<IcsItem>> {
     let server = std::env::var("CALDAV_SERVER").unwrap();
     let username = std::env::var("CALDAV_USERNAME").unwrap();
-    let password = std::env::var("CALDAV_PASSWORD").unwrap().into();
+    let password = std::env::var("CALDAV_PASSWORD").unwrap();
 
     let connector = HttpsConnectorBuilder::new()
         .with_native_roots()
@@ -23,11 +25,9 @@ async fn create_caldav_from_env() -> Arc<dyn Storage<IcsItem>> {
         .https_or_http()
         .enable_http1()
         .build();
-    let auth = Auth::Basic {
-        username,
-        password: Some(password),
-    };
-    let webdav = WebDavClient::new(server.parse().unwrap(), auth, connector);
+    let raw_client = HyperClient::builder(TokioExecutor::new()).build(connector);
+    let auth_client = AddAuthorization::basic(raw_client, &username, &password);
+    let webdav = WebDavClient::new(server.parse().unwrap(), auth_client);
     let caldav = CalDavClient::new_via_bootstrap(webdav).await.unwrap();
     let storage = CalDavStorage::new(caldav).await.unwrap();
     Arc::from(storage)
