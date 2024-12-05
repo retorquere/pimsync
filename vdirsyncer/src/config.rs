@@ -618,12 +618,14 @@ fn take_single_directive(config: &mut Scfg, name: &str) -> anyhow::Result<Option
 fn take_single_param_from_directive(config: &mut Scfg, name: &str) -> anyhow::Result<String> {
     let mut directive = take_single_directive(config, name)?
         .with_context(|| format!("directive {name} not found"))?;
-    let mut params = directive.take_params();
-    ensure!(
-        params.len() == 1,
-        "{name} must specify exactly one parameter"
-    );
-    Ok(params.pop().expect("at least one parameter is defined"))
+    let mut params = directive.take_params().into_iter();
+    if let Some(param) = params.next() {
+        if params.next().is_some() {
+            bail!("{name} must not specify exactly one parameter");
+        }
+        return Ok(param);
+    }
+    bail!("{name} must specify one parameter");
 }
 
 impl HttpsConfig {
