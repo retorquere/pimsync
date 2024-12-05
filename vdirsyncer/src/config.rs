@@ -443,11 +443,12 @@ async fn parse_caldav(mut config: Scfg) -> anyhow::Result<Arc<dyn Storage<IcsIte
 fn parse_webdav_client(mut config: Scfg, url: Uri) -> anyhow::Result<NetworkWebDav> {
     let auth = parse_auth(&mut config).context("Parsing carddav storage auth")?;
     let network_opts = parse_tls_config(&mut config)?;
+    let user_agent = parse_user_agent(&mut config)?;
 
     let connector = network_opts.into_connector()?;
     let raw_client = HyperClient::builder(TokioExecutor::new()).build(connector);
     let auth_client = AddAuthorization::auto(raw_client, auth);
-    let ua_client = UserAgent::new(auth_client, default_user_agent());
+    let ua_client = UserAgent::new(auth_client, user_agent);
     Ok(WebDavClient::new(url, ua_client))
 }
 
@@ -457,11 +458,28 @@ fn parse_socket_webdav_client(mut config: Scfg, socket: &str) -> anyhow::Result<
         .parse()
         .context("Building pseudo-url for socket connection")?;
     let auth = parse_auth(&mut config).context("Parsing carddav storage auth")?;
+    let user_agent = parse_user_agent(&mut config)?;
 
     let raw_client = HyperClient::builder(TokioExecutor::new()).build(hyperlocal::UnixConnector);
     let auth_client = AddAuthorization::auto(raw_client, auth);
-    let ua_client = UserAgent::new(auth_client, default_user_agent());
+    let ua_client = UserAgent::new(auth_client, user_agent);
     Ok(WebDavClient::new(url, ua_client))
+}
+
+/// Parses a `user_agent` config directive, or returns the default if absent.
+fn parse_user_agent(config: &mut Scfg) -> anyhow::Result<HeaderValue> {
+    match take_single_directive(config, "user_agent")? {
+        Some(d) => {
+            let params = d.params().join("");
+            if params.is_empty() {
+                bail!("user_agent must not be empty");
+            }
+            params
+                .try_into()
+                .context("converting user_agent into a header value")
+        }
+        None => Ok(default_user_agent()),
+    }
 }
 
 // INVARIANT: Does not panic; function is idempotent and has a dedicated test.
