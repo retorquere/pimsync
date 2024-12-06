@@ -172,7 +172,7 @@ type vdir/vcard
 The vdir storage saves files as UTF-8. If another encoding is required for some
 scenario, please open an issue at:
 
-	https://todo.sr.ht/~whynothugo/vdirsyncer-rs
+	https://todo.sr.ht/~whynothugo/pimsync
 
 # FILESYSTEM FILEEXT FIELD
 
