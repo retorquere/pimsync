@@ -86,6 +86,22 @@ pub(super) struct StatusForItem {
     pub(super) href_b: String,
 }
 
+impl StatusForItem {
+    #[must_use]
+    pub fn into_item_refs(self) -> (ItemRef, ItemRef) {
+        (
+            ItemRef {
+                href: self.href_a,
+                etag: self.etag_a,
+            },
+            ItemRef {
+                href: self.href_b,
+                etag: self.etag_b,
+            },
+        )
+    }
+}
+
 pub(super) struct PropertyStatus {
     // The name of the property
     pub(super) property: String,

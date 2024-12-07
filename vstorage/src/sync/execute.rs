@@ -44,13 +44,9 @@ impl<I: Item> ItemAction<I> {
                     &b.to_item_ref(),
                 )
                 .map(Ok),
-            ItemAction::UpdateStatus {
-                hash,
-                old_a,
-                old_b,
-                new_a,
-                new_b,
-            } => status.update_item(hash, old_a, old_b, new_a, new_b).map(Ok),
+            ItemAction::UpdateStatus { hash, old, new } => status
+                .update_item(hash, &old.0, &old.1, &new.0, &new.1)
+                .map(Ok),
             ItemAction::ClearStatus { uid } => status.delete_item(mapping_uid, uid).map(Ok),
             ItemAction::Create { side, source } => match side {
                 Side::A => create_item(source, status, col_a, b, a, mapping_uid, Side::A).await,
@@ -60,11 +56,10 @@ impl<I: Item> ItemAction<I> {
                 side,
                 source,
                 target,
-                old_a,
-                old_b,
+                old,
             } => match side {
-                Side::A => update_item(b, a, source, target, old_a, old_b, status, Side::A).await,
-                Side::B => update_item(a, b, source, target, old_a, old_b, status, Side::B).await,
+                Side::A => update_item(b, a, source, target, old, status, Side::A).await,
+                Side::B => update_item(a, b, source, target, old, status, Side::B).await,
             },
             ItemAction::Delete { side, target } => {
                 let storage = if *side == Side::A { a } else { b };
@@ -125,14 +120,12 @@ async fn create_item<I: Item>(
     Ok(Ok(()))
 }
 
-#[allow(clippy::too_many_arguments)]
 async fn update_item<I: Item>(
     src_storage: &dyn Storage<I>,
     dst_storage: &dyn Storage<I>,
     source: &ItemState<I>,
-    target: &Href,
-    old_a: &ItemRef,
-    old_b: &ItemRef,
+    target: &ItemRef,
+    old: &(ItemRef, ItemRef),
     status: &StatusDatabase,
     side: Side,
 ) -> Result<Result<(), ExecutionError>, StatusError> {
@@ -145,13 +138,8 @@ async fn update_item<I: Item>(
         },
     };
 
-    let old_etag = match side {
-        Side::A => &old_a.etag,
-        Side::B => &old_b.etag,
-    };
-
     let new_etag = match dst_storage
-        .update_item(target, old_etag, &source_item)
+        .update_item(&target.href, &target.etag, &source_item)
         .await
     {
         Ok(i) => i,
@@ -160,7 +148,7 @@ async fn update_item<I: Item>(
 
     let hash = source_item.hash();
     let target_ref = &ItemRef {
-        href: target.clone(),
+        href: target.href.clone(),
         etag: new_etag,
     };
     let source_ref = &ItemRef {
@@ -168,8 +156,8 @@ async fn update_item<I: Item>(
         etag: source_etag,
     };
     match side {
-        Side::A => status.update_item(&hash, old_a, old_b, target_ref, source_ref),
-        Side::B => status.update_item(&hash, old_a, old_b, source_ref, target_ref),
+        Side::A => status.update_item(&hash, &old.0, &old.1, target_ref, source_ref),
+        Side::B => status.update_item(&hash, &old.0, &old.1, source_ref, target_ref),
     }?;
 
     Ok(Ok(()))

@@ -601,15 +601,14 @@ pub enum ItemAction<I: Item> {
         a: ItemState<I>,
         b: ItemState<I>,
     },
-    /// Item has changed and is identical on both sides.
+    /// Update the status DB.
+    ///
+    /// Item has changed on both sides, but remains in sync. The `old` field contains data to
+    /// update the status db atomically.
     UpdateStatus {
         hash: String,
-        /// As previously seen on a.
-        old_a: ItemRef,
-        /// As previously seen on b.
-        old_b: ItemRef,
-        new_a: ItemRef,
-        new_b: ItemRef,
+        old: (ItemRef, ItemRef),
+        new: (ItemRef, ItemRef),
     },
     /// Item is gone from both sides but still present in status db.
     ClearStatus {
@@ -619,12 +618,14 @@ pub enum ItemAction<I: Item> {
         side: Side,
         source: ItemState<I>,
     },
+    /// Update an item with data from the other side.
+    ///
+    /// The `old` field contains data to update the status db atomically.
     Update {
         side: Side,
         source: ItemState<I>,
-        target: Href,
-        old_a: ItemRef,
-        old_b: ItemRef,
+        target: ItemRef,
+        old: (ItemRef, ItemRef),
     },
     Delete {
         side: Side,
@@ -702,22 +703,8 @@ impl<I: Item> ItemAction<I> {
                         // ... update the status to prevent fetching the item until changes again.
                         Some(ItemAction::UpdateStatus {
                             hash: a.hash.clone(),
-                            old_a: ItemRef {
-                                href: prev.href_a,
-                                etag: prev.etag_a,
-                            },
-                            old_b: ItemRef {
-                                href: prev.href_b.clone(),
-                                etag: prev.etag_b,
-                            },
-                            new_a: ItemRef {
-                                href: a.href.clone(),
-                                etag: a.etag.clone(),
-                            },
-                            new_b: ItemRef {
-                                href: b.href.clone(),
-                                etag: b.etag.clone(),
-                            },
+                            old: prev.into_item_refs(),
+                            new: (a.to_item_ref(), b.to_item_ref()),
                         })
                     } else {
                         // Item is identical, has not moved and Etag has not changed.
@@ -728,24 +715,16 @@ impl<I: Item> ItemAction<I> {
                     Some(ItemAction::Update {
                         side: Side::A,
                         source: b.clone(),
-                        target: a.href.clone(),
-                        old_a: a.to_item_ref(),
-                        old_b: ItemRef {
-                            href: prev.href_b,
-                            etag: prev.etag_b,
-                        },
+                        target: a.to_item_ref(),
+                        old: prev.into_item_refs(),
                     })
                 } else if b.hash == prev.hash {
                     // Side B has not changed
                     Some(ItemAction::Update {
                         side: Side::B,
                         source: a.clone(),
-                        target: b.href.clone(),
-                        old_a: ItemRef {
-                            href: prev.href_a,
-                            etag: prev.etag_a,
-                        },
-                        old_b: b.to_item_ref(),
+                        target: b.to_item_ref(),
+                        old: prev.into_item_refs(),
                     })
                 } else {
                     // Both sides have changed
@@ -779,8 +758,8 @@ impl<I: Item> std::fmt::Display for ItemAction<I> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             ItemAction::SaveToStatus { a, .. } => write!(f, "save to status (uid: {})", a.uid),
-            ItemAction::UpdateStatus { old_a, .. } => {
-                write!(f, "update in status (a.href: {})", old_a.href)
+            ItemAction::UpdateStatus { old, .. } => {
+                write!(f, "update in status (a.href: {})", old.0.href)
             }
             ItemAction::ClearStatus { uid } => write!(f, "clear from status (uid: {uid})"),
             ItemAction::Create { side, source } => {
