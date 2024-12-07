@@ -55,9 +55,9 @@ impl<I: Item> ItemAction<I> {
                 Side::A => update_item(b, a, source, target, old, status, Side::A).await,
                 Side::B => update_item(a, b, source, target, old, status, Side::B).await,
             },
-            ItemAction::Delete { side, target } => {
+            ItemAction::Delete { side, target, uid } => {
                 let storage = if *side == Side::A { a } else { b };
-                delete_item(target, status, storage, mapping_uid).await
+                delete_item(target, status, storage, mapping_uid, uid).await
             }
             ItemAction::Conflict { a, .. } => {
                 error!("Conflict for items {}. Skipping.", a.uid);
@@ -158,14 +158,15 @@ async fn update_item<I: Item>(
 }
 
 async fn delete_item<I: Item>(
-    target: &ItemState<I>,
+    target: &ItemRef,
     status: &StatusDatabase,
     storage: &dyn Storage<I>,
     mapping_uid: MappingUid,
+    uid: &str,
 ) -> Result<Result<(), ExecutionError>, StatusError> {
     debug!("Deleting {}", target.href);
     match storage.delete_item(&target.href, &target.etag).await {
-        Ok(()) => Ok(Ok(status.delete_item(mapping_uid, &target.uid)?)),
+        Ok(()) => Ok(Ok(status.delete_item(mapping_uid, uid)?)),
         Err(err) => Ok(Err(ExecutionError::Storage(err))),
     }
 }

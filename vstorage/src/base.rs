@@ -211,7 +211,7 @@ impl Collection {
     }
 }
 
-/// A reference to an [`Item`] inside a collection.
+/// A reference to a specific version of an [`Item`] inside a collection.
 #[derive(PartialEq, Debug, Clone)]
 pub struct ItemRef {
     pub href: Href,

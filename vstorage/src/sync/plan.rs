@@ -631,7 +631,8 @@ pub enum ItemAction<I: Item> {
     },
     Delete {
         side: Side,
-        target: ItemState<I>,
+        target: ItemRef,
+        uid: String,
     },
     /// Item is in conflict which needs to be resolved externally.
     Conflict {
@@ -663,7 +664,8 @@ impl<I: Item> ItemAction<I> {
                 if b.hash == prev.hash {
                     Some(ItemAction::Delete {
                         side: Side::B,
-                        target: b.clone(),
+                        target: b.to_item_ref(),
+                        uid: b.uid.clone(),
                     })
                 } else {
                     warn!("Item deleted in A but changed B: {}.", b.uid);
@@ -681,7 +683,8 @@ impl<I: Item> ItemAction<I> {
                 if a.hash == prev.hash {
                     Some(ItemAction::Delete {
                         side: Side::A,
-                        target: a.clone(),
+                        target: a.to_item_ref(),
+                        uid: a.uid.clone(),
                     })
                 } else {
                     warn!("Item deleted in B but changed A: {}.", a.uid);
@@ -766,8 +769,8 @@ impl<I: Item> std::fmt::Display for ItemAction<I> {
             ItemAction::Update { source, side, .. } => {
                 write!(f, "update in storage {side} (href: {})", source.href)
             }
-            ItemAction::Delete { side, target } => {
-                write!(f, "delete in storage {} (uid: {})", side, target.uid)
+            ItemAction::Delete { side, uid, .. } => {
+                write!(f, "delete in storage {side} (uid: {uid})")
             }
             ItemAction::Conflict { a, .. } => {
                 write!(f, "conflict (uid: {})", a.uid)
