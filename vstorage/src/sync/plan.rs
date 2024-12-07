@@ -598,8 +598,10 @@ impl<I: Item> CollectionPlan<I> {
 pub enum ItemAction<I: Item> {
     /// Item is new and identical on both sides.
     SaveToStatus {
-        a: ItemState<I>,
-        b: ItemState<I>,
+        a: ItemRef,
+        b: ItemRef,
+        uid: String,
+        hash: String,
     },
     /// Update the status DB.
     ///
@@ -732,8 +734,10 @@ impl<I: Item> ItemAction<I> {
             (Some(a), Some(b), None) => {
                 if a.hash == b.hash {
                     Some(ItemAction::SaveToStatus {
-                        a: a.clone(),
-                        b: b.clone(),
+                        a: a.to_item_ref(),
+                        b: b.to_item_ref(),
+                        uid: a.uid.clone(),
+                        hash: a.hash.clone(),
                     })
                 } else {
                     Some(ItemAction::Conflict {
@@ -751,7 +755,7 @@ impl<I: Item> std::fmt::Display for ItemAction<I> {
     /// This function is mostly implemented to be used for error reporting.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            ItemAction::SaveToStatus { a, .. } => write!(f, "save to status (uid: {})", a.uid),
+            ItemAction::SaveToStatus { uid, .. } => write!(f, "save to status (uid: {uid})"),
             ItemAction::UpdateStatus { old, .. } => {
                 write!(f, "update in status (a.href: {})", old.0.href)
             }

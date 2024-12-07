@@ -35,15 +35,9 @@ impl<I: Item> ItemAction<I> {
     ) -> Result<Result<(), ExecutionError>, StatusError> {
         debug!("Executing item action: {self}");
         match self {
-            ItemAction::SaveToStatus { a, b } => status
-                .insert_item(
-                    mapping_uid,
-                    &a.uid,
-                    &a.hash,
-                    &a.to_item_ref(),
-                    &b.to_item_ref(),
-                )
-                .map(Ok),
+            ItemAction::SaveToStatus { a, b, uid, hash } => {
+                status.insert_item(mapping_uid, uid, hash, a, b).map(Ok)
+            }
             ItemAction::UpdateStatus { hash, old, new } => status
                 .update_item(hash, &old.0, &old.1, &new.0, &new.1)
                 .map(Ok),
