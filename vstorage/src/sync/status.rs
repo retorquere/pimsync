@@ -84,27 +84,17 @@ impl<I: Item> ItemState<I> {
     }
 }
 
+/// The status for an item as retrieved from a [`StatusDatabase`].
 pub(super) struct StatusForItem {
     pub(super) hash: String,
-    pub(super) etag_a: Etag,
-    pub(super) etag_b: Etag,
-    pub(super) href_a: String,
-    pub(super) href_b: String,
+    pub(super) a: ItemRef,
+    pub(super) b: ItemRef,
 }
 
 impl StatusForItem {
     #[must_use]
     pub fn into_item_refs(self) -> (ItemRef, ItemRef) {
-        (
-            ItemRef {
-                href: self.href_a,
-                etag: self.etag_a,
-            },
-            ItemRef {
-                href: self.href_b,
-                etag: self.etag_b,
-            },
-        )
+        (self.a, self.b)
     }
 }
 
@@ -285,10 +275,14 @@ impl StatusDatabase {
         if let Ok(State::Row) = statement.next() {
             Ok(Some(StatusForItem {
                 hash: statement.read::<String, _>("hash")?,
-                etag_a: statement.read::<String, _>("etag_a")?.into(),
-                etag_b: statement.read::<String, _>("etag_b")?.into(),
-                href_a: statement.read::<String, _>("href_a")?,
-                href_b: statement.read::<String, _>("href_b")?,
+                a: ItemRef {
+                    href: statement.read::<String, _>("href_a")?,
+                    etag: statement.read::<String, _>("etag_a")?.into(),
+                },
+                b: ItemRef {
+                    etag: statement.read::<String, _>("etag_b")?.into(),
+                    href: statement.read::<String, _>("href_b")?,
+                },
             }))
         } else {
             Ok(None)
