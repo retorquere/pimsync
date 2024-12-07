@@ -641,7 +641,6 @@ pub enum ItemAction<I: Item> {
 }
 
 impl<I: Item> ItemAction<I> {
-    #[allow(clippy::too_many_lines)]
     #[must_use]
     fn for_item(
         current_a: Option<&ItemState<I>>,
@@ -693,14 +692,9 @@ impl<I: Item> ItemAction<I> {
             (Some(a), Some(b), Some(prev)) => {
                 if a.hash == b.hash {
                     // Item is equivalent on both sides.
-
-                    if a.hash != prev.hash // If content has changed
-                        || a.href != prev.href_a // ... or an href has changed ...
-                        || b.href != prev.href_b
-                        || a.etag != prev.etag_a // ... or an etag has changed ...
-                        || b.etag != prev.etag_b
-                    {
-                        // ... update the status to prevent fetching the item until changes again.
+                    if a.hash != prev.hash || *a != prev.a || *b != prev.b {
+                        // If content, href or etag have changed, then update the status.
+                        // This prevents fetching the item until it changes again.
                         Some(ItemAction::UpdateStatus {
                             hash: a.hash.clone(),
                             old: prev.into_item_refs(),

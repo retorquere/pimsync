@@ -67,6 +67,12 @@ pub struct ItemState<I: Item> {
     pub data: Option<I>,
 }
 
+impl<I: Item> PartialEq<ItemRef> for ItemState<I> {
+    fn eq(&self, other: &ItemRef) -> bool {
+        self.href.eq(&other.href) && self.etag.eq(&other.etag)
+    }
+}
+
 impl<I: Item> ItemState<I> {
     /// Create an `ItemRef` by copying the `href` and `etag`.
     #[must_use]
