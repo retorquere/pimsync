@@ -36,7 +36,7 @@ use crate::{
         FingerprintAndWebPkiVerifier, FingerprintVerifier,
     },
     ua::UserAgent,
-    App, NamedPair, RawCommand, VERSION,
+    App, ConflictResolution, NamedPair, RawCommand, VERSION,
 };
 
 /// A deserialised configuration file.
@@ -108,10 +108,11 @@ impl Config {
             {
                 let mut params = directive.take_params().into_iter();
                 match params.next().as_deref() {
-                    Some("cmd") => {
-                        Some(RawCommand::try_from(params).context("parsing conflict_resolution")?)
-                    }
-                    // TODO: other 'keep a', 'keep b'.
+                    Some("cmd") => Some(ConflictResolution::Cmd(
+                        RawCommand::try_from(params).context("parsing conflict_resolution")?,
+                    )),
+                    Some("from a") => Some(ConflictResolution::FromA),
+                    Some("from b") => Some(ConflictResolution::FromB),
                     _ => bail!("conflict_resolution expects a cmd parameter"),
                 }
             } else {

@@ -39,14 +39,22 @@ mod config;
 mod tls;
 mod ua;
 
+/// Current app version (determined at compile-time).
 pub const VERSION: &str = env!("PIMSYNC_VERSION");
+
+/// Per-storage conflict resolution mechanism.
+pub(crate) enum ConflictResolution {
+    FromA,
+    FromB,
+    Cmd(RawCommand),
+}
 
 /// Pair with a name, as defined in the configuration file.
 pub(crate) struct NamedPair<I: Item> {
     name: String,
     pub(crate) inner: StoragePair<I>,
     status_path: Utf8PathBuf,
-    conflict_resolution: Option<RawCommand>,
+    conflict_resolution: Option<ConflictResolution>,
     /// Discretionary locks taken before using a storage.
     /// These MUST be sorted based on storage name to prevent possible deadlocks.
     locks: (Arc<Mutex<()>>, Arc<Mutex<()>>),
@@ -112,10 +120,18 @@ impl<I: Item> NamedPair<I> {
         }
     }
 
+    /// Common code between `daemon` and `sync` commands.
     async fn sync_once(&self, dry_run: bool /* ui-lock ? */) -> anyhow::Result<()> {
         let lock_0 = self.locks.0.lock().await;
         let lock_1 = self.locks.1.lock().await;
         let plan = self.create_plan().await.context("creating plan")?;
+
+        if let Some(ConflictResolution::FromA | ConflictResolution::FromB) =
+            self.conflict_resolution
+        {
+            error!("Conflict auto-resolution is not implemented");
+        }
+
         self.print_plan(&plan);
         if !dry_run {
             let status_rw = StatusDatabase::open_or_create(&self.status_path)
@@ -182,8 +198,10 @@ impl<I: Item> NamedPair<I> {
     //       All the related I/O would continue on other threads, asynchronously.
     async fn resolve_conflicts(self, stdin_lock: &mut StdinLock<'_>) -> anyhow::Result<()> {
         // TODO: are storage locks necessary here?
-        let Some(ref raw_cmd) = self.conflict_resolution else {
-            bail!("No conflict resolution command for {}.", self.name);
+        let raw_cmd = match self.conflict_resolution {
+            Some(ConflictResolution::Cmd(ref rc)) => rc,
+            Some(_) => bail!("Conflict resolution is automatic for {}.", self.name),
+            _ => bail!("No conflict resolution command for {}.", self.name),
         };
         info!("Resolving conflicts for pair {}.", self.name);
 
