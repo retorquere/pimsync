@@ -361,21 +361,9 @@ impl Item for IcsItem {
 }
 
 impl From<String> for IcsItem {
-    /// Create a new `IcsItem`, normalising newlines into `\r\n`.
+    /// Creates a new instance from valid iCalendar data.
     fn from(value: String) -> Self {
-        let mut lines = value
-            .split_terminator('\n')
-            .map(|line| line.trim_end_matches('\r'));
-        let mut raw = lines
-            .next()
-            .expect("split line yields at least one item")
-            .to_string();
-        for line in lines {
-            raw.push_str("\r\n");
-            raw.push_str(line);
-        }
-
-        IcsItem { raw }
+        IcsItem { raw: value }
     }
 }
 
@@ -410,31 +398,6 @@ mod tests {
         assert_eq!(item.ident(), String::from("hello"));
 
         let raw = ["BEGIN:VCARD", "UID:hel", "lo", "END:VCARD"].join("\r\n");
-        let item = IcsItem::from(raw);
-        assert_eq!(item.uid(), Some(String::from("hel")));
-        assert_eq!(item.ident(), String::from("hel"));
-
-        let raw = [
-            "BEGIN:VCARD",
-            "UID:hello",
-            "REV:20210307T195614Z\tthere",
-            "END:VCARD",
-        ]
-        .join("\r\n");
-        let item = IcsItem::from(raw);
-        assert_eq!(item.uid(), Some(String::from("hello")));
-        assert_eq!(item.ident(), String::from("hello"));
-    }
-
-    #[test]
-    fn test_missing_carrige_return() {
-        // Same as above, but missing \r.
-        let raw = ["BEGIN:VCARD", "UID:hello", "END:VCARD"].join("\n");
-        let item = IcsItem::from(raw);
-        assert_eq!(item.uid(), Some(String::from("hello")));
-        assert_eq!(item.ident(), String::from("hello"));
-
-        let raw = ["BEGIN:VCARD", "UID:hel", "lo", "END:VCARD"].join("\n");
         let item = IcsItem::from(raw);
         assert_eq!(item.uid(), Some(String::from("hel")));
         assert_eq!(item.ident(), String::from("hel"));
@@ -581,6 +544,7 @@ impl Item for VcardItem {
 }
 
 impl From<String> for VcardItem {
+    /// Creates a new instance from valid Vcard data.
     fn from(value: String) -> Self {
         VcardItem { raw: value }
     }

@@ -11,6 +11,7 @@
 use async_trait::async_trait;
 use camino::{Utf8Component, Utf8Path, Utf8PathBuf};
 use futures_util::{StreamExt as _, TryStreamExt as _};
+use libdav::xmlutils::normalise_newlines;
 use std::ffi::OsStr;
 use std::marker::PhantomData;
 use std::os::unix::prelude::MetadataExt;
@@ -127,7 +128,7 @@ where
     async fn get_item(&self, href: &str) -> Result<(I, Etag)> {
         let path = self.build_item_path(href)?;
 
-        let item = I::from(read_to_string(&path).await?);
+        let item = I::from(normalise_newlines(&read_to_string(&path).await?));
         let etag = etag_for_path(path).await?;
 
         Ok((item, etag))
@@ -159,7 +160,7 @@ where
 
             items.push(FetchedItem {
                 href: self.href_for_path(&path)?,
-                item: I::from(read_to_string(&path).await?),
+                item: I::from(normalise_newlines(&read_to_string(&path).await?)),
                 etag: etag_for_path(path).await?,
             });
         }
