@@ -266,7 +266,9 @@ where
 
     /// A unique identifier for this item. Is either the UID (if any), or the hash of its contents.
     #[must_use]
-    fn ident(&self) -> String;
+    fn ident(&self) -> String {
+        self.uid().unwrap_or_else(|| self.hash())
+    }
 
     /// Returns a new copy of this Item with the supplied UID.
     #[must_use]
@@ -342,12 +344,6 @@ impl Item for IcsItem {
     #[must_use]
     fn hash(&self) -> String {
         crate::util::hash(&self.raw)
-    }
-
-    /// A unique identifier for this item. Is either the UID (if any), or the hash of its contents.
-    #[must_use]
-    fn ident(&self) -> String {
-        self.uid().unwrap_or_else(|| self.hash())
     }
 
     /// Returns a new copy of this Item with the supplied UID.
@@ -568,12 +564,6 @@ impl Item for VcardItem {
     #[must_use]
     fn hash(&self) -> String {
         crate::util::hash(&self.raw)
-    }
-
-    /// A unique identifier for this item. Is either the UID (if any), or the hash of its contents.
-    #[must_use]
-    fn ident(&self) -> String {
-        self.uid().unwrap_or_else(|| self.hash())
     }
 
     /// Returns a new copy of this Item with the supplied UID.
