@@ -15,7 +15,7 @@ use crate::base::{
     CalendarProperty, Collection, FetchedItem, IcsItem, Item, ItemRef, ListedProperty, Storage,
 };
 use crate::dav::{
-    collection_href_for_item, collection_id_for_href, parse_list_items,
+    collection_href_for_item, collection_id_for_href, join_hrefs, parse_list_items,
     path_for_collection_in_home_set,
 };
 use crate::disco::{DiscoveredCollection, Discovery};
@@ -361,20 +361,6 @@ where
 
         return Ok(result);
     }
-}
-
-fn join_hrefs(collection_href: &str, item_href: &str) -> String {
-    if item_href.starts_with('/') {
-        return item_href.to_string();
-    }
-
-    let mut href = collection_href
-        .strip_suffix('/')
-        .unwrap_or(collection_href)
-        .to_string();
-    href.push('/');
-    href.push_str(item_href);
-    href
 }
 
 #[cfg(test)]
