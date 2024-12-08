@@ -13,11 +13,12 @@ use camino::{Utf8Component, Utf8Path, Utf8PathBuf};
 use futures_util::{StreamExt as _, TryStreamExt as _};
 use libdav::xmlutils::normalise_newlines;
 use std::ffi::OsStr;
+use std::fs::Metadata;
 use std::marker::PhantomData;
 use std::os::unix::prelude::MetadataExt;
 use std::path::Path;
-use tokio::fs::{create_dir, metadata, read_dir, read_to_string, remove_dir, remove_file};
-use tokio::io::AsyncWriteExt;
+use tokio::fs::{create_dir, metadata, read_dir, read_to_string, remove_dir, remove_file, File};
+use tokio::io::{AsyncReadExt as _, AsyncWriteExt};
 
 use crate::atomic::AtomicFile;
 use crate::base::{
@@ -128,8 +129,12 @@ where
     async fn get_item(&self, href: &str) -> Result<(I, Etag)> {
         let path = self.build_item_path(href)?;
 
-        let item = I::from(normalise_newlines(&read_to_string(&path).await?));
-        let etag = etag_for_path(path).await?;
+        let mut file = File::open(&path).await?;
+        let mut buf = String::new();
+        file.read_to_string(&mut buf).await?;
+
+        let item = I::from(normalise_newlines(&buf));
+        let etag = etag_for_metadata(&file.metadata().await?);
 
         Ok((item, etag))
     }
@@ -158,10 +163,17 @@ where
                 continue;
             }
 
+            let mut file = File::open(&path).await?;
+            let mut buf = String::new();
+            file.read_to_string(&mut buf).await?;
+
+            let item = I::from(normalise_newlines(&buf));
+            let etag = etag_for_metadata(&file.metadata().await?);
+
             items.push(FetchedItem {
                 href: self.href_for_path(&path)?,
-                item: I::from(normalise_newlines(&read_to_string(&path).await?)),
-                etag: etag_for_path(path).await?,
+                item,
+                etag,
             });
         }
 
@@ -216,6 +228,7 @@ where
 
         let item_ref = ItemRef {
             href: relpath.into_string(),
+            // FIXME: etag calculation is subject to races. Should use `fstat` here
             etag: etag_for_path(absolute_path).await?,
         };
         Ok(item_ref)
@@ -233,8 +246,7 @@ where
         file.write_all(item.as_str().as_bytes()).await?;
         file.commit()?;
 
-        // FIXME: this is racey and the etag can change after checking.
-        //        I should use fstat here instead
+        // FIXME: etag calculation is subject to races. Should use `fstat` here
         Ok(etag_for_path(filename).await?)
     }
 
@@ -377,7 +389,11 @@ impl<I: Item> VdirStorage<I> {
 
 async fn etag_for_path(path: impl AsRef<Path>) -> Result<Etag> {
     let metadata = &metadata(path).await?;
-    Ok(format!("{};{}", metadata.mtime(), metadata.ino()).into())
+    Ok(etag_for_metadata(metadata))
+}
+
+fn etag_for_metadata(metadata: &Metadata) -> Etag {
+    format!("{};{}", metadata.mtime(), metadata.ino()).into()
 }
 
 /// Helper to synchronise collection properties into filesystem.

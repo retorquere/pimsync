@@ -174,11 +174,12 @@ details are available at https://unterwaditzer.net/2016/sync-algorithm.html.
 
 # CAVEATS
 
-For vdir storages, checking the etag is subject to race conditions. Pimsync will
-first check that an item has not been modified, and then update it. If an
-external program updates the same item between the check and the modification,
-those changes will be lost. It is unlikely that this issue can be resolved with
-existing filesystem primitives.
+For storages of type *vdir*, checking whether an item was modified by an
+external process is subject to race conditions. Pimsync will first check that an
+item has not been modified, and then update it. If an external program updates
+the same item between the check and the modification, those changes will be
+lost. This issue is due to limitations in POSIX filesystem primitive. It is
+unlikely that they can be resolved.
 
 # EXAMPLES
 
