@@ -137,16 +137,6 @@ pub trait Storage<I: Item>: Sync + Send {
     /// Deletes an existing item.
     async fn delete_item(&self, href: &str, etag: &Etag) -> Result<()>;
 
-    /// Return the id for a collection with the given `href`.
-    ///
-    /// The id for a given Collection must never change. Usually this is based off the last
-    /// component of the href, but may be different for storages where this does not make sense.
-    ///
-    /// # Errors
-    ///
-    /// This functions returns an `Err` variant if the provided `collection` is invalid.
-    fn collection_id(&self, collection_href: &str) -> Result<CollectionId>;
-
     /// Return the `href` for a collection that is expected to have `id`.
     ///
     /// Creating a collection under `href` SHOULD result in the collection being available via

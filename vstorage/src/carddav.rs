@@ -318,12 +318,6 @@ where
         Ok(())
     }
 
-    /// The `collection_id` of a carddav collection is the last component of the path.
-    fn collection_id(&self, collection_href: &str) -> Result<CollectionId> {
-        // TODO: this will need to be different for Google's WebDav.
-        collection_id_for_href(collection_href).map_err(|e| Error::new(ErrorKind::InvalidInput, e))
-    }
-
     /// # Errors
     ///
     /// Returns [`ErrorKind::PreconditionFailed`] if a home set was not found in the carddav

@@ -39,6 +39,7 @@ pub(crate) fn collection_href_for_item(item_href: &str) -> Result<&str> {
     Ok(collection_href)
 }
 
+/// Returns the last path component.
 #[inline]
 pub(crate) fn collection_id_for_href(href: &str) -> Result<CollectionId, CollectionIdError> {
     href.trim_matches('/') // Remove any trailing slashes.

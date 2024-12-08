@@ -102,10 +102,6 @@ impl<S: Storage<I>, I: Item> Storage<I> for ReadOnlyStorage<S, I> {
         Err(ErrorKind::ReadOnly.into())
     }
 
-    fn collection_id(&self, collection_href: &str) -> Result<CollectionId> {
-        self.inner.collection_id(collection_href)
-    }
-
     fn href_for_collection_id(&self, _id: &CollectionId) -> Result<Href> {
         Err(ErrorKind::ReadOnly.into())
     }

@@ -316,12 +316,6 @@ where
         Ok(())
     }
 
-    /// The id of a caldav collection is the last component of the path.
-    fn collection_id(&self, collection_href: &str) -> Result<CollectionId> {
-        // TODO: this will need to be different for Google's WebDav.
-        collection_id_for_href(collection_href).map_err(|e| Error::new(ErrorKind::InvalidInput, e))
-    }
-
     /// # Errors
     ///
     /// Returns [`ErrorKind::PreconditionFailed`] if a home set was not found in the carddav
@@ -360,49 +354,5 @@ where
             .collect::<Vec<_>>();
 
         return Ok(result);
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use hyper_rustls::HttpsConnectorBuilder;
-    use hyper_util::{client::legacy::Client, rt::TokioExecutor};
-    use libdav::{dav::WebDavClient, CalDavClient};
-
-    use crate::{base::Storage, caldav::CalDavStorage};
-
-    #[test]
-    fn test_collection_id() {
-        let test_client = {
-            let https_connector = HttpsConnectorBuilder::new()
-                .with_native_roots()
-                .unwrap()
-                .https_or_http()
-                .enable_http1()
-                .build();
-            let https_client = Client::builder(TokioExecutor::new()).build(https_connector);
-            let base_url = "https://example.com".parse().unwrap();
-            let webdav = WebDavClient::new(base_url, https_client);
-            let client = CalDavClient::new(webdav);
-
-            CalDavStorage {
-                client,
-                calendar_home_set: Vec::new(),
-            }
-        };
-
-        let samples = &[
-            ("/path/to/collection/", "collection"),
-            ("/path/to/collection", "collection"),
-            ("/path/to//collection/", "collection"),
-            ("/path/to/collection//", "collection"),
-            ("path/to/collection", "collection"),
-            ("/", ""),
-        ];
-        for (input, output) in samples {
-            let collection_id = test_client.collection_id(input).unwrap();
-
-            assert_eq!(collection_id, output.parse().unwrap());
-        }
     }
 }

@@ -327,14 +327,6 @@ where
         ))
     }
 
-    fn collection_id(&self, collection_href: &str) -> Result<CollectionId> {
-        if collection_href == self.url.path() {
-            Ok(self.collection_id.clone())
-        } else {
-            Err(ErrorKind::DoesNotExist.into())
-        }
-    }
-
     fn href_for_collection_id(&self, id: &CollectionId) -> Result<Href> {
         if id == &self.collection_id {
             Ok(self.url.path().to_string())

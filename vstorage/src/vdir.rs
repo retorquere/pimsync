@@ -267,23 +267,6 @@ where
         Ok(())
     }
 
-    /// The id of a filesystem collection is the name of the directory.
-    fn collection_id(&self, collection_href: &str) -> Result<CollectionId> {
-        let path = Utf8Path::new(collection_href);
-        if path.parent() == Some(&self.path) {
-            if let Some(name) = path.file_name() {
-                return name
-                    .parse()
-                    .map_err(|e| Error::new(ErrorKind::InvalidInput, e));
-            }
-        }
-
-        Err(Error::new(
-            ErrorKind::InvalidInput,
-            "collection is not a child of this vdir",
-        ))
-    }
-
     fn href_for_collection_id(&self, id: &CollectionId) -> Result<Href> {
         Ok(id.to_string())
     }
@@ -711,35 +694,5 @@ mod tests {
         storage.create_collection("one").await.unwrap();
         let item_ref = storage.add_item("one", &item).await.unwrap();
         assert_eq!(item_ref.href, "one/theseslashesarenotokay.ics");
-    }
-
-    #[tokio::test]
-    async fn test_collection_id() {
-        let dir = tempdir().unwrap();
-        let storage = VdirStorage::<IcsItem>::new(
-            dir.path().to_path_buf().try_into().unwrap(),
-            "ics".to_string(),
-        );
-
-        // Path to storage, with no trailing slash
-        let dir_path = dir.path().to_str().unwrap();
-
-        let valid = &format!("{dir_path}/valid");
-        let trailing = &format!("{dir_path}/valid/");
-        let multiple = &format!("{dir_path}//valid/");
-
-        assert_eq!(storage.collection_id(valid).unwrap().as_ref(), "valid");
-        assert_eq!(storage.collection_id(trailing).unwrap().as_ref(), "valid");
-        assert_eq!(storage.collection_id(multiple).unwrap().as_ref(), "valid");
-
-        let nested = &format!("{dir_path}/valid/nested");
-        let parent = &format!("{dir_path}/..");
-        let outside = "/sys/include/";
-        let odd = &format!("{dir_path}/valid/nested/..");
-
-        assert!(storage.collection_id(nested).is_err());
-        assert!(storage.collection_id(parent).is_err());
-        assert!(storage.collection_id(outside).is_err());
-        assert!(storage.collection_id(odd).is_err());
     }
 }
