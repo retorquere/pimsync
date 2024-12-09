@@ -150,6 +150,7 @@ impl StatusDatabase {
         };
 
         db.init_schema()?;
+        db.conn.execute("PRAGMA foreign_keys = ON")?;
 
         Ok(db)
     }
