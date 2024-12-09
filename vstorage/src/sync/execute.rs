@@ -202,6 +202,12 @@ impl<I: Item> Plan<I> {
         let storage_a = self.storage_a.as_ref();
         let storage_b = self.storage_b.as_ref();
 
+        // Clear these first, since they might conflict with a new mapping.
+        if !self.stale_collections.is_empty() {
+            info!("Flushing stale collections: {:?}", self.stale_collections);
+            status.flush_stale_mappings(self.stale_collections)?;
+        }
+
         for plan in self.collection_plans {
             let CollectionPlan {
                 collection_action,
@@ -259,11 +265,6 @@ impl<I: Item> Plan<I> {
                     };
                 }
             };
-        }
-
-        if !self.stale_collections.is_empty() {
-            info!("Flushing stale collections: {:?}", self.stale_collections);
-            status.flush_stale_mappings(self.stale_collections)?;
         }
 
         Ok(())
