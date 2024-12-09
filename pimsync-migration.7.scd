@@ -12,8 +12,8 @@ of the previous implementation.
 
 # MISSING FEATURES
 
-The following features were previously available, but are not currently
-available in v2.0.0:
+The following features are implemented by vdirsyncer 0.19.3, but are not
+currently not available in pimsync:
 
 - HTTP Digest Auth.
 - *partial_sync* configuration parameter.
@@ -31,7 +31,7 @@ storages.
 
 The configuration format has changed. The general approach is the same but the
 syntax has been greatly simplified for humans to write. Technically, the format
-is the *scfg* format.
+is the *scfg* format. It is documented in detail in pimsync.conf(5).
 
 
 The following:
