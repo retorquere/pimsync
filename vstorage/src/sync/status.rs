@@ -537,10 +537,13 @@ impl StatusDatabase {
 
         // No support for arrays. See: https://github.com/stainless-steel/sqlite/issues/38
         // The replacement String is constructed inside this function and its input is an i64.
-        let query = "DELETE FROM collections WHERE uid IN (?)".replace('?', &params);
-        let mut statement = self.conn.prepare(query)?;
+        self.conn
+            .execute("DELETE FROM items WHERE mapping_uid IN (?)".replace('?', &params))?;
+        self.conn
+            .execute("DELETE FROM properties WHERE mapping_uid IN (?)".replace('?', &params))?;
+        self.conn
+            .execute("DELETE FROM collections WHERE uid IN (?)".replace('?', &params))?;
 
-        statement.next()?;
         Ok(())
     }
 }
