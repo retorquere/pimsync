@@ -4,7 +4,7 @@
 
 //! See [`Plan::execute`](Plan::execute).
 
-use log::{debug, error, info};
+use log::{debug, error, info, warn};
 
 use crate::{
     base::{Item, ItemRef, Property, Storage},
@@ -87,12 +87,14 @@ async fn create_item<I: Item>(
 ) -> Result<Result<(), ExecutionError>, StatusError> {
     debug!("Creating item from {}", source.href);
 
-    let (item_data, source_etag) = match &source.data {
-        Some(data) => (data.clone(), source.etag.clone()),
-        None => match src_storage.get_item(&source.href).await {
+    let (item_data, source_etag) = if let Some(data) = &source.data {
+        (data.clone(), source.etag.clone())
+    } else {
+        warn!("Fetching item to create during execution");
+        match src_storage.get_item(&source.href).await {
             Ok((i, e)) => (i, e),
             Err(err) => return Ok(Err(ExecutionError::Storage(err))),
-        },
+        }
     };
     let uid = item_data.ident();
     let new_item = match dst_storage.add_item(target_collection, &item_data).await {
@@ -124,12 +126,14 @@ async fn update_item<I: Item>(
     side: Side,
 ) -> Result<Result<(), ExecutionError>, StatusError> {
     debug!("Updating from {}", source.href);
-    let (source_item, source_etag) = match &source.data {
-        Some(data) => (data.clone(), source.etag.clone()),
-        None => match src_storage.get_item(&source.href).await {
+    let (source_item, source_etag) = if let Some(data) = &source.data {
+        (data.clone(), source.etag.clone())
+    } else {
+        warn!("Fetching item to update during execution");
+        match src_storage.get_item(&source.href).await {
             Ok((i, e)) => (i, e),
             Err(err) => return Ok(Err(ExecutionError::Storage(err))),
-        },
+        }
     };
 
     let new_etag = match dst_storage

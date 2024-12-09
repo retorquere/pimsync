@@ -519,8 +519,8 @@ impl<I: Item> CollectionPlan<I> {
             .flatten();
 
         let (items_a, items_b) = tokio::try_join!(
-            items_for_collection(status, pair.storage_a(), href_a, Side::A),
-            items_for_collection(status, pair.storage_b(), href_b, Side::B),
+            items_for_collection(status, pair.storage_a(), href_a, Side::A, mapping_uid),
+            items_for_collection(status, pair.storage_b(), href_b, Side::B, mapping_uid),
         )?;
 
         let status_uids = match (status, &mapping_uid) {
@@ -856,6 +856,7 @@ async fn items_for_collection<I: Item>(
     storage: &dyn Storage<I>,
     collection: &Href,
     side: Side,
+    mapping_uid: Option<MappingUid>,
 ) -> Result<Vec<ItemState<I>>, PlanError> {
     debug!("Resolving state for collection: {}.", collection);
     let mut items = Vec::new();
@@ -872,13 +873,15 @@ async fn items_for_collection<I: Item>(
         };
 
         for item_ref in listed_items {
-            if let Some(prev_item) = status.get_item_by_href(side, &item_ref.href)? {
-                if prev_item.etag == item_ref.etag {
-                    // Item has not changed; nothing to fetch.
-                    items.push(prev_item);
-                    continue;
-                } // else: item has changed
-            } // else: item is new OR item has moved
+            if let Some(m) = mapping_uid {
+                if let Some(prev_item) = status.get_item_by_href(side, &item_ref.href, m)? {
+                    if prev_item.etag == item_ref.etag {
+                        // Item has not changed; nothing to fetch.
+                        items.push(prev_item);
+                        continue;
+                    } // else: item has changed
+                } // else: item is new OR item has moved
+            } // else: new mapping
             to_prefetch.push(item_ref.href);
         }
 

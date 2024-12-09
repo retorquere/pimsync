@@ -233,16 +233,18 @@ impl StatusDatabase {
         &self,
         side: Side,
         href: &str,
+        mapping_uid: MappingUid,
     ) -> Result<Option<ItemState<I>>, StatusError> {
         let query = vec![
             &format!("SELECT ident, href_{side} AS href, hash, etag_{side} AS etag"),
             " FROM items",
-            &format!(" WHERE href = ? AND etag_{side} IS NOT NULL"),
+            &format!(" WHERE href = ? AND etag_{side} IS NOT NULL AND mapping_uid = ?"),
         ]
         .into_iter()
         .collect::<String>();
         let mut statement = self.conn.prepare(query)?;
         statement.bind((1, href))?;
+        statement.bind((2, mapping_uid.0))?;
 
         if let Ok(State::Row) = statement.next() {
             let Some(etag) = statement.read::<Option<String>, _>("etag")? else {
@@ -592,7 +594,7 @@ mod test {
             .unwrap();
 
         let item_a_fetched = db
-            .get_item_by_href::<IcsItem>(Side::A, &item_a.href)
+            .get_item_by_href::<IcsItem>(Side::A, &item_a.href, mapping_uid)
             .unwrap()
             .unwrap();
         assert_eq!(item_a_fetched.uid, uid);
@@ -601,7 +603,7 @@ mod test {
         assert_eq!(item_a_fetched.etag, item_a.etag);
 
         let item_b_fetched = db
-            .get_item_by_href::<IcsItem>(Side::B, &item_b.href)
+            .get_item_by_href::<IcsItem>(Side::B, &item_b.href, mapping_uid)
             .unwrap()
             .unwrap();
         assert_eq!(item_b_fetched.uid, uid);
@@ -621,11 +623,11 @@ mod test {
 
         db.delete_item(mapping_uid, uid).unwrap();
         assert!(db
-            .get_item_by_href::<IcsItem>(Side::A, &item_a.href)
+            .get_item_by_href::<IcsItem>(Side::A, &item_a.href, mapping_uid)
             .unwrap()
             .is_none());
         assert!(db
-            .get_item_by_href::<IcsItem>(Side::B, &item_b.href)
+            .get_item_by_href::<IcsItem>(Side::B, &item_b.href, mapping_uid)
             .unwrap()
             .is_none());
         assert!(db.get_item_hash_by_uid(mapping_uid, uid).unwrap().is_none());
@@ -674,7 +676,7 @@ mod test {
         .unwrap();
 
         let item_a_fetched = db
-            .get_item_by_href::<IcsItem>(Side::A, &item_a.href)
+            .get_item_by_href::<IcsItem>(Side::A, &item_a.href, mapping_uid)
             .unwrap()
             .unwrap();
         assert_eq!(item_a_fetched.uid, uid);
@@ -683,7 +685,7 @@ mod test {
         assert_eq!(item_a_fetched.etag, updated_etag_a);
 
         let item_b_fetched = db
-            .get_item_by_href::<IcsItem>(Side::B, &item_b.href)
+            .get_item_by_href::<IcsItem>(Side::B, &item_b.href, mapping_uid)
             .unwrap()
             .unwrap();
         assert_eq!(item_b_fetched.uid, uid);
