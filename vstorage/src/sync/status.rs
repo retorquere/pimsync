@@ -581,6 +581,13 @@ mod test {
             href: "work/item.ics".into(),
             etag: "abc000".into(),
         };
+        db.get_or_add_collection(
+            "/collections/work/",
+            "work",
+            Some(&"work".parse().unwrap()),
+            Some(&"work".parse().unwrap()),
+        )
+        .unwrap();
         db.insert_item(mapping_uid, uid, hash, &item_a, &item_b)
             .unwrap();
 
@@ -638,6 +645,13 @@ mod test {
             href: "work/item.ics".into(),
             etag: "abc000".into(),
         };
+        db.get_or_add_collection(
+            "/collections/work/",
+            "work",
+            Some(&"work".parse().unwrap()),
+            Some(&"work".parse().unwrap()),
+        )
+        .unwrap();
         db.insert_item(mapping_uid, uid, hash, &item_a, &item_b)
             .unwrap();
 
@@ -701,6 +715,13 @@ mod test {
             href: "work/item.ics".into(),
             etag: "abc000".into(),
         };
+        db.get_or_add_collection(
+            "/collections/work/",
+            "work",
+            Some(&"work".parse().unwrap()),
+            Some(&"work".parse().unwrap()),
+        )
+        .unwrap();
         db.insert_item(mapping_uid, uid, hash, &item_a, &item_b)
             .unwrap();
 
