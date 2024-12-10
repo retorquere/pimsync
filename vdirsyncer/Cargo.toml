@@ -7,7 +7,7 @@ name = "pimsync"
 version = "0.0.1"
 edition = "2021"
 description = "Synchronize calendars and contacts"
-homepage = "https://sr.ht/~whynothugo/vdirsyncer-rs/"
+homepage = "https://pimsync.whynothugo.nl/"
 license = "EUPL-1.2"
 build = "build.rs"
 
