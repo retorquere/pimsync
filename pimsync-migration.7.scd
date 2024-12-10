@@ -261,6 +261,17 @@ storage calendars_lessons {
 }
 ```
 
+# STATUS
+
+Vdirsyncer keeps a status database in order to distinguish whether an item has
+changed on one side or both. Pimsync does not import this status database in any
+way. If you are migrating and have existing remote and local storages, makes
+sure that they are in sync before switching over. After the first run, pimsync
+will build its own status database.
+
+Migrating with out-of-sync storages will result in conflicts during the first
+run.
+
 # ISSUES
 
 Please report issues at:
