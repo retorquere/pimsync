@@ -39,7 +39,7 @@ is supported.
 *check*
 	Check configuration and exit. Validates the configuration itself and
 	ensures that the storage is valid. E.g.: a *vdir* must be an existing
-	directory, and *caldav* server must report CalDav capabilities, etc.
+	directory, and *caldav* server must report CalDAV capabilities, etc.
 
 *daemon*
 	Continuously keep storages in sync. The *-r* _READY_FD_ argument may be
@@ -48,6 +48,8 @@ is supported.
 	Once it has reached its ready state, the demon will monitor storages for
 	changes and synchronise them. In case of non-fatal errors, pimsync will
 	continue running the background and try again later.
+
+	Individual items that fail to sync will be skipped.
 
 *discover*
 	Discover and print collections. This command merely provides
@@ -97,7 +99,7 @@ See pimsync.conf(5) for details on the configuration file format.
 Readiness notification allows a service manager to monitor when pimsync has
 successfully started. It is considered to have successfully started when the
 configuration file has been parsed and all credentials have been resolved. At
-this point, no further human interaction is required.
+this point, no further human interaction shall be required.
 
 Once the service is ready, it will write *READY=1* followed by a newline
 character to the file descriptor _READY_FD_, and then close it. This is
@@ -126,13 +128,13 @@ In order to map items between storage, pimsync does some minor parsing of
 items to extract their UID. Items must be syntactically valid components, even
 if semantically invalid.
 
-In order to interact with CalDav/CardDav resources where a UID cannot be
+In order to interact with CalDAV/CardDAV resources where a UID cannot be
 extracted, consider using davcli(1). In future, a *repair* command shall be
 included to address this scenario.
 
 # SECURITY CONSIDERATIONS
 
-When service discovery is enabled, the real hostname and port of the Dav server
+When service discovery is enabled, the real hostname and port of the DAV server
 is resolved using DNS records. The system's DNS resolver is used. It is expected
 that the system resolver performs DNSSEC validation and will not return invalid
 results. Pimsync does not perform DNSSEC validation itself.
