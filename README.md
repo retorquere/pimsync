@@ -33,7 +33,7 @@ directly, or copied into your `$PATH`.
 
 ## Installation
 
-Use `make install` to install to `/usr/local/`.
+After compiling, use `make install` to install to `/usr/local/`.
 
 ## Usage
 

@@ -246,7 +246,7 @@ The *vdirsyncer* command was first implemented by Markus Unterwaditzer in 2014.
 Work on the *pimsync* command, strongly inspired by *vdirsyncer*, was started by
 Hugo Barrera in 2023.
 
-The acronym *pim* refers to *personal information manager*.
+The acronym *pim* refers to *personal information management*.
 
 # AUTHORS
 
