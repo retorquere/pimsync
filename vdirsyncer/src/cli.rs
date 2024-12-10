@@ -1,4 +1,4 @@
-use lexopt::ValueExt as _;
+use lexopt::{Arg, ValueExt as _};
 use rustix::fd::FromRawFd as _;
 use std::fs::File;
 
@@ -29,20 +29,20 @@ impl Cli {
         let mut parser = lexopt::Parser::from_args(args);
         while let Some(arg) = parser.next()? {
             match arg {
-                lexopt::Arg::Short('v') => log_level = parser.value()?.parse()?,
-                lexopt::Arg::Short('c') => config_file = Some(parser.value()?.string()?),
-                lexopt::Arg::Short('p') => {
+                Arg::Short('v') => log_level = parser.value()?.parse()?,
+                Arg::Short('c') => config_file = Some(parser.value()?.string()?),
+                Arg::Short('p') => {
                     let pair_name = parser.value()?.string()?;
                     pairs.push(pair_name);
                 }
-                lexopt::Arg::Value(raw_cmd) => {
+                Arg::Value(raw_cmd) => {
                     command = match raw_cmd.string()?.as_str() {
                         "check" => Some(Command::Check),
                         "daemon" => {
                             let mut ready_fd = None;
                             while let Some(arg) = parser.next()? {
                                 match arg {
-                                    lexopt::Arg::Short('r') => {
+                                    Arg::Short('r') => {
                                         let raw_fd = parser.value()?.parse()?;
                                         if raw_fd < 3 {
                                             return Err(
@@ -63,7 +63,7 @@ impl Cli {
                             let mut dry_run = false;
                             while let Some(arg) = parser.next()? {
                                 match arg {
-                                    lexopt::Arg::Short('n') => dry_run = true,
+                                    Arg::Short('n') => dry_run = true,
                                     _ => return Err(arg.unexpected()),
                                 };
                             }
@@ -73,7 +73,7 @@ impl Cli {
                             let mut dry_run = false;
                             while let Some(arg) = parser.next()? {
                                 match arg {
-                                    lexopt::Arg::Short('n') => dry_run = true,
+                                    Arg::Short('n') => dry_run = true,
                                     _ => return Err(arg.unexpected()),
                                 };
                             }
