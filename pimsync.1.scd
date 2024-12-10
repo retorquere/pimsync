@@ -6,7 +6,7 @@ pimsync - synchronise caldav, carddav, webcal and local directories
 
 # SYNOPSIS
 
-*pimsync* [_options_] _command_ [_arguments_]
+*pimsync* [*-c* _configfile_] [*-v* _loglevel_] [*-p* _pair_] _command_ [_arguments_]
 
 # DESCRIPTION
 
