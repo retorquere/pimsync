@@ -17,7 +17,7 @@ html: pimsync.1.html pimsync.conf.5.html pimsync-migration.7.html
 	sed -E \
 		-e '1,20b' \
 		-e 's,(https://[^[:space:]]+),<a href="\1">\1</a>,g' \
-		-e 's,(pimsync[a-z-]*)\(([0-9])\),<a href="\1.\2.html">\1(\2)</a>,g' \
+		-e 's,(pimsync[a-z\.\-]*)\(([0-9])\),<a href="\1.\2.html">\1(\2)</a>,g' \
 	> '$@'
 
 %: %.scd
