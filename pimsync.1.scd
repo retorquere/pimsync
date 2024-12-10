@@ -6,7 +6,7 @@ pimsync - synchronise caldav, carddav, webcal and local directories
 
 # SYNOPSIS
 
-*pimsync* [*-c* _configfile_] [*-v* _loglevel_] [*-p* _pair_] _command_ [_arguments_]
+*pimsync* [*-c* _configfile_] [*-v* _loglevel_] _command_ [_pair..._]
 
 # DESCRIPTION
 
@@ -33,9 +33,6 @@ is supported.
 	Set logger to _loglevel_, which must be one of *trace*, *debug*, *info*,
 	*warn* or *error*. The default is *warn*. When specifying *trace*, logs
 	may contain sensitive data, see *SECURITY CONSIDERATIONS* below.
-
-*-p* _pair_
-	Only operate on the pair named _pair_.
 
 # COMMANDS
 
@@ -73,8 +70,9 @@ is supported.
 	and won't perform any write operations.
 
 *version*
-	Print version information and exit. The *-p* option has no effect when
-	using this command.
+	Print version information and exit.
+
+If a *pair* is specified, only operate on pair(s) with the given name(s).
 
 # FILES
 
@@ -196,7 +194,7 @@ pimsync -v info daemon
 Interactive conflict resolution for pair named _contacts_:
 
 ```
-pimsync -p contacts resolve-conflicts
+pimsync resolve-conflicts contacts
 ```
 
 Show version and exit:

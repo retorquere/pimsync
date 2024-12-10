@@ -415,7 +415,7 @@ impl App {
 async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse(std::env::args()).unwrap_or_else(|err| {
         eprintln!("Bad usage: {err}\n");
-        eprintln!("Usage: pimsync [-c CONFIGFILE ] [-v LOGLEVEL] [-p PAIR] COMMAND [ARGS...]");
+        eprintln!("Usage: pimsync [-c CONFIGFILE ] [-v LOGLEVEL] COMMAND [PAIR...]");
         eprintln!("Commands:");
         eprintln!("\tcheck\t\t\tcheck configuration and exit");
         eprintln!("\tdaemon -[r READY_FD]\tkeep storages in sync");

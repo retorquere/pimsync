@@ -31,13 +31,17 @@ impl Cli {
             match arg {
                 Arg::Short('v') => log_level = parser.value()?.parse()?,
                 Arg::Short('c') => config_file = Some(parser.value()?.string()?),
-                Arg::Short('p') => {
-                    let pair_name = parser.value()?.string()?;
-                    pairs.push(pair_name);
-                }
                 Arg::Value(raw_cmd) => {
                     command = match raw_cmd.string()?.as_str() {
-                        "check" => Some(Command::Check),
+                        "check" => {
+                            while let Some(arg) = parser.next()? {
+                                match arg {
+                                    Arg::Value(pair_name) => pairs.push(pair_name.string()?),
+                                    _ => return Err(arg.unexpected()),
+                                };
+                            }
+                            Some(Command::Check)
+                        }
                         "daemon" => {
                             let mut ready_fd = None;
                             while let Some(arg) = parser.next()? {
@@ -54,6 +58,7 @@ impl Cli {
                                         // supplied a valid open file.
                                         ready_fd = Some(unsafe { File::from_raw_fd(raw_fd) });
                                     }
+                                    Arg::Value(pair_name) => pairs.push(pair_name.string()?),
                                     _ => return Err(arg.unexpected()),
                                 };
                             }
@@ -64,6 +69,7 @@ impl Cli {
                             while let Some(arg) = parser.next()? {
                                 match arg {
                                     Arg::Short('n') => dry_run = true,
+                                    Arg::Value(pair_name) => pairs.push(pair_name.string()?),
                                     _ => return Err(arg.unexpected()),
                                 };
                             }
@@ -74,12 +80,21 @@ impl Cli {
                             while let Some(arg) = parser.next()? {
                                 match arg {
                                     Arg::Short('n') => dry_run = true,
+                                    Arg::Value(pair_name) => pairs.push(pair_name.string()?),
                                     _ => return Err(arg.unexpected()),
                                 };
                             }
                             Some(Command::ResolveConflicts { dry_run })
                         }
-                        "discover" => Some(Command::Discover),
+                        "discover" => {
+                            while let Some(arg) = parser.next()? {
+                                match arg {
+                                    Arg::Value(pair_name) => pairs.push(pair_name.string()?),
+                                    _ => return Err(arg.unexpected()),
+                                };
+                            }
+                            Some(Command::Discover)
+                        }
                         "version" => Some(Command::Version),
                         cmd => return Err(format!("Unknown command: {cmd}").into()),
                     };
