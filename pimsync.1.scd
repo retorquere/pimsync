@@ -65,8 +65,12 @@ is supported.
 	file. This command executes the conflict resolution program for each
 	conflicting item.
 
+	Appending *-n* performs a dry run and won't perform any write
+	operations.
+
 *sync*
-	Synchronise storages once and exit.
+	Synchronise storages once and exit. Appending *-n* performs a dry run
+	and won't perform any write operations.
 
 *version*
 	Print version information and exit. The *-p* option has no effect when

@@ -419,8 +419,8 @@ async fn main() -> anyhow::Result<()> {
         eprintln!("Commands:");
         eprintln!("\tcheck\t\t\tcheck configuration and exit");
         eprintln!("\tdaemon -[r READY_FD]\tkeep storages in sync");
-        eprintln!("\tsync [-d]\t\tsync storages once");
-        eprintln!("\tresolve-conflicts [-d]\tmanually resolve conflicts");
+        eprintln!("\tsync [-n]\t\tsync storages once");
+        eprintln!("\tresolve-conflicts [-n]\tmanually resolve conflicts");
         eprintln!("\tdiscover\t\tprint discovered collections");
         eprintln!("\tversion\t\t\tprint version");
         eprintln!("See 'man pimsync' for details");

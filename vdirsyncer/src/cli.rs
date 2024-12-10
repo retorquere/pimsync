@@ -63,7 +63,7 @@ impl Cli {
                             let mut dry_run = false;
                             while let Some(arg) = parser.next()? {
                                 match arg {
-                                    lexopt::Arg::Short('d') => dry_run = true,
+                                    lexopt::Arg::Short('n') => dry_run = true,
                                     _ => return Err(arg.unexpected()),
                                 };
                             }
@@ -73,7 +73,7 @@ impl Cli {
                             let mut dry_run = false;
                             while let Some(arg) = parser.next()? {
                                 match arg {
-                                    lexopt::Arg::Short('d') => dry_run = true,
+                                    lexopt::Arg::Short('n') => dry_run = true,
                                     _ => return Err(arg.unexpected()),
                                 };
                             }
