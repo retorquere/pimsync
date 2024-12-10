@@ -44,6 +44,9 @@ Manual pages are built when running `make build`. They can also be built
 independently using `make man`. These same man pages can be rendered as HTML
 pages by using `make html`.
 
+The HTML version of the manual pages is also available online at
+<https://pimsync.whynothugo.nl/>.
+
 ## Developer documentation
 
 The underlying synchronisation implementation is implemented in the `vstorage`
