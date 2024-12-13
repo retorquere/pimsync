@@ -4,7 +4,6 @@
 
 [package]
 name = "pimsync"
-version = "0.0.1"
 edition = "2021"
 description = "Synchronize calendars and contacts"
 homepage = "https://pimsync.whynothugo.nl/"
