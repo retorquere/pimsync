@@ -160,21 +160,35 @@ of storage items and other sensitive information.
 # SYNCHRONISATION ALGORITHM
 
 After pimsync synchronises two storages, it will store metadata from the items
-that it has synchronised into its internal status database. During future
+that it has synchronised into its internal *status database*. During future
 synchronisation processes, if the items on both storages don't match, the status
 database is used to determine which side has changed and which side remains the
-same. This information is then used to plan which of the item should be kept. If
-both items have changed, they are said to be in conflict, and the conflict must
-be resolved manually (See *CONFLICT RESOLUTION* above).
+same as last time. This information is then used to plan which of the item
+should be kept and which one should be overwritten. If both items have changed,
+they are said to be in conflict, and the conflict must be resolved manually (See
+*CONFLICT RESOLUTION* above).
 
-The storage database associates item metadata with the pair of collections that
-were being synchronised (called a "mapping"). If the configuration changes, and
-different collections are being synchronised with each other, then the status
-data for their items no longer applies and is ignored. This prevents using
-accidentally using the wrong data when mappings have been reconfigured.
+The status database associates item metadata with the pair of collections that
+were being synchronised with each other (called a "mapping"). If the
+configuration changes, and different collections are being synchronised with
+each other, then the status data for their items no longer applies and is
+ignored. This prevents using accidentally using the wrong data when mappings
+have been reconfigured.
 
 The algorithm is closely based on the original one for vdirsyncer(1). Further
 details are available at https://unterwaditzer.net/2016/sync-algorithm.html.
+
+Deleting the status database will force pimsync(1) to synchronise both storages as
+if it were the first time it's ever seen both of them. Items that exist and are
+identical on both sides shall be fine, but items which are not identical will be
+considered in conflict (since pimsync(1) cannot unambiguously decide which one to
+keep).
+
+# PROTECTIONS
+
+When all items in a collection are deleted, pimsync(1) will assume a user error,
+and refuse to operate in this collection. This behaviour can be disabled with
+the *on_empty* directive. See pimsync.conf(5) for further details.
 
 # CAVEATS
 
@@ -183,7 +197,7 @@ external process is subject to race conditions. Pimsync will first check that an
 item has not been modified, and then update it. If an external program updates
 the same item between the check and the modification, those changes will be
 lost. This issue is due to limitations in POSIX filesystem primitive. It is
-unlikely that they can be resolved.
+unlikely that it can be resolved.
 
 # EXAMPLES
 
