@@ -375,8 +375,7 @@ fn uid(raw: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     // Note: Some of these examples are NOT valid vcards.
-    // pimsync is expected to handle invalid input gracefully and sync it as-is,
-    // so this is not really a problem.
+    // pimsync is expected to handle invalid input gracefully and sync it as-is.
 
     use crate::base::{IcsItem, Item, Storage};
 
