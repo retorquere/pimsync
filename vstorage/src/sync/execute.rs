@@ -77,6 +77,7 @@ pub enum ExecutionError {
 }
 
 async fn create_item<I: Item>(
+    // TODO: Unused field: source.hash, source.uid
     source: &ItemState<I>,
     status: &StatusDatabase,
     target_collection: &Href,
@@ -119,6 +120,7 @@ async fn create_item<I: Item>(
 async fn update_item<I: Item>(
     src_storage: &dyn Storage<I>,
     dst_storage: &dyn Storage<I>,
+    // TODO: Unused field: source.hash, source.uid
     source: &ItemState<I>,
     target: &ItemRef,
     old: &(ItemRef, ItemRef),
