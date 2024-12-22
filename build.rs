@@ -12,6 +12,8 @@ fn main() {
         } else {
             String::from(version)
         };
+
+        let version = version.strip_prefix('v').unwrap_or(&version);
         println!("cargo:rustc-env=PIMSYNC_VERSION={version}");
     }
 }

@@ -55,8 +55,9 @@ distributing binaries of pimsync, please ensure that `pimutils version` shows
 the correct version.
 
 The embedded version can be overridden by defining the `PIMSYNC_VERSION`
-variable at compile time. If you are applying distribution-specific patches,
-please append the distribution name to the version. E.g.: `v1.0.0-alpine`.
+variable at compile time. Distributions may include their package revision in
+this version, e.g.: `1.0.0-r1`. When applying downstream patches, please append
+the distribution name to the version. E.g.: `1.0.0-alpine`.
 
 ## Developer documentation
 
