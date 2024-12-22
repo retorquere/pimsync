@@ -113,8 +113,8 @@ impl<I: Item> NamedPair<I> {
             };
 
             warn!(
-                "Monitoring is not implemented, will auto-sync every {} minutes.",
-                interval.as_secs() / 60
+                "Monitoring is not implemented, will auto-sync every {} seconds.",
+                interval.as_secs()
             );
             tokio::time::sleep(interval).await;
         }
