@@ -30,7 +30,7 @@ impl DiscoveredCollection {
 
 /// The result of running discovery on a `Storage`.
 ///
-/// See `[crate::Storage::discover_collections`].
+/// See [`crate::base::Storage::discover_collections`].
 pub struct Discovery {
     collections: Vec<DiscoveredCollection>,
 }
