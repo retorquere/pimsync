@@ -28,8 +28,7 @@ impl<I: Item> ItemAction<I> {
         &self,
         a: &dyn Storage<I>,
         b: &dyn Storage<I>,
-        col_a: &Href,
-        col_b: &Href,
+        mapping: &ResolvedMapping,
         status: &StatusDatabase,
         mapping_uid: MappingUid,
     ) -> Result<Result<(), ExecutionError>, StatusError> {
@@ -42,10 +41,9 @@ impl<I: Item> ItemAction<I> {
                 .update_item(hash, &old.0, &old.1, &new.0, &new.1)
                 .map(Ok),
             ItemAction::ClearStatus { uid } => status.delete_item(mapping_uid, uid).map(Ok),
-            ItemAction::Create { side, source } => match side {
-                Side::A => create_item(source, status, col_a, b, a, mapping_uid, Side::A).await,
-                Side::B => create_item(source, status, col_b, a, b, mapping_uid, Side::B).await,
-            },
+            ItemAction::Create { side, source } => {
+                create_item(source, status, mapping, a, b, mapping_uid, *side).await
+            }
             ItemAction::Update {
                 side,
                 source,
@@ -80,13 +78,18 @@ async fn create_item<I: Item>(
     // TODO: Unused field: source.hash, source.uid
     source: &ItemState<I>,
     status: &StatusDatabase,
-    target_collection: &Href,
-    src_storage: &dyn Storage<I>,
-    dst_storage: &dyn Storage<I>,
+    mapping: &ResolvedMapping,
+    storage_a: &dyn Storage<I>,
+    storage_b: &dyn Storage<I>,
     mapping_uid: MappingUid,
     side: Side,
 ) -> Result<Result<(), ExecutionError>, StatusError> {
     debug!("Creating item from {}", source.href);
+
+    let (target_collection, src_storage, dst_storage) = match side {
+        Side::A => (&mapping.a().href, storage_b, storage_a),
+        Side::B => (&mapping.b().href, storage_a, storage_b),
+    };
 
     let (item_data, source_etag) = if let Some(data) = &source.data {
         (data.clone(), source.etag.clone())
@@ -97,6 +100,7 @@ async fn create_item<I: Item>(
             Err(err) => return Ok(Err(ExecutionError::Storage(err))),
         }
     };
+
     let uid = item_data.ident();
     let new_item = match dst_storage.add_item(target_collection, &item_data).await {
         Ok(i) => i,
@@ -238,7 +242,7 @@ impl<I: Item> Plan<I> {
 
             for item_action in item_actions {
                 if let Err(err) = item_action
-                    .execute(storage_a, storage_b, &a.href, &b.href, status, mapping_uid)
+                    .execute(storage_a, storage_b, &mapping, status, mapping_uid)
                     .await?
                 {
                     on_error(SyncError::item(item_action, err));
