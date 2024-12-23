@@ -851,8 +851,7 @@ impl<I: Item> std::fmt::Display for ItemAction<I> {
 pub enum CollectionAction {
     NoAction(MappingUid),
     SaveToStatus,
-    CreateInA,
-    CreateInB,
+    CreateInOne(Side),
     CreateInBoth,
     Delete(MappingUid, Side),
 }
@@ -880,8 +879,8 @@ impl CollectionAction {
             (true, true, None) => CollectionAction::SaveToStatus, // New on both sides.
             (true, true, Some(m)) => CollectionAction::NoAction(m), // No change.
             (false, true, Some(m)) => CollectionAction::Delete(m, Side::B), // Deleted from A
-            (false, true, None) => CollectionAction::CreateInA,  // New in B
-            (true, false, None) => CollectionAction::CreateInB,  // New in A
+            (false, true, None) => CollectionAction::CreateInOne(Side::A), // New in B
+            (true, false, None) => CollectionAction::CreateInOne(Side::B), // New in A
             (true, false, Some(m)) => CollectionAction::Delete(m, Side::A), // Deleted from B.
         }
     }
@@ -904,8 +903,7 @@ impl std::fmt::Display for CollectionAction {
         match self {
             CollectionAction::NoAction(_) => write!(f, "no action"),
             CollectionAction::SaveToStatus => write!(f, "save to status"),
-            CollectionAction::CreateInA => write!(f, "create in storage a"),
-            CollectionAction::CreateInB => write!(f, "create in storage b"),
+            CollectionAction::CreateInOne(side) => write!(f, "create in storage {side}"),
             CollectionAction::CreateInBoth => write!(f, "create in both storages"),
             CollectionAction::Delete(_, side) => write!(f, "delete from {side}"),
         }

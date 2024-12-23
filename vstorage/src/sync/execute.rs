@@ -298,12 +298,15 @@ impl CollectionAction {
             CollectionAction::SaveToStatus => status
                 .get_or_add_collection(&a.href, &b.href, a.id.as_ref(), b.id.as_ref())
                 .map(|uid| Ok((uid, None))),
-            CollectionAction::CreateInB => create_collection(storage_b, status, mapping, Side::B)
-                .await
-                .map(|r| r.map(|uid| (uid, None))),
-            CollectionAction::CreateInA => create_collection(storage_a, status, mapping, Side::A)
-                .await
-                .map(|r| r.map(|uid| (uid, None))),
+            CollectionAction::CreateInOne(side) => {
+                let storage = match side {
+                    Side::A => storage_a,
+                    Side::B => storage_b,
+                };
+                create_collection(storage, status, mapping, *side)
+                    .await
+                    .map(|r| r.map(|uid| (uid, None)))
+            }
             CollectionAction::CreateInBoth => {
                 create_both_collections(storage_a, storage_b, mapping, status)
                     .await
