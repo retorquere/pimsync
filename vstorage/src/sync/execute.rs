@@ -100,20 +100,9 @@ impl<I: Item> Executor<I> {
                 };
             }
 
-            for prop_action in property_actions {
-                if let Err(err) = self
-                    .property(
-                        &prop_action,
-                        storage_a,
-                        storage_b,
-                        status,
-                        mapping_uid,
-                        &mapping,
-                    )
-                    .await?
-                {
-                    (self.on_error)(SyncError::property(prop_action.action, err));
-                };
+            for prop in property_actions {
+                self.property(prop, storage_a, storage_b, status, mapping_uid, &mapping)
+                    .await?;
             }
 
             match side_to_delete {
@@ -234,17 +223,16 @@ impl<I: Item> Executor<I> {
     ///
     /// # Errors
     ///
-    /// - Returns `Err(_)` if a fatal error occurred when interacting with the status database.
-    /// - Returns `Ok(Err(_))` in case of non-fatal error.
+    /// Returns an error in case of a fatal error. See: [`Executor::plan`]
     async fn property(
         &self,
-        plan: &PropertyPlan<I>,
+        plan: PropertyPlan<I>,
         a: &dyn Storage<I>,
         b: &dyn Storage<I>,
         status: &StatusDatabase,
         mapping_uid: MappingUid,
         mapping: &ResolvedMapping,
-    ) -> Result<Result<(), ExecutionError>, StatusError> {
+    ) -> Result<(), StatusError> {
         let href_a = mapping.a().href();
         let href_b = mapping.b().href();
         match &plan.action {
@@ -257,9 +245,11 @@ impl<I: Item> Executor<I> {
                     .set_property(href, plan.property.clone(), value)
                     .await
                 {
-                    return Ok(Err(ExecutionError::from(err)));
-                };
-                status.set_property(mapping_uid, href_a, href_b, &plan.property.name(), value)?;
+                    (self.on_error)(SyncError::property(plan.action, err.into()));
+                    Ok(())
+                } else {
+                    status.set_property(mapping_uid, href_a, href_b, &plan.property.name(), value)
+                }
             }
             PropertyAction::Delete(side) => {
                 let (storage, href) = match side {
@@ -267,31 +257,24 @@ impl<I: Item> Executor<I> {
                     Side::B => (b, href_b),
                 };
                 if let Err(err) = storage.unset_property(href, plan.property.clone()).await {
-                    return Ok(Err(ExecutionError::from(err)));
-                };
-                status.delete_property(
-                    mapping_uid,
-                    href_a,
-                    href_b,
-                    plan.property.name().as_str(),
-                )?;
+                    (self.on_error)(SyncError::property(plan.action, err.into()));
+                    Ok(())
+                } else {
+                    status.delete_property(mapping_uid, href_a, href_b, &plan.property.name())
+                }
             }
             PropertyAction::ClearStatus => {
-                status.delete_property(
-                    mapping_uid,
-                    href_a,
-                    href_b,
-                    plan.property.name().as_str(),
-                )?;
+                status.delete_property(mapping_uid, href_a, href_b, &plan.property.name())
             }
             PropertyAction::UpdateStatus { value } => {
-                status.set_property(mapping_uid, href_a, href_b, &plan.property.name(), value)?;
+                status.set_property(mapping_uid, href_a, href_b, &plan.property.name(), value)
             }
             PropertyAction::Conflict => {
+                // TODO: call on_error instead.
                 error!("Conflict for property {}. Skipping.", plan.property.name());
+                Ok(())
             }
-        };
-        Ok(Ok(()))
+        }
     }
 }
 
