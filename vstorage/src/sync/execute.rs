@@ -81,9 +81,6 @@ impl<I: Item> Executor<I> {
                 }
             };
 
-            let a = mapping.a();
-            let b = mapping.b();
-
             for item in item_actions {
                 self.item(item, storage_a, storage_b, &mapping, status, mapping_uid)
                     .await?;
@@ -98,7 +95,8 @@ impl<I: Item> Executor<I> {
                 None => {}
                 Some(Side::A) => {
                     if let Err(err) =
-                        delete_collection(a.href(), status, storage_a, mapping_uid).await?
+                        delete_collection(mapping.a().href(), status, storage_a, mapping_uid)
+                            .await?
                     {
                         let action = CollectionAction::Delete(mapping_uid, Side::A);
                         (self.on_error)(SyncError::collection(action, mapping, err));
@@ -106,7 +104,8 @@ impl<I: Item> Executor<I> {
                 }
                 Some(Side::B) => {
                     if let Err(err) =
-                        delete_collection(b.href(), status, storage_b, mapping_uid).await?
+                        delete_collection(mapping.b().href(), status, storage_b, mapping_uid)
+                            .await?
                     {
                         let action = CollectionAction::Delete(mapping_uid, Side::B);
                         (self.on_error)(SyncError::collection(action, mapping, err));
