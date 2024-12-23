@@ -987,8 +987,7 @@ async fn items_for_collection<I: Item>(
 
 #[derive(Debug)]
 pub enum PropertyAction {
-    WriteToA { value: String },
-    WriteToB { value: String },
+    Write { value: String, side: Side },
     Delete(Side),
     ClearStatus,
     UpdateStatus { value: String },
@@ -998,8 +997,7 @@ pub enum PropertyAction {
 impl std::fmt::Display for PropertyAction {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            PropertyAction::WriteToA { value } => write!(f, "Write to a: {value}"),
-            PropertyAction::WriteToB { value } => write!(f, "Write to b: {value}"),
+            PropertyAction::Write { value, side } => write!(f, "Write to {side}: {value}"),
             PropertyAction::Delete(side) => write!(f, "Delete in {side}"),
             PropertyAction::ClearStatus => write!(f, "Clear status"),
             PropertyAction::UpdateStatus { .. } => write!(f, "Update status"),
@@ -1058,12 +1056,14 @@ impl<I: Item> PropertyPlan<I> {
             let action = match (a, b, state) {
                 (None, None, None) => None,
                 (None, None, Some(_)) => Some(PropertyAction::ClearStatus),
-                (None, Some(b), None) => Some(PropertyAction::WriteToA {
+                (None, Some(b), None) => Some(PropertyAction::Write {
                     value: b.value.clone(),
+                    side: Side::A,
                 }),
                 (None, Some(_), Some(_)) => Some(PropertyAction::Delete(Side::B)),
-                (Some(a), None, None) => Some(PropertyAction::WriteToB {
+                (Some(a), None, None) => Some(PropertyAction::Write {
                     value: a.value.clone(),
+                    side: Side::B,
                 }),
                 (Some(_), None, Some(_)) => Some(PropertyAction::Delete(Side::A)),
                 (Some(a), Some(b), None) => {
@@ -1085,12 +1085,14 @@ impl<I: Item> PropertyPlan<I> {
                             })
                         }
                     } else if a.value == s.value {
-                        Some(PropertyAction::WriteToA {
+                        Some(PropertyAction::Write {
                             value: b.value.clone(),
+                            side: Side::A,
                         })
                     } else if b.value == s.value {
-                        Some(PropertyAction::WriteToB {
+                        Some(PropertyAction::Write {
                             value: a.value.clone(),
+                            side: Side::B,
                         })
                     } else {
                         Some(PropertyAction::Conflict)

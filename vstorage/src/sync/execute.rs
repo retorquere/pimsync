@@ -14,7 +14,10 @@ use crate::{
 
 use super::{
     error::SyncError,
-    plan::{CollectionAction, CollectionPlan, ItemAction, Plan, PropertyPlan, ResolvedMapping},
+    plan::{
+        CollectionAction, CollectionPlan, ItemAction, Plan, PropertyAction, PropertyPlan,
+        ResolvedMapping,
+    },
     status::{ItemState, MappingUid, Side, StatusDatabase, StatusError},
 };
 
@@ -245,19 +248,20 @@ impl<I: Item> Executor<I> {
         let href_a = mapping.a().href();
         let href_b = mapping.b().href();
         match &plan.action {
-            super::plan::PropertyAction::WriteToA { value } => {
-                if let Err(err) = a.set_property(href_a, plan.property.clone(), value).await {
+            PropertyAction::Write { value, side } => {
+                let (storage, href) = match side {
+                    Side::A => (a, href_a),
+                    Side::B => (b, href_b),
+                };
+                if let Err(err) = storage
+                    .set_property(href, plan.property.clone(), value)
+                    .await
+                {
                     return Ok(Err(ExecutionError::from(err)));
                 };
                 status.set_property(mapping_uid, href_a, href_b, &plan.property.name(), value)?;
             }
-            super::plan::PropertyAction::WriteToB { value } => {
-                if let Err(err) = b.set_property(href_b, plan.property.clone(), value).await {
-                    return Ok(Err(ExecutionError::from(err)));
-                };
-                status.set_property(mapping_uid, href_a, href_b, &plan.property.name(), value)?;
-            }
-            super::plan::PropertyAction::Delete(side) => {
+            PropertyAction::Delete(side) => {
                 let (storage, href) = match side {
                     Side::A => (a, href_a),
                     Side::B => (b, href_b),
@@ -272,7 +276,7 @@ impl<I: Item> Executor<I> {
                     plan.property.name().as_str(),
                 )?;
             }
-            super::plan::PropertyAction::ClearStatus => {
+            PropertyAction::ClearStatus => {
                 status.delete_property(
                     mapping_uid,
                     href_a,
@@ -280,10 +284,10 @@ impl<I: Item> Executor<I> {
                     plan.property.name().as_str(),
                 )?;
             }
-            super::plan::PropertyAction::UpdateStatus { value } => {
+            PropertyAction::UpdateStatus { value } => {
                 status.set_property(mapping_uid, href_a, href_b, &plan.property.name(), value)?;
             }
-            super::plan::PropertyAction::Conflict => {
+            PropertyAction::Conflict => {
                 error!("Conflict for property {}. Skipping.", plan.property.name());
             }
         };
