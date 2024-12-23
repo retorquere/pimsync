@@ -8,6 +8,7 @@ use std::fmt::Write;
 use std::sync::Arc;
 use vstorage::base::{IcsItem, Storage};
 use vstorage::sync::declare::{DeclaredMapping, OnEmpty, StoragePair};
+use vstorage::sync::execute::Executor;
 use vstorage::sync::plan::{ItemAction, Plan};
 use vstorage::sync::status::{Side, StatusDatabase};
 use vstorage::vdir::VdirStorage;
@@ -110,7 +111,7 @@ async fn test_sync_only_declared_mappings() {
     let plan = Plan::new(&pair, None).await.unwrap();
     // TODO: inspect plan
     let status = StatusDatabase::open_or_create(":memory:").unwrap();
-    plan.execute(&status, drop).await.unwrap();
+    Executor::new(drop).plan(plan, &status).await.unwrap();
 
     let first = std::fs::read_dir(empty_path.join("first-calendar"))
         .unwrap()
@@ -159,7 +160,7 @@ async fn test_sync_from_a() {
     let plan = Plan::new(&pair, None).await.unwrap();
     // TODO: inspect plan
     let status = StatusDatabase::open_or_create(":memory:").unwrap();
-    plan.execute(&status, drop).await.unwrap();
+    Executor::new(drop).plan(plan, &status).await.unwrap();
 
     let first = std::fs::read_dir(empty_path.join("first-calendar"))
         .unwrap()
@@ -220,7 +221,7 @@ async fn test_sync_from_b() {
     let plan = Plan::new(&pair, None).await.unwrap();
     // TODO: inspect plan
     let status = StatusDatabase::open_or_create(":memory:").unwrap();
-    plan.execute(&status, drop).await.unwrap();
+    Executor::new(drop).plan(plan, &status).await.unwrap();
 
     let _first = std::fs::read_dir(empty_path.join("first-calendar")).unwrap_err();
     let _second = std::fs::read_dir(empty_path.join("second-calendar")).unwrap_err();
@@ -249,7 +250,7 @@ async fn test_sync_none() {
     let plan = Plan::new(&pair, None).await.unwrap();
     // TODO: inspect plan
     let status = StatusDatabase::open_or_create(":memory:").unwrap();
-    plan.execute(&status, drop).await.unwrap();
+    Executor::new(drop).plan(plan, &status).await.unwrap();
 
     let _first = std::fs::read_dir(empty_path.join("first-calendar")).unwrap_err();
     let _second = std::fs::read_dir(empty_path.join("second-calendar")).unwrap_err();
@@ -293,7 +294,7 @@ async fn test_empty_protection_enabled() {
         .on_empty(OnEmpty::Skip);
     let status = StatusDatabase::open_or_create(":memory:").unwrap();
     let plan = Plan::new(&pair, Some(&status)).await.unwrap();
-    plan.execute(&status, drop).await.unwrap();
+    Executor::new(drop).plan(plan, &status).await.unwrap();
 
     // At this point both storages and the status DB are all in sync.
 
@@ -334,7 +335,7 @@ async fn test_empty_protection_disabled() {
         .on_empty(OnEmpty::Sync);
     let status = StatusDatabase::open_or_create(":memory:").unwrap();
     let plan = Plan::new(&pair, Some(&status)).await.unwrap();
-    plan.execute(&status, drop).await.unwrap();
+    Executor::new(drop).plan(plan, &status).await.unwrap();
 
     // At this point both storages and the status DB are all in sync.
 

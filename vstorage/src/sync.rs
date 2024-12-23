@@ -18,9 +18,9 @@
 //!   - If resolving conflicts requires writing a merged file into both storages, this needs to be
 //!     done using the `Storage` APIs directly. The next synchronisation will detect the resolved
 //!     conflict automatically and update the status database.
-//! - Use [`plan::Plan::execute`] to execute the plan itself. It updates the status to reflect
-//!   which items exist on both side and their metadata. This will be used on the next cycle to
-//!   understand which items have changed on which sides.
+//! - Use the [`execute::Executor`] type to execute the plan itself. It updates the status database
+//!   to reflect which items exist on both side and their metadata. This will be used on the next
+//!   cycle to understand which items have changed on which sides.
 //!
 //! The synchronization algorithm is based on [the algorithm from the original vdirsyncer][orig].
 //!
@@ -30,7 +30,7 @@
 
 pub mod declare;
 mod error;
-mod execute;
+pub mod execute;
 pub mod plan;
 pub mod status;
 

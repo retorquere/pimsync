@@ -22,6 +22,7 @@ use vstorage::{
     base::{IcsItem, Item, VcardItem},
     sync::{
         declare::StoragePair,
+        execute::Executor,
         plan::Plan,
         status::{StatusDatabase, StatusError},
         SyncError,
@@ -134,7 +135,8 @@ impl<I: Item> NamedPair<I> {
         if !dry_run {
             let status_rw = StatusDatabase::open_or_create(&self.status_path)
                 .with_context(|| format!("open_or_create status db for {}", self.name))?;
-            plan.execute(&status_rw, log_error)
+            Executor::new(log_error)
+                .plan(plan, &status_rw)
                 .await
                 .context("executing plan")?;
         }

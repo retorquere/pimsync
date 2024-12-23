@@ -59,9 +59,6 @@ pub enum PlanError {
 ///
 /// Use [`Plan::collection_plans`]) to inspect the plan and render it into a human-friendly
 /// representation, into a CSV, or into any other format that is necessary.
-///
-/// Use [`Plan::execute`] to execute this plan and apply changes to the provided [`Storage`]
-/// instances.
 pub struct Plan<I: Item> {
     pub(super) storage_a: Arc<dyn Storage<I>>,
     pub(super) storage_b: Arc<dyn Storage<I>>,
