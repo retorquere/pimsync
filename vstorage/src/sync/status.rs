@@ -341,6 +341,31 @@ impl StatusDatabase {
         Ok(())
     }
 
+    pub(super) fn add_collection(
+        &self,
+        href_a: &str,
+        href_b: &str,
+        id_a: Option<&CollectionId>,
+        id_b: Option<&CollectionId>,
+    ) -> Result<MappingUid, StatusError> {
+        let query = concat!(
+            "INSERT INTO collections(id_a, href_a, id_b, href_b)",
+            " VALUES (?, ?, ?, ?)",
+            " RETURNING uid",
+        );
+        let mut statement = self.conn.prepare(query)?;
+        statement.bind((1, id_a.map(CollectionId::as_ref)))?;
+        statement.bind((2, href_a))?;
+        statement.bind((3, id_b.map(CollectionId::as_ref)))?;
+        statement.bind((4, href_b))?;
+
+        if statement.next()? == State::Row {
+            Ok(MappingUid(statement.read::<i64, _>("uid")?))
+        } else {
+            unreachable!("INSERT INTO .. RETURNING must always return a value.");
+        }
+    }
+
     pub(super) fn get_or_add_collection(
         &self,
         href_a: &str,

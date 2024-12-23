@@ -321,7 +321,7 @@ impl CollectionAction {
     }
 }
 
-/// Creates a collection and updates the state and error list accordingly.
+/// Creates a collection and updates the state accordingly.
 async fn create_collection<I: Item>(
     storage: &dyn Storage<I>,
     status: &StatusDatabase,
@@ -348,13 +348,8 @@ async fn create_collection<I: Item>(
         return Ok(Err(err));
     };
     let mapping_uid = match side {
-        // FIXME: should always add; not get_or_add.
-        Side::A => {
-            status.get_or_add_collection(new.href(), existing.href(), target.id(), existing.id())
-        }
-        Side::B => {
-            status.get_or_add_collection(existing.href(), new.href(), existing.id(), target.id())
-        }
+        Side::A => status.add_collection(new.href(), existing.href(), target.id(), existing.id()),
+        Side::B => status.add_collection(existing.href(), new.href(), existing.id(), target.id()),
     }?;
     Ok(Ok(mapping_uid))
 }
