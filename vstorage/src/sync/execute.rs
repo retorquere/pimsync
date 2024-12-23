@@ -91,26 +91,15 @@ impl<I: Item> Executor<I> {
                     .await?;
             }
 
-            match side_to_delete {
-                None => {}
-                Some(Side::A) => {
-                    if let Err(err) =
-                        delete_collection(mapping.a().href(), status, storage_a, mapping_uid)
-                            .await?
-                    {
-                        let action = CollectionAction::Delete(mapping_uid, Side::A);
-                        (self.on_error)(SyncError::collection(action, mapping, err));
-                    };
-                }
-                Some(Side::B) => {
-                    if let Err(err) =
-                        delete_collection(mapping.b().href(), status, storage_b, mapping_uid)
-                            .await?
-                    {
-                        let action = CollectionAction::Delete(mapping_uid, Side::B);
-                        (self.on_error)(SyncError::collection(action, mapping, err));
-                    };
-                }
+            if let Some(side) = side_to_delete {
+                let (storage, href) = match side {
+                    Side::A => (storage_a, mapping.a().href()),
+                    Side::B => (storage_b, mapping.b().href()),
+                };
+                if let Err(err) = delete_collection(href, status, storage, mapping_uid).await? {
+                    let action = CollectionAction::Delete(mapping_uid, side);
+                    (self.on_error)(SyncError::collection(action, mapping, err));
+                };
             };
         }
 
