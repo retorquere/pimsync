@@ -1,3 +1,7 @@
+// Copyright 2024 Hugo Osvaldo Barrera
+//
+// SPDX-License-Identifier: EUPL-1.2
+
 use std::task::{Context, Poll};
 
 use hyper::{
