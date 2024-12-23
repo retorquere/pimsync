@@ -368,16 +368,38 @@ mod test {
     }
 }
 
-/// A mapping resolved based on the storage's current state.
+/// Mapping of two collections, resolved based on the storage's current state.
+///
+/// Identifies which two collections (one from each storage) are mapped to each other.
 #[derive(Debug, PartialEq)]
-pub(super) struct ResolvedMapping {
-    pub(super) alias: String,
-    pub(super) a: ResolvedCollection,
-    pub(super) b: ResolvedCollection,
+pub struct ResolvedMapping {
+    alias: String,
+    a: ResolvedCollection,
+    b: ResolvedCollection,
 }
 
 impl ResolvedMapping {
-    async fn from_declared_mapping<I: Item>(
+    /// Returns the alias for this mapping.
+    ///
+    /// This is only used for logging and in user interfaces.
+    #[must_use]
+    pub fn alias(&self) -> &str {
+        &self.alias
+    }
+
+    /// Returns resolved data for the collection on side A.
+    #[must_use]
+    pub fn a(&self) -> &ResolvedCollection {
+        &self.a
+    }
+
+    /// Returns resolved data for the collection on side B.
+    #[must_use]
+    pub fn b(&self) -> &ResolvedCollection {
+        &self.b
+    }
+
+    pub(crate) async fn from_declared_mapping<I: Item>(
         declared: &DeclaredMapping,
         storage_a: &dyn Storage<I>,
         storage_b: &dyn Storage<I>,
@@ -399,9 +421,9 @@ impl ResolvedMapping {
     }
 }
 
-/// A collection as resolved based on existing data.
+/// Collection as resolved based on existing data.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(super) struct ResolvedCollection {
+pub struct ResolvedCollection {
     /// Is None if collection does not exist and was specified by href.
     pub(super) id: Option<CollectionId>,
     pub(super) href: Href,
