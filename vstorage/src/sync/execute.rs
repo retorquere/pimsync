@@ -87,8 +87,8 @@ async fn create_item<I: Item>(
     debug!("Creating item from {}", source.href);
 
     let (target_collection, src_storage, dst_storage) = match side {
-        Side::A => (&mapping.a().href, storage_b, storage_a),
-        Side::B => (&mapping.b().href, storage_a, storage_b),
+        Side::A => (mapping.a().href(), storage_b, storage_a),
+        Side::B => (mapping.b().href(), storage_a, storage_b),
     };
 
     let (item_data, source_etag) = if let Some(data) = &source.data {
@@ -251,7 +251,7 @@ impl<I: Item> Plan<I> {
 
             for prop_action in property_actions {
                 if let Err(err) = prop_action
-                    .execute(storage_a, storage_b, status, mapping_uid, &a.href, &b.href)
+                    .execute(storage_a, storage_b, status, mapping_uid, &mapping)
                     .await?
                 {
                     on_error(SyncError::property(prop_action.action, err));
@@ -262,7 +262,7 @@ impl<I: Item> Plan<I> {
                 None => {}
                 Some(Side::A) => {
                     if let Err(err) =
-                        delete_collection(&a.href, status, storage_a, mapping_uid).await?
+                        delete_collection(a.href(), status, storage_a, mapping_uid).await?
                     {
                         let action = CollectionAction::Delete(mapping_uid, Side::A);
                         on_error(SyncError::collection(action, mapping, err));
@@ -270,7 +270,7 @@ impl<I: Item> Plan<I> {
                 }
                 Some(Side::B) => {
                     if let Err(err) =
-                        delete_collection(&b.href, status, storage_b, mapping_uid).await?
+                        delete_collection(b.href(), status, storage_b, mapping_uid).await?
                     {
                         let action = CollectionAction::Delete(mapping_uid, Side::B);
                         on_error(SyncError::collection(action, mapping, err));
@@ -300,7 +300,7 @@ impl CollectionAction {
         match self {
             CollectionAction::NoAction(mapping_uid) => Ok(Ok((*mapping_uid, None))),
             CollectionAction::SaveToStatus => status
-                .get_or_add_collection(&a.href, &b.href, a.id.as_ref(), b.id.as_ref())
+                .get_or_add_collection(a.href(), b.href(), a.id(), b.id())
                 .map(|uid| Ok((uid, None))),
             CollectionAction::CreateInOne(side) => {
                 let storage = match side {
@@ -332,36 +332,29 @@ async fn create_collection<I: Item>(
         Side::A => (mapping.a(), mapping.b()),
         Side::B => (mapping.b(), mapping.a()),
     };
-    let new = match storage.create_collection(&target.href).await {
+    let new = match storage.create_collection(target.href()).await {
         Ok(c) => c,
         Err(err) => return Ok(Err(ExecutionError::Storage(err))),
     };
-    if *new.href() != target.href {
+    if new.href() != target.href() {
         warn!(
             "Created collection has href {}, expected {}.",
             new.href(),
-            target.href
+            target.href()
         );
     }
 
-    if let Err(err) = check_id_matches_expected(target.id.as_ref(), storage, new.href(), side).await
-    {
+    if let Err(err) = check_id_matches_expected(target.id(), storage, new.href(), side).await {
         return Ok(Err(err));
     };
     let mapping_uid = match side {
         // FIXME: should always add; not get_or_add.
-        Side::A => status.get_or_add_collection(
-            new.href(),
-            &existing.href,
-            target.id.as_ref(),
-            existing.id.as_ref(),
-        ),
-        Side::B => status.get_or_add_collection(
-            &existing.href,
-            new.href(),
-            existing.id.as_ref(),
-            target.id.as_ref(),
-        ),
+        Side::A => {
+            status.get_or_add_collection(new.href(), existing.href(), target.id(), existing.id())
+        }
+        Side::B => {
+            status.get_or_add_collection(existing.href(), new.href(), existing.id(), target.id())
+        }
     }?;
     Ok(Ok(mapping_uid))
 }
@@ -372,10 +365,10 @@ async fn create_both_collections<I: Item>(
     mapping: &ResolvedMapping,
     status: &StatusDatabase,
 ) -> Result<Result<MappingUid, ExecutionError>, StatusError> {
-    let href_a = &mapping.a().href;
-    let href_b = &mapping.b().href;
-    let id_a = mapping.a().id.as_ref();
-    let id_b = mapping.b().id.as_ref();
+    let href_a = mapping.a().href();
+    let href_b = mapping.b().href();
+    let id_a = mapping.a().id();
+    let id_b = mapping.b().id();
 
     let new_a = match storage_a.create_collection(href_a).await {
         Ok(c) => c,
@@ -424,9 +417,10 @@ impl<I: Item> PropertyPlan<I> {
         b: &dyn Storage<I>,
         status: &StatusDatabase,
         mapping_uid: MappingUid,
-        href_a: &str,
-        href_b: &str,
+        mapping: &ResolvedMapping,
     ) -> Result<Result<(), ExecutionError>, StatusError> {
+        let href_a = mapping.a().href();
+        let href_b = mapping.b().href();
         match &self.action {
             super::plan::PropertyAction::WriteToA { value } => {
                 if let Err(err) = a.set_property(href_a, self.property.clone(), value).await {

@@ -424,13 +424,28 @@ impl ResolvedMapping {
 /// Collection as resolved based on existing data.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ResolvedCollection {
-    /// Is None if collection does not exist and was specified by href.
-    pub(super) id: Option<CollectionId>,
-    pub(super) href: Href,
+    id: Option<CollectionId>,
+    href: Href,
     exists: bool,
 }
 
 impl ResolvedCollection {
+    /// The `id` for this collection.
+    ///
+    /// Is None if collection does not exist AND was declared via an `href`.
+    #[must_use]
+    pub fn id(&self) -> Option<&CollectionId> {
+        self.id.as_ref()
+    }
+
+    /// The `href` for this collection.
+    ///
+    /// If the collection does not exist, this is the intended `href` under which is must be created.
+    #[must_use]
+    pub fn href(&self) -> &Href {
+        &self.href
+    }
+
     /// Resolve the collection based on a storage and its collections.
     async fn from_declaration<I: Item>(
         declared: &CollectionDescription,
