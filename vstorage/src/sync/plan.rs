@@ -825,7 +825,6 @@ impl<I: Item> std::fmt::Display for ItemAction<I> {
 }
 
 /// Operation to execute on a collection during synchronising.
-#[allow(private_interfaces)]
 #[derive(PartialEq, Debug, Clone)]
 pub enum CollectionAction {
     NoAction(MappingUid),

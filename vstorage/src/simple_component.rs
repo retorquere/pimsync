@@ -194,7 +194,7 @@ mod test {
     use crate::simple_component::ComponentError;
 
     #[test]
-    #[allow(clippy::too_many_lines)]
+    #[allow(clippy::too_many_lines)] // Test is too long; no biggie.
     fn test_parse_and_split_collection() {
         use super::Component;
 

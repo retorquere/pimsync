@@ -282,7 +282,7 @@ impl CollectionAction {
     ///
     /// Returns the [`MappingUid`] for this collection and the side that needs to be deleted, if
     /// any.
-    #[allow(clippy::too_many_arguments)]
+    #[allow(clippy::too_many_arguments)] // FIXME
     async fn execute<I: Item>(
         &self,
         status: &StatusDatabase,

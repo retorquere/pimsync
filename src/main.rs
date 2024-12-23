@@ -89,7 +89,7 @@ impl TryFrom<IntoIter<String>> for RawCommand {
 }
 
 /// Simply log non-fatal errors.
-#[allow(clippy::needless_pass_by_value)]
+#[allow(clippy::needless_pass_by_value)] // Required interface to pass this function.
 pub fn log_error<I: Item>(error: SyncError<I>) {
     error!("{error:?}");
 }
