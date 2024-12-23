@@ -989,8 +989,7 @@ async fn items_for_collection<I: Item>(
 pub enum PropertyAction {
     WriteToA { value: String },
     WriteToB { value: String },
-    DeleteInA,
-    DeleteInB,
+    Delete(Side),
     ClearStatus,
     UpdateStatus { value: String },
     Conflict,
@@ -1001,8 +1000,7 @@ impl std::fmt::Display for PropertyAction {
         match self {
             PropertyAction::WriteToA { value } => write!(f, "Write to a: {value}"),
             PropertyAction::WriteToB { value } => write!(f, "Write to b: {value}"),
-            PropertyAction::DeleteInA => write!(f, "Delete in a"),
-            PropertyAction::DeleteInB => write!(f, "Delete in b"),
+            PropertyAction::Delete(side) => write!(f, "Delete in {side}"),
             PropertyAction::ClearStatus => write!(f, "Clear status"),
             PropertyAction::UpdateStatus { .. } => write!(f, "Update status"),
             PropertyAction::Conflict => write!(f, "Conflict"),
@@ -1063,11 +1061,11 @@ impl<I: Item> PropertyPlan<I> {
                 (None, Some(b), None) => Some(PropertyAction::WriteToA {
                     value: b.value.clone(),
                 }),
-                (None, Some(_), Some(_)) => Some(PropertyAction::DeleteInB {}),
+                (None, Some(_), Some(_)) => Some(PropertyAction::Delete(Side::B)),
                 (Some(a), None, None) => Some(PropertyAction::WriteToB {
                     value: a.value.clone(),
                 }),
-                (Some(_), None, Some(_)) => Some(PropertyAction::DeleteInA {}),
+                (Some(_), None, Some(_)) => Some(PropertyAction::Delete(Side::A)),
                 (Some(a), Some(b), None) => {
                     if a.value == b.value {
                         Some(PropertyAction::UpdateStatus {

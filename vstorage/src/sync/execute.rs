@@ -257,19 +257,12 @@ impl<I: Item> Executor<I> {
                 };
                 status.set_property(mapping_uid, href_a, href_b, &plan.property.name(), value)?;
             }
-            super::plan::PropertyAction::DeleteInA => {
-                if let Err(err) = a.unset_property(href_a, plan.property.clone()).await {
-                    return Ok(Err(ExecutionError::from(err)));
+            super::plan::PropertyAction::Delete(side) => {
+                let (storage, href) = match side {
+                    Side::A => (a, href_a),
+                    Side::B => (b, href_b),
                 };
-                status.delete_property(
-                    mapping_uid,
-                    href_a,
-                    href_b,
-                    plan.property.name().as_str(),
-                )?;
-            }
-            super::plan::PropertyAction::DeleteInB => {
-                if let Err(err) = b.unset_property(href_b, plan.property.clone()).await {
+                if let Err(err) = storage.unset_property(href, plan.property.clone()).await {
                     return Ok(Err(ExecutionError::from(err)));
                 };
                 status.delete_property(
