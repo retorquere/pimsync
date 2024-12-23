@@ -70,6 +70,7 @@ impl<I: Item> Executor<I> {
                 mapping,
             } = plan;
 
+            // Only executes creation or update actions. Deletions are done after item actions.
             let (mapping_uid, side_to_delete) = match self
                 .collection(&action, status, &mapping, storage_a, storage_b)
                 .await?
@@ -92,6 +93,8 @@ impl<I: Item> Executor<I> {
             }
 
             if let Some(side) = side_to_delete {
+                // Presumably, item operations deleted all items. If another client created new items,
+                // then the collection won't be empty and deletion will (rightfully) fail.
                 let (storage, href) = match side {
                     Side::A => (storage_a, mapping.a().href()),
                     Side::B => (storage_b, mapping.b().href()),
