@@ -351,7 +351,7 @@ async fn test_empty_protection_disabled() {
         .collection_plans
         .first()
         .unwrap()
-        .item_actions
+        .items
         .first()
         .unwrap();
     assert!(matches!(action, ItemAction::Delete { side: Side::B, .. }));

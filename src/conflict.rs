@@ -37,7 +37,7 @@ pub async fn interactive_resolution<I: Item>(
     let conflicts = plan
         .collection_plans
         .into_iter()
-        .flat_map(|cp| cp.item_actions)
+        .flat_map(|cp| cp.items)
         .filter_map(|action| match action {
             ItemAction::Conflict { a, b, .. } => Some((a, b)),
             _ => None,

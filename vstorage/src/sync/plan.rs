@@ -103,7 +103,7 @@ impl<I: Item> Plan<I> {
         let stale_collections = if let Some(status) = status {
             let active_uids = collection_plans
                 .iter()
-                .filter_map(|c| c.collection_action.mapping_uid());
+                .filter_map(|c| c.action.mapping_uid());
             status.find_stale_mappings(active_uids)?
         } else {
             Vec::new()
@@ -524,18 +524,18 @@ fn resolve_mapping_counterpart<I: Item>(
 /// Actions required to sync a collection between two storages.
 #[derive(Debug)]
 pub struct CollectionPlan<I: Item> {
-    pub collection_action: CollectionAction,
-    pub item_actions: Vec<ItemAction<I>>,
-    pub property_actions: Vec<PropertyPlan<I>>,
+    pub action: CollectionAction,
+    pub items: Vec<ItemAction<I>>,
+    pub properties: Vec<PropertyPlan<I>>,
     pub(super) mapping: ResolvedMapping,
 }
 
 impl<I: Item> CollectionPlan<I> {
     fn no_action(uid: MappingUid, mapping: ResolvedMapping) -> CollectionPlan<I> {
         CollectionPlan {
-            collection_action: CollectionAction::NoAction(uid),
-            item_actions: Vec::new(),
-            property_actions: Vec::new(),
+            action: CollectionAction::NoAction(uid),
+            items: Vec::new(),
+            properties: Vec::new(),
             mapping,
         }
     }
@@ -605,9 +605,9 @@ impl<I: Item> CollectionPlan<I> {
         };
 
         Ok(CollectionPlan {
-            collection_action,
-            item_actions,
-            property_actions,
+            action: collection_action,
+            items: item_actions,
+            properties: property_actions,
             mapping,
         })
     }
@@ -619,8 +619,8 @@ impl<I: Item> CollectionPlan<I> {
 
     /// Returns `true` if executing this plan is nilpotent.
     fn is_noop(&self) -> bool {
-        if let CollectionAction::NoAction(_) = self.collection_action {
-            self.item_actions.is_empty() && self.property_actions.is_empty()
+        if let CollectionAction::NoAction(_) = self.action {
+            self.items.is_empty() && self.properties.is_empty()
         } else {
             false
         }

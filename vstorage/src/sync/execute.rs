@@ -64,29 +64,29 @@ impl<I: Item> Executor<I> {
 
         for plan in plan.collection_plans {
             let CollectionPlan {
-                collection_action,
-                item_actions,
-                property_actions,
+                action,
+                items,
+                properties,
                 mapping,
             } = plan;
 
             let (mapping_uid, side_to_delete) = match self
-                .collection(&collection_action, status, &mapping, storage_a, storage_b)
+                .collection(&action, status, &mapping, storage_a, storage_b)
                 .await?
             {
                 Ok((m, s)) => (m, s),
                 Err(err) => {
-                    (self.on_error)(SyncError::collection(collection_action, mapping, err));
+                    (self.on_error)(SyncError::collection(action, mapping, err));
                     continue;
                 }
             };
 
-            for item in item_actions {
+            for item in items {
                 self.item(item, storage_a, storage_b, &mapping, status, mapping_uid)
                     .await?;
             }
 
-            for prop in property_actions {
+            for prop in properties {
                 self.property(prop, storage_a, storage_b, status, mapping_uid, &mapping)
                     .await?;
             }

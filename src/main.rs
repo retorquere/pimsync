@@ -181,16 +181,16 @@ impl<I: Item> NamedPair<I> {
             info!(
                 "collection: {}, action: {}. {} item actions. {} property actions.",
                 cp.alias(),
-                cp.collection_action,
-                cp.item_actions.len(),
-                cp.property_actions.len(),
+                cp.action,
+                cp.items.len(),
+                cp.properties.len(),
             );
 
-            for item in &cp.item_actions {
+            for item in &cp.items {
                 info!("item: {}", item);
                 debug!("{item:?}");
             }
-            for prop in &cp.property_actions {
+            for prop in &cp.properties {
                 info!("property: {:?}", prop);
             }
         }
