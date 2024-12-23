@@ -594,6 +594,11 @@ impl<I: Item> CollectionPlan<I> {
 }
 
 /// Operation to execute on an item during synchronising.
+///
+/// These actions contain all data necessary to execute them and update the status database. They
+/// only lack a [`MappingUid`], since this may be resolved at execution time (e.g.: if the
+/// collection does not exist).
+// TODO: they could contain an `Arc<ResolvedMapping>`, which makes them standalone.
 #[derive(PartialEq, Debug, Clone)]
 pub enum ItemAction<I: Item> {
     /// Item is new and identical on both sides.
@@ -638,8 +643,8 @@ pub enum ItemAction<I: Item> {
     Conflict {
         a: ItemState<I>,
         b: ItemState<I>,
-        // Indicates that the item is new on both sides.
-        is_new: bool,
+        // Data for the previous version, in case this is not new.
+        old: Option<(ItemRef, ItemRef)>,
     },
 }
 
@@ -730,7 +735,7 @@ impl<I: Item> ItemAction<I> {
                     Some(ItemAction::Conflict {
                         a: a.clone(),
                         b: b.clone(),
-                        is_new: false,
+                        old: Some(prev.into_item_refs()),
                     })
                 }
             }
@@ -746,10 +751,50 @@ impl<I: Item> ItemAction<I> {
                     Some(ItemAction::Conflict {
                         a: a.clone(),
                         b: b.clone(),
-                        is_new: true,
+                        old: None,
                     })
                 }
             }
+        }
+    }
+
+    /// If this item is a conflict, rewrite the action to keep data from side A.
+    #[must_use]
+    pub fn keep_a(self) -> Self {
+        match self {
+            ItemAction::Conflict { a, b, old } => match old {
+                Some((old_a, old_b)) => ItemAction::Update {
+                    side: Side::B,
+                    source: a,
+                    target: b.into(),
+                    old: (old_a, old_b),
+                },
+                None => ItemAction::Create {
+                    side: Side::B,
+                    source: a,
+                },
+            },
+            other => other,
+        }
+    }
+
+    /// If this item is a conflict, rewrite the action to keep data from side B.
+    #[must_use]
+    pub fn keep_b(self) -> Self {
+        match self {
+            ItemAction::Conflict { a, b, old } => match old {
+                Some((old_a, old_b)) => ItemAction::Update {
+                    side: Side::A,
+                    source: b,
+                    target: a.into(),
+                    old: (old_a, old_b),
+                },
+                None => ItemAction::Create {
+                    side: Side::A,
+                    source: b,
+                },
+            },
+            other => other,
         }
     }
 }

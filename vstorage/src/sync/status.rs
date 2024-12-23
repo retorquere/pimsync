@@ -84,6 +84,15 @@ impl<I: Item> ItemState<I> {
     }
 }
 
+impl<I: Item> From<ItemState<I>> for ItemRef {
+    fn from(value: ItemState<I>) -> Self {
+        ItemRef {
+            href: value.href,
+            etag: value.etag,
+        }
+    }
+}
+
 /// The status for an item as retrieved from a [`StatusDatabase`].
 pub(super) struct StatusForItem {
     pub(super) hash: String,
