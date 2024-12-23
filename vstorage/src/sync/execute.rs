@@ -84,20 +84,9 @@ impl<I: Item> Executor<I> {
             let a = mapping.a();
             let b = mapping.b();
 
-            for item_action in item_actions {
-                if let Err(err) = self
-                    .item(
-                        &item_action,
-                        storage_a,
-                        storage_b,
-                        &mapping,
-                        status,
-                        mapping_uid,
-                    )
-                    .await?
-                {
-                    (self.on_error)(SyncError::item(item_action, err));
-                };
+            for item in item_actions {
+                self.item(item, storage_a, storage_b, &mapping, status, mapping_uid)
+                    .await?;
             }
 
             for prop in property_actions {
@@ -180,41 +169,60 @@ impl<I: Item> Executor<I> {
     #[inline]
     async fn item(
         &self,
-        item: &ItemAction<I>,
+        item: ItemAction<I>,
         a: &dyn Storage<I>,
         b: &dyn Storage<I>,
         mapping: &ResolvedMapping,
         status: &StatusDatabase,
         mapping_uid: MappingUid,
-    ) -> Result<Result<(), ExecutionError>, StatusError> {
+    ) -> Result<(), StatusError> {
         debug!("Executing item action: {item}");
-        match item {
+        match &item {
             ItemAction::SaveToStatus { a, b, uid, hash } => {
-                status.insert_item(mapping_uid, uid, hash, a, b).map(Ok)
+                status.insert_item(mapping_uid, uid, hash, a, b)
             }
-            ItemAction::UpdateStatus { hash, old, new } => status
-                .update_item(hash, &old.0, &old.1, &new.0, &new.1)
-                .map(Ok),
-            ItemAction::ClearStatus { uid } => status.delete_item(mapping_uid, uid).map(Ok),
+            ItemAction::UpdateStatus { hash, old, new } => {
+                status.update_item(hash, &old.0, &old.1, &new.0, &new.1)
+            }
+            ItemAction::ClearStatus { uid } => status.delete_item(mapping_uid, uid),
             ItemAction::Create { side, source } => {
-                create_item(source, status, mapping, a, b, mapping_uid, *side).await
+                match create_item(source, status, mapping, a, b, mapping_uid, *side).await {
+                    Ok(Ok(())) => Ok(()),
+                    Ok(Err(err)) => {
+                        (self.on_error)(SyncError::item(item, err));
+                        Ok(())
+                    }
+                    Err(err) => Err(err),
+                }
             }
             ItemAction::Update {
                 side,
                 source,
                 target,
                 old,
-            } => match side {
-                Side::A => update_item(b, a, source, target, old, status, Side::A).await,
-                Side::B => update_item(a, b, source, target, old, status, Side::B).await,
+            } => match update_item(a, b, source, target, old, status, *side).await {
+                Ok(Ok(())) => Ok(()),
+                Ok(Err(err)) => {
+                    (self.on_error)(SyncError::item(item, err));
+                    Ok(())
+                }
+                Err(err) => Err(err),
             },
             ItemAction::Delete { side, target, uid } => {
                 let storage = if *side == Side::A { a } else { b };
-                delete_item(target, status, storage, mapping_uid, uid).await
+                match delete_item(target, status, storage, mapping_uid, uid).await {
+                    Ok(Ok(())) => Ok(()),
+                    Ok(Err(err)) => {
+                        (self.on_error)(SyncError::item(item, err));
+                        Ok(())
+                    }
+                    Err(err) => Err(err),
+                }
             }
             ItemAction::Conflict { a, .. } => {
+                // TODO: should call on_error
                 error!("Conflict for items {}. Skipping.", a.uid);
-                Ok(Ok(()))
+                Ok(())
             }
         }
     }
@@ -335,8 +343,8 @@ async fn create_item<I: Item>(
 }
 
 async fn update_item<I: Item>(
-    src_storage: &dyn Storage<I>,
-    dst_storage: &dyn Storage<I>,
+    storage_a: &dyn Storage<I>,
+    storage_b: &dyn Storage<I>,
     // TODO: Unused field: source.hash, source.uid
     source: &ItemState<I>,
     target: &ItemRef,
@@ -344,6 +352,10 @@ async fn update_item<I: Item>(
     status: &StatusDatabase,
     side: Side,
 ) -> Result<Result<(), ExecutionError>, StatusError> {
+    let (dst_storage, src_storage) = match side {
+        Side::A => (storage_a, storage_b),
+        Side::B => (storage_b, storage_a),
+    };
     debug!("Updating from {}", source.href);
     let (source_item, source_etag) = if let Some(data) = &source.data {
         (data.clone(), source.etag.clone())
