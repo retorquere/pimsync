@@ -1,8 +1,10 @@
 //! Types related to collection discovery.
+//!
+//! Discovery is the process of automatically locating collections inside a storage.
 
 use crate::CollectionId;
 
-/// A collection found during discovery.
+/// Collection found during discovery.
 pub struct DiscoveredCollection {
     // TODO: this does an eager calculation of the CollectionId.
     //       ideally, we'd do this on-demand.
@@ -28,7 +30,7 @@ impl DiscoveredCollection {
     }
 }
 
-/// The result of running discovery on a `Storage`.
+/// Result of running discovery on a `Storage`.
 ///
 /// See [`crate::base::Storage::discover_collections`].
 pub struct Discovery {
@@ -36,11 +38,13 @@ pub struct Discovery {
 }
 
 impl Discovery {
+    /// All discovered collections.
     #[must_use]
     pub fn collections(&self) -> &[DiscoveredCollection] {
         &self.collections
     }
 
+    /// Total amount of discovered collections.
     #[must_use]
     pub fn collection_count(&self) -> usize {
         self.collections.len()

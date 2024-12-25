@@ -6,23 +6,29 @@
 #![allow(clippy::module_name_repetitions)]
 #![forbid(unsafe_code)]
 
-//! Implementation of a common API for reading and writing items on different underlying
-//! storage implementations.
+//! Interact with and synchronise with storages with different underlying implementations.
 //!
-//! Storages can contain `icalendar` components, `vcard` entries, or other content types where
-//! items are either immutable or have unique ids.
+//! Storages contain collections which can themselves contain `icalendar` components, `vcard`
+//! entries, or other similar content types where items have an internal unique ids.
 //!
-//! # Storage
+//! This crates contains the underlying logic for [pimsync][pimsync]. pimsync is a command line
+//! tool to synchronise storages with calendars and contacts. This crate implements the actual
+//! logic for comparing and synchronising storages, and can be used to write alternative interfaces
+//! for the same synchronisation implementation.
+//!
+//! [pimsync]: https://pimsync.whynothugo.nl/
+//!
+//! # Storage types
 //!
 //! A [`Storage`] contains a set of collections, where each collection can contain many items, but
-//! not other collections. This restriction matches the semantics of caldav/carddav and also object
+//! not other collections. This restriction matches the semantics of CalDAV/CardDAV and also object
 //! stores like S3.
 //!
 //! This crate currently includes the following implementations:
 //!
-//! - [`CalDavStorage`]: a caldav server, where each collection is an individual calendar, and
+//! - [`CalDavStorage`]: a CalDAV server, where each collection is an individual calendar, and
 //!   each item is an individual event or todo in a calendar.
-//! - [`CardDavStorage`]: a caldav server, where each collection is an individual address book, and
+//! - [`CardDavStorage`]: a CardDAV server, where each collection is an individual address book, and
 //!   each item is an individual contact card.
 //! - [`ReadOnlyStorage`]: wraps around another `Storage` instance, returning an error of kind
 //!   [`ErrorKind::ReadOnly`] for any write operation.
@@ -30,7 +36,7 @@
 //!   item is a file.
 //! - [`WebCal`]: An icalendar file loaded via HTTP(s). This storage is implicitly read-only.
 //!
-//! The `Storage` type and the logic for synchronisation of storages is is agnostic to the content
+//! The `Storage` type and the logic for synchronisation of storages is agnostic to the content
 //! type inside collections, and can synchronise collections with any type of content. When
 //! synchronising two storages, items with the same UID on both sides are synchronised with each
 //! other. Interpreting content of items in order to extract these UIDs is done via the generic `I`
@@ -152,7 +158,7 @@ impl ErrorKind {
     }
 }
 
-/// A common error type used by all Storage implementations.
+/// Common error type used by all Storage implementations.
 ///
 /// See also [`ErrorKind`].
 #[derive(Debug)]
@@ -230,7 +236,7 @@ impl std::error::Error for Error {
     }
 }
 
-/// An identifier for a specific version of a resource.
+/// Identifier for a specific version of a resource.
 ///
 /// Each time that a resource is read, it will return its current `Etag`. The `Etag` is a unique
 /// identifier for the current version. An `Etag` value is specific to a specific storage
@@ -275,7 +281,7 @@ impl std::fmt::Display for Etag {
     }
 }
 
-/// The path to the item inside the collection.
+/// Path to the item inside the collection.
 ///
 /// For example, for CardDAV collections this is the path of the entry inside the collection. For
 /// [`vdir::VdirStorage`], this the file's relative path, etc. `Href`s MUST be valid UTF-8 sequences.
@@ -288,7 +294,7 @@ impl std::fmt::Display for Etag {
 /// should be treated as an opaque string by consumers of this library.
 pub type Href = String;
 
-/// An identifier for a collection.
+/// Identifier for a collection.
 ///
 /// Collection identifiers are a short string that uniquely identify a collection inside a storage.
 /// They are based on the `href` of a collection, which never changes. A `CollectionId` is
