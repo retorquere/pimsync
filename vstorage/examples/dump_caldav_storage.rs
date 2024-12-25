@@ -28,7 +28,9 @@ async fn create_caldav_from_env() -> Arc<dyn Storage<IcsItem>> {
     let raw_client = HyperClient::builder(TokioExecutor::new()).build(connector);
     let auth_client = AddAuthorization::basic(raw_client, &username, &password);
     let webdav = WebDavClient::new(server.parse().unwrap(), auth_client);
-    let caldav = CalDavClient::new_via_bootstrap(webdav).await.unwrap();
+    let caldav = CalDavClient::bootstrap_via_service_discovery(webdav)
+        .await
+        .unwrap();
     let storage = CalDavStorage::new(caldav).await.unwrap();
     Arc::from(storage)
 }

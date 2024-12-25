@@ -413,7 +413,7 @@ async fn parse_carddav(mut config: Scfg) -> anyhow::Result<Arc<dyn Storage<Vcard
     } else {
         let url = url.parse().context("Parsing carddav url")?;
         let webdav = parse_webdav_client(config, url)?;
-        let client = CardDavClient::new_via_bootstrap(webdav).await?;
+        let client = CardDavClient::bootstrap_via_service_discovery(webdav).await?;
         Ok(Arc::new(CardDavStorage::new(client).await?))
     }
 }
@@ -432,7 +432,7 @@ async fn parse_caldav(mut config: Scfg) -> anyhow::Result<Arc<dyn Storage<IcsIte
     } else {
         let url = url.parse().context("Parsing caldav url")?;
         let webdav = parse_webdav_client(config, url)?;
-        let client = CalDavClient::new_via_bootstrap(webdav).await?;
+        let client = CalDavClient::bootstrap_via_service_discovery(webdav).await?;
         Ok(Arc::new(CalDavStorage::new(client).await?))
     }
 }
