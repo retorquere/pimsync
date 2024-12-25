@@ -96,12 +96,10 @@ impl Config {
                 }
             }
 
-            let on_empty = if let Some(directive) = take_single_directive(&mut config, "on_empty")?
-            {
-                parse_on_empty(directive).context("Parsing on_empty")?
-            } else {
-                OnEmpty::default()
-            };
+            let on_empty = take_single_directive(&mut config, "on_empty")?
+                .map(parse_on_empty)
+                .transpose()?
+                .unwrap_or_default();
 
             let conflict_resolution = take_single_directive(&mut config, "conflict_resolution")?
                 .map(parse_conflict_resolution)
