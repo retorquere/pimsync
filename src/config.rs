@@ -103,21 +103,9 @@ impl Config {
                 OnEmpty::default()
             };
 
-            let conflict_resolution = if let Some(mut directive) =
-                take_single_directive(&mut config, "conflict_resolution")?
-            {
-                let mut params = directive.take_params().into_iter();
-                match params.next().as_deref() {
-                    Some("cmd") => Some(ConflictResolution::Cmd(
-                        RawCommand::try_from(params).context("parsing conflict_resolution")?,
-                    )),
-                    Some("from a") => Some(ConflictResolution::FromA),
-                    Some("from b") => Some(ConflictResolution::FromB),
-                    _ => bail!("conflict_resolution expects a cmd parameter"),
-                }
-            } else {
-                None
-            };
+            let conflict_resolution = take_single_directive(&mut config, "conflict_resolution")?
+                .map(parse_conflict_resolution)
+                .transpose()?;
 
             // TODO: metadata
 
@@ -319,6 +307,19 @@ fn parse_individual_collection(
         }
         (Some(_), Some(_)) => bail!("Collection block cannot define both id_a and href_a."),
     })
+}
+
+fn parse_conflict_resolution(mut directive: Directive) -> anyhow::Result<ConflictResolution> {
+    let mut params = directive.take_params().into_iter();
+    match params.next().as_deref() {
+        Some("cmd") => RawCommand::try_from(params)
+            .context("parsing conflict_resolution")
+            .map(ConflictResolution::Cmd),
+        Some("from a") => Ok(ConflictResolution::FromA),
+        Some("from b") => Ok(ConflictResolution::FromB),
+        Some(param) => bail!("Invalid parameter for conflict_resolution: {param}"),
+        None => bail!("Missing parameter for conflict_resolution"),
+    }
 }
 
 fn parse_on_empty(mut directive: Directive) -> anyhow::Result<OnEmpty> {
