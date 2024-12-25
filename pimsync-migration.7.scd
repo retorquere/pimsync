@@ -26,6 +26,7 @@ storages.
 - The *singlefile* storage.
 - All metadata is synchronised. Selecting individual fields is not currently
   possible.
+- The *readonly* configuration directive.
 
 # CONFIGURATION FILE FORMAT
 

@@ -27,7 +27,7 @@ is supported.
 
 *-c* _configfile_
 	Read the configuration file from the specified path, instead of the
-	default. See FILES below.
+	default. See FILES below and pimsync.conf(5).
 
 *-v* _loglevel_
 	Set logger to _loglevel_, which must be one of *trace*, *debug*, *info*,

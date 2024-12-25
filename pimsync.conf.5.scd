@@ -36,8 +36,8 @@ Each storage section starts with a declaration of the storage name.
 *storage* _name_ { … }
 	Declare a storage with name _name_.
 
-Each storage is defined by a block of directives, one per line, enclosed in
-curly braces:
+Directives are declared inside the curly braces for each section, one per line.
+The following directives apply to all storage types:
 
 *type* _type_
 	Type can be one of *vdir/icalendar*, *vdir/vcard*, *caldav*, *carddav*
@@ -47,9 +47,11 @@ curly braces:
 	When monitoring a storage is no possible, check for changes every
 	the specified amount of seconds. The default is 300 seconds.
 
-; TODO: should point to docs for *vdir*.
+A *vdir* is a directory where each collection is represented by a directory and
+each item is stored in an individual file. Storages of type *vdir* take the
+following directives:
 
-Storages of type *vdir* take the following directives:
+; TODO: should point to docs for *vdir*.
 
 *path* _path_
 	Path to a directory storing a vdir. A leading tilde will be expanded to
@@ -75,6 +77,8 @@ Storages of type *caldav* or *carddav* take the following directives:
 *password* { … }
 	Optional. Password to use for HTTP Basic Auth.
 
+; TODO: directive to service discovery
+
 Storages of type *webcal* take the following directives:
 
 *url* _url_++
@@ -96,9 +100,12 @@ Storages of type *caldav*, *carddav* or *webcal* take the following directive:
 	*pimsync/1.0.0*.
 
 The *url*, *username* and *password* fields may be defined in the configuration
-file, or may specify a command to retrieve this value from an external store. To
-read a password via the external command _secret-store --get-caldav-password_,
-use the following syntax:
+file, or may specify a command to retrieve this value from an external storage.
+When specifying an external command, instead of defining a value for the
+directive, specify a new block with a single *cmd* directive.
+
+For example, to read a password via the external command _secret-store
+--get-caldav-password_, use the following syntax:
 
 ```
 password {
@@ -106,15 +113,19 @@ password {
 }
 ```
 
+It is recommended to store credentials and other sensitive values in a secret
+storage service.
+
 # PAIR SECTIONS
 
-Each pair section starts with a declaration of the pair name.
+A pair declares how two storages shall be synchronised to each other. Each pair
+section starts with a declaration of the pair name:
 
 *pair* _name_ { … }
 	Declare a pair with name _name_.
 
-Each pair is defined by a block of directives, one per line, enclosed in
-curly braces:
+Each pair is defined by a block of directives, one per line, enclosed in curly
+braces:
 
 *storage_a* _name_
 	The _name_ of the first storage to be synchronised with another.
@@ -143,15 +154,15 @@ curly braces:
 
 *collection* { … }
 	Synchronise collection defined by the given rules. See *COLLECTION
-	SECTIONS* below. May be specified more than once.
+	SECTIONS* below. May be specified more than once per pair.
 
 *on_empty skip*
-	When a collection is entire empty on one side, skip it. This is the
-	default.
+	When a collection is completely emptied on one side, skip it. This is
+	the default.
 
 *on_empty sync*
-	When a collection is entire empty on one side, empty its counterpart on
-	the other side. Take great care when using this option. If you
+	When a collection is completely emptied on one side, empty its
+	counterpart on the other side. Take care when using this option. If you
 	completely delete a collection on one side, pimsync(1) won't restore it.
 	Instead, it will delete the same collection (and all of its items) on
 	the other side.
