@@ -104,8 +104,8 @@ file, or may specify a command to retrieve this value from an external storage.
 When specifying an external command, instead of defining a value for the
 directive, specify a new block with a single *cmd* directive.
 
-For example, to read a password via the external command _secret-store
---get-caldav-password_, use the following syntax:
+For example, to read a password via the external command
+_secret-store --get-caldav-password_, use the following syntax:
 
 ```
 password {
