@@ -313,6 +313,7 @@ fn parse_conflict_resolution(mut directive: Directive) -> anyhow::Result<Conflic
         Some("cmd") => RawCommand::try_from(params)
             .context("parsing conflict_resolution")
             .map(ConflictResolution::Cmd),
+        // FIXME: does not match due to being multiple strings?
         Some("from a") => Ok(ConflictResolution::FromA),
         Some("from b") => Ok(ConflictResolution::FromB),
         Some(param) => bail!("Invalid parameter for conflict_resolution: {param}"),
@@ -321,10 +322,7 @@ fn parse_conflict_resolution(mut directive: Directive) -> anyhow::Result<Conflic
 }
 
 fn parse_on_empty(mut directive: Directive) -> anyhow::Result<OnEmpty> {
-    let val = directive
-        .take_params()
-        .pop()
-        .context("Directive on_empty must include one parameter")?;
+    let val = take_single_param(&mut directive).context("Parsing parameter for on_empty")?;
 
     match val.as_ref() {
         "skip" => Ok(OnEmpty::Skip),
@@ -569,20 +567,16 @@ fn parse_tls_config(config: &mut Scfg) -> anyhow::Result<HttpsConfig> {
     let mut tls = HttpsConfig::default();
 
     if let Some(mut verify) = take_single_directive(config, "verify")? {
-        let path = verify
-            .take_params()
-            .pop()
-            .context("verify must specify one parameter")?
+        let path = take_single_param(&mut verify)
+            .context("Parsing verify directive")?
             .parse()
             .context("verify must specify a valid path")?;
         tls.verify = Some(path);
     }
 
     if let Some(mut fp) = take_single_directive(config, "verify_fingerprint")? {
-        let fingerprint = fp
-            .take_params()
-            .pop()
-            .context("verify_fingerprint must specify one parameter")?;
+        let fingerprint =
+            take_single_param(&mut fp).context("Parsing verify_fingerprint directive")?;
         tls.verify_fingerprint = Some(fingerprint);
     }
 
@@ -633,14 +627,19 @@ fn take_single_directive(config: &mut Scfg, name: &str) -> anyhow::Result<Option
 fn take_single_param_from_directive(config: &mut Scfg, name: &str) -> anyhow::Result<String> {
     let mut directive = take_single_directive(config, name)?
         .with_context(|| format!("directive {name} not found"))?;
+    take_single_param(&mut directive).with_context(|| format!("Parsing directive {name}"))
+}
+
+/// Take a single parameter from a directive.
+///
+/// "single" here implies that it must not be followed by any other parameters.
+fn take_single_param(directive: &mut Directive) -> anyhow::Result<String> {
     let mut params = directive.take_params().into_iter();
-    if let Some(param) = params.next() {
-        if params.next().is_some() {
-            bail!("{name} must not specify exactly one parameter");
-        }
-        return Ok(param);
+    let param = params.next().context("a parameter must be specified")?;
+    if params.next().is_some() {
+        bail!("no more than one parameter must be specified");
     }
-    bail!("{name} must specify one parameter");
+    Ok(param)
 }
 
 impl HttpsConfig {
@@ -722,10 +721,8 @@ pub(crate) fn parse_config(
     let mut storages = HashMap::<String, Scfg>::new();
 
     let interval = if let Some(mut directive) = take_single_directive(&mut parser, "interval")? {
-        let mut params = directive.take_params().into_iter();
-        params
-            .next()
-            .context("Interval must have exactly one parameter")?
+        take_single_param(&mut directive)
+            .context("Parsing interval directive")?
             .parse()
             .context("Interval must be a valid integer")?
     } else {
@@ -736,10 +733,7 @@ pub(crate) fn parse_config(
 
     if let Some(directives) = parser.remove("pair") {
         for mut directive in directives {
-            let name = directive
-                .take_params()
-                .pop() // TODO: ignores superfluous values
-                .context("pair must specify a name")?;
+            let name = take_single_param(&mut directive).context("Parsing pair directive")?;
 
             // Skip disabled pairs.
             if let Some(enabled) = enabled_pairs {
@@ -756,10 +750,7 @@ pub(crate) fn parse_config(
 
     if let Some(directives) = parser.remove("storage") {
         for mut directive in directives {
-            let name = directive
-                .take_params()
-                .pop() // TODO: ignores superfluous values
-                .context("storage must specify a name")?;
+            let name = take_single_param(&mut directive).context("Parsing storage directive")?;
 
             let child = directive
                 .take_child()
