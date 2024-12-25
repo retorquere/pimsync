@@ -735,6 +735,10 @@ pub(crate) fn parse_config(
         for mut directive in directives {
             let name = take_single_param(&mut directive).context("Parsing pair directive")?;
 
+            if pairs.keys().any(|existing| *existing == name) {
+                bail!("Duplicate definition for pair {name}.");
+            }
+
             // Skip disabled pairs.
             if let Some(enabled) = enabled_pairs {
                 if !enabled.iter().any(|e| *e == name) {
