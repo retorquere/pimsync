@@ -3,7 +3,12 @@
 // SPDX-License-Identifier: EUPL-1.2
 
 use std::{
-    collections::HashMap, fs::File, path::PathBuf, process::Stdio, sync::Arc, time::Duration,
+    collections::{HashMap, HashSet},
+    fs::File,
+    path::PathBuf,
+    process::Stdio,
+    sync::Arc,
+    time::Duration,
 };
 
 use anyhow::{bail, ensure, Context};
@@ -731,6 +736,8 @@ pub(crate) fn parse_config(
 
     let status_path = take_single_param_from_directive(&mut parser, "status_path")?;
 
+    let mut enabled_pairs = enabled_pairs.map(|vec| vec.iter().collect::<HashSet<_>>());
+
     if let Some(directives) = parser.remove("pair") {
         for mut directive in directives {
             let name = take_single_param(&mut directive).context("Parsing pair directive")?;
@@ -740,16 +747,20 @@ pub(crate) fn parse_config(
             }
 
             // Skip disabled pairs.
-            if let Some(enabled) = enabled_pairs {
-                if !enabled.iter().any(|e| *e == name) {
-                    continue;
-                };
+            if let Some(ref mut enabled) = enabled_pairs {
+                if !enabled.remove(&name) {
+                    continue; // Skip if not in enabled list.
+                }
             }
 
             info!("Enabled pair {name}");
             let child = directive.take_child().context("pair must define a block")?;
             pairs.insert(name, child);
         }
+    }
+
+    if let Some(missing) = enabled_pairs.and_then(|e| e.into_iter().next()) {
+        bail!("Requested pair missing from configuration: {missing}");
     }
 
     if let Some(directives) = parser.remove("storage") {
