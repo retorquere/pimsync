@@ -713,7 +713,7 @@ enum ClientCert {
 /// Parse a given file as a configuration file.
 pub(crate) fn parse_config(
     raw_config: &str,
-    enabled_pairs: Option<&Vec<String>>,
+    enabled_pairs: Option<&[String]>,
 ) -> anyhow::Result<Config> {
     // TODO: The Scfg crate crates multiple copies of each string in the entire configuration file.
     //       I want a high-level API like the Scfg crate, but the zero-copy approach from scfg-scanner.

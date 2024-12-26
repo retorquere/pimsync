@@ -318,7 +318,7 @@ async fn main() -> anyhow::Result<()> {
     };
 
     let config_data = read_to_string(config_file)?;
-    let config = parse_config(&config_data, cli.pairs.as_ref()).with_context(|| {
+    let config = parse_config(&config_data, cli.pairs.as_deref()).with_context(|| {
         format!(
             "Could not parse configuration file at {}",
             config_path.display()
