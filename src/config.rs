@@ -371,9 +371,6 @@ where
         bail!("'encoding' is not implemented for vdir storages.");
     }
 
-    // TODO: post_hook
-    // TODO: fileignoreext
-
     Ok(Arc::new(VdirStorage::new(path, fileext)))
 }
 
@@ -425,10 +422,6 @@ async fn parse_carddav(mut config: Scfg) -> anyhow::Result<Arc<dyn Storage<Vcard
 
 async fn parse_caldav(mut config: Scfg) -> anyhow::Result<Arc<dyn Storage<IcsItem>>> {
     let url = take_single_param_from_directive(&mut config, "url")?;
-
-    // TODO: start_date
-    // TODO: end_date
-    // TODO: item_types
 
     if let Some(socket) = url.strip_prefix("unix://") {
         let webdav = parse_socket_webdav_client(config, socket)?;
@@ -707,8 +700,6 @@ enum ClientCert {
     SingleFile(PathBuf),
     SeparateKeyAndCert(PathBuf, PathBuf),
 }
-
-// TODO: singlefile
 
 /// Parse a given file as a configuration file.
 pub(crate) fn parse_config(
