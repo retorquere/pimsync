@@ -355,8 +355,7 @@ fn parse_vdir<I: Item + 'static>(mut config: Scfg) -> anyhow::Result<Arc<dyn Sto
 where
     I::Property: PropertyWithFilename,
 {
-    let path = take_single_param_from_directive(&mut config, "path")?;
-    let path = Utf8PathBuf::from(path);
+    let path = take_single_param_from_directive(&mut config, "path")?.into();
     let path = expand_tilde(path).context("Expanding tilde for storage")?;
 
     let fileext = take_single_param_from_directive(&mut config, "fileext")?;
