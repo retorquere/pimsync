@@ -131,7 +131,7 @@ impl<I: Item> Executor<I> {
         match action {
             CollectionAction::NoAction(mapping_uid) => Ok(Ok((*mapping_uid, None))),
             CollectionAction::SaveToStatus => status
-                .get_or_add_collection(a.href(), b.href(), a.id(), b.id())
+                .get_or_add_collection(a.href(), b.href())
                 .map(|uid| Ok((uid, None))),
             CollectionAction::CreateInOne(side) => {
                 let storage = match side {
@@ -436,8 +436,8 @@ async fn create_collection<I: Item>(
         return Ok(Err(err));
     };
     let mapping_uid = match side {
-        Side::A => status.add_collection(new.href(), existing.href(), target.id(), existing.id()),
-        Side::B => status.add_collection(existing.href(), new.href(), existing.id(), target.id()),
+        Side::A => status.add_collection(new.href(), existing.href()),
+        Side::B => status.add_collection(existing.href(), new.href()),
     }?;
     Ok(Ok(mapping_uid))
 }
@@ -468,7 +468,7 @@ async fn create_both_collections<I: Item>(
         return Ok(Err(err));
     };
 
-    Ok(Ok(status.get_or_add_collection(href_a, href_b, id_a, id_b)?))
+    Ok(Ok(status.get_or_add_collection(href_a, href_b)?))
 }
 
 async fn check_id_matches_expected<I: Item>(

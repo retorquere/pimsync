@@ -6,10 +6,10 @@ use sqlite::{Connection, ConnectionThreadSafe, OpenFlags, State};
 
 use crate::{
     base::{Item, ItemRef},
-    CollectionId, Etag, Href,
+    Etag, Href,
 };
 
-const SCHEMA_VERSION: i64 = 2;
+// const SCHEMA_VERSION: i64 = 3;
 
 /// Error interacting with status database.
 #[derive(thiserror::Error, Debug)]
@@ -173,27 +173,23 @@ impl StatusDatabase {
         self.conn
             .execute("CREATE TABLE IF NOT EXISTS meta (version INTEGER PRIMARY KEY)")?;
 
-        let mut q = self
-            .conn
-            .prepare("INSERT OR IGNORE INTO meta (version) VALUES (?)")?;
-        q.bind((1, SCHEMA_VERSION))?;
-        q.next()?;
+        self.conn
+            .execute("INSERT OR IGNORE INTO meta (version) VALUES (2)")?;
 
         self.conn.execute(concat!(
             "CREATE TABLE IF NOT EXISTS collections (",
             " uid INTEGER PRIMARY KEY AUTOINCREMENT,",
-            " id_a TEXT,",
+            " id_a TEXT,", // Removed in schema 2.
             " href_a TEXT NOT NULL,",
-            " id_b TEXT,",
+            " id_b TEXT,", // Removed in schema 2.
             " href_b TEXT NOT NULL",
             ")",
         ))?;
+
         self.conn
             .execute("CREATE UNIQUE INDEX IF NOT EXISTS href_a ON collections(href_a)")?;
         self.conn
             .execute("CREATE UNIQUE INDEX IF NOT EXISTS href_b ON collections(href_b)")?;
-        // TODO: duplicate ids are not allowed.
-        // FIXME: this also needs to be addressed in the discovery layer.
 
         // TODO: Etag should also be NOT NULL
         self.conn.execute(concat!(
@@ -234,6 +230,16 @@ impl StatusDatabase {
         self.conn.execute(
             "CREATE UNIQUE INDEX IF NOT EXISTS by_href_b ON properties(href_b, property)",
         )?;
+
+        if self.get_schema_version()? < 3 {
+            self.conn.execute("BEGIN TRANSACTION")?;
+            self.conn
+                .execute("ALTER TABLE collections DROP COLUMN id_a")?;
+            self.conn
+                .execute("ALTER TABLE collections DROP COLUMN id_b")?;
+            self.conn.execute("INSERT INTO meta (version) VALUES (3)")?;
+            self.conn.execute("COMMIT TRANSACTION")?;
+        }
         Ok(())
     }
 
@@ -345,19 +351,15 @@ impl StatusDatabase {
         &self,
         href_a: &str,
         href_b: &str,
-        id_a: Option<&CollectionId>,
-        id_b: Option<&CollectionId>,
     ) -> Result<MappingUid, StatusError> {
         let query = concat!(
-            "INSERT INTO collections(id_a, href_a, id_b, href_b)",
-            " VALUES (?, ?, ?, ?)",
+            "INSERT INTO collections(href_a, href_b)",
+            " VALUES (?, ?)",
             " RETURNING uid",
         );
         let mut statement = self.conn.prepare(query)?;
-        statement.bind((1, id_a.map(CollectionId::as_ref)))?;
-        statement.bind((2, href_a))?;
-        statement.bind((3, id_b.map(CollectionId::as_ref)))?;
-        statement.bind((4, href_b))?;
+        statement.bind((1, href_a))?;
+        statement.bind((2, href_b))?;
 
         if statement.next()? == State::Row {
             Ok(MappingUid(statement.read::<i64, _>("uid")?))
@@ -370,19 +372,15 @@ impl StatusDatabase {
         &self,
         href_a: &str,
         href_b: &str,
-        id_a: Option<&CollectionId>,
-        id_b: Option<&CollectionId>,
     ) -> Result<MappingUid, StatusError> {
         let query = concat!(
-            "INSERT OR IGNORE INTO collections(id_a, href_a, id_b, href_b)",
-            " VALUES (?, ?, ?, ?)",
+            "INSERT OR IGNORE INTO collections(href_a, href_b)",
+            " VALUES (?, ?)",
             " RETURNING uid",
         );
         let mut statement = self.conn.prepare(query)?;
-        statement.bind((1, id_a.map(CollectionId::as_ref)))?;
-        statement.bind((2, href_a))?;
-        statement.bind((3, id_b.map(CollectionId::as_ref)))?;
-        statement.bind((4, href_b))?;
+        statement.bind((1, href_a))?;
+        statement.bind((2, href_b))?;
         // If a uid was returned (just inserted) return that.
         if statement.next()? == State::Row {
             return Ok(MappingUid(statement.read::<i64, _>("uid")?));
@@ -583,6 +581,16 @@ impl StatusDatabase {
 
         Ok(())
     }
+
+    fn get_schema_version(&self) -> Result<i64, StatusError> {
+        let mut statement = self.conn.prepare("SELECT MAX(version) AS ver FROM meta")?;
+
+        if let State::Row = statement.next()? {
+            Ok(statement.read::<i64, _>("ver")?)
+        } else {
+            Ok(0)
+        }
+    }
 }
 
 #[cfg(test)]
@@ -590,7 +598,7 @@ mod test {
     use crate::{
         base::{IcsItem, ItemRef},
         sync::status::StatusError,
-        CollectionId, Etag,
+        Etag,
     };
 
     use super::{MappingUid, Side, StatusDatabase};
@@ -617,13 +625,8 @@ mod test {
             href: "work/item.ics".into(),
             etag: "abc000".into(),
         };
-        db.get_or_add_collection(
-            "/collections/work/",
-            "work",
-            Some(&"work".parse().unwrap()),
-            Some(&"work".parse().unwrap()),
-        )
-        .unwrap();
+        db.get_or_add_collection("/collections/work/", "work")
+            .unwrap();
         db.insert_item(mapping_uid, uid, hash, &item_a, &item_b)
             .unwrap();
 
@@ -681,13 +684,8 @@ mod test {
             href: "work/item.ics".into(),
             etag: "abc000".into(),
         };
-        db.get_or_add_collection(
-            "/collections/work/",
-            "work",
-            Some(&"work".parse().unwrap()),
-            Some(&"work".parse().unwrap()),
-        )
-        .unwrap();
+        db.get_or_add_collection("/collections/work/", "work")
+            .unwrap();
         db.insert_item(mapping_uid, uid, hash, &item_a, &item_b)
             .unwrap();
 
@@ -751,13 +749,8 @@ mod test {
             href: "work/item.ics".into(),
             etag: "abc000".into(),
         };
-        db.get_or_add_collection(
-            "/collections/work/",
-            "work",
-            Some(&"work".parse().unwrap()),
-            Some(&"work".parse().unwrap()),
-        )
-        .unwrap();
+        db.get_or_add_collection("/collections/work/", "work")
+            .unwrap();
         db.insert_item(mapping_uid, uid, hash, &item_a, &item_b)
             .unwrap();
 
@@ -788,12 +781,9 @@ mod test {
     #[test]
     fn test_add_and_get_collection() {
         let db = StatusDatabase::open_or_create(":memory:").unwrap();
-        let collection_id = "guests".parse::<CollectionId>().unwrap();
         let href_a = "/collections/guests";
         let href_b = "guests";
-        let mapping_uid = db
-            .get_or_add_collection(href_a, href_b, Some(&collection_id), Some(&collection_id))
-            .unwrap();
+        let mapping_uid = db.get_or_add_collection(href_a, href_b).unwrap();
 
         let gotten_uid = db
             .get_mapping_uid(&href_a.to_string(), &href_b.to_string())
