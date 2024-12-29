@@ -187,7 +187,7 @@ where
 
                 ItemRef {
                     href: item.ident(),
-                    etag: hash.into(),
+                    etag: hash.to_string().into(),
                 }
             })
             .collect();
@@ -220,7 +220,7 @@ where
             .ok_or_else(|| Error::from(ErrorKind::DoesNotExist))?;
 
         let hash = item.hash();
-        Ok((item, hash.into()))
+        Ok((item, hash.to_string().into()))
     }
 
     /// Returns multiple items from the collection.
@@ -243,7 +243,7 @@ where
                 if hrefs.contains(&(item.ident().as_ref())) {
                     Some(Ok(FetchedItem {
                         href: item.ident(),
-                        etag: item.hash().into(),
+                        etag: item.hash().to_string().into(),
                         item,
                     }))
                 } else {
@@ -272,7 +272,7 @@ where
                 let item = IcsItem::from(c.to_string());
                 Ok(FetchedItem {
                     href: item.ident(),
-                    etag: item.hash().into(),
+                    etag: item.hash().to_string().into(),
                     item,
                 })
             })

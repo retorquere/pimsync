@@ -122,7 +122,9 @@ mod test {
                     href: "/path/to/some/file.vcf".into(),
                     uid: "d99ed506-dceb-49f2-a1c9-efa63c68acd0".into(),
                     etag: "123890".into(),
-                    hash: "AAAAAZZZZZ".into(),
+                    hash: "0000000000000000000000000000000000000000000000000000000000000000"
+                        .parse()
+                        .unwrap(),
                     data: None,
                 },
             })),

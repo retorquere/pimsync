@@ -6,6 +6,7 @@ use sqlite::{Connection, ConnectionThreadSafe, OpenFlags, State};
 
 use crate::{
     base::{Item, ItemRef},
+    util::{ItemHash, ItemHashError},
     Etag, Href,
 };
 
@@ -20,6 +21,8 @@ pub enum StatusError {
     NoUpdate,
     #[error("Could not create parent directories")]
     ParentDirs(#[source] std::io::Error),
+    #[error("Status DB contained an invalid hash")]
+    InvalidHash(#[from] ItemHashError),
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -63,7 +66,7 @@ pub struct ItemState<I: Item> {
     pub href: Href,
     pub uid: String,
     pub etag: Etag,
-    pub hash: String,
+    pub hash: ItemHash,
     pub data: Option<I>,
 }
 
@@ -95,7 +98,7 @@ impl<I: Item> From<ItemState<I>> for ItemRef {
 
 /// The status for an item as retrieved from a [`StatusDatabase`].
 pub(super) struct StatusForItem {
-    pub(super) hash: String,
+    pub(super) hash: ItemHash,
     pub(super) a: ItemRef,
     pub(super) b: ItemRef,
 }
@@ -269,7 +272,7 @@ impl StatusDatabase {
                 href: statement.read::<String, _>("href")?,
                 uid: statement.read::<String, _>("ident")?,
                 etag: Etag::from(etag),
-                hash: statement.read::<String, _>("hash")?,
+                hash: statement.read::<String, _>("hash")?.parse()?,
                 data: None,
             }))
         } else {
@@ -292,7 +295,7 @@ impl StatusDatabase {
 
         if let Ok(State::Row) = statement.next() {
             Ok(Some(StatusForItem {
-                hash: statement.read::<String, _>("hash")?,
+                hash: statement.read::<String, _>("hash")?.parse()?,
                 a: ItemRef {
                     href: statement.read::<String, _>("href_a")?,
                     etag: statement.read::<String, _>("etag_a")?.into(),
@@ -403,7 +406,7 @@ impl StatusDatabase {
         &self,
         mapping_uid: MappingUid,
         uid: &str,
-        hash: &str,
+        hash: &ItemHash,
         ref_a: &ItemRef,
         ref_b: &ItemRef,
     ) -> Result<(), StatusError> {
@@ -414,8 +417,7 @@ impl StatusDatabase {
         let mut statement = self.conn.prepare(query)?;
         statement.bind((1, uid))?;
         statement.bind((2, mapping_uid.0))?;
-        statement.bind((3, hash))?;
-
+        statement.bind((3, hash.to_string().as_str()))?;
         statement.bind((4, ref_a.href.as_str()))?;
         statement.bind((5, ref_a.etag.as_ref()))?;
         statement.bind((6, ref_b.href.as_str()))?;
@@ -426,7 +428,7 @@ impl StatusDatabase {
 
     pub(super) fn update_item(
         &self,
-        new_hash: &str,
+        new_hash: &ItemHash,
         old_a: &ItemRef,
         old_b: &ItemRef,
         new_a: &ItemRef,
@@ -439,7 +441,7 @@ impl StatusDatabase {
             " WHERE href_a = :old_href_a AND href_b = :old_href_b AND etag_a = :old_etag_a AND etag_b = :old_etag_b"
         );
         let mut statement = self.conn.prepare(query)?;
-        statement.bind((":hash", new_hash))?;
+        statement.bind((":hash", new_hash.to_string().as_str()))?;
 
         statement.bind((":new_href_a", new_a.href.as_str()))?;
         statement.bind((":new_href_b", new_b.href.as_str()))?;
@@ -616,7 +618,9 @@ mod test {
         let db = StatusDatabase::open_or_create(":memory:").unwrap();
         let mapping_uid = MappingUid(1);
         let uid = "07da74e5-0a32-482a-bbdd-13fd1e45cce3";
-        let hash = "HASH";
+        let hash = "133ee989293f92736301280c6f14c89d521200c17dcdcecca30cd20705332d44"
+            .parse()
+            .unwrap();
         let item_a = ItemRef {
             href: "/collections/work/item.ics".into(),
             etag: "123".into(),
@@ -627,7 +631,7 @@ mod test {
         };
         db.get_or_add_collection("/collections/work/", "work")
             .unwrap();
-        db.insert_item(mapping_uid, uid, hash, &item_a, &item_b)
+        db.insert_item(mapping_uid, uid, &hash, &item_a, &item_b)
             .unwrap();
 
         let item_a_fetched = db
@@ -675,7 +679,9 @@ mod test {
         let db = StatusDatabase::open_or_create(":memory:").unwrap();
         let mapping_uid = MappingUid(1);
         let uid = "07da74e5-0a32-482a-bbdd-13fd1e45cce3";
-        let hash = "HASH";
+        let hash = "0000000000000000000000000000000000000000000000000000000000000000"
+            .parse()
+            .unwrap();
         let item_a = ItemRef {
             href: "/collections/work/item.ics".into(),
             etag: "123".into(),
@@ -686,14 +692,16 @@ mod test {
         };
         db.get_or_add_collection("/collections/work/", "work")
             .unwrap();
-        db.insert_item(mapping_uid, uid, hash, &item_a, &item_b)
+        db.insert_item(mapping_uid, uid, &hash, &item_a, &item_b)
             .unwrap();
 
-        let updated_hash = "ANOTHERHASH";
+        let updated_hash = "1111111111111111111111111111111111111111111111111111111111111111"
+            .parse()
+            .unwrap();
         let updated_etag_a = Etag::from("456");
         let updated_etag_b = Etag::from("def111");
         db.update_item(
-            updated_hash,
+            &updated_hash,
             &item_a,
             &item_b,
             &ItemRef {
@@ -740,7 +748,9 @@ mod test {
         let db = StatusDatabase::open_or_create(":memory:").unwrap();
         let mapping_uid = MappingUid(1);
         let uid = "07da74e5-0a32-482a-bbdd-13fd1e45cce3";
-        let hash = "HASH";
+        let hash = "2222222222222222222222222222222222222222222222222222222222222222"
+            .parse()
+            .unwrap();
         let item_a = ItemRef {
             href: "/collections/work/item.ics".into(),
             etag: "123".into(),
@@ -751,15 +761,17 @@ mod test {
         };
         db.get_or_add_collection("/collections/work/", "work")
             .unwrap();
-        db.insert_item(mapping_uid, uid, hash, &item_a, &item_b)
+        db.insert_item(mapping_uid, uid, &hash, &item_a, &item_b)
             .unwrap();
 
-        let updated_hash = "ANOTHERHASH";
+        let updated_hash = "3333333333333333333333333333333333333333333333333333333333333333"
+            .parse()
+            .unwrap();
         let updated_etag_a = "456".into();
         let updated_etag_b = "def111".into();
         let err = db
             .update_item(
-                updated_hash,
+                &updated_hash,
                 &ItemRef {
                     href: "not/correct.ics".into(),
                     etag: item_a.etag,

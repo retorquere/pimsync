@@ -19,8 +19,10 @@ use libdav::{
 use tokio::sync::mpsc::Receiver;
 
 use crate::{
-    disco::Discovery, util::replace_uid, watch::Event, CollectionId, Error, ErrorKind, Etag, Href,
-    Result,
+    disco::Discovery,
+    util::{replace_uid, ItemHash},
+    watch::Event,
+    CollectionId, Error, ErrorKind, Etag, Href, Result,
 };
 
 /// A storage is the highest level abstraction where items can be stored. It can be a remote CalDav
@@ -252,12 +254,12 @@ where
     /// This value is used as a fallback when a storage backend doesn't provide [`Etag`] values, or
     /// when an item's [`Item::uid`] returns `None`.
     #[must_use]
-    fn hash(&self) -> String;
+    fn hash(&self) -> ItemHash;
 
     /// A unique identifier for this item. Is either the UID (if any), or the hash of its contents.
     #[must_use]
     fn ident(&self) -> String {
-        self.uid().unwrap_or_else(|| self.hash())
+        self.uid().unwrap_or_else(|| self.hash().to_string())
     }
 
     /// Returns a new copy of this Item with the supplied UID.
@@ -332,7 +334,7 @@ impl Item for IcsItem {
 
     /// Returns the hash of the normalised content.
     #[must_use]
-    fn hash(&self) -> String {
+    fn hash(&self) -> ItemHash {
         crate::util::hash(&self.raw)
     }
 
@@ -435,7 +437,7 @@ mod tests {
         .join("\r\n");
         let item = IcsItem::from(raw);
         assert_eq!(item.uid(), None);
-        assert_eq!(item.ident(), item.hash());
+        assert_eq!(item.ident(), item.hash().to_string());
     }
 
     #[test]
@@ -514,7 +516,7 @@ impl Item for VcardItem {
 
     /// Returns the hash of the normalised content.
     #[must_use]
-    fn hash(&self) -> String {
+    fn hash(&self) -> ItemHash {
         crate::util::hash(&self.raw)
     }
 

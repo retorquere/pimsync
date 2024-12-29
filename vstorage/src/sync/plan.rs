@@ -13,6 +13,7 @@ use log::{debug, warn};
 
 use crate::base::{FetchedItem, ItemRef, Property, Storage};
 use crate::disco::{DiscoveredCollection, Discovery};
+use crate::util::ItemHash;
 use crate::{base::Item, sync::declare::StoragePair};
 use crate::{CollectionId, ErrorKind, Href};
 
@@ -640,14 +641,14 @@ pub enum ItemAction<I: Item> {
         a: ItemRef,
         b: ItemRef,
         uid: String,
-        hash: String,
+        hash: ItemHash,
     },
     /// Update the status DB.
     ///
     /// Item has changed on both sides, but remains in sync. The `old` field contains data to
     /// update the status db atomically.
     UpdateStatus {
-        hash: String,
+        hash: ItemHash,
         old: (ItemRef, ItemRef),
         new: (ItemRef, ItemRef),
     },

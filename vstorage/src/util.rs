@@ -3,6 +3,8 @@
 // SPDX-License-Identifier: EUPL-1.2
 
 //! Miscellaneous helpers.
+use std::{str::FromStr, sync::Arc};
+
 use sha2::{Digest, Sha256};
 use vparser::Parser;
 
@@ -19,8 +21,58 @@ const ICS_FIELDS_TO_IGNORE: &[&str] = &[
     "LAST-MODIFIED",
 ];
 
+#[derive(Default, PartialEq, Clone)]
+pub struct ItemHash(Arc<[u8; 32]>);
+
+// TODO: must confirm that this matches previous impl to ensure statusDb makes sense.
+impl std::fmt::Display for ItemHash {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for byte in self.0.iter() {
+            write!(f, "{byte:02X}")?;
+        }
+        Ok(())
+    }
+}
+
+impl std::fmt::Debug for ItemHash {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "ItemHash(")?;
+        for byte in self.0.iter() {
+            write!(f, "{byte:02X}")?;
+        }
+        write!(f, ")")
+    }
+}
+
+/// Error returned by [`ItemHash::from_str`].
+#[derive(Debug, thiserror::Error)]
+pub enum ItemHashError {
+    #[error("Hash must be exactly 64 characters long")]
+    InvalidLength,
+    #[error("Invalid character in hash representation")]
+    InvalidCharacter,
+}
+
+impl FromStr for ItemHash {
+    type Err = ItemHashError;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        if value.len() != 64 {
+            return Err(ItemHashError::InvalidLength);
+        }
+
+        let mut bytes = [0u8; 32];
+        for (i, chunk) in value.as_bytes().chunks(2).enumerate() {
+            let hex = std::str::from_utf8(chunk).map_err(|_| ItemHashError::InvalidCharacter)?;
+            bytes[i] = u8::from_str_radix(hex, 16).map_err(|_| ItemHashError::InvalidCharacter)?;
+        }
+
+        Ok(ItemHash(Arc::new(bytes)))
+    }
+}
+
 /// Return the SHA256 hash of an icalendar or vcard.
-pub(crate) fn hash(input: impl AsRef<str>) -> String {
+pub(crate) fn hash(input: impl AsRef<str>) -> ItemHash {
     let mut hasher = Sha256::new();
     let parser = Parser::new(input.as_ref());
     for line in parser {
@@ -37,7 +89,8 @@ pub(crate) fn hash(input: impl AsRef<str>) -> String {
         hasher.update(line.unfolded().as_ref());
         hasher.update("\r\n"); // Included even for the last line.
     }
-    format!("{:X}", hasher.finalize())
+
+    ItemHash(Arc::from(<[u8; 32]>::from(hasher.finalize())))
 }
 
 /// Replaces the UID for an input vobject.
@@ -104,7 +157,7 @@ mod test {
 
         assert_eq!(hash(&without_prodid), hash(with_prodid));
         assert_eq!(
-            hash(without_prodid),
+            hash(without_prodid).to_string(),
             "E6DF19EB84E6DCE351EFB015D25C76D31A1FE09F2A8732BE6BC565A01EFA1A41"
         );
     }
@@ -124,7 +177,7 @@ mod test {
 
         assert_eq!(hash(&first), hash(second));
         assert_eq!(
-            hash(first),
+            hash(first).to_string(),
             "9FCE34302FB7B6677542987089C91FDDF79F18F1D42862B03B1DEDF8E72F0CE2"
         );
     }
