@@ -102,7 +102,11 @@ mod test {
         ]
         .join("\r\n");
 
-        assert_eq!(hash(without_prodid), hash(with_prodid));
+        assert_eq!(hash(&without_prodid), hash(with_prodid));
+        assert_eq!(
+            hash(without_prodid),
+            "E6DF19EB84E6DCE351EFB015D25C76D31A1FE09F2A8732BE6BC565A01EFA1A41"
+        );
     }
 
     #[test]
@@ -118,6 +122,10 @@ mod test {
         ]
         .join("\r\n");
 
-        assert_eq!(hash(first), hash(second));
+        assert_eq!(hash(&first), hash(second));
+        assert_eq!(
+            hash(first),
+            "9FCE34302FB7B6677542987089C91FDDF79F18F1D42862B03B1DEDF8E72F0CE2"
+        );
     }
 }
