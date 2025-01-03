@@ -220,152 +220,6 @@ fn check_for_duplicate_mappings(mappings: &[ResolvedMapping]) -> Result<(), Plan
     Ok(())
 }
 
-#[cfg(test)]
-mod test {
-    use std::{str::FromStr, sync::Arc};
-
-    use tempfile::Builder;
-
-    use crate::{
-        base::{IcsItem, Storage},
-        sync::{
-            declare::{CollectionDescription, DeclaredMapping, StoragePair},
-            plan::{create_mappings_for_pair, Plan, PlanError},
-        },
-        vdir::VdirStorage,
-        CollectionId,
-    };
-
-    #[tokio::test]
-    async fn test_plan_no_mappings() {
-        let dir_a = Builder::new().prefix("vstorage").tempdir().unwrap();
-        let dir_b = Builder::new().prefix("vstorage").tempdir().unwrap();
-
-        let storage_a = Arc::new(VdirStorage::<IcsItem>::new(
-            dir_a.path().to_path_buf().try_into().unwrap(),
-            "ics".to_string(),
-        ));
-        let storage_b = Arc::from(VdirStorage::<IcsItem>::new(
-            dir_b.path().to_path_buf().try_into().unwrap(),
-            "ics".to_string(),
-        ));
-
-        // This sync would be a no-op, but it's not "wrong".
-        let pair = StoragePair::new(storage_a.clone(), storage_b.clone());
-        assert!(Plan::new(&pair, None).await.is_ok());
-    }
-
-    #[tokio::test]
-    async fn test_plan_simple_mapping() {
-        let dir_a = Builder::new().prefix("vstorage").tempdir().unwrap();
-        let dir_b = Builder::new().prefix("vstorage").tempdir().unwrap();
-
-        let storage_a = Arc::new(VdirStorage::<IcsItem>::new(
-            dir_a.path().to_path_buf().try_into().unwrap(),
-            "ics".to_string(),
-        ));
-        let storage_b = Arc::from(VdirStorage::<IcsItem>::new(
-            dir_b.path().to_path_buf().try_into().unwrap(),
-            "ics".to_string(),
-        ));
-        // This sync is okay.
-        let collection = CollectionId::from_str("test").unwrap();
-        let pair = StoragePair::new(storage_a.clone(), storage_b.clone())
-            .with_mapping(DeclaredMapping::direct(collection));
-
-        let mappings = create_mappings_for_pair(&pair).await.unwrap();
-        assert_eq!(mappings.len(), 1);
-
-        let plan = Plan::new(&pair, None).await.unwrap();
-        assert_eq!(plan.collection_plans.len(), 1);
-    }
-
-    #[tokio::test]
-    async fn test_plan_duplicate_mapping() {
-        let dir_a = Builder::new().prefix("vstorage").tempdir().unwrap();
-        let dir_b = Builder::new().prefix("vstorage").tempdir().unwrap();
-
-        let storage_a = Arc::new(VdirStorage::<IcsItem>::new(
-            dir_a.path().to_path_buf().try_into().unwrap(),
-            "ics".to_string(),
-        ));
-        let storage_b = Arc::from(VdirStorage::<IcsItem>::new(
-            dir_b.path().to_path_buf().try_into().unwrap(),
-            "ics".to_string(),
-        ));
-
-        // Duplicate mapping
-        let collection = CollectionId::from_str("test").unwrap();
-        let pair = StoragePair::new(storage_a.clone(), storage_b.clone())
-            .with_mapping(DeclaredMapping::direct(collection.clone()))
-            .with_mapping(DeclaredMapping::direct(collection));
-
-        let err = create_mappings_for_pair(&pair).await.unwrap_err();
-        assert!(matches!(err, PlanError::ConflictingMappings(..)));
-    }
-
-    #[tokio::test]
-    async fn test_plan_conflicting_mapping() {
-        let dir_a = Builder::new().prefix("vstorage").tempdir().unwrap();
-        let dir_b = Builder::new().prefix("vstorage").tempdir().unwrap();
-
-        let storage_a = Arc::new(VdirStorage::<IcsItem>::new(
-            dir_a.path().to_path_buf().try_into().unwrap(),
-            "ics".to_string(),
-        ));
-        let storage_b = Arc::from(VdirStorage::<IcsItem>::new(
-            dir_b.path().to_path_buf().try_into().unwrap(),
-            "ics".to_string(),
-        ));
-        // This sync has duplicate items.
-        let collection = CollectionId::from_str("test").unwrap();
-        let pair = StoragePair::new(storage_a.clone(), storage_b.clone())
-            .with_mapping(DeclaredMapping::direct(collection.clone()))
-            .with_mapping(DeclaredMapping::Mapped {
-                alias: "test".to_string(),
-                a: CollectionDescription::Id { id: collection },
-                b: CollectionDescription::Id {
-                    id: CollectionId::from_str("test_2").unwrap(),
-                },
-            });
-
-        let err = create_mappings_for_pair(&pair).await.unwrap_err();
-        assert!(matches!(err, PlanError::ConflictingMappings(..)));
-    }
-
-    #[tokio::test]
-    async fn test_plan_same_from_both_sides() {
-        let dir_a = Builder::new().prefix("vstorage").tempdir().unwrap();
-        let dir_b = Builder::new().prefix("vstorage").tempdir().unwrap();
-
-        let storage_a = Arc::new(VdirStorage::<IcsItem>::new(
-            dir_a.path().to_path_buf().try_into().unwrap(),
-            "ics".to_string(),
-        ));
-        let storage_b = Arc::from(VdirStorage::<IcsItem>::new(
-            dir_b.path().to_path_buf().try_into().unwrap(),
-            "ics".to_string(),
-        ));
-        // `from_a` and `from_b` with collection existing on both sides.
-        // This particular scenario is special-cased.
-        std::fs::create_dir(dir_a.path().join("one")).unwrap();
-        std::fs::create_dir(dir_b.path().join("one")).unwrap();
-
-        let disco = storage_a.discover_collections().await.unwrap();
-        assert_eq!(disco.collections().len(), 1);
-
-        let pair = StoragePair::new(storage_a.clone(), storage_b.clone())
-            .with_all_from_a()
-            .with_all_from_b();
-
-        let mappings = create_mappings_for_pair(&pair).await.unwrap();
-        assert_eq!(mappings.len(), 1);
-
-        let plan = Plan::new(&pair, None).await.unwrap();
-        assert_eq!(plan.collection_plans.len(), 1);
-    }
-}
-
 /// Mapping of two collections, resolved based on the storage's current state.
 ///
 /// Identifies which two collections (one from each storage) are mapped to each other.
@@ -1108,5 +962,151 @@ impl<I: Item> PropertyPlan<I> {
         }
 
         Ok(actions)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use std::{str::FromStr, sync::Arc};
+
+    use tempfile::Builder;
+
+    use crate::{
+        base::{IcsItem, Storage},
+        sync::{
+            declare::{CollectionDescription, DeclaredMapping, StoragePair},
+            plan::{create_mappings_for_pair, Plan, PlanError},
+        },
+        vdir::VdirStorage,
+        CollectionId,
+    };
+
+    #[tokio::test]
+    async fn test_plan_no_mappings() {
+        let dir_a = Builder::new().prefix("vstorage").tempdir().unwrap();
+        let dir_b = Builder::new().prefix("vstorage").tempdir().unwrap();
+
+        let storage_a = Arc::new(VdirStorage::<IcsItem>::new(
+            dir_a.path().to_path_buf().try_into().unwrap(),
+            "ics".to_string(),
+        ));
+        let storage_b = Arc::from(VdirStorage::<IcsItem>::new(
+            dir_b.path().to_path_buf().try_into().unwrap(),
+            "ics".to_string(),
+        ));
+
+        // This sync would be a no-op, but it's not "wrong".
+        let pair = StoragePair::new(storage_a.clone(), storage_b.clone());
+        assert!(Plan::new(&pair, None).await.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_plan_simple_mapping() {
+        let dir_a = Builder::new().prefix("vstorage").tempdir().unwrap();
+        let dir_b = Builder::new().prefix("vstorage").tempdir().unwrap();
+
+        let storage_a = Arc::new(VdirStorage::<IcsItem>::new(
+            dir_a.path().to_path_buf().try_into().unwrap(),
+            "ics".to_string(),
+        ));
+        let storage_b = Arc::from(VdirStorage::<IcsItem>::new(
+            dir_b.path().to_path_buf().try_into().unwrap(),
+            "ics".to_string(),
+        ));
+        // This sync is okay.
+        let collection = CollectionId::from_str("test").unwrap();
+        let pair = StoragePair::new(storage_a.clone(), storage_b.clone())
+            .with_mapping(DeclaredMapping::direct(collection));
+
+        let mappings = create_mappings_for_pair(&pair).await.unwrap();
+        assert_eq!(mappings.len(), 1);
+
+        let plan = Plan::new(&pair, None).await.unwrap();
+        assert_eq!(plan.collection_plans.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn test_plan_duplicate_mapping() {
+        let dir_a = Builder::new().prefix("vstorage").tempdir().unwrap();
+        let dir_b = Builder::new().prefix("vstorage").tempdir().unwrap();
+
+        let storage_a = Arc::new(VdirStorage::<IcsItem>::new(
+            dir_a.path().to_path_buf().try_into().unwrap(),
+            "ics".to_string(),
+        ));
+        let storage_b = Arc::from(VdirStorage::<IcsItem>::new(
+            dir_b.path().to_path_buf().try_into().unwrap(),
+            "ics".to_string(),
+        ));
+
+        // Duplicate mapping
+        let collection = CollectionId::from_str("test").unwrap();
+        let pair = StoragePair::new(storage_a.clone(), storage_b.clone())
+            .with_mapping(DeclaredMapping::direct(collection.clone()))
+            .with_mapping(DeclaredMapping::direct(collection));
+
+        let err = create_mappings_for_pair(&pair).await.unwrap_err();
+        assert!(matches!(err, PlanError::ConflictingMappings(..)));
+    }
+
+    #[tokio::test]
+    async fn test_plan_conflicting_mapping() {
+        let dir_a = Builder::new().prefix("vstorage").tempdir().unwrap();
+        let dir_b = Builder::new().prefix("vstorage").tempdir().unwrap();
+
+        let storage_a = Arc::new(VdirStorage::<IcsItem>::new(
+            dir_a.path().to_path_buf().try_into().unwrap(),
+            "ics".to_string(),
+        ));
+        let storage_b = Arc::from(VdirStorage::<IcsItem>::new(
+            dir_b.path().to_path_buf().try_into().unwrap(),
+            "ics".to_string(),
+        ));
+        // This sync has duplicate items.
+        let collection = CollectionId::from_str("test").unwrap();
+        let pair = StoragePair::new(storage_a.clone(), storage_b.clone())
+            .with_mapping(DeclaredMapping::direct(collection.clone()))
+            .with_mapping(DeclaredMapping::Mapped {
+                alias: "test".to_string(),
+                a: CollectionDescription::Id { id: collection },
+                b: CollectionDescription::Id {
+                    id: CollectionId::from_str("test_2").unwrap(),
+                },
+            });
+
+        let err = create_mappings_for_pair(&pair).await.unwrap_err();
+        assert!(matches!(err, PlanError::ConflictingMappings(..)));
+    }
+
+    #[tokio::test]
+    async fn test_plan_same_from_both_sides() {
+        let dir_a = Builder::new().prefix("vstorage").tempdir().unwrap();
+        let dir_b = Builder::new().prefix("vstorage").tempdir().unwrap();
+
+        let storage_a = Arc::new(VdirStorage::<IcsItem>::new(
+            dir_a.path().to_path_buf().try_into().unwrap(),
+            "ics".to_string(),
+        ));
+        let storage_b = Arc::from(VdirStorage::<IcsItem>::new(
+            dir_b.path().to_path_buf().try_into().unwrap(),
+            "ics".to_string(),
+        ));
+        // `from_a` and `from_b` with collection existing on both sides.
+        // This particular scenario is special-cased.
+        std::fs::create_dir(dir_a.path().join("one")).unwrap();
+        std::fs::create_dir(dir_b.path().join("one")).unwrap();
+
+        let disco = storage_a.discover_collections().await.unwrap();
+        assert_eq!(disco.collections().len(), 1);
+
+        let pair = StoragePair::new(storage_a.clone(), storage_b.clone())
+            .with_all_from_a()
+            .with_all_from_b();
+
+        let mappings = create_mappings_for_pair(&pair).await.unwrap();
+        assert_eq!(mappings.len(), 1);
+
+        let plan = Plan::new(&pair, None).await.unwrap();
+        assert_eq!(plan.collection_plans.len(), 1);
     }
 }
