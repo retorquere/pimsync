@@ -943,9 +943,7 @@ async fn items_for_collection<I: Item>(
 
         let listed_items = match storage.list_items(collection).await {
             Ok(i) => i,
-            Err(err) if err.kind == ErrorKind::DoesNotExist => {
-                return Ok(Vec::new());
-            }
+            Err(err) if err.kind == ErrorKind::DoesNotExist => return Ok(Vec::new()),
             Err(err) => return Err(err.into()),
         };
 
