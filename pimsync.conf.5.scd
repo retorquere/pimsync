@@ -64,10 +64,13 @@ Storages of type *caldav* or *carddav* take the following directives:
 
 *url* _url_++
 *url* { … }
-	URL of the Dav server. Service discovery will be performed on this URL
-	to find the exact location of the home set collection. URLs must specify
-	schema _http_, _https_ or _unix_. URLs starting in _unix://_ will be
-	treated as a path to a unix domain socket.
+	URL of the Dav server. If this URL does not report the appropriate DAV
+	capabilities, service discovery will be performed for this URL and its
+	domain to find the exact location of the server and the home set
+	collection.
+
+	URLs must specify schema _http_, _https_ or _unix_. URLs starting in
+	_unix://_ shall be treated as a path to a unix domain socket.
 
 *username* _username_++
 *username* { … }
