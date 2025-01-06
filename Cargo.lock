@@ -540,20 +540,19 @@ checksum = "8e9489c2807c139ffd9c1794f4af0ebe86a828db53ecdc7fea2111d0fed085d1"
 
 [[package]]
 name = "libdav"
-version = "0.8.0"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1dcfdcb9df21d3f59cc9b82db79720791a238d844e17e4c1f16df15340e722ac"
+checksum = "091d489da1c4d08423c9ccc2b3e8a6a36930d60b67410fc0a6bbbb54aac0a7b6"
 dependencies = [
  "domain",
  "http",
  "http-body-util",
  "hyper",
  "log",
- "percent-encoding",
  "roxmltree",
  "thiserror",
  "tokio",
- "tower 0.5.1",
+ "tower-service",
 ]
 
 [[package]]
@@ -694,12 +693,6 @@ dependencies = [
  "smallvec",
  "windows-targets 0.48.5",
 ]
-
-[[package]]
-name = "percent-encoding"
-version = "2.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9b2a4787296e9989611394c33f193f676704af1686e70b8f8033ab5ba9a35a94"
 
 [[package]]
 name = "pimsync"

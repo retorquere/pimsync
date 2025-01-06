@@ -157,7 +157,7 @@ where
         }
 
         self.client
-            .delete(href, etag)
+            .delete(href, &etag)
             .await
             .map_err(|e| Error::new(ErrorKind::Uncategorised, e))?;
         Ok(())
@@ -256,7 +256,7 @@ where
             .update_resource(
                 href,
                 item.as_str().as_bytes().to_vec(),
-                etag,
+                etag.as_str(),
                 mime_types::CALENDAR,
             )
             .await?;
@@ -311,7 +311,7 @@ where
 
     async fn delete_item(&self, href: &str, etag: &Etag) -> Result<()> {
         // TODO: check that href is a sub-path of this storage?
-        self.client.delete(href, etag).await?;
+        self.client.delete(href, etag.as_str()).await?;
 
         Ok(())
     }

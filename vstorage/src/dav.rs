@@ -57,7 +57,7 @@ pub(crate) fn parse_list_items(response: Vec<ListedResource>) -> Result<Vec<Item
 
     response
         .into_iter()
-        .filter_map(|r| match (r.status, r.details.etag) {
+        .filter_map(|r| match (r.status, r.etag) {
             (Some(StatusCode::OK) | None, Some(etag)) => Some(Ok(ItemRef {
                 href: r.href,
                 etag: etag.into(),

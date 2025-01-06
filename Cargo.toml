@@ -23,7 +23,7 @@ hyper-rustls = "0.26.0"
 hyper-util = { version = "0.1.1", features = ["client", "client-legacy", "http1"] }
 hyperlocal = "0.9.1"
 lexopt = "0.3.0"
-libdav = { version = "0.8.0" }
+libdav = { version = "0.9.0" }
 log = "0.4.20"
 rustix = { version = "0.38.10", features = ["fs"] }
 rustls = { version = "0.22.4" }
