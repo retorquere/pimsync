@@ -256,9 +256,8 @@ A security audit was completed by Radically Open Security:
 # HISTORY
 
 The *vdirsyncer* command was first implemented by Markus Unterwaditzer in 2014.
-
-Work on the *pimsync* command, strongly inspired by *vdirsyncer*, was started by
-Hugo Barrera in 2023.
+Work on the *pimsync* command, closely inspired by *vdirsyncer*, was started by
+Hugo Barrera in 2022.
 
 The acronym *pim* refers to *personal information management*.
 
