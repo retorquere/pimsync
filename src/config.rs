@@ -52,6 +52,10 @@ pub(crate) struct Config {
     // FIXME: TODO: move into individual storage definitions.
     interval: Duration,
     pairs: HashMap<String, Scfg>,
+    /// Configuration for all storages.
+    ///
+    /// Blocks which can be a string or a command are resolved prior to insertion here; it is safe
+    /// to assume that they are a string (if present).
     storages: HashMap<String, Scfg>,
 }
 
@@ -191,7 +195,6 @@ async fn init_storage(
         let storage = match type_.as_ref() {
             "vdir/icalendar" => EitherStorage::Calendar(parse_vdir(config)?),
             "vdir/vcard" => EitherStorage::AddressBook(parse_vdir(config)?),
-            // TODO: should not await here; return a FutureStorage instead.
             "carddav" => EitherStorage::AddressBook(parse_carddav(config).await?),
             "caldav" => EitherStorage::Calendar(parse_caldav(config).await?),
             "webcal" => EitherStorage::Calendar(parse_webcal(config)?),
@@ -371,31 +374,6 @@ where
     Ok(Arc::new(VdirStorage::new(path, fileext)))
 }
 
-enum IntoString {
-    Raw(String),
-    Cmd(RawCommand),
-}
-
-impl IntoString {
-    fn into_string(self) -> anyhow::Result<String> {
-        match self {
-            IntoString::Raw(raw) => Ok(raw),
-            IntoString::Cmd(raw_command) => {
-                let output = raw_command
-                    .command()
-                    .stdout(Stdio::piped())
-                    .output()
-                    .context("Error executing command")?;
-                match output.status.code() {
-                    Some(0) => Ok(std::str::from_utf8(&output.stdout)?.trim().to_owned()),
-                    Some(code) => bail!("Command exited with status {}.", code),
-                    None => bail!("Command exited unexpectedly."),
-                }
-            }
-        }
-    }
-}
-
 type NetworkWebDav =
     WebDavClient<UserAgent<AddAuthorization<HyperClient<HttpsConnector<HttpConnector>, String>>>>;
 
@@ -484,12 +462,8 @@ fn default_user_agent() -> HeaderValue {
 }
 
 fn parse_webcal(mut config: Scfg) -> anyhow::Result<Arc<dyn Storage<IcsItem>>> {
-    let url =
-        take_single_directive(&mut config, "url")?.context("Webcal storage must define a url")?;
-    let url = parse_into_string(url)
-        .context("Parsing webcal URL")?
-        .into_string() // TODO: don't allocate this into string.
-        .context("Resolving webcal URL")?
+    let url = take_single_param_from_directive(&mut config, "url")
+        .context("Webcal storage must define a url")?
         .parse()?;
     let network_opts = parse_tls_config(&mut config)?;
     let user_agent = parse_user_agent(&mut config)?;
@@ -507,35 +481,19 @@ fn parse_webcal(mut config: Scfg) -> anyhow::Result<Arc<dyn Storage<IcsItem>>> {
 }
 
 /// Returns a `username` and `password` tuple.
+///
+/// A `cmd` block is not supported here; such commands should be resolved before calling this
+/// function.
 fn parse_auth(directive: &mut Scfg) -> anyhow::Result<Option<(String, String)>> {
-    let username = take_single_directive(directive, "username")?
-        .map(parse_into_string)
-        .transpose()
-        .context("Parsing username directive")?
-        .map(IntoString::into_string)
-        .transpose()
-        .context("Resolving username")?;
-    let password = take_single_directive(directive, "password")?
-        .map(parse_into_string)
-        .transpose()
-        .context("Parsing username directive")?
-        .map(IntoString::into_string)
-        .transpose()
-        .context("Resolving password")?;
-
-    match username {
-        Some(u) => Ok(Some((u, password.unwrap_or_default()))),
-        None => Ok(None),
-    }
-}
-
-fn parse_into_string(directive: Directive) -> anyhow::Result<IntoString> {
-    let result = if let Some(param) = directive.params().first() {
-        IntoString::Raw(param.to_owned())
-    } else {
-        IntoString::Cmd(parse_block_with_raw_cmd(directive)?)
+    let username = match take_single_directive(directive, "username")? {
+        Some(mut u) => take_single_param(&mut u)?,
+        None => return Ok(None),
     };
-    Ok(result)
+    let password = match take_single_directive(directive, "password")? {
+        Some(mut p) => take_single_param(&mut p)?,
+        None => String::new(),
+    };
+    Ok(Some((username, password)))
 }
 
 fn parse_block_with_raw_cmd(mut directive: Directive) -> anyhow::Result<RawCommand> {
@@ -727,6 +685,7 @@ pub(crate) fn parse_config(
     let status_path = take_single_param_from_directive(&mut parser, "status_path")?;
 
     let mut enabled_pairs = enabled_pairs.map(|vec| vec.iter().collect::<HashSet<_>>());
+    let mut enabled_storages = HashSet::new();
 
     if let Some(directives) = parser.remove("pair") {
         for mut directive in directives {
@@ -745,6 +704,26 @@ pub(crate) fn parse_config(
 
             info!("Enabled pair {name}");
             let child = directive.take_child().context("pair must define a block")?;
+
+            // Superfluous parameters are ignored here; this is validated when the directive is
+            // converted into a Pair instance.
+            let name_a = child
+                .get("storage_a")
+                .context("pair must defined directive storage_a")?
+                .params()
+                .first()
+                .context("storage_a must include a parameter")?
+                .clone();
+            let name_b = child
+                .get("storage_b")
+                .context("pair must defined directive storage_b")?
+                .params()
+                .first()
+                .context("storage_b must include a parameter")?
+                .clone();
+            enabled_storages.insert(name_a);
+            enabled_storages.insert(name_b);
+
             pairs.insert(name, child);
         }
     }
@@ -756,10 +735,15 @@ pub(crate) fn parse_config(
     if let Some(directives) = parser.remove("storage") {
         for mut directive in directives {
             let name = take_single_param(&mut directive).context("Parsing storage directive")?;
+            if !enabled_storages.contains(&name) {
+                debug!("Skipping storage {name}; not used by any enabled pair.");
+                continue;
+            }
 
-            let child = directive
+            let mut child = directive
                 .take_child()
                 .context("storage must define a block")?;
+            resolve_storage_cmds(&mut child)?;
             storages.insert(name, child);
         }
     }
@@ -772,6 +756,60 @@ pub(crate) fn parse_config(
         pairs,
         storages,
     })
+}
+
+/// Resolve parameters defined as `cmd` blocks.
+///
+/// Mutates input block, replacing a `cmd {…}` block with the resolved value.
+fn resolve_storage_cmds(storage: &mut Scfg) -> anyhow::Result<()> {
+    // XXX: doesn't validate "single" (but this is re-read later).
+    let type_ = storage
+        .get("type")
+        .context("storage must include a 'type' directive")?
+        .params()
+        .first()
+        .context("type directive must specify one parameter")?;
+
+    match type_.as_ref() {
+        "vdir/icalendar" | "vdir/vcard" => Ok(()),
+        "carddav" | "caldav" => {
+            resolve_cmd_inplace(storage, "username").context("resolving username for storage")?;
+            resolve_cmd_inplace(storage, "password").context("resolving password for storage")
+        }
+        "webcal" => resolve_cmd_inplace(storage, "url").context("resolving url for storage"),
+        _ => bail!("Unknown storage type: {type_}"),
+    }
+}
+
+fn resolve_cmd_inplace(storage: &mut Scfg, name: &str) -> anyhow::Result<()> {
+    let Some(mut directive) = take_single_directive(storage, name)? else {
+        return Ok(());
+    };
+
+    let mut params = directive.take_params().into_iter();
+    let value = if let Some(param) = params.next() {
+        if params.next().is_some() {
+            bail!("Found more than one parameter for directive {name}");
+        }
+        param
+    } else {
+        let output = parse_block_with_raw_cmd(directive)
+            .with_context(|| format!("Parsing cmd for {name} directive"))?
+            .command()
+            .stdout(Stdio::piped())
+            .output()
+            .with_context(|| format!("Error executing command for {name} directive"))?;
+        match output.status.code() {
+            Some(0) => std::str::from_utf8(&output.stdout)?.trim().to_owned(),
+            Some(code) => bail!("Command exited with status {}.", code),
+            None => bail!("Command exited unexpectedly."),
+        }
+    };
+
+    let url_directive = storage.add(name);
+    url_directive.append_param(value);
+
+    Ok(())
 }
 
 /// Open the configuration file, expecting it in the default path.
