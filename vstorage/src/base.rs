@@ -551,7 +551,10 @@ pub struct FetchedItem<I: Item> {
     pub etag: Etag,
 }
 
+/// Property and its value as retrieved from a storage.
 pub struct ListedProperty<P: Property> {
+    /// The kind of property.
     pub property: P,
+    /// The value of the property.
     pub value: String,
 }
