@@ -5,6 +5,19 @@ public API is still subject to change. This includes commands, arguments and
 configuration directives. Upon the release of v1.0.0, backwards incompatible
 changes will be avoided unless absolutely necessary.
 
+# v0.2.0
+
+- Several documentation improvements.
+- A minimal website is now available, and the documentation is now available
+  online too: <https://pimsync.whynothugo.nl/>
+- Reject configuration file on superfluous parameter.
+- Attempt to use the provided URL before doing service discovery. If the URL
+  provided in the configuration file is a valid context URL for a DAV server,
+  discovery is skipped entirely.
+- Fixed some erroneous handling of percent-encoded characters in URLs.
+- Prompt early for all required credentials. This speeds up start-up, since
+  there's no network IO between prompts.
+
 # v0.1.0
 
 - Renamed project to `pimsync`.
