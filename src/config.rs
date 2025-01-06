@@ -60,8 +60,6 @@ impl Config {
     ///
     /// This consumes the configuration to avoid copying any data needlessly and freeing up any
     /// unnecessary data.
-    ///
-    /// If `enabled_pairs` is not `None`, only pairs with a matching name will be loaded.
     pub(crate) async fn into_app<'storages>(mut self) -> anyhow::Result<App> {
         let status_dir =
             expand_tilde(self.status_path).context("Expanding tilde for status_dir")?;
@@ -701,6 +699,8 @@ enum ClientCert {
 }
 
 /// Parse a given file as a configuration file.
+///
+/// If `enabled_pairs` is not `None`, only pairs with a matching name will be loaded.
 pub(crate) fn parse_config(
     raw_config: &str,
     enabled_pairs: Option<&[String]>,
