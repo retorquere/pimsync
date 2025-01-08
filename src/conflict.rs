@@ -5,12 +5,12 @@
 use std::io::{read_to_string, stdin, Seek as _, Write as _};
 
 use anyhow::{bail, Context as _};
-use log::{debug, error, info};
+use log::{debug, error, info, warn};
 use rustix::fs::sync;
 use tempfile::NamedTempFile;
 use vstorage::{
     base::{Item, Storage},
-    sync::plan::ItemAction,
+    sync::{plan::ItemAction, status::ItemState},
     Etag,
 };
 
@@ -51,8 +51,8 @@ pub async fn interactive_resolution<I: Item>(pair: NamedPair<I>) -> anyhow::Resu
         // TODO: should use pre-fetched data, if available.
         // TODO: improve logging here.
         let (fetched_a, fetched_b) = tokio::join!(
-            fetch_item(pair.inner.storage_a(), &a.href),
-            fetch_item(pair.inner.storage_b(), &b.href),
+            fetch_item(pair.inner.storage_a(), &a),
+            fetch_item(pair.inner.storage_b(), &b),
         );
         let (temp_a, item_a, etag_a) = fetched_a.context("fetching conflicted item from A")?;
         let (temp_b, item_b, etag_b) = fetched_b.context("fetching conflicted item from B")?;
@@ -116,15 +116,19 @@ fn continue_or_abort() -> anyhow::Result<()> {
 /// Returns (file, item, etag).
 async fn fetch_item<I: Item>(
     storage: &dyn Storage<I>,
-    href: &str,
+    item: &ItemState<I>,
 ) -> anyhow::Result<(NamedTempFile, I, Etag)> {
-    let mut temp =
-        NamedTempFile::new().context("creating temporary file for conflict resolution")?;
-    debug!("Fetching {href} for conflict resolution...");
-    let (data, etag) = storage
-        .get_item(href)
-        .await
-        .context("fetching conflicting item from a")?;
+    let mut temp = NamedTempFile::new().context("Creating temporary file.")?;
+    debug!("Fetching {} for conflict resolution...", item.href);
+    let (data, etag) = if let Some(ref i) = item.data {
+        warn!("Conflicted item was not pre-fetched");
+        (i.clone(), item.etag.clone())
+    } else {
+        storage
+            .get_item(&item.href)
+            .await
+            .context("Fetching conflicting item from A.")?
+    };
     temp.write_all(data.as_str().as_bytes())
         .context("writing item into temporary file")?;
 
