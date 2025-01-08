@@ -58,7 +58,7 @@ pub async fn interactive_resolution<I: Item>(pair: NamedPair<I>) -> anyhow::Resu
         let (temp_b, item_b, etag_b) = fetched_b.context("fetching conflicted item from B")?;
 
         info!("Running conflict resolution for item {}", a.uid);
-        let new = match resolve_individual_conflict(&raw_cmd, temp_a, temp_b) {
+        let new = match resolve_individual_conflict(raw_cmd, temp_a, temp_b) {
             Ok(data) => I::from(data),
             Err(err) => {
                 error!("Error resolving conflict: {err}");
