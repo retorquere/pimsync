@@ -658,14 +658,7 @@ pub(crate) fn parse_config(
     let mut pairs = HashMap::<String, Scfg>::new();
     let mut storages = HashMap::<String, Scfg>::new();
 
-    let interval = if let Some(mut directive) = take_single_directive(&mut parser, "interval")? {
-        take_single_param(&mut directive)
-            .context("Parsing interval directive")?
-            .parse()
-            .context("Interval must be a valid integer")?
-    } else {
-        300
-    };
+    let interval = parse_interval(&mut parser)?;
 
     let status_path = take_single_param_from_directive(&mut parser, "status_path")?;
 
@@ -737,10 +730,22 @@ pub(crate) fn parse_config(
 
     Ok(Config {
         status_path: Utf8PathBuf::from(status_path),
-        interval: Duration::from_secs(interval),
+        interval,
         pairs,
         storages,
     })
+}
+
+fn parse_interval(parser: &mut Scfg) -> anyhow::Result<Duration> {
+    let seconds = if let Some(mut directive) = take_single_directive(parser, "interval")? {
+        take_single_param(&mut directive)
+            .context("Parsing interval directive")?
+            .parse()
+            .context("Interval must be a valid integer")?
+    } else {
+        300
+    };
+    Ok(Duration::from_secs(seconds))
 }
 
 /// Resolve parameters defined as `cmd` blocks.
