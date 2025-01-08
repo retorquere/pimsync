@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: EUPL-1.2
 
-use std::io::{read_to_string, BufRead as _, Seek as _, StdinLock, Write as _};
+use std::io::{read_to_string, stdin, Seek as _, Write as _};
 
 use anyhow::{bail, Context as _};
 use log::{debug, error, info};
@@ -19,10 +19,7 @@ use crate::{ConflictResolution, NamedPair};
 /// Performs conflict resolution for this storage pair.
 // TODO: The UI can run in a deducted thread, taking a channel of conflicts to be resolved.
 //       All the related I/O would continue on other threads, asynchronously.
-pub async fn interactive_resolution<I: Item>(
-    pair: NamedPair<I>,
-    stdin_lock: &mut StdinLock<'_>,
-) -> anyhow::Result<()> {
+pub async fn interactive_resolution<I: Item>(pair: NamedPair<I>) -> anyhow::Result<()> {
     // TODO: are storage locks necessary here?
     let raw_cmd = match pair.conflict_resolution {
         Some(ConflictResolution::Cmd(ref rc)) => rc,
@@ -49,7 +46,7 @@ pub async fn interactive_resolution<I: Item>(
 
     for (i, (a, b)) in conflicts.into_iter().enumerate() {
         println!("Next is item {}/{total}", i + 1);
-        continue_or_abort(stdin_lock)?;
+        continue_or_abort()?;
 
         // TODO: should use pre-fetched data, if available.
         // TODO: improve logging here.
@@ -121,12 +118,12 @@ pub async fn interactive_resolution<I: Item>(
 }
 
 /// Returns an error if user chooses to abort.
-fn continue_or_abort(stdin: &mut StdinLock) -> anyhow::Result<()> {
+fn continue_or_abort() -> anyhow::Result<()> {
     loop {
         println!("Continue? [Y/n]");
         // Need to read entire lines because the stdlib implicitly buffers stdin.
         let mut response = String::new();
-        stdin
+        stdin()
             .read_line(&mut response)
             .context("Reading response from stdin")?;
 

@@ -5,7 +5,7 @@
 
 use std::{
     fs::File,
-    io::{read_to_string, stdin, Write},
+    io::{read_to_string, Write},
     path::PathBuf,
     time::Duration,
     vec::IntoIter,
@@ -254,16 +254,13 @@ impl App {
             bail!("dry_run is not implemented for resolve-conflicts");
         }
 
-        // Functions which do interactive IO take a stdin lock to prevent races.
-        let mut stdin_lock = stdin().lock();
-
         for pair in self.calendar_pairs {
-            if let Err(err) = interactive_resolution(pair, &mut stdin_lock).await {
+            if let Err(err) = interactive_resolution(pair).await {
                 error!("Error resolving conflicts: {:?}.", err);
             }
         }
         for pair in self.contact_pairs {
-            if let Err(err) = interactive_resolution(pair, &mut stdin_lock).await {
+            if let Err(err) = interactive_resolution(pair).await {
                 error!("Error resolving conflicts: {:?}.", err);
             }
         }
