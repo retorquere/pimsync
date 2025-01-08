@@ -101,19 +101,19 @@ where
     }
 
     async fn create_collection(&self, href: &str) -> Result<Collection> {
-        let path = self.build_collection_path(href)?;
+        let path = build_collection_path(&self.path, href)?;
         create_dir(&path).await?;
 
         Ok(Collection::new(href.to_string()))
     }
 
     async fn destroy_collection(&self, href: &str) -> Result<()> {
-        let path = self.build_collection_path(href)?;
+        let path = build_collection_path(&self.path, href)?;
         remove_dir(path).await.map_err(Error::from)
     }
 
     async fn list_items(&self, collection_href: &str) -> Result<Vec<ItemRef>> {
-        let mut read_dir = read_dir(self.build_collection_path(collection_href)?).await?;
+        let mut read_dir = read_dir(build_collection_path(&self.path, collection_href)?).await?;
 
         let mut items = Vec::new();
         let extension = OsStr::new(self.extension.as_str());
@@ -122,7 +122,7 @@ where
             if path.extension() != Some(extension) {
                 continue;
             }
-            let href = self.href_for_path(&path)?;
+            let href = href_for_path(&self.path, &path)?;
             let etag = etag_for_path(path).await?;
 
             items.push(ItemRef { href, etag });
@@ -132,7 +132,7 @@ where
     }
 
     async fn get_item(&self, href: &str) -> Result<(I, Etag)> {
-        let path = self.build_item_path(href)?;
+        let path = build_item_path(&self.path, &self.extension, href)?;
 
         let mut file = File::open(&path).await?;
         let mut buf = String::new();
@@ -158,7 +158,7 @@ where
     }
 
     async fn get_all_items(&self, collection_href: &str) -> Result<Vec<FetchedItem<I>>> {
-        let mut read_dir = read_dir(self.build_collection_path(collection_href)?).await?;
+        let mut read_dir = read_dir(build_collection_path(&self.path, collection_href)?).await?;
 
         let mut items = Vec::new();
         let extension = OsStr::new(self.extension.as_str());
@@ -176,7 +176,7 @@ where
             let etag = etag_for_metadata(&file.metadata().await?);
 
             items.push(FetchedItem {
-                href: self.href_for_path(&path)?,
+                href: href_for_path(&self.path, &path)?,
                 item,
                 etag,
             });
@@ -187,7 +187,7 @@ where
 
     async fn set_property(&self, href: &str, meta: I::Property, value: &str) -> Result<()> {
         let filename = meta.filename();
-        let path = self.build_collection_path(href)?.join(filename);
+        let path = build_collection_path(&self.path, href)?.join(filename);
         let file_lock = self.file_locks.lock_file(path.as_str()).await;
 
         let mut file = AtomicFile::new(&path)?;
@@ -199,7 +199,7 @@ where
 
     async fn unset_property(&self, href: &str, meta: I::Property) -> Result<()> {
         let filename = meta.filename();
-        let path = self.build_collection_path(href)?.join(filename);
+        let path = build_collection_path(&self.path, href)?.join(filename);
         let file_lock = self.file_locks.lock_file(path.as_str()).await;
         remove_file(filename).await?;
         self.file_locks.release_file(file_lock).await;
@@ -209,7 +209,7 @@ where
     async fn get_property(&self, href: &str, meta: I::Property) -> Result<Option<String>> {
         let filename = meta.filename();
 
-        let path = self.build_collection_path(href)?.join(filename);
+        let path = build_collection_path(&self.path, href)?.join(filename);
         match read_to_string(path).await {
             Ok(value) => Ok(Some(value)),
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
@@ -229,7 +229,7 @@ where
         let filename = format!("{}.{}", basename, self.extension);
         let relpath = Utf8PathBuf::from(collection_href).join(filename);
 
-        let absolute_path = self.build_item_path(relpath.as_str())?;
+        let absolute_path = build_item_path(&self.path, &self.extension, relpath.as_str())?;
         let mut file = AtomicFile::new(&absolute_path)?;
         file.write_all(item.as_str().as_bytes()).await?;
         file.commit_new()?;
@@ -243,7 +243,7 @@ where
     }
 
     async fn update_item(&self, href: &str, etag: &Etag, item: &I) -> Result<Etag> {
-        let filename = self.build_item_path(href)?;
+        let filename = build_item_path(&self.path, &self.extension, href)?;
 
         let actual_etag = etag_for_path(&filename).await?;
         if *etag != actual_etag {
@@ -265,7 +265,7 @@ where
     /// Checking the etag is vulnerable to TOCTOU race conditions. Filesystem APIs do not provide
     /// facilities to work around this.
     async fn delete_item(&self, href: &str, etag: &Etag) -> Result<()> {
-        let filename = self.build_item_path(href)?;
+        let filename = build_item_path(&self.path, &self.extension, href)?;
 
         let actual_etag = etag_for_path(&filename).await?;
         if *etag != actual_etag {
@@ -311,82 +311,85 @@ impl<I: Item> VdirStorage<I> {
             file_locks: FileLocker::default(),
         }
     }
+}
 
-    /// Joins an href to the storage's path.
-    ///
-    /// This method does safety checks to ensure that malicious input cannot write outside the
-    /// storage's directory.
-    ///
-    /// # Errors
-    ///
-    /// - If the input is an invalid directory name
-    /// - If the resulting path is not a child of the storage's directory.
-    fn build_collection_path(&self, href: &str) -> Result<Utf8PathBuf> {
-        let href = Utf8Path::new(href);
-        let mut components = href.components();
-        if !matches!(components.next(), Some(Utf8Component::Normal(_))) {
-            return Err(Error::new(
-                ErrorKind::InvalidInput,
-                "collection href must be a valid directory name",
-            ));
-        };
-        if components.next().is_some() {
-            return Err(Error::new(
-                ErrorKind::InvalidInput,
-                "collection href must contain exactly one component",
-            ));
-        };
+/// Joins an href to the storage's path.
+///
+/// This method does safety checks to ensure that malicious input cannot write outside the
+/// storage's directory.
+///
+/// # Errors
+///
+/// - If the input is an invalid directory name
+/// - If the resulting path is not a child of the storage's directory.
+fn build_collection_path(root: &Utf8Path, collection_href: &str) -> Result<Utf8PathBuf> {
+    let href = Utf8Path::new(collection_href);
+    let mut components = href.components();
+    if !matches!(components.next(), Some(Utf8Component::Normal(_))) {
+        return Err(Error::new(
+            ErrorKind::InvalidInput,
+            "collection href must be a valid directory name",
+        ));
+    };
+    if components.next().is_some() {
+        return Err(Error::new(
+            ErrorKind::InvalidInput,
+            "collection href must contain exactly one component",
+        ));
+    };
 
-        Ok(self.path.join(href))
-    }
+    Ok(root.join(href))
+}
 
-    fn build_item_path(&self, href: &str) -> Result<Utf8PathBuf> {
-        let href = Utf8Path::new(href);
+/// Build path to an item with the given href.
+///
+/// Validates that extension matches.
+fn build_item_path(root: &Utf8Path, extension: &str, href: &str) -> Result<Utf8PathBuf> {
+    let href = Utf8Path::new(href);
 
-        let mut components = href.components();
-        if !matches!(components.next(), Some(Utf8Component::Normal(_))) {
-            return Err(Error::new(
+    let mut components = href.components();
+    if !matches!(components.next(), Some(Utf8Component::Normal(_))) {
+        return Err(Error::new(
+            ErrorKind::InvalidInput,
+            "first component of item href must be a regular filename",
+        ));
+    };
+    if let Some(Utf8Component::Normal(name)) = components.next() {
+        let name = Utf8Path::new(name);
+        if name.extension() != Some(extension) {
+            Err(Error::new(
                 ErrorKind::InvalidInput,
-                "first component of item href must be a regular filename",
-            ));
-        };
-        if let Some(Utf8Component::Normal(name)) = components.next() {
-            let name = Utf8Path::new(name);
-            if name.extension() != Some(&self.extension) {
-                Err(Error::new(
-                    ErrorKind::InvalidInput,
-                    "item href does not have an extension matching this storage",
-                ))?;
-            }
-        } else {
-            return Err(Error::new(
-                ErrorKind::InvalidInput,
-                "second component of item href must be a regular filename",
-            ));
+                "item href does not have an extension matching this storage",
+            ))?;
         }
-        if components.next().is_some() {
-            return Err(Error::new(
-                ErrorKind::InvalidInput,
-                "item href cannot contain more than two components",
-            ));
-        };
-
-        Ok(self.path.join(href))
+    } else {
+        return Err(Error::new(
+            ErrorKind::InvalidInput,
+            "second component of item href must be a regular filename",
+        ));
     }
+    if components.next().is_some() {
+        return Err(Error::new(
+            ErrorKind::InvalidInput,
+            "item href cannot contain more than two components",
+        ));
+    };
 
-    /// Returns the href for a path.
-    ///
-    /// # Panics
-    ///
-    /// If `path` is not a grandchild of the storage's path.
-    fn href_for_path(&self, path: &Path) -> Result<String> {
-        path.strip_prefix(&self.path)
-            // This never takes external input. If this panics, we have a bug.
-            .expect("path of item must include storage path as prefix")
-            .to_str()
-            .ok_or_else(|| Error::new(ErrorKind::InvalidData, "Filename is not valid UTF-8"))
-            .map(str::to_string)
-    }
+    Ok(root.join(href))
+}
+
+/// Returns the href for a path.
+///
+/// # Panics
+///
+/// If `path` is not a grandchild of the storage's path.
+fn href_for_path(root: &Utf8Path, path: &Path) -> Result<String> {
+    path.strip_prefix(root)
+        // This never takes external input. If this panics, we have a bug.
+        .expect("path of item must include storage path as prefix")
+        .to_str()
+        .ok_or_else(|| Error::new(ErrorKind::InvalidData, "Filename is not valid UTF-8"))
+        .map(str::to_string)
 }
 
 /// Values are a queue of tasks waiting to operate on the same file.
@@ -496,7 +499,7 @@ mod tests {
 
     use crate::{
         base::{CalendarProperty, IcsItem, Storage},
-        vdir::VdirStorage,
+        vdir::{build_collection_path, build_item_path, VdirStorage},
         CollectionId, ErrorKind,
     };
     use tempfile::tempdir;
@@ -651,47 +654,42 @@ mod tests {
     #[tokio::test]
     async fn test_build_collection_path_is_safe() {
         let dir = tempdir().unwrap();
-        let storage = VdirStorage::<IcsItem>::new(
-            dir.path().to_path_buf().try_into().unwrap(),
-            "ics".to_string(),
-        );
+        let root = dir.path().try_into().unwrap();
 
-        assert!(storage.build_collection_path("penguins").is_ok());
-        assert!(storage.build_collection_path("penguins/").is_ok());
-        assert!(storage.build_collection_path("蛙类").is_ok());
+        assert!(build_collection_path(root, "penguins").is_ok());
+        assert!(build_collection_path(root, "penguins/").is_ok());
+        assert!(build_collection_path(root, "蛙类").is_ok());
 
-        assert!(storage.build_collection_path("/").is_err());
-        assert!(storage.build_collection_path("/usr/share/").is_err());
-        assert!(storage.build_collection_path("..").is_err());
-        assert!(storage.build_collection_path(".").is_err());
-        assert!(storage.build_collection_path("../d").is_err());
-        assert!(storage.build_collection_path("s/../../").is_err());
+        assert!(build_collection_path(root, "/").is_err());
+        assert!(build_collection_path(root, "/usr/share/").is_err());
+        assert!(build_collection_path(root, "..").is_err());
+        assert!(build_collection_path(root, ".").is_err());
+        assert!(build_collection_path(root, "../d").is_err());
+        assert!(build_collection_path(root, "s/../../").is_err());
     }
 
     #[tokio::test]
     async fn test_build_item_path_is_safe() {
         let dir = tempdir().unwrap();
-        let storage = VdirStorage::<IcsItem>::new(
-            dir.path().to_path_buf().try_into().unwrap(),
-            "ics".to_string(),
-        );
+        let root = dir.path().try_into().unwrap();
+        let extension = "ics";
 
-        assert!(storage.build_item_path("penguins/someitem.ics").is_ok());
-        assert!(storage.build_item_path("蛙类/item.ics").is_ok());
+        assert!(build_item_path(root, extension, "penguins/someitem.ics").is_ok());
+        assert!(build_item_path(root, extension, "蛙类/item.ics").is_ok());
 
-        assert!(storage.build_item_path("penguins/someitem.jpeg").is_err());
-        assert!(storage.build_item_path("蛙类/item.jpeg").is_err());
-        assert!(storage.build_item_path("penguins/someitem").is_err());
-        assert!(storage.build_item_path("蛙类/item").is_err());
-        assert!(storage.build_item_path("penguins").is_err());
-        assert!(storage.build_item_path("蛙类").is_err());
-        assert!(storage.build_item_path("penguins/../someitem.ics").is_err());
-        assert!(storage.build_item_path("../penguins/someitem.ics").is_err());
-        assert!(storage.build_item_path("/").is_err());
-        assert!(storage.build_item_path("/usr/share/").is_err());
-        assert!(storage.build_item_path("..").is_err());
-        assert!(storage.build_item_path(".").is_err());
-        assert!(storage.build_item_path("s/../../").is_err());
+        assert!(build_item_path(root, extension, "penguins/someitem.jpeg").is_err());
+        assert!(build_item_path(root, extension, "蛙类/item.jpeg").is_err());
+        assert!(build_item_path(root, extension, "penguins/someitem").is_err());
+        assert!(build_item_path(root, extension, "蛙类/item").is_err());
+        assert!(build_item_path(root, extension, "penguins").is_err());
+        assert!(build_item_path(root, extension, "蛙类").is_err());
+        assert!(build_item_path(root, extension, "penguins/../someitem.ics").is_err());
+        assert!(build_item_path(root, extension, "../penguins/someitem.ics").is_err());
+        assert!(build_item_path(root, extension, "/").is_err());
+        assert!(build_item_path(root, extension, "/usr/share/").is_err());
+        assert!(build_item_path(root, extension, "..").is_err());
+        assert!(build_item_path(root, extension, ".").is_err());
+        assert!(build_item_path(root, extension, "s/../../").is_err());
     }
 
     #[tokio::test]
