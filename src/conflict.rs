@@ -50,11 +50,10 @@ pub async fn interactive_resolution<I: Item>(pair: NamedPair<I>) -> anyhow::Resu
 
         // TODO: should use pre-fetched data, if available.
         // TODO: improve logging here.
-        // TODO: move duplicated logic into a "read_item_to_tempfile" function.
-        let (temp_a, etag_a) = save_item_to_tempfile(pair.inner.storage_a(), &a.href)
+        let (temp_a, item_a, etag_a) = fetch_item(pair.inner.storage_a(), &a.href)
             .await
             .context("fetching conflicted item from A")?;
-        let (temp_b, etag_b) = save_item_to_tempfile(pair.inner.storage_b(), &b.href)
+        let (temp_b, item_b, etag_b) = fetch_item(pair.inner.storage_b(), &b.href)
             .await
             .context("fetching conflicted item from B")?;
 
@@ -67,19 +66,28 @@ pub async fn interactive_resolution<I: Item>(pair: NamedPair<I>) -> anyhow::Resu
             }
         };
 
-        pair.inner
-            .storage_a()
-            .update_item(&a.href, &etag_a, &new)
-            .await
-            .context("uploading resolved item into A")?;
-        debug!("Uploaded resolved item to A.");
+        // TODO: skip upload if the item is unchanged.
+        if new.as_str() == item_a.as_str() {
+            debug!("Item is unchanged in A.");
+        } else {
+            pair.inner
+                .storage_a()
+                .update_item(&a.href, &etag_a, &new)
+                .await
+                .context("uploading resolved item into A")?;
+            debug!("Uploaded resolved item to A.");
+        }
 
-        pair.inner
-            .storage_b()
-            .update_item(&b.href, &etag_b, &new)
-            .await
-            .context("uploading resolved item into B")?;
-        debug!("Uploaded resolved item to B.");
+        if new.as_str() == item_b.as_str() {
+            debug!("Item is unchanged in B.");
+        } else {
+            pair.inner
+                .storage_b()
+                .update_item(&b.href, &etag_b, &new)
+                .await
+                .context("uploading resolved item into B")?;
+            debug!("Uploaded resolved item to B.");
+        }
 
         info!("Resolved conflicts for '{}'.", new.ident());
     }
@@ -105,10 +113,11 @@ fn continue_or_abort() -> anyhow::Result<()> {
     }
 }
 
-async fn save_item_to_tempfile<I: Item>(
+/// Returns (file, item, etag).
+async fn fetch_item<I: Item>(
     storage: &dyn Storage<I>,
     href: &str,
-) -> anyhow::Result<(NamedTempFile, Etag)> {
+) -> anyhow::Result<(NamedTempFile, I, Etag)> {
     let mut temp =
         NamedTempFile::new().context("creating temporary file for conflict resolution")?;
     debug!("Fetching {href} for conflict resolution...");
@@ -119,7 +128,7 @@ async fn save_item_to_tempfile<I: Item>(
     temp.write_all(data.as_str().as_bytes())
         .context("writing item into temporary file")?;
 
-    Ok((temp, etag))
+    Ok((temp, data, etag))
 }
 
 /// Returns `None` if resolution failed.
