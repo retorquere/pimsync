@@ -15,18 +15,26 @@ of the previous implementation.
 The following features are implemented by vdirsyncer 0.19.3, but are not
 currently not available in pimsync:
 
-- HTTP Digest Auth.
-- *partial_sync* configuration parameter.
-- Encodings other than UTF-8.
-- *post_hook* configuration parameter.
-- *fileignoreext* configuration parameter.
+- *HTTP Digest Auth*. This needs to be implemented as a _tower-service_
+  middleware. Should not be too complicated.
+- *partial_sync* configuration parameter. This probably won't come back in the
+  same way. A *mirror* is the most likely successor. With this directive set,
+  pimsync(1) would make B a mirror of A. In this mode, exactly one storage MUST be
+  defined a read_only.
+- Encodings other than UTF-8. There are no concrete plans for any specific
+  encoding at this time.
+- *post_hook* configuration parameter. Future versions might stream events, so
+  external handlers can react to them instead.
+- *fileignoreext* configuration parameter. There are no plans to implement this
+  feature at this time.
 - *start_date*, *end_date* and *item_types* configuration parameters for CalDav
-storages.
-- Customisation of the *User-Agent*.
-- The *singlefile* storage.
+  storages. These are planned, but no specific time frame.
+- The *singlefile* storage. There are no concrete plans at this time. The logic
+  for extracting WebCal should make implementing this (in read-only mode)
+  trivial.
 - All metadata is synchronised. Selecting individual fields is not currently
   possible.
-- The *readonly* configuration directive.
+- The *readonly* configuration directive is not yet implemented.
 
 # CONFIGURATION FILE FORMAT
 
