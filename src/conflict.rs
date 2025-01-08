@@ -50,12 +50,12 @@ pub async fn interactive_resolution<I: Item>(pair: NamedPair<I>) -> anyhow::Resu
 
         // TODO: should use pre-fetched data, if available.
         // TODO: improve logging here.
-        let (temp_a, item_a, etag_a) = fetch_item(pair.inner.storage_a(), &a.href)
-            .await
-            .context("fetching conflicted item from A")?;
-        let (temp_b, item_b, etag_b) = fetch_item(pair.inner.storage_b(), &b.href)
-            .await
-            .context("fetching conflicted item from B")?;
+        let (fetched_a, fetched_b) = tokio::join!(
+            fetch_item(pair.inner.storage_a(), &a.href),
+            fetch_item(pair.inner.storage_b(), &b.href),
+        );
+        let (temp_a, item_a, etag_a) = fetched_a.context("fetching conflicted item from A")?;
+        let (temp_b, item_b, etag_b) = fetched_b.context("fetching conflicted item from B")?;
 
         info!("Running conflict resolution for item {}", a.uid);
         let new = match resolve_individual_conflict(&raw_cmd, temp_a, temp_b) {
