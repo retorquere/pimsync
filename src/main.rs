@@ -116,7 +116,7 @@ impl<I: Item> NamedPair<I> {
     }
 
     /// Common code between `daemon` and `sync` commands.
-    async fn sync_once(&self, dry_run: bool /* ui-lock ? */) -> anyhow::Result<()> {
+    async fn sync_once(&self, dry_run: bool) -> anyhow::Result<()> {
         let plan = self.create_plan().await.context("creating plan")?;
 
         if let Some(ConflictResolution::FromA | ConflictResolution::FromB) =
