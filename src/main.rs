@@ -185,7 +185,9 @@ impl<I: Item> NamedPair<I> {
                 info!("property: {:?}", prop);
             }
         }
-        info!("Stale mappings: {:?}", plan.stale_collections);
+        if !plan.stale_collections.is_empty() {
+            info!("Stale mappings: {:?}", plan.stale_collections);
+        }
     }
 }
 
