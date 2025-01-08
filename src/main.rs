@@ -7,7 +7,6 @@ use std::{
     fs::File,
     io::{read_to_string, stdin, Write},
     path::PathBuf,
-    sync::Arc,
     time::Duration,
     vec::IntoIter,
 };
@@ -17,7 +16,7 @@ use camino::Utf8PathBuf;
 use config::{open_default_path, parse_config};
 use conflict::interactive_resolution;
 use log::{debug, error, info, trace, warn};
-use tokio::{sync::Mutex, task::JoinSet};
+use tokio::task::JoinSet;
 use vstorage::{
     base::{IcsItem, Item, VcardItem},
     sync::{
@@ -54,9 +53,6 @@ pub(crate) struct NamedPair<I: Item> {
     pub(crate) inner: StoragePair<I>,
     status_path: Utf8PathBuf,
     conflict_resolution: Option<ConflictResolution>,
-    /// Discretionary locks taken before using a storage.
-    /// These MUST be sorted based on storage name to prevent possible deadlocks.
-    locks: (Arc<Mutex<()>>, Arc<Mutex<()>>),
     names: (String, String),
 }
 
@@ -121,8 +117,6 @@ impl<I: Item> NamedPair<I> {
 
     /// Common code between `daemon` and `sync` commands.
     async fn sync_once(&self, dry_run: bool /* ui-lock ? */) -> anyhow::Result<()> {
-        let lock_0 = self.locks.0.lock().await;
-        let lock_1 = self.locks.1.lock().await;
         let plan = self.create_plan().await.context("creating plan")?;
 
         if let Some(ConflictResolution::FromA | ConflictResolution::FromB) =
@@ -140,9 +134,6 @@ impl<I: Item> NamedPair<I> {
                 .await
                 .context("executing plan")?;
         }
-        // Explicitly drop these here to ensure they survive up to this point.
-        drop(lock_0);
-        drop(lock_1);
         Ok(())
     }
 

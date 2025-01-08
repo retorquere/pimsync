@@ -23,7 +23,6 @@ use libdav::{dav::WebDavClient, CalDavClient, CardDavClient};
 use log::{debug, error, info};
 use rustls::{client::danger::DangerousClientConfigBuilder, ClientConfig, RootCertStore};
 use scfg::{Directive, Scfg};
-use tokio::sync::Mutex;
 use vstorage::{
     base::{IcsItem, Item, Storage, VcardItem},
     caldav::CalDavStorage,
@@ -69,9 +68,7 @@ impl Config {
             expand_tilde(self.status_path).context("Expanding tilde for status_dir")?;
 
         // Only already-initialised storages (name -> instance).
-        // TODO: keep instance so I can later lock storages before using them.
         let mut storages = HashMap::<String, EitherStorage>::new();
-        let mut locks = HashMap::<String, Arc<Mutex<()>>>::new();
 
         let mut calendar_pairs = Vec::new();
         let mut contact_pairs = Vec::new();
@@ -114,16 +111,6 @@ impl Config {
 
             // TODO: metadata
 
-            let lock_a = locks.entry(name_a.clone()).or_default().clone();
-            let lock_b = locks.entry(name_b.clone()).or_default().clone();
-
-            // Keep locks sorted based on storage name. Prevents deadlocks.
-            let locks = if name_a < name_b {
-                (lock_a, lock_b)
-            } else {
-                (lock_b, lock_a)
-            };
-
             let status_path = status_dir.join(format!("{name}.status"));
             match (storage_a, storage_b) {
                 (EitherStorage::Calendar(a), EitherStorage::Calendar(b)) => {
@@ -132,7 +119,6 @@ impl Config {
                         inner: init_pair(collections, (a, b), on_empty),
                         status_path,
                         conflict_resolution,
-                        locks,
                         names: (name_a, name_b),
                     });
                 }
@@ -148,7 +134,6 @@ impl Config {
                         inner: init_pair(collections, (a, b), on_empty),
                         status_path,
                         conflict_resolution,
-                        locks,
                         names: (name_a, name_b),
                     });
                 }

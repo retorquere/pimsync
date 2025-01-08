@@ -12,6 +12,7 @@ use async_trait::async_trait;
 use camino::{Utf8Component, Utf8Path, Utf8PathBuf};
 use futures_util::{StreamExt as _, TryStreamExt as _};
 use libdav::xmlutils::normalise_newlines;
+use std::collections::{HashMap, VecDeque};
 use std::ffi::OsStr;
 use std::fs::Metadata;
 use std::marker::PhantomData;
@@ -19,6 +20,8 @@ use std::os::unix::prelude::MetadataExt;
 use std::path::Path;
 use tokio::fs::{create_dir, metadata, read_dir, read_to_string, remove_dir, remove_file, File};
 use tokio::io::{AsyncReadExt as _, AsyncWriteExt};
+use tokio::sync::oneshot::{self, Sender};
+use tokio::sync::RwLock;
 
 use crate::atomic::AtomicFile;
 use crate::base::{
@@ -46,6 +49,8 @@ pub struct VdirStorage<I: Item> {
     /// items for a collection, and all other files are ignored.
     pub extension: String,
     i: PhantomData<I>,
+    // Discretionary locks to prevent multiple tasks from operating on the same file concurrently.
+    file_locks: FileLocker,
 }
 
 const SAFE_FILENAME_CHARS: &str =
@@ -182,20 +187,22 @@ where
 
     async fn set_property(&self, href: &str, meta: I::Property, value: &str) -> Result<()> {
         let filename = meta.filename();
-
         let path = self.build_collection_path(href)?.join(filename);
-        let mut file = AtomicFile::new(path)?;
+        let file_lock = self.file_locks.lock_file(path.as_str()).await;
 
+        let mut file = AtomicFile::new(&path)?;
         file.write_all(value.as_bytes()).await?;
         file.commit()?;
-
+        self.file_locks.release_file(file_lock).await;
         Ok(())
     }
 
     async fn unset_property(&self, href: &str, meta: I::Property) -> Result<()> {
         let filename = meta.filename();
         let path = self.build_collection_path(href)?.join(filename);
-        remove_file(path).await?;
+        let file_lock = self.file_locks.lock_file(path.as_str()).await;
+        remove_file(filename).await?;
+        self.file_locks.release_file(file_lock).await;
         Ok(())
     }
 
@@ -211,6 +218,7 @@ where
     }
 
     async fn add_item(&self, collection_href: &str, item: &I) -> Result<ItemRef> {
+        // No lock is used for creating a new file; races are only possible when it already exists.
         let basename = item
             .ident()
             .chars()
@@ -242,12 +250,14 @@ where
             return Err(Error::new(ErrorKind::InvalidData, "wrong etag"));
         }
 
+        let file_lock = self.file_locks.lock_file(filename.as_str()).await;
         let mut file = AtomicFile::new(&filename)?;
         file.write_all(item.as_str().as_bytes()).await?;
         file.commit()?;
-
         // FIXME: etag calculation is subject to races. Should use `fstat` here
-        Ok(etag_for_path(filename).await?)
+        let etag = etag_for_path(&filename).await?;
+        self.file_locks.release_file(file_lock).await;
+        Ok(etag)
     }
 
     /// # Quirks
@@ -262,7 +272,9 @@ where
             return Err(Error::new(ErrorKind::InvalidData, "wrong etag"));
         }
 
-        remove_file(filename).await?;
+        let file_lock = self.file_locks.lock_file(filename.as_str()).await;
+        remove_file(&filename).await?;
+        self.file_locks.release_file(file_lock).await;
 
         Ok(())
     }
@@ -296,6 +308,7 @@ impl<I: Item> VdirStorage<I> {
             path,
             extension,
             i: PhantomData,
+            file_locks: FileLocker::default(),
         }
     }
 
@@ -375,6 +388,44 @@ impl<I: Item> VdirStorage<I> {
             .map(str::to_string)
     }
 }
+
+/// Values are a queue of tasks waiting to operate on the same file.
+#[derive(Default)]
+struct FileLocker(RwLock<HashMap<Box<str>, VecDeque<Sender<()>>>>);
+
+impl FileLocker {
+    async fn lock_file<'a>(&self, filepath: &'a str) -> FileLock<'a> {
+        let mut locks = self.0.write().await;
+        if let Some(ref mut self_waiter) = locks.get_mut(&Box::from(filepath)) {
+            let (tx, rx) = oneshot::channel();
+            self_waiter.push_back(tx);
+
+            drop(locks);
+            rx.await
+                .expect("Previous locker of file must release successfully.");
+        } else {
+            locks.insert(Box::from(filepath), VecDeque::new());
+        }
+        FileLock(filepath)
+    }
+
+    async fn release_file(&self, lock: FileLock<'_>) {
+        let mut locks = self.0.write().await;
+        if let Some(ref mut self_waiter) = locks.get_mut(lock.0) {
+            if let Some(waiter) = self_waiter.pop_front() {
+                waiter
+                    .send(())
+                    .expect("Waiter for file lock must remain alive.");
+            } else {
+                locks.remove(lock.0);
+            }
+        }
+        drop(locks);
+    }
+}
+
+/// (Internal) lock handle on a file.
+struct FileLock<'a>(&'a str);
 
 async fn etag_for_path(path: impl AsRef<Path>) -> Result<Etag> {
     let metadata = &metadata(path).await?;
