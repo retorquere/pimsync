@@ -14,7 +14,7 @@ use vstorage::{
     Etag,
 };
 
-use crate::{ConflictResolution, NamedPair};
+use crate::{ConflictResolution, NamedPair, RawCommand};
 
 /// Performs conflict resolution for this storage pair.
 // TODO: The UI can run in a deducted thread, taking a channel of conflicts to be resolved.
@@ -51,51 +51,21 @@ pub async fn interactive_resolution<I: Item>(pair: NamedPair<I>) -> anyhow::Resu
         // TODO: should use pre-fetched data, if available.
         // TODO: improve logging here.
         // TODO: move duplicated logic into a "read_item_to_tempfile" function.
-        let (mut temp_a, etag_a) = save_item_to_tempfile(pair.inner.storage_a(), &a.href)
+        let (temp_a, etag_a) = save_item_to_tempfile(pair.inner.storage_a(), &a.href)
             .await
             .context("fetching conflicted item from A")?;
-        let (mut temp_b, etag_b) = save_item_to_tempfile(pair.inner.storage_b(), &b.href)
+        let (temp_b, etag_b) = save_item_to_tempfile(pair.inner.storage_b(), &b.href)
             .await
             .context("fetching conflicted item from B")?;
 
         info!("Running conflict resolution for item {}", a.uid);
-        let exit_status = raw_cmd
-            .command()
-            .arg(temp_a.path())
-            .arg(temp_b.path())
-            .spawn()
-            .context("executing conflict resolution command")?
-            .wait()
-            .context("waiting for conflict resolution command")?;
-
-        if !exit_status.success() {
-            error!("Conflict resolution command failed: {exit_status}");
-            continue;
-        }
-
-        // Ensure that files are committed; otherwise we sometimes read empty data.
-        sync();
-        temp_a.rewind().context("seeking in temporary file for A")?;
-        temp_b.rewind().context("seeking in temporary file for B")?;
-
-        let new_a = read_to_string(temp_a).context("reading resolved item A")?;
-        let new_b = read_to_string(temp_b).context("reading resolved item B")?;
-
-        if new_a.is_empty() {
-            error!("Resolved item A is empty.");
-            continue;
-        }
-        if new_b.is_empty() {
-            error!("Resolved item B is empty.");
-            continue;
-        }
-        if new_a.trim() != new_b.trim() {
-            error!("Conflict resolution yielded mismatching items; skipping");
-            continue;
-        }
-
-        let new = I::from(new_a);
-        drop(new_b);
+        let new = match resolve_individual_conflict(&raw_cmd, temp_a, temp_b) {
+            Ok(data) => I::from(data),
+            Err(err) => {
+                error!("Error resolving conflict: {err}");
+                continue;
+            }
+        };
 
         pair.inner
             .storage_a()
@@ -150,4 +120,43 @@ async fn save_item_to_tempfile<I: Item>(
         .context("writing item into temporary file")?;
 
     Ok((temp, etag))
+}
+
+/// Returns `None` if resolution failed.
+fn resolve_individual_conflict(
+    raw_cmd: &RawCommand,
+    mut temp_a: NamedTempFile,
+    mut temp_b: NamedTempFile,
+) -> anyhow::Result<String> {
+    let exit_status = raw_cmd
+        .command()
+        .arg(temp_a.path())
+        .arg(temp_b.path())
+        .spawn()
+        .context("executing conflict resolution command")?
+        .wait()
+        .context("waiting for conflict resolution command")?;
+
+    if !exit_status.success() {
+        bail!("Conflict resolution command failed: {exit_status}");
+    }
+
+    // Ensure that files are committed; otherwise we sometimes read empty data.
+    sync();
+    temp_a.rewind().context("seeking in temporary file for A")?;
+    temp_b.rewind().context("seeking in temporary file for B")?;
+
+    let new_a = read_to_string(temp_a).context("reading resolved item A")?;
+    let new_b = read_to_string(temp_b).context("reading resolved item B")?;
+
+    if new_a.is_empty() {
+        bail!("Resolved item A is empty.");
+    }
+    if new_b.is_empty() {
+        bail!("Resolved item B is empty.");
+    }
+    if new_a.trim() != new_b.trim() {
+        bail!("Conflict resolution yielded mismatching items; skipping");
+    }
+    Ok(new_a)
 }
