@@ -17,6 +17,7 @@ lto = true
 anyhow = "1.0.75"
 base64 = "0.22.1"
 camino = { version = "1.1.6" }
+futures-util = "0.3.31"
 hex = "0.4.3"
 hyper = { version = "1", features = ["http1", "client"] }
 hyper-rustls = "0.26.0"
@@ -32,6 +33,7 @@ scfg = "0.3.1"
 sha2 = "0.10.2"
 simple_logger = { version = "4.1.0", default-features = false, features = ["colors"] }
 tempfile = "3.3.0"
+thiserror = "1.0.37"
 tokio = { version = "1.33.0", features = ["rt-multi-thread", "macros", "rt"] }
 tower = "0.5.1"
 vstorage = { version = "0.1.0", path = "./vstorage" }

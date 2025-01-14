@@ -9,20 +9,21 @@
 //!
 //! See [`Storage`] as an entry point to this module.
 
-use std::num::NonZeroUsize;
+use std::time::Duration;
 
 use async_trait::async_trait;
+use futures_util::future::BoxFuture;
 use libdav::{
     names::{self},
     PropertyName,
 };
-use tokio::sync::mpsc::Receiver;
+use tokio::time::{Instant, Interval, MissedTickBehavior};
 
 use crate::{
     disco::Discovery,
     util::{replace_uid, ItemHash},
-    watch::Event,
-    CollectionId, Error, ErrorKind, Etag, Href, Result,
+    watch::{Event, StorageMonitor},
+    CollectionId, Etag, Href, Result,
 };
 
 /// A storage is the highest level abstraction where items can be stored. It can be a remote CalDav
@@ -152,18 +153,38 @@ pub trait Storage<I: Item>: Sync + Send {
 
     /// Monitor the storage for changes.
     ///
-    /// Returns the [`Receiver`] of a channel which receives [`Event`] instances when changes are
-    /// detected.
+    /// Returns a future that resolves into a [`StorageMonitor`] instance, which can be polled for
+    /// new events on the underlying storage.
     ///
     /// # Errors
     ///
-    /// The default implementation returns [`ErrorKind::Unsupported`].
-    async fn monitor(&self, bufsize: NonZeroUsize) -> Result<Receiver<Event>> {
-        let _ = bufsize;
-        return Err(Error::new(
-            ErrorKind::Unsupported,
-            "Storage implementation does not currently support monitoring.",
-        ));
+    /// If an error occurs setting up the monitor. In cases where monitoring is not possible due to
+    /// limitations in the underlying storage, the `interval` should be used instead.
+    async fn monitor(&self, interval: Duration) -> Result<Box<dyn StorageMonitor>> {
+        Ok(Box::new(IntervalMonitor::new(interval)) as Box<dyn StorageMonitor>)
+    }
+}
+
+/// Fallback monitor for storages that don't implement one.
+struct IntervalMonitor {
+    // interval: Duration,
+    timer: Interval,
+}
+
+impl IntervalMonitor {
+    fn new(interval: Duration) -> IntervalMonitor {
+        let mut timer = tokio::time::interval_at(Instant::now() + interval, interval);
+        timer.set_missed_tick_behavior(MissedTickBehavior::Delay);
+        IntervalMonitor { timer }
+    }
+}
+
+impl StorageMonitor for IntervalMonitor {
+    fn next_event(&mut self) -> BoxFuture<Event> {
+        Box::pin(async {
+            self.timer.tick().await;
+            Event::General
+        })
     }
 }
 

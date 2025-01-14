@@ -16,6 +16,7 @@ use anyhow::{bail, Context};
 use camino::Utf8PathBuf;
 use config::{open_default_path, parse_config};
 use conflict::interactive_resolution;
+use futures_util::future::{select, Either};
 use log::{debug, error, info, trace, warn};
 use tokio::task::JoinSet;
 use vstorage::{
@@ -92,27 +93,59 @@ pub fn log_error<I: Item>(error: SyncError<I>) {
     error!("{error:?}");
 }
 
+#[derive(Debug, thiserror::Error)]
+enum DaemonError {
+    #[error("error interacting with status database: {0}")]
+    Status(StatusError),
+    #[error("error initialising storage monitor: {0}")]
+    Monitor(vstorage::Error),
+}
+
 impl<I: Item> NamedPair<I> {
     // TODO: interval should be per-storage.
 
     /// Sync this pair indefinitely
     ///
     /// Returns an error if an only if a fatal synchronisation error occurred.
-    async fn daemon(self, interval: Duration) -> StatusError {
+    async fn daemon(self, interval: Duration) -> DaemonError {
+        // Start monitor before first sync; doing the opposite could lead to missing events between
+        // first sync and initialising the monitor.
+        let mut mon_a = match self.inner.storage_a().monitor(interval).await {
+            Ok(monitor) => monitor,
+            Err(err) => return DaemonError::Monitor(err),
+        };
+        let mut mon_b = match self.inner.storage_b().monitor(interval).await {
+            Ok(monitor) => monitor,
+            Err(err) => return DaemonError::Monitor(err),
+        };
+
         loop {
+            // FIXME: implement partial sync
+            // This loops performs a full sync any time ANY change occurs. In cases where only an
+            // item has changed, we should only sync that item, and not do a full rescan.
+
             if let Err(err) = self.sync_once(false).await {
                 error!("Error synchronising {}: {:?}", self.name, err);
                 if let Ok(status_error) = err.downcast::<StatusError>() {
-                    return status_error;
+                    return DaemonError::Status(status_error);
                 };
                 // If error was a transient error, continue.
             };
 
-            warn!(
-                "Monitoring is not implemented, will auto-sync every {} seconds.",
-                interval.as_secs()
-            );
-            tokio::time::sleep(interval).await;
+            match select(mon_a.next_event(), mon_b.next_event()).await {
+                Either::Left((event, _)) => {
+                    debug!("Monitor for B yielded event {:?}", event);
+                    // TODO: Build set of Changes based on received events.
+                }
+                Either::Right((event, _)) => {
+                    debug!("Monitor for B yielded event {:?}", event);
+                    // TODO: Build set of Changes based on received events.
+                }
+            };
+            // TODO: Drain any remaining events in a non-blocking way (or with <100ms timeout).
+            //       Handle batches of events together.
+
+            warn!("Partial sync is not implemented; will perform full sync");
         }
     }
 

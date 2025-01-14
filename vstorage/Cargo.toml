@@ -22,6 +22,7 @@ http-body-util = "0.1.0"
 hyper = { version = "1", features = ["http1", "client"] }
 hyper-rustls = "0.26.0"
 hyper-util = { version = "0.1.1", features = ["client", "client-legacy", "http1"] }
+inotify = "0.11.0"
 libdav = { version = "0.9.0" }
 log = "0.4.17"
 rand = "0.8.5"

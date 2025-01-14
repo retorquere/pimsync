@@ -10,6 +10,7 @@
 //! [`ReadOnly`]: ErrorKind::ReadOnly
 
 use std::marker::PhantomData;
+use std::time::Duration;
 
 use async_trait::async_trait;
 
@@ -19,6 +20,7 @@ use crate::base::Item;
 use crate::base::ListedProperty;
 use crate::base::Storage;
 use crate::disco::Discovery;
+use crate::watch::StorageMonitor;
 use crate::CollectionId;
 use crate::Href;
 use crate::{ErrorKind, Etag, Result};
@@ -111,6 +113,10 @@ impl<S: Storage<I>, I: Item> Storage<I> for ReadOnlyStorage<S, I> {
         collection_href: &str,
     ) -> Result<Vec<ListedProperty<I::Property>>> {
         self.inner.list_properties(collection_href).await
+    }
+
+    async fn monitor(&self, interval: Duration) -> Result<Box<dyn StorageMonitor>> {
+        self.inner.monitor(interval).await
     }
 }
 
