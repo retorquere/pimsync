@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: EUPL-1.2
 
-image: openbsd/7.5
+image: openbsd/7.6
 packages:
   - rust
   - rust-rustfmt
