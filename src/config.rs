@@ -63,7 +63,7 @@ impl Config {
     ///
     /// This consumes the configuration to avoid copying any data needlessly and freeing up any
     /// unnecessary data.
-    pub(crate) async fn into_app<'storages>(mut self) -> anyhow::Result<App> {
+    pub(crate) async fn into_app(mut self) -> anyhow::Result<App> {
         let status_dir =
             expand_tilde(self.status_path).context("Expanding tilde for status_dir")?;
 
