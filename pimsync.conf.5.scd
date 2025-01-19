@@ -31,7 +31,9 @@ The following setting can be set globally:
 
 # STORAGE SECTIONS
 
-Each storage section starts with a declaration of the storage name.
+A storage describes a location where calendars or contacts are stored. Each
+storage is declared in its own section, and each storage section starts with a
+declaration of the storage name.
 
 *storage* _name_ { … }
 	Declare a storage with name _name_.
@@ -40,16 +42,36 @@ Directives are declared inside the curly braces for each section, one per line.
 The following directives apply to all storage types:
 
 *type* _type_
-	Type can be one of *vdir/icalendar*, *vdir/vcard*, *caldav*, *carddav*
-	or *webcal*.
+	Type can be one of:
+
+	*vdir/icalendar*
+		A directory where each subdirectory represents a calendar. Each
+		of these subdirectories contains individual icalendar files,
+		each representing one event (or one series of recurring events),
+		todo or journal entry.
+
+	*vdir/vcard*
+		A directory where each subdirectory represents an address book.
+		Each of these subdirectories contains individual vcard files,
+		each representing one contact.
+
+	*caldav*
+		A CalDAV server, containing calendars with events, todos and/or
+		journal entries.
+
+	*carddav*
+		A CardDAV server containing address books with contacts.
+
+	*webcal*.
+		An HTTP or HTTPS URL exposing a single iCalendar file which may
+		contain zero or more events, todos or journal entries. This
+		storage is read-only.
 
 *interval* _seconds_
 	When monitoring a storage is no possible, check for changes every
 	the specified amount of seconds. The default is 300 seconds.
 
-A *vdir* is a directory where each collection is represented by a directory and
-each item is stored in an individual file. Storages of type *vdir* take the
-following directives:
+Storages of type *vdir* take the following directives:
 
 ; TODO: should point to docs for *vdir*.
 

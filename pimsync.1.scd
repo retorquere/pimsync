@@ -10,18 +10,17 @@ pimsync - synchronise caldav, carddav, webcal and local directories
 
 # DESCRIPTION
 
-*pimsync* synchronizes calendars and contacts between two storages. The most
-popular usage is to synchronize a CalDAV/CardDAV server with a local directory.
-The local data can then be accessed by a variety of programs, none of which have
-to know or worry about synchronisation, network connectivity, or remote servers.
+*pimsync* synchronizes calendars and contacts between multiple storages. A
+calendar storage can be a CalDAV server, a local directory, or a Webcal URL. A
+contacts storage can be a CardDav server or a local directory.
 
-Supported calendar storages are *vdir*, *caldav* and *webcal*. With the
-exception of *webcal* to *webcal*, all permutations of these are supported. The
-*webcal* storage is read-only, and two read-only storages cannot be synchronised
-with each other.
+A typical usages include:
 
-Supported contacts storages are *vdir* and *carddav*. Any permutation of these
-is supported.
+- Synchronising a CalDAV/CardDAV server with a local directory. Local data
+  can then be accessed by a variety of programs, none of which have to know or
+  worry about synchronisation, network connectivity, or remote servers.
+
+- Synchronising data between two different CalDAV or CardDAV servers.
 
 # OPTIONS
 
