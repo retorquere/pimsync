@@ -27,6 +27,7 @@ target/%.html: target/%
 	> '$@'
 
 target/%: %.scd
+	mkdir -p target
 	scdoc < '$<' > '$@'
 
 .PHONY: install
