@@ -110,11 +110,10 @@ impl<'a> Component<'a> {
         let items_with_timezones = items_with_uid
             .into_values()
             .map(|mut calendar| {
-                for entry in &mut *calendar.subcomponents {
-                    // Clone here because `append` empties the passed input.
-                    entry.subcomponents.append(&mut (timezones.clone()));
-                    // FIXME: this copies all timezones into all components. I can do better.
-                }
+                // FIXME: this copies all timezones into all components. I can do better.
+                // TODO: only copy timezones corresponding to this event.
+                // Clone here because `append` empties the passed input.
+                calendar.subcomponents.append(&mut (timezones.clone()));
                 calendar
             })
             .collect();
