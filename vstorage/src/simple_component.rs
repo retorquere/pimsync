@@ -253,6 +253,7 @@ mod test {
             "SUMMARY:Bastille Day Party (copy)",
             "X-SOMETHING:s",
             "UID:b8d52b8b-dd6b-4ef9-9249-0ad7c28f9e5a",
+            "END:VEVENT",
             "BEGIN:VTIMEZONE",
             "TZID:Europe/Rome",
             "X-LIC-LOCATION:Europe/Rome",
@@ -271,7 +272,6 @@ mod test {
             "RRULE:FREQ=YEARLY;BYDAY=-1SU;BYMONTH=10",
             "END:STANDARD",
             "END:VTIMEZONE",
-            "END:VEVENT",
             "END:VCALENDAR",
             "",
         ]
@@ -284,6 +284,7 @@ mod test {
             "SUMMARY:Bastille Day Party",
             "X-SOMETHING:r",
             "UID:11bb6bed-c29b-4999-a627-12dee35f8395",
+            "END:VEVENT",
             "BEGIN:VTIMEZONE",
             "TZID:Europe/Rome",
             "X-LIC-LOCATION:Europe/Rome",
@@ -302,7 +303,6 @@ mod test {
             "RRULE:FREQ=YEARLY;BYDAY=-1SU;BYMONTH=10",
             "END:STANDARD",
             "END:VTIMEZONE",
-            "END:VEVENT",
             "END:VCALENDAR",
             "",
         ]
