@@ -43,9 +43,10 @@ mod ua;
 pub const VERSION: &str = env!("PIMSYNC_VERSION");
 
 /// Per-storage conflict resolution mechanism.
+#[derive(PartialEq, Debug)]
 pub(crate) enum ConflictResolution {
-    FromA,
-    FromB,
+    KeepA,
+    KeepB,
     Cmd(RawCommand),
 }
 
@@ -61,6 +62,7 @@ pub(crate) struct NamedPair<I: Item> {
 /// Data necessary to create a new `Command` instance.
 ///
 /// Contrary to [`std::process::Command`], this can be used more than once.
+#[derive(PartialEq, Debug)]
 pub struct RawCommand {
     command: String,
     args: Vec<String>,
@@ -153,7 +155,7 @@ impl<I: Item> NamedPair<I> {
     async fn sync_once(&self, dry_run: bool) -> anyhow::Result<()> {
         let plan = self.create_plan().await.context("creating plan")?;
 
-        if let Some(ConflictResolution::FromA | ConflictResolution::FromB) =
+        if let Some(ConflictResolution::KeepA | ConflictResolution::KeepB) =
             self.conflict_resolution
         {
             error!("Conflict auto-resolution is not implemented");

@@ -5,6 +5,10 @@ public API is still subject to change. This includes commands, arguments and
 configuration directives. Upon the release of v1.0.0, backwards incompatible
 changes will be avoided unless absolutely necessary.
 
+# Unreleased
+
+- Fixed support for `keep a` and `keep b` as `conflict_resolution` parameters.
+
 # v0.2.0
 
 - Several documentation improvements.

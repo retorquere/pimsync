@@ -304,9 +304,12 @@ fn parse_conflict_resolution(mut directive: Directive) -> anyhow::Result<Conflic
         Some("cmd") => RawCommand::try_from(params)
             .context("parsing conflict_resolution")
             .map(ConflictResolution::Cmd),
-        // FIXME: does not match due to being multiple strings?
-        Some("from a") => Ok(ConflictResolution::FromA),
-        Some("from b") => Ok(ConflictResolution::FromB),
+        Some("keep") => match params.next().as_deref() {
+            Some("a") => Ok(ConflictResolution::KeepA),
+            Some("b") => Ok(ConflictResolution::KeepB),
+            Some(c) => bail!("Invalid parameter for conflict_resolution: keep {c}"),
+            None => bail!("Invalid parameter for conflict_resolution: keep"),
+        },
         Some(param) => bail!("Invalid parameter for conflict_resolution: {param}"),
         None => bail!("Missing parameter for conflict_resolution"),
     }
@@ -822,11 +825,58 @@ pub(crate) fn open_default_path() -> anyhow::Result<(PathBuf, File)> {
 
 #[cfg(test)]
 mod test {
-    use super::default_user_agent;
+    use scfg::Scfg;
+
+    use crate::{ConflictResolution, RawCommand};
+
+    use super::{default_user_agent, parse_conflict_resolution, take_single_directive};
 
     #[test]
     fn test_default_user_agent() {
         // Validate invariant; function does not panic.
         let _ = default_user_agent();
+    }
+
+    #[test]
+    fn test_parse_conflict_resolution_keep_a() {
+        let mut parser = "conflict_resolution keep a".parse::<Scfg>().unwrap();
+        let directive = take_single_directive(&mut parser, "conflict_resolution")
+            .unwrap()
+            .unwrap();
+        let got = parse_conflict_resolution(directive).unwrap();
+        assert_eq!(got, ConflictResolution::KeepA);
+    }
+
+    #[test]
+    fn test_parse_conflict_resolution_keep_b() {
+        let mut parser = "conflict_resolution keep b".parse::<Scfg>().unwrap();
+        let directive = take_single_directive(&mut parser, "conflict_resolution")
+            .unwrap()
+            .unwrap();
+        let got = parse_conflict_resolution(directive).unwrap();
+        assert_eq!(got, ConflictResolution::KeepB);
+    }
+
+    #[test]
+    fn test_parse_conflict_resolution_cmd() {
+        let mut parser =
+            "conflict_resolution cmd hiq -dFpassword proto=carddavs username=alice@example.com"
+                .parse::<Scfg>()
+                .unwrap();
+        let directive = take_single_directive(&mut parser, "conflict_resolution")
+            .unwrap()
+            .unwrap();
+        let got = parse_conflict_resolution(directive).unwrap();
+        assert_eq!(
+            got,
+            ConflictResolution::Cmd(RawCommand {
+                command: "hiq".to_string(),
+                args: vec![
+                    "-dFpassword".to_string(),
+                    "proto=carddavs".to_string(),
+                    "username=alice@example.com".to_string(),
+                ],
+            })
+        );
     }
 }
