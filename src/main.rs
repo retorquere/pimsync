@@ -136,7 +136,7 @@ impl<I: Item> NamedPair<I> {
 
             match select(mon_a.next_event(), mon_b.next_event()).await {
                 Either::Left((event, _)) => {
-                    debug!("Monitor for B yielded event {:?}", event);
+                    debug!("Monitor for A yielded event {:?}", event);
                     // TODO: Build set of Changes based on received events.
                 }
                 Either::Right((event, _)) => {
