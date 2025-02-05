@@ -24,6 +24,7 @@ pub trait StorageMonitor: Send {
     ///
     /// This method MUST be cancel safe. If the returned future is dropped before completion, the
     /// next call MUST return the following event without dropping any events.
+    // TODO: backends might return more than one event at a time, so this should return a Vec<Event>
     fn next_event(&mut self) -> BoxFuture<Event>;
 }
 

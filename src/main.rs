@@ -121,17 +121,31 @@ impl<I: Item> NamedPair<I> {
             Err(err) => return DaemonError::Monitor(err),
         };
 
+        // Open status DB once and keep that handle open.
+        let status = match StatusDatabase::open_or_create(&self.status_path) {
+            Ok(status) => status,
+            Err(err) => return DaemonError::Status(err),
+        };
+
         loop {
             // FIXME: implement partial sync
             // This loops performs a full sync any time ANY change occurs. In cases where only an
             // item has changed, we should only sync that item, and not do a full rescan.
 
-            if let Err(err) = self.sync_once(false).await {
-                error!("Error synchronising {}: {:?}", self.name, err);
-                if let Ok(status_error) = err.downcast::<StatusError>() {
-                    return DaemonError::Status(status_error);
-                };
-                // If error was a transient error, continue.
+            debug!("Creating plan for storage pair '{}'.", self.name);
+            match Plan::new(&self.inner, Some(&status)).await {
+                Ok(plan) => {
+                    if let Some(ConflictResolution::KeepA | ConflictResolution::KeepB) =
+                        self.conflict_resolution
+                    {
+                        error!("Conflict auto-resolution is not implemented");
+                    }
+                    self.print_plan(&plan);
+                    if let Err(err) = Executor::new(log_error).plan(plan, &status).await {
+                        return DaemonError::Status(err);
+                    };
+                }
+                Err(err) => error!("Error synchronising {}: {:?}", self.name, err),
             };
 
             match select(mon_a.next_event(), mon_b.next_event()).await {
