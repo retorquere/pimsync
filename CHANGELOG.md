@@ -7,6 +7,12 @@ changes will be avoided unless absolutely necessary.
 
 # Unreleased
 
+- Remove unnecessary storage locks when synchronising. Previously storages were
+  locked to avoid concurrent executions. Instead, ensure that individual items
+  are not modified concurrently.
+- Implement monitoring via `inotify` for vdir storages. Other platforms will
+  continue to rely on polling.
+- Fixed bug including timezones when synchronising from a Webcal storage.
 - Fixed support for `keep a` and `keep b` as `conflict_resolution` parameters.
 
 # v0.2.0
