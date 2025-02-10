@@ -14,6 +14,8 @@ changes will be avoided unless absolutely necessary.
   continue to rely on polling.
 - Fixed bug including timezones when synchronising from a Webcal storage.
 - Fixed support for `keep a` and `keep b` as `conflict_resolution` parameters.
+- Implemented the `shell` mechanism for directives. See `pimsync.conf(5)` for
+  details.
 
 # v0.2.0
 
