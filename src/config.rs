@@ -859,10 +859,7 @@ mod test {
 
     #[test]
     fn test_parse_conflict_resolution_cmd() {
-        let mut parser =
-            "conflict_resolution cmd hiq -dFpassword proto=carddavs username=alice@example.com"
-                .parse::<Scfg>()
-                .unwrap();
+        let mut parser = "conflict_resolution cmd nvim -d".parse::<Scfg>().unwrap();
         let directive = take_single_directive(&mut parser, "conflict_resolution")
             .unwrap()
             .unwrap();
@@ -870,12 +867,8 @@ mod test {
         assert_eq!(
             got,
             ConflictResolution::Cmd(RawCommand {
-                command: "hiq".to_string(),
-                args: vec![
-                    "-dFpassword".to_string(),
-                    "proto=carddavs".to_string(),
-                    "username=alice@example.com".to_string(),
-                ],
+                command: "nvim".to_string(),
+                args: vec!["-d".to_string(),],
             })
         );
     }
