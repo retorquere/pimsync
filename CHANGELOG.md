@@ -16,6 +16,8 @@ changes will be avoided unless absolutely necessary.
 - Fixed support for `keep a` and `keep b` as `conflict_resolution` parameters.
 - Implemented the `shell` mechanism for directives. See `pimsync.conf(5)` for
   details.
+- Skip uploading unchanged items during conflict resolution. Fixes resolving
+  conflicts with read-only storages (e.g.: Webcal).
 
 # v0.2.0
 

@@ -66,8 +66,7 @@ pub async fn interactive_resolution<I: Item>(pair: NamedPair<I>) -> anyhow::Resu
             }
         };
 
-        // TODO: skip upload if the item is unchanged.
-        if new.as_str() == item_a.as_str() {
+        if new.hash() == item_a.hash() {
             debug!("Item is unchanged in A.");
         } else {
             pair.inner
@@ -78,7 +77,7 @@ pub async fn interactive_resolution<I: Item>(pair: NamedPair<I>) -> anyhow::Resu
             debug!("Uploaded resolved item to A.");
         }
 
-        if new.as_str() == item_b.as_str() {
+        if new.hash() == item_b.hash() {
             debug!("Item is unchanged in B.");
         } else {
             pair.inner
