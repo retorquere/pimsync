@@ -138,6 +138,15 @@ password {
 }
 ```
 
+It is also possible to specify a shell script, which is executed via _sh -c_.
+For example:
+
+```
+password {
+	shell pass show communication/migadu.com | head -1
+}
+```
+
 It is recommended to store credentials and other sensitive values in a secret
 storage service.
 

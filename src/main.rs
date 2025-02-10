@@ -9,7 +9,6 @@ use std::{
     io::{read_to_string, Write},
     path::PathBuf,
     time::Duration,
-    vec::IntoIter,
 };
 
 use anyhow::{bail, Context};
@@ -71,21 +70,23 @@ pub struct RawCommand {
 impl RawCommand {
     #[must_use]
     pub fn command(&self) -> std::process::Command {
+        dbg!(&self.command, &self.args);
         let mut cmd = std::process::Command::new(&self.command);
         cmd.args(&self.args);
         cmd
     }
-}
 
-impl TryFrom<IntoIter<String>> for RawCommand {
-    type Error = anyhow::Error;
-
-    fn try_from(mut value: IntoIter<String>) -> anyhow::Result<Self> {
-        let command = value
-            .next()
-            .context("cmd must define at least one parameter")?;
-        let args = value.collect();
-        Ok(RawCommand { command, args })
+    /// Create a new `RawCommand` from the given arguments.
+    ///
+    /// Returns `None` if arguments are empty.
+    pub(crate) fn from_args<I>(mut args: I) -> Option<Self>
+    where
+        I: Iterator<Item = String>,
+    {
+        Some(RawCommand {
+            command: args.next()?,
+            args: args.collect(),
+        })
     }
 }
 

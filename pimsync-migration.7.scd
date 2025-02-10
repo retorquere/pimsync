@@ -85,8 +85,7 @@ storage contacts_local {
 
 # FETCH MECHANISMS
 
-The *shell* and *prompt* mechanisms for fetching passwords have been dropped.
-Only the *command* mechanism remains.
+The *prompt* mechanism for fetching passwords has been dropped.
 
 A *fetch* definition with a *command* would previously look like this:
 
@@ -103,20 +102,12 @@ specifying the command and its arguments.
 	}
 ```
 
-## MIGRATING FETCH / SHELL
-
-The following *shell* example:
+A *fetch* definition with a *shell* now uses a similar syntax:
 
 ```
-password.fetch = ["shell", "~/.local/bin/get-my-password | head -n1"]
-```
-
-Can be replaced with:
-
-```
-password {
-	cmd sh -c "~/.local/bin/get-my-password | head -n1"
-}
+	password {
+		shell pass show communication/migadu.com | head -1
+	}
 ```
 
 ## MIGRATING FETCH / PROMPT

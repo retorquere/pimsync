@@ -301,7 +301,7 @@ fn parse_individual_collection(
 fn parse_conflict_resolution(mut directive: Directive) -> anyhow::Result<ConflictResolution> {
     let mut params = directive.take_params().into_iter();
     match params.next().as_deref() {
-        Some("cmd") => RawCommand::try_from(params)
+        Some("cmd") => RawCommand::from_args(params)
             .context("parsing conflict_resolution")
             .map(ConflictResolution::Cmd),
         Some("keep") => match params.next().as_deref() {
@@ -482,18 +482,6 @@ fn parse_auth(directive: &mut Scfg) -> anyhow::Result<Option<(String, String)>> 
         None => String::new(),
     };
     Ok(Some((username, password)))
-}
-
-fn parse_block_with_raw_cmd(mut directive: Directive) -> anyhow::Result<RawCommand> {
-    let mut block = directive
-        .take_child()
-        .context("Must define a parameter or a block")?;
-    let params = take_single_directive(&mut block, "cmd")?
-        .context("Block must define a cmd directive")?
-        .take_params()
-        .into_iter();
-
-    RawCommand::try_from(params)
 }
 
 #[derive(Debug, Default)]
@@ -774,6 +762,9 @@ fn resolve_storage_cmds(storage: &mut Scfg) -> anyhow::Result<()> {
     }
 }
 
+/// Resolve a command in-place, updating the input structure.
+///
+/// Use to resolve a command early before the full structure is parsed into a domain type.
 fn resolve_cmd_inplace(storage: &mut Scfg, name: &str) -> anyhow::Result<()> {
     let Some(mut directive) = take_single_directive(storage, name)? else {
         return Ok(());
@@ -786,8 +777,26 @@ fn resolve_cmd_inplace(storage: &mut Scfg, name: &str) -> anyhow::Result<()> {
         }
         param
     } else {
-        let output = parse_block_with_raw_cmd(directive)
-            .with_context(|| format!("Parsing cmd for {name} directive"))?
+        let mut block = directive
+            .take_child()
+            .context("Must define a parameter or a block")?;
+
+        let raw_cmd = if let Some(mut cmd_block) = take_single_directive(&mut block, "cmd")? {
+            let args = cmd_block.take_params().into_iter();
+            RawCommand::from_args(args).context("cmd must define at least one parameter")?
+        } else if let Some(mut shell_block) = take_single_directive(&mut block, "shell")? {
+            let args = [
+                "sh".to_string(),
+                "-c".to_string(),
+                shell_block.take_params().join(" "),
+            ]
+            .into_iter();
+            RawCommand::from_args(args).context("shell must define at least one parameter")?
+        } else {
+            bail!("Block must include a 'cmd' or 'shell' directive");
+        };
+
+        let output = raw_cmd
             .command()
             .stdout(Stdio::piped())
             .output()
@@ -827,9 +836,11 @@ pub(crate) fn open_default_path() -> anyhow::Result<(PathBuf, File)> {
 mod test {
     use scfg::Scfg;
 
-    use crate::{ConflictResolution, RawCommand};
+    use crate::{config::take_single_param_from_directive, ConflictResolution, RawCommand};
 
-    use super::{default_user_agent, parse_conflict_resolution, take_single_directive};
+    use super::{
+        default_user_agent, parse_conflict_resolution, resolve_cmd_inplace, take_single_directive,
+    };
 
     #[test]
     fn test_default_user_agent() {
@@ -871,5 +882,36 @@ mod test {
                 args: vec!["-d".to_string(),],
             })
         );
+    }
+
+    #[test]
+    fn test_inplace_resolution_plain() {
+        let mut parser = concat!("username alice@example.com",)
+            .parse::<Scfg>()
+            .unwrap();
+        resolve_cmd_inplace(&mut parser, "username").unwrap();
+        let got = take_single_param_from_directive(&mut parser, "username").unwrap();
+        assert_eq!(got, "alice@example.com",);
+    }
+
+    #[test]
+    fn test_inplace_resolution_cmd() {
+        let mut parser = concat!("username {\n cmd echo alice@example.com\n}",)
+            .parse::<Scfg>()
+            .unwrap();
+        resolve_cmd_inplace(&mut parser, "username").unwrap();
+        let got = take_single_param_from_directive(&mut parser, "username").unwrap();
+        assert_eq!(got, "alice@example.com",);
+    }
+
+    #[test]
+    fn test_inplace_resolution_shell() {
+        let mut parser =
+            concat!("username {\n shell echo john@example.com | sed s/john/alice/\n}",)
+                .parse::<Scfg>()
+                .unwrap();
+        resolve_cmd_inplace(&mut parser, "username").unwrap();
+        let got = take_single_param_from_directive(&mut parser, "username").unwrap();
+        assert_eq!(got, "alice@example.com",);
     }
 }
