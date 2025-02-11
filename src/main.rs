@@ -70,7 +70,6 @@ pub struct RawCommand {
 impl RawCommand {
     #[must_use]
     pub fn command(&self) -> std::process::Command {
-        dbg!(&self.command, &self.args);
         let mut cmd = std::process::Command::new(&self.command);
         cmd.args(&self.args);
         cmd
