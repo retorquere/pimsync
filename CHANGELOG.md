@@ -5,7 +5,7 @@ public API is still subject to change. This includes commands, arguments and
 configuration directives. Upon the release of v1.0.0, backwards incompatible
 changes will be avoided unless absolutely necessary.
 
-# Unreleased
+# v0.3.0
 
 - Remove unnecessary storage locks when synchronising. Previously storages were
   locked to avoid concurrent executions. Instead, ensure that individual items
