@@ -10,17 +10,42 @@ pimsync - synchronise caldav, carddav, webcal and local directories
 
 # DESCRIPTION
 
-*pimsync* synchronizes calendars and contacts between multiple storages. A
-calendar storage can be a CalDAV server, a local directory, or a Webcal URL. A
-contacts storage can be a CardDav server or a local directory.
+*pimsync* synchronizes calendars and contacts. For calendars, it supports
+operating on a local directories, CalDAV servers or Webcal URLs. For contacts,
+it supports operating on local directories or CardDav servers.
 
 A typical usages include:
 
-- Synchronising a CalDAV/CardDAV server with a local directory. Local data
+- Synchronising a CalDAV or CardDAV server with a local directory. Local data
   can then be accessed by a variety of programs, none of which have to know or
   worry about synchronisation, network connectivity, or remote servers.
 
 - Synchronising data between two different CalDAV or CardDAV servers.
+
+The following glossary provides a brief overview of relevant terminology:
+
+*item*
+	A single event, todo, journal entry or contact.
+
+*collection*
+	A grouping of multiple items. Can be one of (1) a single calendar which
+	contains events, todos and/or journal entries, or (2) an address book
+	which contains contacts.
+
+*storage*
+	A location which contains multiple collections. A single storage may be
+	an account on a CalDAV server, or a local directory which contains
+	multiple directories, each of these directories representing a single
+	calendar.
+
+*pair*
+	Two storages which are configured to synchronise with each other. Note
+	that a single storage may form part of more than one pair.
+
+*conflict*
+	When synchronising two storages, if a single item has been modified on
+	both sides but has different content on both sides, that item is said to
+	be in conflict.
 
 # OPTIONS
 
@@ -57,11 +82,8 @@ A typical usages include:
 *resolve-conflicts*
 	Manually resolve conflicts between storages.
 
-	When synchronising two storages, if a single item has been modified on
-	both sides, that item is said to be in conflict. This conflict needs to
-	be resolved by an some external program, specified in the configuration
-	file. This command executes the conflict resolution program for each
-	conflicting item.
+	Execute an external program, specified in the configuration file, which
+	performs conflict resolution program for each conflicting item.
 
 	Appending *-n* performs a dry run and won't perform any write
 	operations.
