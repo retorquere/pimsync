@@ -56,6 +56,7 @@ pub(crate) struct NamedPair<I: Item> {
     status_path: Utf8PathBuf,
     conflict_resolution: Option<ConflictResolution>,
     names: (String, String),
+    intervals: (Duration, Duration),
 }
 
 /// Data necessary to create a new `Command` instance.
@@ -104,19 +105,17 @@ enum DaemonError {
 }
 
 impl<I: Item> NamedPair<I> {
-    // TODO: interval should be per-storage.
-
     /// Sync this pair indefinitely
     ///
     /// Returns an error if an only if a fatal synchronisation error occurred.
-    async fn daemon(self, interval: Duration) -> DaemonError {
+    async fn daemon(self) -> DaemonError {
         // Start monitor before first sync; doing the opposite could lead to missing events between
         // first sync and initialising the monitor.
-        let mut mon_a = match self.inner.storage_a().monitor(interval).await {
+        let mut mon_a = match self.inner.storage_a().monitor(self.intervals.0).await {
             Ok(monitor) => monitor,
             Err(err) => return DaemonError::Monitor(err),
         };
-        let mut mon_b = match self.inner.storage_b().monitor(interval).await {
+        let mut mon_b = match self.inner.storage_b().monitor(self.intervals.1).await {
             Ok(monitor) => monitor,
             Err(err) => return DaemonError::Monitor(err),
         };
@@ -242,7 +241,6 @@ impl<I: Item> NamedPair<I> {
 }
 
 pub(crate) struct App {
-    interval: Duration,
     calendar_pairs: Vec<NamedPair<IcsItem>>,
     contact_pairs: Vec<NamedPair<VcardItem>>,
 }
@@ -262,10 +260,10 @@ impl App {
     async fn daemon(self) -> anyhow::Result<()> {
         let mut set = JoinSet::new();
         for pair in self.calendar_pairs {
-            set.spawn(pair.daemon(self.interval));
+            set.spawn(pair.daemon());
         }
         for pair in self.contact_pairs {
-            set.spawn(pair.daemon(self.interval));
+            set.spawn(pair.daemon());
         }
 
         while let Some(res) = set.join_next().await {

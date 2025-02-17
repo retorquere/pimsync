@@ -47,9 +47,6 @@ use crate::{
 #[derive(Debug)]
 pub(crate) struct Config {
     status_path: Utf8PathBuf,
-    /// Used when storages do not implement or support monitoring.
-    // FIXME: TODO: move into individual storage definitions.
-    interval: Duration,
     pairs: HashMap<String, Scfg>,
     /// Configuration for all storages.
     ///
@@ -68,7 +65,7 @@ impl Config {
             expand_tilde(self.status_path).context("Expanding tilde for status_dir")?;
 
         // Only already-initialised storages (name -> instance).
-        let mut storages = HashMap::<String, EitherStorage>::new();
+        let mut storages = HashMap::<String, (EitherStorage, Duration)>::new();
 
         let mut calendar_pairs = Vec::new();
         let mut contact_pairs = Vec::new();
@@ -78,12 +75,13 @@ impl Config {
             let mut collections = Vec::<Collections>::new();
 
             let name_a = take_single_param_from_directive(&mut config, "storage_a")?;
-            let storage_a = init_storage(&mut self.storages, &mut storages, &name_a)
+
+            let (storage_a, interval_a) = init_storage(&mut self.storages, &mut storages, &name_a)
                 .await
                 .with_context(|| format!("initialising storage {name_a}"))?;
 
             let name_b = take_single_param_from_directive(&mut config, "storage_b")?;
-            let storage_b = init_storage(&mut self.storages, &mut storages, &name_b)
+            let (storage_b, interval_b) = init_storage(&mut self.storages, &mut storages, &name_b)
                 .await
                 .with_context(|| format!("initialising storage {name_b}"))?;
 
@@ -120,6 +118,7 @@ impl Config {
                         status_path,
                         conflict_resolution,
                         names: (name_a, name_b),
+                        intervals: (interval_a, interval_b),
                     });
                 }
                 (EitherStorage::Calendar(_), EitherStorage::AddressBook(_)) => {
@@ -135,6 +134,7 @@ impl Config {
                         status_path,
                         conflict_resolution,
                         names: (name_a, name_b),
+                        intervals: (interval_a, interval_b),
                     });
                 }
             }
@@ -143,7 +143,6 @@ impl Config {
         Ok(App {
             calendar_pairs,
             contact_pairs,
-            interval: self.interval,
         })
     }
 }
@@ -172,11 +171,12 @@ fn parse_collections_directive(params: &str) -> anyhow::Result<Collections> {
 /// Otherwise, find it in `parsed_storages`.
 async fn init_storage(
     raw_storages: &mut HashMap<String, Scfg>,
-    parsed_storages: &mut HashMap<String, EitherStorage>,
+    parsed_storages: &mut HashMap<String, (EitherStorage, Duration)>,
     storage_name: &str,
-) -> anyhow::Result<EitherStorage> {
+) -> anyhow::Result<(EitherStorage, Duration)> {
     if let Some((name, mut config)) = raw_storages.remove_entry(storage_name) {
         let type_ = take_single_param_from_directive(&mut config, "type")?;
+        let interval = parse_interval(&mut config)?;
         let storage = match type_.as_ref() {
             "vdir/icalendar" => EitherStorage::Calendar(parse_vdir(config)?),
             "vdir/vcard" => EitherStorage::AddressBook(parse_vdir(config)?),
@@ -188,8 +188,8 @@ async fn init_storage(
 
         let inner = storage.clone();
         info!("Initialised storage {name}");
-        parsed_storages.insert(name.to_string(), storage);
-        Ok(inner)
+        parsed_storages.insert(name.to_string(), (storage, interval));
+        Ok((inner, interval))
     } else {
         debug!("Re-using storage {storage_name}");
         parsed_storages
@@ -649,8 +649,6 @@ pub(crate) fn parse_config(
     let mut pairs = HashMap::<String, Scfg>::new();
     let mut storages = HashMap::<String, Scfg>::new();
 
-    let interval = parse_interval(&mut parser)?;
-
     let status_path = take_single_param_from_directive(&mut parser, "status_path")?;
 
     let mut enabled_pairs = enabled_pairs.map(|vec| vec.iter().collect::<HashSet<_>>());
@@ -721,7 +719,6 @@ pub(crate) fn parse_config(
 
     Ok(Config {
         status_path: Utf8PathBuf::from(status_path),
-        interval,
         pairs,
         storages,
     })
