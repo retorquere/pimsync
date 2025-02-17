@@ -18,6 +18,7 @@ changes will be avoided unless absolutely necessary.
   details.
 - Skip uploading unchanged items during conflict resolution. Fixes resolving
   conflicts with read-only storages (e.g.: Webcal).
+- Fix `interval` directives in storages not being parsed.
 
 # v0.2.0
 
