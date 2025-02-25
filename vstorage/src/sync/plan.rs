@@ -17,7 +17,7 @@ use crate::util::ItemHash;
 use crate::{base::Item, sync::declare::StoragePair};
 use crate::{CollectionId, ErrorKind, Href};
 
-use super::declare::{CollectionDescription, DeclaredMapping, OnEmpty};
+use super::declare::{CollectionDescription, DeclaredMapping, OnDelete, OnEmpty};
 use super::status::{
     FindStaleMappingsError, ItemState, MappingUid, Side, StatusDatabase, StatusError, StatusForItem,
 };
@@ -450,8 +450,14 @@ impl<I: Item> CollectionPlan<I> {
             .filter_map(Result::transpose)
             .collect::<Result<Vec<_>, PlanError>>()?;
 
-        let collection_action =
+        let mut collection_action =
             CollectionAction::new(mapping.a.exists, mapping.b.exists, mapping_uid);
+
+        if let CollectionAction::Delete(uid, _) = collection_action {
+            if pair.on_delete == OnDelete::Skip {
+                collection_action = CollectionAction::NoAction(uid);
+            };
+        };
 
         let property_actions = if let CollectionAction::Delete(_, _) = collection_action {
             Vec::new()

@@ -201,6 +201,15 @@ braces:
 	Instead, it will delete the same collection (and all of its items) on
 	the other side.
 
+*on_delete sync*
+	When a collection itself is deleted on one side, delete it on the other
+	side. This only applies if the collection is already empty. This is the
+	default. This is generally safe, especially when combined with *on empty
+	skip*.
+
+*on_delete skip*
+	When a collection itself is deleted on one side, skip it.
+
 The *conflict_resolution* directive specifies which action should be taken if an
 item was modified on both sides:
 

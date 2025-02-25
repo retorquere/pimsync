@@ -27,7 +27,7 @@ use vstorage::{
     base::{IcsItem, Item, Storage, VcardItem},
     caldav::CalDavStorage,
     carddav::CardDavStorage,
-    sync::declare::{CollectionDescription, DeclaredMapping, OnEmpty, StoragePair},
+    sync::declare::{CollectionDescription, DeclaredMapping, OnDelete, OnEmpty, StoragePair},
     vdir::{PropertyWithFilename, VdirStorage},
     webcal::WebCalStorage,
     CollectionId,
@@ -100,7 +100,14 @@ impl Config {
 
             let on_empty = take_single_directive(&mut config, "on_empty")?
                 .map(parse_on_empty)
-                .transpose()?
+                .transpose()
+                .context("parsing on_empty")?
+                .unwrap_or_default();
+
+            let on_delete = take_single_directive(&mut config, "on_delete")?
+                .map(parse_on_delete)
+                .transpose()
+                .context("parsing on_delete")?
                 .unwrap_or_default();
 
             let conflict_resolution = take_single_directive(&mut config, "conflict_resolution")?
@@ -114,7 +121,7 @@ impl Config {
                 (EitherStorage::Calendar(a), EitherStorage::Calendar(b)) => {
                     calendar_pairs.push(NamedPair {
                         name,
-                        inner: init_pair(collections, (a, b), on_empty),
+                        inner: init_pair(collections, (a, b), on_empty, on_delete),
                         status_path,
                         conflict_resolution,
                         names: (name_a, name_b),
@@ -130,7 +137,7 @@ impl Config {
                 (EitherStorage::AddressBook(a), EitherStorage::AddressBook(b)) => {
                     contact_pairs.push(NamedPair {
                         name,
-                        inner: init_pair(collections, (a, b), on_empty),
+                        inner: init_pair(collections, (a, b), on_empty, on_delete),
                         status_path,
                         conflict_resolution,
                         names: (name_a, name_b),
@@ -220,6 +227,7 @@ fn init_pair<I: Item>(
     collections: Vec<Collections>,
     storages: (Arc<dyn Storage<I>>, Arc<dyn Storage<I>>),
     on_empty: OnEmpty,
+    on_delete: OnDelete,
     // TODO: partial_sync
 ) -> StoragePair<I> {
     let mut pair = StoragePair::new(storages.0, storages.1);
@@ -236,7 +244,7 @@ fn init_pair<I: Item>(
         }
     }
 
-    pair.on_empty(on_empty)
+    pair.on_empty(on_empty).on_delete(on_delete)
 }
 
 fn parse_collection_directive(mut directive: Directive) -> anyhow::Result<Collections> {
@@ -321,6 +329,16 @@ fn parse_on_empty(mut directive: Directive) -> anyhow::Result<OnEmpty> {
     match val.as_ref() {
         "skip" => Ok(OnEmpty::Skip),
         "sync" => Ok(OnEmpty::Sync),
+        _ => bail!("on_empty must specify either 'skip' or 'sync'"),
+    }
+}
+
+fn parse_on_delete(mut directive: Directive) -> anyhow::Result<OnDelete> {
+    let val = take_single_param(&mut directive).context("Parsing parameter for on_delete")?;
+
+    match val.as_ref() {
+        "skip" => Ok(OnDelete::Skip),
+        "sync" => Ok(OnDelete::Sync),
         _ => bail!("on_empty must specify either 'skip' or 'sync'"),
     }
 }

@@ -7,9 +7,9 @@ use rand::{distributions::Alphanumeric, thread_rng, Rng};
 use std::fmt::Write;
 use std::sync::Arc;
 use vstorage::base::{IcsItem, Storage};
-use vstorage::sync::declare::{DeclaredMapping, OnEmpty, StoragePair};
+use vstorage::sync::declare::{DeclaredMapping, OnDelete, OnEmpty, StoragePair};
 use vstorage::sync::execute::Executor;
-use vstorage::sync::plan::{ItemAction, Plan};
+use vstorage::sync::plan::{CollectionAction, ItemAction, Plan};
 use vstorage::sync::status::{Side, StatusDatabase};
 use vstorage::vdir::VdirStorage;
 
@@ -39,7 +39,7 @@ fn minimal_icalendar(summary: &str) -> anyhow::Result<String> {
     Ok(entry)
 }
 
-/// Create a storage with three calendars.
+/// Create a storage with three calendars each one with a single event.
 async fn create_populated_storage(path: Utf8PathBuf) -> Arc<dyn Storage<IcsItem>> {
     std::fs::create_dir(&path).unwrap();
     let storage = VdirStorage::<IcsItem>::new(path, "ics".into());
@@ -267,7 +267,7 @@ async fn test_sync_none() {
 // - create new in a...
 
 #[tokio::test]
-async fn test_empty_protection_enabled() {
+async fn test_empty_on_empty_skip() {
     let path_a = {
         let mut p = std::env::temp_dir();
         p.push(random_string(12));
@@ -308,7 +308,7 @@ async fn test_empty_protection_enabled() {
 }
 
 #[tokio::test]
-async fn test_empty_protection_disabled() {
+async fn test_empty_on_empty_sync() {
     let path_a = {
         let mut p = std::env::temp_dir();
         p.push(random_string(12));
@@ -355,4 +355,77 @@ async fn test_empty_protection_disabled() {
         .first()
         .unwrap();
     assert!(matches!(action, ItemAction::Delete { side: Side::B, .. }));
+}
+
+#[tokio::test]
+async fn test_empty_on_delete_skip() {
+    let path_a = {
+        let mut p = std::env::temp_dir();
+        p.push(random_string(12));
+        Utf8PathBuf::try_from(p).unwrap()
+    };
+    let path_b = {
+        let mut p = std::env::temp_dir();
+        p.push(random_string(12));
+        Utf8PathBuf::try_from(p).unwrap()
+    };
+    std::fs::create_dir(&path_a).unwrap();
+    std::fs::create_dir(&path_b).unwrap();
+    let storage_a = Arc::new(VdirStorage::<IcsItem>::new(path_a, "ics".into()));
+    let storage_b = Arc::new(VdirStorage::<IcsItem>::new(path_b, "ics".into()));
+
+    let first = storage_a.create_collection("first-calendar").await.unwrap();
+
+    let pair = StoragePair::<IcsItem>::new(storage_a.clone(), storage_b.clone())
+        .with_all_from_a()
+        .with_all_from_b()
+        .on_delete(OnDelete::Skip);
+    let status = StatusDatabase::open_or_create(":memory:").unwrap();
+    let plan = Plan::new(&pair, Some(&status)).await.unwrap();
+    Executor::new(drop).plan(plan, &status).await.unwrap();
+
+    // At this point both storages and the status DB are all in sync.
+
+    storage_a.destroy_collection(first.href()).await.unwrap();
+
+    let plan = Plan::new(&pair, Some(&status)).await.unwrap();
+    assert!(plan.collection_plans.is_empty());
+}
+
+#[tokio::test]
+async fn test_empty_on_delete_sync() {
+    let path_a = {
+        let mut p = std::env::temp_dir();
+        p.push(random_string(12));
+        Utf8PathBuf::try_from(p).unwrap()
+    };
+    let path_b = {
+        let mut p = std::env::temp_dir();
+        p.push(random_string(12));
+        Utf8PathBuf::try_from(p).unwrap()
+    };
+    std::fs::create_dir(&path_a).unwrap();
+    std::fs::create_dir(&path_b).unwrap();
+    let storage_a = Arc::new(VdirStorage::<IcsItem>::new(path_a, "ics".into()));
+    let storage_b = Arc::new(VdirStorage::<IcsItem>::new(path_b, "ics".into()));
+
+    let first = storage_a.create_collection("first-calendar").await.unwrap();
+
+    let pair = StoragePair::<IcsItem>::new(storage_a.clone(), storage_b.clone())
+        .with_all_from_a()
+        .with_all_from_b()
+        .on_delete(OnDelete::Sync);
+    let status = StatusDatabase::open_or_create(":memory:").unwrap();
+    let plan = Plan::new(&pair, Some(&status)).await.unwrap();
+    Executor::new(drop).plan(plan, &status).await.unwrap();
+
+    // At this point both storages and the status DB are all in sync.
+
+    storage_a.destroy_collection(first.href()).await.unwrap();
+
+    let plan = Plan::new(&pair, Some(&status)).await.unwrap();
+    assert_eq!(plan.collection_plans.len(), 1);
+    // Plan should be empty due to protection:
+    let action = &plan.collection_plans.first().unwrap().action;
+    assert!(matches!(action, CollectionAction::Delete(_, Side::B)));
 }

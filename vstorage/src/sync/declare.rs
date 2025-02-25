@@ -73,6 +73,7 @@ pub struct StoragePair<I: Item> {
     pub(super) all_from_a: bool,
     pub(super) all_from_b: bool,
     pub(super) on_empty: OnEmpty,
+    pub(super) on_delete: OnDelete,
 }
 
 impl<I: Item> StoragePair<I> {
@@ -89,6 +90,7 @@ impl<I: Item> StoragePair<I> {
             all_from_a: false,
             all_from_b: false,
             on_empty: OnEmpty::Skip,
+            on_delete: OnDelete::Sync,
         }
     }
 
@@ -135,11 +137,25 @@ impl<I: Item> StoragePair<I> {
         self.on_empty = action;
         self
     }
+
+    /// Action to take when a collection is deleted.
+    #[must_use]
+    pub fn on_delete(mut self, action: OnDelete) -> Self {
+        self.on_delete = action;
+        self
+    }
 }
 
 #[derive(Debug, PartialEq, Default)]
 pub enum OnEmpty {
     #[default]
     Skip,
+    Sync,
+}
+
+#[derive(Debug, PartialEq, Default)]
+pub enum OnDelete {
+    Skip,
+    #[default]
     Sync,
 }
