@@ -272,6 +272,9 @@ where
     /// Implementations SHOULD normalise content before hashing to ensure that two semantically
     /// equivalent items return the same hash.
     ///
+    /// The output of the function must remain the same across different versions, platforms and
+    /// architectures.
+    ///
     /// This value is used as a fallback when a storage backend doesn't provide [`Etag`] values, or
     /// when an item's [`Item::uid`] returns `None`.
     #[must_use]
