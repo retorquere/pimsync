@@ -19,12 +19,18 @@ storages are:
 Philosophy
 ----------
 
+User own their data
+   Pimsync enables users allows to synchronise data from other servers onto any
+   chosen destination, including the local filesystem, where other tools can
+   intercut with this data.
+
 Synchronise items regardless of whether they are valid or not
    If another program created a "technically invalid" calendar event, the data
-   needs to be synchronised anyway in order for it to be accessible to the user.
-   The user is then empowered to either fix the invalidity, or handle the file
-   with some other tools which can handle the "technically invalid" quirks
-   properly.
+   needs to be synchronised anyway in order for it to be accessible. Once the
+   data is synchronised it can be accessed by some other tool which can fix it,
+   or simply accessed by a program which can handle the "technically invalid"
+   quirks properly. See also `the robustness principle
+   <https://en.wikipedia.org/wiki/Robustness_principle>`_
 
 Use standards protocols, formats and conventions whenever possible.
    Calendar components are stored using `the iCalendar format`_. Contacts are
