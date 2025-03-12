@@ -17,6 +17,7 @@ use libdav::{
     names::{self},
     PropertyName,
 };
+use log::debug;
 use tokio::time::{Instant, Interval, MissedTickBehavior};
 
 use crate::{
@@ -183,6 +184,7 @@ impl StorageMonitor for IntervalMonitor {
     fn next_event(&mut self) -> BoxFuture<Event> {
         Box::pin(async {
             self.timer.tick().await;
+            debug!("Interval timer ticked");
             Event::General
         })
     }
