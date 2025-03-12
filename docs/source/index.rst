@@ -21,6 +21,8 @@ software.
    :caption: General documentation
 
    intro
+   changelog
+   history
 
 Reference documentation is available as unix-like manual page. These are also
 available online:

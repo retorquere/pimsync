@@ -1,18 +1,21 @@
-# Changelog
+Changelog
+=========
 
 This document describes changes between releases of `pimsync`. Until v1.0.0, the
 public API is still subject to change. This includes commands, arguments and
 configuration directives. Upon the release of v1.0.0, backwards incompatible
 changes will be avoided unless absolutely necessary.
 
-# v0.4.0
+v0.4.0
+------
 
 - Implement a new `on_delete` directive to protect collections from deletion.
 - Normalise timezone order when comparing items. This reduces false positive
   comparisons and conflicts when servers automatically re-order timezone
   components.
 
-# v0.3.0
+v0.3.0
+------
 
 - Remove unnecessary storage locks when synchronising. Previously storages were
   locked to avoid concurrent executions. Instead, ensure that individual items
@@ -27,7 +30,8 @@ changes will be avoided unless absolutely necessary.
   conflicts with read-only storages (e.g.: Webcal).
 - Fix `interval` directives in storages not being parsed.
 
-# v0.2.0
+v0.2.0
+------
 
 - Several documentation improvements.
 - A minimal website is now available, and the documentation is now available
@@ -40,7 +44,8 @@ changes will be avoided unless absolutely necessary.
 - Prompt early for all required credentials. This speeds up start-up, since
   there's no network IO between prompts.
 
-# v0.1.0
+v0.1.0
+------
 
 - Renamed project to `pimsync`.
 - Redesigned configuration file.
@@ -53,5 +58,5 @@ changes will be avoided unless absolutely necessary.
   now specify "collection id"
 - The `http` storage is now named `webcal`.
 
-Previous development versions were named `vdirsyncer`. See [HISTORY.md] for
+Previous development versions were named `vdirsyncer`. See :doc:`history` for
 background on this.
