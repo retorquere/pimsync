@@ -1,3 +1,7 @@
+# Copyright 2023-2025 Hugo Osvaldo Barrera
+#
+# SPDX-License-Identifier: EUPL-1.2
+
 DESTDIR?=/
 PREFIX?=/usr/local
 

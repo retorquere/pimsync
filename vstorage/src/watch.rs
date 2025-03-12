@@ -1,3 +1,7 @@
+// Copyright 2024-2025 Hugo Osvaldo Barrera
+//
+// SPDX-License-Identifier: EUPL-1.2
+
 //! Monitor a storage for changes as they occur.
 use futures_util::future::BoxFuture;
 

@@ -1,4 +1,4 @@
-// Copyright 2024 Hugo Osvaldo Barrera
+// Copyright 2025 Hugo Osvaldo Barrera
 //
 // SPDX-License-Identifier: EUPL-1.2
 
