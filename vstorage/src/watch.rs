@@ -3,7 +3,11 @@
 // SPDX-License-Identifier: EUPL-1.2
 
 //! Monitor a storage for changes as they occur.
+use std::time::Duration;
+
 use futures_util::future::BoxFuture;
+use log::debug;
+use tokio::time::{Instant, Interval, MissedTickBehavior};
 
 use crate::Href;
 
@@ -70,4 +74,29 @@ pub enum EventKind {
     // /// A property has changed.
     // Property { name: String },
     // Unknown,
+}
+
+/// Fallback monitor for storages that don't implement one.
+pub struct IntervalMonitor {
+    timer: Interval,
+}
+
+impl IntervalMonitor {
+    /// Create a new monitor with a given interval.
+    #[must_use]
+    pub fn new(interval: Duration) -> IntervalMonitor {
+        let mut timer = tokio::time::interval_at(Instant::now() + interval, interval);
+        timer.set_missed_tick_behavior(MissedTickBehavior::Delay);
+        IntervalMonitor { timer }
+    }
+}
+
+impl StorageMonitor for IntervalMonitor {
+    fn next_event(&mut self) -> BoxFuture<Event> {
+        Box::pin(async {
+            self.timer.tick().await;
+            debug!("Interval timer ticked");
+            Event::General
+        })
+    }
 }

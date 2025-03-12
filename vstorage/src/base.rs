@@ -12,14 +12,11 @@
 use std::time::Duration;
 
 use async_trait::async_trait;
-use futures_util::future::BoxFuture;
-use log::debug;
-use tokio::time::{Instant, Interval, MissedTickBehavior};
 
 use crate::{
     disco::Discovery,
     util::ItemHash,
-    watch::{Event, StorageMonitor},
+    watch::{IntervalMonitor, StorageMonitor},
     CollectionId, Etag, Href, Result,
 };
 
@@ -159,30 +156,6 @@ pub trait Storage<I: Item>: Sync + Send {
     /// limitations in the underlying storage, the `interval` should be used instead.
     async fn monitor(&self, interval: Duration) -> Result<Box<dyn StorageMonitor>> {
         Ok(Box::new(IntervalMonitor::new(interval)) as Box<dyn StorageMonitor>)
-    }
-}
-
-/// Fallback monitor for storages that don't implement one.
-struct IntervalMonitor {
-    // interval: Duration,
-    timer: Interval,
-}
-
-impl IntervalMonitor {
-    fn new(interval: Duration) -> IntervalMonitor {
-        let mut timer = tokio::time::interval_at(Instant::now() + interval, interval);
-        timer.set_missed_tick_behavior(MissedTickBehavior::Delay);
-        IntervalMonitor { timer }
-    }
-}
-
-impl StorageMonitor for IntervalMonitor {
-    fn next_event(&mut self) -> BoxFuture<Event> {
-        Box::pin(async {
-            self.timer.tick().await;
-            debug!("Interval timer ticked");
-            Event::General
-        })
     }
 }
 
