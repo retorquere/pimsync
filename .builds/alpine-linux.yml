@@ -14,6 +14,8 @@ packages:
   - scdoc
 environment:
   CARGO_TERM_COLOR: always
+sources:
+  - https://git.sr.ht/~whynothugo/pimsync
 triggers:
   - action: email
     condition: failure
@@ -37,9 +39,8 @@ tasks:
       cd pimsync
       echo "anchor.whynothugo.nl ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE2WacYpYEP5vvevx4NXQn3Ktd53pBkZR/bpPoS3Wkyg" > $HOME/.ssh/known_hosts
       if git diff --no-patch --exit-code origin/main; then
-        DIR=main
+        DIR=.
       else
         DIR=$(git describe --tag --exact-match)
       fi
-      rsync -r target/doc/ rsync@anchor.whynothugo.nl:./$DIR/lib
       rsync -r docs/build/html/ rsync@anchor.whynothugo.nl:./$DIR
