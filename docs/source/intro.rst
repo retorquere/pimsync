@@ -63,8 +63,8 @@ Focuses on good error management and recovery
    the overall operation continues, and other items in the same collection are
    synchronised properly.
 
-   This is made much easier to achieve due to our use of Rust and how error
-   branches and handled in Rust.
+   This is made possible in great deal due to using Rust and it's stricter
+   focus on error handling.
 
 The ``daemon`` subcommand
    Runs continuously in the keeping collections in sync. Ideal for usage as a
