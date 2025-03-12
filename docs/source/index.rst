@@ -18,7 +18,6 @@ software.
 
 .. toctree::
    :maxdepth: 2
-   :caption: General documentation
 
    intro
    man
