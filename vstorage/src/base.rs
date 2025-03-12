@@ -159,14 +159,13 @@ pub trait Storage<I: Item>: Sync + Send {
     }
 }
 
-/// A collection may, for example, be an address book or a calendar.
+/// Path to a collection (an address book or a calendar) inside a storage.
 ///
-/// The type of items contained is restricted by the underlying implementation. Collections contain
-/// zero or more items (e.g.: an address book contains events). Each item is addressed by its own
-/// [`Href`].
+/// Collections contain zero or more items (e.g.: an address book contains events). Each item is
+/// addressed by its own [`Href`].
 ///
-/// This type wraps around the `href` for a collection on a given storage. Using the same
-/// `Collection` instance across different storages is disallowed.
+/// This type wraps around the `href` for a collection on a given storage. The same `Collection`
+/// instance should not be shared across different storages.
 #[derive(Debug)]
 pub struct Collection {
     href: Href,
@@ -175,11 +174,11 @@ pub struct Collection {
 impl Collection {
     /// The path to this collection inside the storage.
     ///
-    /// Href should not change over time, so should be associated with an immutable property of the
-    /// collection (e.g.: a relative URL path, or a directory's filename).
+    /// An href must not change over time, and should be associated with an immutable property of the
+    /// collection, like a URL path component, or the path to a directory.
     ///
-    /// The exact meaning of this value is storage-specific, but should be remain consistent with a
-    /// storage.
+    /// The exact meaning of this value is storage-specific, but should be remain consistent within
+    /// a storage.
     #[must_use]
     pub fn href(&self) -> &Href {
         &self.href
@@ -195,7 +194,7 @@ impl Collection {
     }
 }
 
-/// A reference to a specific version of an [`Item`] inside a collection.
+/// Reference to a specific version of an [`Item`] inside a collection.
 #[derive(PartialEq, Debug, Clone)]
 pub struct ItemRef {
     pub href: Href,
