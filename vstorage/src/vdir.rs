@@ -26,7 +26,7 @@ use tokio::sync::RwLock;
 
 use crate::addressbook::AddressBookProperty;
 use crate::atomic::AtomicFile;
-use crate::base::{Collection, FetchedItem, Item, ItemRef, ListedProperty, Storage};
+use crate::base::{Collection, FetchedItem, FetchedProperty, Item, ItemRef, Storage};
 use crate::calendar::CalendarProperty;
 use crate::disco::{DiscoveredCollection, Discovery};
 use crate::watch::StorageMonitor;
@@ -295,12 +295,12 @@ where
     async fn list_properties(
         &self,
         collection_href: &str,
-    ) -> Result<Vec<ListedProperty<I::Property>>> {
+    ) -> Result<Vec<FetchedProperty<I::Property>>> {
         let mut props = Vec::new();
         for property in I::Property::known_properties() {
             let prop_value = self.get_property(collection_href, property.clone()).await?;
             if let Some(value) = prop_value {
-                props.push(ListedProperty {
+                props.push(FetchedProperty {
                     property: property.clone(),
                     value,
                 });

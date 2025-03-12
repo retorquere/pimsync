@@ -12,7 +12,7 @@ use libdav::CardDavClient;
 use tower::Service;
 
 use crate::addressbook::{AddressBookProperty, VcardItem};
-use crate::base::{Collection, FetchedItem, Item, ItemRef, ListedProperty, Storage};
+use crate::base::{Collection, FetchedItem, FetchedProperty, Item, ItemRef, Storage};
 use crate::dav::{
     collection_href_for_item, collection_id_for_href, join_hrefs, parse_list_items,
     path_for_collection_in_home_set,
@@ -335,7 +335,7 @@ where
     async fn list_properties(
         &self,
         collection_href: &str,
-    ) -> Result<Vec<ListedProperty<AddressBookProperty>>> {
+    ) -> Result<Vec<FetchedProperty<AddressBookProperty>>> {
         let prop_names = AddressBookProperty::known_properties()
             .iter()
             .map(|p| p.dav_propname())
@@ -347,7 +347,7 @@ where
             .into_iter()
             .zip(AddressBookProperty::known_properties())
             .filter_map(|((_, v), p)| {
-                v.map(|value| ListedProperty {
+                v.map(|value| FetchedProperty {
                     property: p.clone(),
                     value,
                 })

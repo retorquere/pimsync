@@ -11,7 +11,7 @@ use libdav::dav::mime_types;
 use libdav::CalDavClient;
 use tower::Service;
 
-use crate::base::{Collection, FetchedItem, Item, ItemRef, ListedProperty, Storage};
+use crate::base::{Collection, FetchedItem, FetchedProperty, Item, ItemRef, Storage};
 use crate::calendar::{CalendarProperty, IcsItem};
 use crate::dav::{
     collection_href_for_item, collection_id_for_href, join_hrefs, parse_list_items,
@@ -333,7 +333,7 @@ where
     async fn list_properties(
         &self,
         collection_href: &str,
-    ) -> Result<Vec<ListedProperty<CalendarProperty>>> {
+    ) -> Result<Vec<FetchedProperty<CalendarProperty>>> {
         let prop_names = CalendarProperty::known_properties()
             .iter()
             .map(|p| p.dav_propname())
@@ -345,7 +345,7 @@ where
             .into_iter()
             .zip(CalendarProperty::known_properties())
             .filter_map(|((_, v), p)| {
-                v.map(|value| ListedProperty {
+                v.map(|value| FetchedProperty {
                     property: p.clone(),
                     value,
                 })

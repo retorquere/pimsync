@@ -64,7 +64,7 @@ pub trait Storage<I: Item>: Sync + Send {
     async fn list_properties(
         &self,
         collection_href: &str,
-    ) -> Result<Vec<ListedProperty<I::Property>>>;
+    ) -> Result<Vec<FetchedProperty<I::Property>>>;
 
     /// Returns the value of a property for a given collection.
     async fn get_property(&self, href: &str, property: I::Property) -> Result<Option<String>>;
@@ -229,7 +229,7 @@ pub struct ItemRef {
     pub etag: Etag,
 }
 
-/// Properties for storage collections or items.
+/// Properties for storage collections.
 ///
 /// See [`Item::Property`].
 pub trait Property:
@@ -249,9 +249,6 @@ where
     Self: From<String>,
 {
     /// Property types supported by storages.
-    ///
-    /// Generally, this type should be an `enum` with each known property represented as a
-    /// different variant.
     ///
     /// These were known as "metadata" in the original vdirsyncer implementation.
     ///
@@ -308,7 +305,7 @@ pub(crate) fn uid(raw: &str) -> Option<String> {
     Some(uid)
 }
 
-/// An item plus metadata returned when fetching it.
+/// Item fetched from a storage plus its metadata.
 pub struct FetchedItem<I: Item> {
     /// See [`Href`]
     pub href: Href,
@@ -318,8 +315,8 @@ pub struct FetchedItem<I: Item> {
     pub etag: Etag,
 }
 
-/// Property and its value as retrieved from a storage.
-pub struct ListedProperty<P: Property> {
+/// Property and its value fetched from a storage.
+pub struct FetchedProperty<P: Property> {
     /// The kind of property.
     pub property: P,
     /// The value of the property.

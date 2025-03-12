@@ -15,7 +15,7 @@ use hyper::body::Incoming;
 use tower::Service;
 
 use crate::{
-    base::{Collection, FetchedItem, Item, ItemRef, ListedProperty, Storage},
+    base::{Collection, FetchedItem, FetchedProperty, Item, ItemRef, Storage},
     calendar::{CalendarProperty, IcsItem},
     disco::{DiscoveredCollection, Discovery},
     simple_component::Component,
@@ -337,7 +337,7 @@ where
         }
     }
 
-    async fn list_properties(&self, _: &str) -> Result<Vec<ListedProperty<CalendarProperty>>> {
+    async fn list_properties(&self, _: &str) -> Result<Vec<FetchedProperty<CalendarProperty>>> {
         Err(Error::new(
             ErrorKind::Unsupported,
             "webcal does not support properties",

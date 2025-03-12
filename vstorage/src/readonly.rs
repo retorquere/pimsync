@@ -16,8 +16,8 @@ use async_trait::async_trait;
 
 use crate::base::Collection;
 use crate::base::FetchedItem;
+use crate::base::FetchedProperty;
 use crate::base::Item;
-use crate::base::ListedProperty;
 use crate::base::Storage;
 use crate::disco::Discovery;
 use crate::watch::StorageMonitor;
@@ -111,7 +111,7 @@ impl<S: Storage<I>, I: Item> Storage<I> for ReadOnlyStorage<S, I> {
     async fn list_properties(
         &self,
         collection_href: &str,
-    ) -> Result<Vec<ListedProperty<I::Property>>> {
+    ) -> Result<Vec<FetchedProperty<I::Property>>> {
         self.inner.list_properties(collection_href).await
     }
 
