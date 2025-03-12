@@ -90,7 +90,7 @@ The *prompt* mechanism for fetching passwords has been dropped.
 A *fetch* definition with a *command* would previously look like this:
 
 ```
-password.fetch = ["command", "hiq", "-dFpassword", "proto=carddavs", "username=..."]
+password.fetch = ["command", "hiq", "-dFpassword", "proto=carddavs", "username=…"]
 ```
 
 Now a block is provided to **password** with a single **cmd** directive
@@ -98,7 +98,7 @@ specifying the command and its arguments.
 
 ```
 	password {
-		cmd hiq -dFpassword proto=carddavs username=...
+		cmd hiq -dFpassword proto=carddavs username=…
 	}
 ```
 
