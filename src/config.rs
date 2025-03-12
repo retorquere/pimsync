@@ -24,8 +24,10 @@ use log::{debug, error, info};
 use rustls::{client::danger::DangerousClientConfigBuilder, ClientConfig, RootCertStore};
 use scfg::{Directive, Scfg};
 use vstorage::{
-    base::{IcsItem, Item, Storage, VcardItem},
+    addressbook::VcardItem,
+    base::{Item, Storage},
     caldav::CalDavStorage,
+    calendar::IcsItem,
     carddav::CardDavStorage,
     sync::declare::{CollectionDescription, DeclaredMapping, OnDelete, OnEmpty, StoragePair},
     vdir::{PropertyWithFilename, VdirStorage},

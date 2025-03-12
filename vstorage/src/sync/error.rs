@@ -101,7 +101,7 @@ mod test {
     use std::backtrace::Backtrace;
 
     use crate::{
-        base::IcsItem,
+        calendar::IcsItem,
         sync::{
             declare::DeclaredMapping,
             error::SomeAction,

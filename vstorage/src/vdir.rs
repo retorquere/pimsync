@@ -24,11 +24,10 @@ use tokio::io::{AsyncReadExt as _, AsyncWriteExt};
 use tokio::sync::oneshot::{self, Sender};
 use tokio::sync::RwLock;
 
+use crate::addressbook::AddressBookProperty;
 use crate::atomic::AtomicFile;
-use crate::base::{
-    AddressBookProperty, CalendarProperty, Collection, FetchedItem, Item, ItemRef, ListedProperty,
-    Storage,
-};
+use crate::base::{Collection, FetchedItem, Item, ItemRef, ListedProperty, Storage};
+use crate::calendar::CalendarProperty;
 use crate::disco::{DiscoveredCollection, Discovery};
 use crate::watch::StorageMonitor;
 use crate::{CollectionId, Error, ErrorKind, Etag, Href, Result};
@@ -254,7 +253,10 @@ where
 
         let actual_etag = etag_for_path(&filename).await?;
         if *etag != actual_etag {
-            return Err(Error::new(ErrorKind::InvalidData, "etag mismatch when updating item"));
+            return Err(Error::new(
+                ErrorKind::InvalidData,
+                "etag mismatch when updating item",
+            ));
         }
 
         let file_lock = self.file_locks.lock_file(filename.as_str()).await;
@@ -516,7 +518,8 @@ mod tests {
     };
 
     use crate::{
-        base::{CalendarProperty, IcsItem, Storage},
+        base::Storage,
+        calendar::{CalendarProperty, IcsItem},
         vdir::{build_collection_path, build_item_path, VdirStorage},
         CollectionId, ErrorKind,
     };
@@ -532,10 +535,7 @@ mod tests {
         );
         let collection = storage.create_collection("test").await.unwrap();
         let displayname = storage
-            .get_property(
-                collection.href(),
-                crate::base::CalendarProperty::DisplayName,
-            )
+            .get_property(collection.href(), CalendarProperty::DisplayName)
             .await
             .unwrap();
 

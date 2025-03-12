@@ -15,9 +15,8 @@ use hyper::body::Incoming;
 use tower::Service;
 
 use crate::{
-    base::{
-        CalendarProperty, Collection, FetchedItem, IcsItem, Item, ItemRef, ListedProperty, Storage,
-    },
+    base::{Collection, FetchedItem, Item, ItemRef, ListedProperty, Storage},
+    calendar::{CalendarProperty, IcsItem},
     disco::{DiscoveredCollection, Discovery},
     simple_component::Component,
     CollectionId, Error, ErrorKind, Etag, Href, Result,

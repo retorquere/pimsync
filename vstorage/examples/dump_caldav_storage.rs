@@ -9,8 +9,9 @@ use hyper_util::{client::legacy::Client as HyperClient, rt::TokioExecutor};
 use libdav::{dav::WebDavClient, CalDavClient};
 use tower_http::auth::AddAuthorization;
 use vstorage::{
-    base::{FetchedItem, IcsItem, Storage},
+    base::{FetchedItem, Storage},
     caldav::CalDavStorage,
+    calendar::IcsItem,
     vdir::VdirStorage,
 };
 

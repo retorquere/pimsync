@@ -597,11 +597,7 @@ impl StatusDatabase {
 
 #[cfg(test)]
 mod test {
-    use crate::{
-        base::{IcsItem, ItemRef},
-        sync::status::StatusError,
-        Etag,
-    };
+    use crate::{base::ItemRef, calendar::IcsItem, sync::status::StatusError, Etag};
 
     use super::{MappingUid, Side, StatusDatabase};
 

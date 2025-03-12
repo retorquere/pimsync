@@ -90,9 +90,11 @@
 
 use std::{backtrace::Backtrace, str::FromStr, sync::Arc};
 
+pub mod addressbook;
 mod atomic;
 pub mod base;
 pub mod caldav;
+pub mod calendar;
 pub mod carddav;
 mod dav;
 pub mod disco;

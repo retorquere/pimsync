@@ -978,7 +978,8 @@ mod test {
     use tempfile::Builder;
 
     use crate::{
-        base::{IcsItem, Storage},
+        base::Storage,
+        calendar::IcsItem,
         sync::{
             declare::{CollectionDescription, DeclaredMapping, StoragePair},
             plan::{create_mappings_for_pair, Plan, PlanError},

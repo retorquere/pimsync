@@ -31,7 +31,7 @@ use crate::{ErrorKind, Etag, Result};
 ///
 /// ```
 /// # use vstorage::vdir::VdirStorage;
-/// # use crate::vstorage::base::IcsItem;
+/// # use crate::vstorage::calendar::IcsItem;
 /// # use camino::Utf8PathBuf;
 /// # use vstorage::readonly::ReadOnlyStorage;
 /// let orig = VdirStorage::<IcsItem>::new(

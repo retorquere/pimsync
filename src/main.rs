@@ -19,7 +19,9 @@ use futures_util::future::{select, Either};
 use log::{debug, error, info, trace, warn};
 use tokio::task::JoinSet;
 use vstorage::{
-    base::{IcsItem, Item, VcardItem},
+    addressbook::VcardItem,
+    base::Item,
+    calendar::IcsItem,
     sync::{
         declare::StoragePair,
         execute::Executor,

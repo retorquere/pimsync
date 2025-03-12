@@ -11,9 +11,8 @@ use libdav::dav::mime_types;
 use libdav::CardDavClient;
 use tower::Service;
 
-use crate::base::{
-    AddressBookProperty, Collection, FetchedItem, Item, ItemRef, ListedProperty, Storage, VcardItem,
-};
+use crate::addressbook::{AddressBookProperty, VcardItem};
+use crate::base::{Collection, FetchedItem, Item, ItemRef, ListedProperty, Storage};
 use crate::dav::{
     collection_href_for_item, collection_id_for_href, join_hrefs, parse_list_items,
     path_for_collection_in_home_set,
