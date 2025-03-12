@@ -41,4 +41,4 @@ tasks:
         DIR=$(git describe --tag --exact-match)
       fi
       rsync -r target/doc/ rsync@anchor.whynothugo.nl:./$DIR/lib
-      rsync -r target/*.html man-style.css rsync@anchor.whynothugo.nl:./$DIR/
+      rsync -r docs/build/html/ rsync@anchor.whynothugo.nl:./$DIR

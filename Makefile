@@ -10,7 +10,17 @@ build: target/release/pimsync docs
 target/release/pimsync:
 	cargo build -p pimsync --release
 
-docs: man html
+docs: man html site
+
+.PHONY: site
+site: html
+	python -m virtualenv target/venv
+	./target/venv/bin/python -m pip install sphinx
+	SPHINXBUILD=$$(realpath ./target/venv/bin/sphinx-build) make -C docs html
+
+.PHONY: open-site
+open-site: site
+	xdg-open docs/build/html/index.html
 
 man: \
 	target/pimsync.1 \
@@ -43,7 +53,7 @@ install: build
 
 clean:
 	cargo clean
-	rm -rf target
+	rm -rf target docs/build/
 
 check:
 	cargo check

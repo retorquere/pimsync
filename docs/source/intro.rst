@@ -1,0 +1,78 @@
+.. Copyright 2025 Hugo Osvaldo Barrera
+..
+.. SPDX-License-Identifier: ISC
+
+Introduction
+============
+
+**pimsync** synchronises documentation across storages. Currently supported
+storages are:
+
+- **CalDAV**: HTTP extension which provides read and write access to calendars
+  on servers.
+- **CardDAV**: HTTP extension which provides read and write access to address
+  books on servers.
+- **Vdir**: Convention for storing calendars and address books in local
+  directories using standardised and well-documented formats.
+- **WebCal**: Convention for exposing a calendar or event read-only using HTTP.
+
+Philosophy
+----------
+
+Synchronise items regardless of whether they are valid or not
+   If another program created a "technically invalid" calendar event, the data
+   needs to be synchronised anyway in order for it to be accessible to the user.
+   The user is then empowered to either fix the invalidity, or handle the file
+   with some other tools which can handle the "technically invalid" quirks
+   properly.
+
+Use standards protocols, formats and conventions whenever possible.
+   Calendar components are stored using `the iCalendar format`_. Contacts are
+   stored using `the vCard format`_. CalDAV and CardDAV are well established
+   protocols which many implementations (including ones which anyone can
+   self-host) and service providers.
+
+.. _the iCalendar format: https://www.rfc-editor.org/rfc/rfc5545
+.. _the vCard format: https://www.rfc-editor.org/rfc/rfc6350
+
+Do one thing, do it well
+   Don't focus on seemingly related functionality; let external tools implement
+   other features and provide the means for them to interoperate. Doing less
+   usually leads to greater flexibility.
+
+Provide clear instructions
+   Focus on clear documentation and explaining how things work. Avoid guessing
+   what the user wanted when it can lead to unexpected outcomes. Allow anyone
+   to understand how things work to the level of detail with which they are
+   comfortable.
+
+Comparison to vdirsyncer
+------------------------
+
+**pimsync** grew out of lessons learnt from **vdirsyncer**, a previous
+incarnation of the same tool. Key differences are:
+
+Focuses on good error management and recovery
+   If synchronising a single item fails (e.g.: because a server rejects it),
+   the overall operation continues, and other items in the same collection are
+   synchronised properly.
+
+   This is made much easier to achieve due to our use of Rust and how error
+   branches and handled in Rust.
+
+The ``daemon`` subcommand
+   Runs continuously in the keeping collections in sync. Ideal for usage as a
+   service.
+
+Synchronise collections
+   Automatically create (and, optionally, delete) collections which are created
+   (and deleted) on one storage into the other.
+
+Simplified setup
+   Being built in Rust, **pimsync** can be compiled into a single binary. This
+   substantially simplifies the installation process, and also provide improved
+   performance.
+
+A few features present in **vdirsyncer** are still missing from pimsync. For
+details on these and changes required when migrating, see :doc:`the migration
+manual page <pimsync-migration.7>`

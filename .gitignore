@@ -2,6 +2,7 @@
 #
 # SPDX-License-Identifier: EUPL-1.2
 
+/docs/build
 /target
 pimsync.1
 pimsync.conf.5
