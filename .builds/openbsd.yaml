@@ -19,16 +19,6 @@ tasks:
   - prepare: |
       cd pimsync
       cargo fetch --locked  # make sure lockfile is up to date
-  - build: |
+  - check: |
       cd pimsync
-      cargo build
-  - lint: |
-      cd pimsync
-      cargo fmt --check
-      cargo clippy
-  - test: |
-      cd pimsync
-      cargo test  # includes examples and doctests
-  - doc: |
-      cd pimsync
-      cargo doc  # fails on broken links
+      make check
