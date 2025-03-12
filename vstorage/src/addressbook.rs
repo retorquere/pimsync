@@ -72,10 +72,10 @@ impl AddressBookProperty {
 }
 
 impl Property for AddressBookProperty {
-    fn name(&self) -> String {
+    fn name(&self) -> &str {
         match self {
-            AddressBookProperty::DisplayName => "displayname".into(),
-            AddressBookProperty::Description => "description".into(),
+            AddressBookProperty::DisplayName => "displayname",
+            AddressBookProperty::Description => "description",
         }
     }
 }

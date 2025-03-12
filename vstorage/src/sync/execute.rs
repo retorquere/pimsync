@@ -247,7 +247,7 @@ impl<I: Item> Executor<I> {
                     (self.on_error)(SyncError::property(plan.action, err.into()));
                     Ok(())
                 } else {
-                    status.set_property(mapping_uid, href_a, href_b, &plan.property.name(), value)
+                    status.set_property(mapping_uid, href_a, href_b, plan.property.name(), value)
                 }
             }
             PropertyAction::Delete(side) => {
@@ -259,14 +259,14 @@ impl<I: Item> Executor<I> {
                     (self.on_error)(SyncError::property(plan.action, err.into()));
                     Ok(())
                 } else {
-                    status.delete_property(mapping_uid, href_a, href_b, &plan.property.name())
+                    status.delete_property(mapping_uid, href_a, href_b, plan.property.name())
                 }
             }
             PropertyAction::ClearStatus => {
-                status.delete_property(mapping_uid, href_a, href_b, &plan.property.name())
+                status.delete_property(mapping_uid, href_a, href_b, plan.property.name())
             }
             PropertyAction::UpdateStatus { value } => {
-                status.set_property(mapping_uid, href_a, href_b, &plan.property.name(), value)
+                status.set_property(mapping_uid, href_a, href_b, plan.property.name(), value)
             }
             PropertyAction::Conflict => {
                 // TODO: call on_error instead.

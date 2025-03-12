@@ -235,7 +235,7 @@ pub struct ItemRef {
 pub trait Property:
     Sync + Send + Clone + std::fmt::Debug + std::hash::Hash + PartialEq + Eq
 {
-    fn name(&self) -> String;
+    fn name(&self) -> &str;
 }
 
 /// A type of item that is contained in a [`Storage`].

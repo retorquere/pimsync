@@ -84,12 +84,12 @@ impl CalendarProperty {
 }
 
 impl Property for CalendarProperty {
-    fn name(&self) -> String {
+    fn name(&self) -> &str {
         match self {
-            CalendarProperty::DisplayName => "displayname".into(),
-            CalendarProperty::Colour => "color".into(),
-            CalendarProperty::Description => "description".into(),
-            CalendarProperty::Order => "order".into(),
+            CalendarProperty::DisplayName => "displayname",
+            CalendarProperty::Colour => "color",
+            CalendarProperty::Description => "description",
+            CalendarProperty::Order => "order",
         }
     }
 }
