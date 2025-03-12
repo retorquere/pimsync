@@ -21,19 +21,10 @@ software.
    :caption: General documentation
 
    intro
+   man
    changelog
    history
-
-Reference documentation is available as unix-like manual page. These are also
-available online:
-
-.. toctree::
-   :maxdepth: 2
-   :caption: Manual pages
-
-   pimsync.1
-   pimsync.conf.5
-   pimsync-migration.7
+   search
 
 Installation
 ------------
