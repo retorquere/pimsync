@@ -20,6 +20,7 @@ software.
    :maxdepth: 2
 
    intro
+   guides
    man
    changelog
    history
