@@ -38,7 +38,7 @@ Use standards protocols, formats and conventions whenever possible.
 Do one thing, do it well
    Don't focus on seemingly related functionality; let external tools implement
    other features and provide the means for them to interoperate. Doing less
-   usually leads to greater flexibility.
+   leads to greater flexibility.
 
 Provide clear instructions
    Focus on clear documentation and explaining how things work. Avoid guessing
