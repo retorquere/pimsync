@@ -6,6 +6,7 @@ image: alpine/edge
 packages:
   - cargo
   - mandoc
+  - py3-sphinx
   - rsync
   - rust
   - rust-clippy

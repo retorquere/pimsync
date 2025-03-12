@@ -14,9 +14,7 @@ docs: man html site
 
 .PHONY: site
 site: html
-	python -m virtualenv target/venv
-	./target/venv/bin/python -m pip install sphinx
-	SPHINXBUILD=$$(realpath ./target/venv/bin/sphinx-build) make -C docs html
+	make -C docs html
 
 .PHONY: open-site
 open-site: site
