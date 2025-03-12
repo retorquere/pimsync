@@ -902,14 +902,14 @@ impl<I: Item> PropertyPlan<I> {
         let all_props = props_a
             .iter()
             .chain(props_b.iter())
-            .map(|p| &p.property)
+            .map(|p| p.property)
             .collect::<HashSet<_>>(); // Collecting into HashSet removes duplicates.
 
         let mut actions = Vec::new();
         for property in all_props {
             // TODO: it is safe to POP from the vec and handle owned data.
-            let a = props_a.iter().find(|p| p.property == *property);
-            let b = props_b.iter().find(|p| p.property == *property);
+            let a = props_a.iter().find(|p| p.property == property);
+            let b = props_b.iter().find(|p| p.property == property);
             let state = props_status.iter().find(|p| p.property == property.name());
 
             let action = match (a, b, state) {
@@ -960,10 +960,7 @@ impl<I: Item> PropertyPlan<I> {
             };
 
             if let Some(action) = action {
-                actions.push(PropertyPlan {
-                    action,
-                    property: property.clone(), // TODO: don't clone
-                });
+                actions.push(PropertyPlan { property, action });
             }
         }
 

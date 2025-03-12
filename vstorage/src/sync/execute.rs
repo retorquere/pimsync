@@ -240,10 +240,7 @@ impl<I: Item> Executor<I> {
                     Side::A => (a, href_a),
                     Side::B => (b, href_b),
                 };
-                if let Err(err) = storage
-                    .set_property(href, plan.property.clone(), value)
-                    .await
-                {
+                if let Err(err) = storage.set_property(href, plan.property, value).await {
                     (self.on_error)(SyncError::property(plan.action, err.into()));
                     Ok(())
                 } else {
@@ -255,7 +252,7 @@ impl<I: Item> Executor<I> {
                     Side::A => (a, href_a),
                     Side::B => (b, href_b),
                 };
-                if let Err(err) = storage.unset_property(href, plan.property.clone()).await {
+                if let Err(err) = storage.unset_property(href, plan.property).await {
                     (self.on_error)(SyncError::property(plan.action, err.into()));
                     Ok(())
                 } else {

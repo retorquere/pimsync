@@ -296,12 +296,12 @@ where
         &self,
         collection_href: &str,
     ) -> Result<Vec<FetchedProperty<I::Property>>> {
-        let mut props = Vec::new();
+        let mut props = Vec::<FetchedProperty<I::Property>>::new();
         for property in I::Property::known_properties() {
-            let prop_value = self.get_property(collection_href, property.clone()).await?;
+            let prop_value = self.get_property(collection_href, *property).await?;
             if let Some(value) = prop_value {
                 props.push(FetchedProperty {
-                    property: property.clone(),
+                    property: *property,
                     value,
                 });
             };

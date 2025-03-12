@@ -55,7 +55,7 @@ impl From<String> for VcardItem {
 ///
 /// This is strongly based on the properties supported by `CardDav`.
 #[non_exhaustive]
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub enum AddressBookProperty {
     DisplayName,
     Description,

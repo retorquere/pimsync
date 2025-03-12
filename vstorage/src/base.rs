@@ -205,7 +205,7 @@ pub struct ItemRef {
 ///
 /// See [`Item::Property`].
 pub trait Property:
-    Sync + Send + Clone + std::fmt::Debug + std::hash::Hash + PartialEq + Eq
+    Sync + Send + Clone + Copy + std::fmt::Debug + std::hash::Hash + PartialEq + Eq
 {
     fn name(&self) -> &str;
 }

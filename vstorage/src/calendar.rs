@@ -57,7 +57,7 @@ impl From<String> for IcsItem {
 ///
 /// This is strongly based on the properties supported by `CalDav`.
 #[non_exhaustive]
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub enum CalendarProperty {
     /// A colour to be used when displaying this collection.
     ///

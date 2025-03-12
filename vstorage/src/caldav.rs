@@ -346,7 +346,7 @@ where
             .zip(CalendarProperty::known_properties())
             .filter_map(|((_, v), p)| {
                 v.map(|value| FetchedProperty {
-                    property: p.clone(),
+                    property: *p,
                     value,
                 })
             })
