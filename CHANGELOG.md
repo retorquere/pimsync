@@ -5,6 +5,13 @@ public API is still subject to change. This includes commands, arguments and
 configuration directives. Upon the release of v1.0.0, backwards incompatible
 changes will be avoided unless absolutely necessary.
 
+# v0.4.0
+
+- Implement a new `on_delete` directive to protect collections from deletion.
+- Normalise timezone order when comparing items. This reduces false positive
+  comparisons and conflicts when servers automatically re-order timezone
+  components.
+
 # v0.3.0
 
 - Remove unnecessary storage locks when synchronising. Previously storages were
