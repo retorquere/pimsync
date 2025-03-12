@@ -254,7 +254,7 @@ where
 
         let actual_etag = etag_for_path(&filename).await?;
         if *etag != actual_etag {
-            return Err(Error::new(ErrorKind::InvalidData, "wrong etag"));
+            return Err(Error::new(ErrorKind::InvalidData, "etag mismatch when updating item"));
         }
 
         let file_lock = self.file_locks.lock_file(filename.as_str()).await;
