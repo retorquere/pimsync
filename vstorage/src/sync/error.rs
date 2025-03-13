@@ -87,7 +87,7 @@ impl<I: Item> std::fmt::Display for SomeAction<I> {
                 write!(f, "item action '{action}'")
             }
             SomeAction::Collection { action, mapping } => {
-                write!(f, "collection action '{action}' for '{}'", mapping.alias())
+                write!(f, "collection action '{action}' for '{mapping}'")
             }
             SomeAction::Property(action) => {
                 write!(f, "property action '{action}'")
