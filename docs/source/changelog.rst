@@ -13,6 +13,7 @@ v0.4.0
 - Normalise timezone order when comparing items. This reduces false positive
   comparisons and conflicts when servers automatically re-order timezone
   components.
+- When warning about emptied collections, clarify which storage was empty.
 
 v0.3.0
 ------

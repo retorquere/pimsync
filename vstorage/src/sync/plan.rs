@@ -273,6 +273,12 @@ impl ResolvedMapping {
     }
 }
 
+impl std::fmt::Display for ResolvedMapping {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        String::fmt(&self.alias, f)
+    }
+}
+
 /// Collection as resolved based on existing data.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ResolvedCollection {
@@ -415,13 +421,19 @@ impl<I: Item> CollectionPlan<I> {
         let status_uids = match (status, &mapping_uid) {
             (Some(s), Some(m)) => {
                 let uids = s.all_uids(*m)?;
-                if !uids.is_empty()
-                    && pair.on_empty == OnEmpty::Skip
-                    && (items_a.is_empty() ^ items_b.is_empty())
-                {
-                    warn!("Collection {} has been emptied on one side.", mapping.alias);
-                    return Ok(Self::no_action(*m, mapping));
+                if !uids.is_empty() && pair.on_empty == OnEmpty::Skip {
+                    // Status has entries and we've been told to skip emptying.
+                    if items_a.is_empty() && !items_b.is_empty() {
+                        warn!("Collection {mapping} has been emptied on storage a.",);
+                        return Ok(Self::no_action(*m, mapping));
+                    }
+                    if !items_a.is_empty() && items_b.is_empty() {
+                        warn!("Collection {mapping} has been emptied on storage b.",);
+                        return Ok(Self::no_action(*m, mapping));
+                    }
                 }
+                // If both sides have been emptied, continue to produce a plan.
+                // This plan will clear up the status DB if it still has entries.
                 uids
             }
             _ => Vec::with_capacity(0),
