@@ -164,7 +164,7 @@ fn parse_collections_directive(params: &str) -> anyhow::Result<Collections> {
     } else if params == "from b" {
         Collections::FromB
     } else {
-        bail!("Invalid value for colletions: {params}");
+        bail!("Invalid value for collections: {params}");
     };
     Ok(c)
 }
