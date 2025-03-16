@@ -9,7 +9,7 @@ use futures_util::{
 use inotify::{EventMask, Inotify, WatchMask};
 use log::error;
 use std::{pin::pin, time::Duration};
-use tokio::time::{Instant, Interval};
+use tokio::time::Interval;
 
 use crate::{
     base::Item,
@@ -58,7 +58,7 @@ impl VdirMonitor {
             .into_event_stream(buf)
             .map_err(|err| Error::new(ErrorKind::Io, err))?;
 
-        let mut timer = tokio::time::interval_at(Instant::now() + interval, interval);
+        let mut timer = tokio::time::interval(interval);
         timer.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
 
         Ok(VdirMonitor {

@@ -4,7 +4,7 @@
 
 use futures_util::future::BoxFuture;
 use std::time::Duration;
-use tokio::time::{Instant, Interval};
+use tokio::time::Interval;
 
 use crate::{
     base::Item,
@@ -33,9 +33,8 @@ impl VdirMonitor {
     ///
     /// This portable implementation is infallible.
     pub fn new<I: Item>(_: &VdirStorage<I>, interval: Duration) -> Result<VdirMonitor> {
-        let mut timer = tokio::time::interval_at(Instant::now() + interval, interval);
+        let mut timer = tokio::time::interval(interval, interval);
         timer.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
-
         Ok(VdirMonitor { timer })
     }
 }

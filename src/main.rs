@@ -131,6 +131,21 @@ impl<I: Item> NamedPair<I> {
         loop {
             // FIXME: implement partial sync. See: https://todo.sr.ht/~whynothugo/pimsync/131
 
+            match select(mon_a.next_event(), mon_b.next_event()).await {
+                Either::Left((event, _)) => {
+                    debug!("Monitor for A yielded event {:?}", event);
+                    // TODO: Build set of Changes based on received events.
+                }
+                Either::Right((event, _)) => {
+                    debug!("Monitor for B yielded event {:?}", event);
+                    // TODO: Build set of Changes based on received events.
+                }
+            };
+            // TODO: Drain any remaining events in a non-blocking way (or with <100ms timeout).
+            //       Handle batches of events together.
+
+            warn!("Partial sync is not implemented; will perform full sync");
+
             debug!("Creating plan for storage pair '{}'.", self.name);
             match Plan::new(&self.inner, Some(&status)).await {
                 Ok(plan) => {
@@ -146,21 +161,6 @@ impl<I: Item> NamedPair<I> {
                 }
                 Err(err) => error!("Error synchronising {}: {:?}", self.name, err),
             };
-
-            match select(mon_a.next_event(), mon_b.next_event()).await {
-                Either::Left((event, _)) => {
-                    debug!("Monitor for A yielded event {:?}", event);
-                    // TODO: Build set of Changes based on received events.
-                }
-                Either::Right((event, _)) => {
-                    debug!("Monitor for B yielded event {:?}", event);
-                    // TODO: Build set of Changes based on received events.
-                }
-            };
-            // TODO: Drain any remaining events in a non-blocking way (or with <100ms timeout).
-            //       Handle batches of events together.
-
-            warn!("Partial sync is not implemented; will perform full sync");
         }
     }
 

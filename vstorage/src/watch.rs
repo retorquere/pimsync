@@ -7,7 +7,7 @@ use std::time::Duration;
 
 use futures_util::future::BoxFuture;
 use log::debug;
-use tokio::time::{Instant, Interval, MissedTickBehavior};
+use tokio::time::{Interval, MissedTickBehavior};
 
 use crate::Href;
 
@@ -19,6 +19,11 @@ use crate::Href;
 ///   event should be returned every `interval`.
 /// - There is a possibility that some events are lost (e.g.: due to having to reconnect, or a
 ///   buffer overflow).
+///
+/// Monitors MUST yield events for changes that have occurred since the last access to this
+/// storage. If this is unknown (e.g.: no state is preserved between executions), an
+/// [`Event::General`] must be emitted immediately upon the first call to
+/// [`StorageMonitor::next_event`].
 ///
 /// # See also
 ///
@@ -85,7 +90,7 @@ impl IntervalMonitor {
     /// Create a new monitor with a given interval.
     #[must_use]
     pub fn new(interval: Duration) -> IntervalMonitor {
-        let mut timer = tokio::time::interval_at(Instant::now() + interval, interval);
+        let mut timer = tokio::time::interval(interval);
         timer.set_missed_tick_behavior(MissedTickBehavior::Delay);
         IntervalMonitor { timer }
     }
