@@ -129,9 +129,7 @@ impl<I: Item> NamedPair<I> {
         };
 
         loop {
-            // FIXME: implement partial sync
-            // This loops performs a full sync any time ANY change occurs. In cases where only an
-            // item has changed, we should only sync that item, and not do a full rescan.
+            // FIXME: implement partial sync. See: https://todo.sr.ht/~whynothugo/pimsync/131
 
             debug!("Creating plan for storage pair '{}'.", self.name);
             match Plan::new(&self.inner, Some(&status)).await {
