@@ -188,10 +188,10 @@ impl<I: Item> NamedPair<I> {
 
     async fn create_plan(&self) -> anyhow::Result<Plan<I>> {
         debug!("Creating plan for storage pair '{}'.", self.name);
-        let status_ro = StatusDatabase::open_readonly(&self.status_path)
-            .with_context(|| format!("open_readonly status db for {}", self.name))?;
+        let status = StatusDatabase::open(&self.status_path)
+            .with_context(|| format!("openstatus db for {}", self.name))?;
 
-        let plan = Plan::new(&self.inner, status_ro.as_ref()).await?;
+        let plan = Plan::new(&self.inner, status.as_ref()).await?;
         // TODO: apply keep_a or keep_b if required.
 
         Ok(plan)

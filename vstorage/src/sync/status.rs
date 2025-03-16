@@ -130,15 +130,15 @@ pub struct StatusDatabase {
 impl StatusDatabase {
     // NOTE: side is stored as boolean, 0=a, 1=b.
 
-    /// Open the database in readonly mode.
+    /// Open the database if it does not exists.
     ///
     /// Returns `None` if the database does not exist.
     ///
     /// # Errors
     ///
     /// Returns [`StatusError::Sqlite`] if sqlite fails to open the database.
-    pub fn open_readonly(path: impl AsRef<Path>) -> Result<Option<StatusDatabase>, StatusError> {
-        let flags = OpenFlags::new().with_read_only().with_full_mutex();
+    pub fn open(path: impl AsRef<Path>) -> Result<Option<StatusDatabase>, StatusError> {
+        let flags = OpenFlags::new().with_read_write().with_full_mutex();
         match Connection::open_thread_safe_with_flags(path, flags) {
             Ok(conn) => Ok(Some(StatusDatabase { conn })),
             Err(e) if e.code == Some(14) => Ok(None),
@@ -602,11 +602,9 @@ mod test {
     use super::{MappingUid, Side, StatusDatabase};
 
     #[test]
-    fn test_writing_in_readonly_mode() {
-        let db = StatusDatabase::open_readonly(":memory:").unwrap();
-        let err = db.unwrap().init_schema().unwrap_err();
-        let err_msg = err.to_string();
-        assert!(err_msg.contains("attempt to write a readonly database"));
+    fn test_open_non_existant() {
+        let db = StatusDatabase::open("/doesnotexist/status/my.db").unwrap();
+        assert!(db.is_none());
     }
 
     #[test]

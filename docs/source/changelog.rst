@@ -14,6 +14,7 @@ v0.4.0
   comparisons and conflicts when servers automatically re-order timezone
   components.
 - When warning about emptied collections, clarify which storage was empty.
+- Fix crash if a previous execution left behind an sqlite journal file.
 
 v0.3.0
 ------
