@@ -106,6 +106,9 @@ impl StorageMonitor for VdirMonitor {
                 match select(next, timeout).await {
                     Either::Left((None, _)) => unreachable!("End of stream for inotify events."),
                     Either::Left((Some(Ok(event)), _)) => {
+                        // Directory deletions trigger an Event::General due to inotify requiring
+                        // re-initialisation, so we don't consider directories in the branch.
+
                         if event.mask.contains(EventMask::Q_OVERFLOW) {
                             // TODO: drain the whole queue as well.
                             return Event::General;
