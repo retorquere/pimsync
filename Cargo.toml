@@ -31,7 +31,7 @@ rustls = { version = "0.22.4" }
 rustls-pemfile = "2.0.0"
 scfg = "0.3.1"
 sha2 = "0.10.2"
-simple_logger = { version = "4.1.0", default-features = false, features = ["colors"] }
+simple_logger = { version = "4.1.0", default-features = false, features = ["colors", "stderr"] }
 tempfile = "3.3.0"
 thiserror = "1.0.37"
 tokio = { version = "1.33.0", features = ["rt-multi-thread", "macros", "rt"] }

@@ -48,10 +48,8 @@ impl Cli {
                                 match arg {
                                     Arg::Short('r') => {
                                         let raw_fd = parser.value()?.parse()?;
-                                        if raw_fd < 3 {
-                                            return Err(
-                                                "Readiness fd must be greater than 2".into()
-                                            );
+                                        if raw_fd == 2 {
+                                            return Err("Cannot use stderr as readiness fd".into());
                                         }
                                         // SAFETY: this file descriptor is not accessed elsewhere.
                                         // The user is responsible for ensuring that they have
