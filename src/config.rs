@@ -224,9 +224,10 @@ impl StorageBuilder {
             }
             LazyStorage::Initialising(notify) => {
                 let notify = notify.clone();
+                let notify = notify.notified();
                 drop(lock);
 
-                notify.notified().await;
+                notify.await;
                 let lock = value.lock().await;
                 let LazyStorage::Ready(storage, duration) = &*lock else {
                     unreachable!("Received notification for non-ready storage.");
