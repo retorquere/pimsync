@@ -1,5 +1,8 @@
-Guides
-======
+Usage
+=====
+
+This is an introduction to usage of pimsync. For reference documentation, see
+the manual page, :doc:`pimsync.1`.
 
 Basic setup
 -----------
