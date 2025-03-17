@@ -17,6 +17,8 @@ v0.4.0
 - Fix crash if a previous execution left behind an sqlite journal file.
 - Storages are now initialise concurrently, which improves start-up time,
   especially on slower networks.
+- Discovery is now performed concurrently on both sides, reducing total
+  discovery time to that of the slowest side (rather than the sum of both).
 
 v0.3.0
 ------

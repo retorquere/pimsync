@@ -141,16 +141,12 @@ async fn create_mappings_for_pair<I: Item>(
 ) -> Result<Vec<ResolvedMapping>, PlanError> {
     let mut mappings = Vec::<ResolvedMapping>::with_capacity(pair.mappings.len());
 
-    let disco_a = pair
-        .storage_a
-        .discover_collections()
-        .await
-        .map_err(PlanError::DiscoveryFailedA)?;
-    let disco_b = pair
-        .storage_b
-        .discover_collections()
-        .await
-        .map_err(PlanError::DiscoveryFailedB)?;
+    let (disco_a, disco_b) = tokio::join!(
+        pair.storage_a.discover_collections(),
+        pair.storage_b.discover_collections(),
+    );
+    let disco_a = disco_a.map_err(PlanError::DiscoveryFailedA)?;
+    let disco_b = disco_b.map_err(PlanError::DiscoveryFailedA)?;
 
     for mapping in &pair.mappings {
         mappings.push(
