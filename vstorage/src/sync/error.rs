@@ -27,7 +27,7 @@ pub struct SyncError<I: Item> {
 
 impl<I: Item> SyncError<I> {
     #[must_use]
-    pub fn item(action: ItemAction<I>, error: ExecutionError) -> Self {
+    pub(crate) fn item(action: ItemAction<I>, error: ExecutionError) -> Self {
         Self {
             action: SomeAction::Item(Box::from(action)),
             error,
@@ -35,7 +35,7 @@ impl<I: Item> SyncError<I> {
     }
 
     #[must_use]
-    pub fn collection(
+    pub(crate) fn collection(
         action: CollectionAction,
         mapping: ResolvedMapping,
         error: ExecutionError,
@@ -47,7 +47,7 @@ impl<I: Item> SyncError<I> {
     }
 
     #[must_use]
-    pub fn property(action: PropertyAction, error: ExecutionError) -> Self {
+    pub(crate) fn property(action: PropertyAction, error: ExecutionError) -> Self {
         Self {
             action: SomeAction::Property(action),
             error,
