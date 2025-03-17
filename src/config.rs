@@ -152,14 +152,19 @@ impl Config {
     }
 }
 
+/// Wrapper around storage that is only initialised when required.
 enum LazyStorage {
+    /// Raw configuration options for this storage.
     Raw(Scfg),
+    /// Notifier to await while the storage is initialised concurrently.
     Initialising(Arc<Notify>),
+    /// Storage that has been initialised, plus the duration for its `monitor` interval.
     Ready(EitherStorage, Duration),
 }
 
 /// Build storages using configuration as input.
 struct StorageBuilder {
+    /// Keys are names given to storages.
     raw: HashMap<String, Mutex<LazyStorage>>,
 }
 
@@ -194,7 +199,8 @@ impl StorageBuilder {
                 swap(&mut *lock, &mut data);
                 drop(lock);
 
-                // Initialise storage
+                // Initialising the storage might take some time (e.g.: a few network round trips),
+                // so we do this after releasing the lock.
                 let LazyStorage::Raw(scfg) = data else {
                     unreachable!("Data was mutated while we held a lock.");
                 };
@@ -202,13 +208,13 @@ impl StorageBuilder {
                     .await
                     .with_context(|| format!("Initialising storage {storage_name}"))?;
 
-                // Save storage
+                // Keep a copy of Arc<Storage> for other calls to get_storage.
                 let mut data = LazyStorage::Ready(storage.clone(), duration);
                 let mut lock = value.lock().await;
                 swap(&mut *lock, &mut data);
                 drop(lock);
 
-                // Notify others waiting for it
+                // Notify others waiting for this storage to be initialised.
                 let LazyStorage::Initialising(notify) = data else {
                     unreachable!("Value was mutated while initialising.");
                 };
@@ -226,6 +232,7 @@ impl StorageBuilder {
                     unreachable!("Received notification for non-ready storage.");
                 };
                 Ok((storage.clone(), *duration))
+                // Dropping lock releases it.
             }
             LazyStorage::Ready(either_storage, duration) => Ok((either_storage.clone(), *duration)),
         }
