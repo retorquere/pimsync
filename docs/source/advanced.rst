@@ -25,6 +25,10 @@ If you are running your local CalDAV on a Unix domain socket, you can configure
 pimsync to communicate with it directly without having to expose the server on
 a TCP port.
 
+To use CalDAV or CardDAV with a Unix domain socket, use configure a ``url`` in
+the style of ``unix:///path/to/socket``. See ``STORAGE SECTIONS`` in the
+:doc:`pimsync.conf.5` manual page.
+
 One instance per pair
 ---------------------
 
