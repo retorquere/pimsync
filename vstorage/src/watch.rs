@@ -44,7 +44,7 @@ pub trait StorageMonitor: Send {
 /// Event yielded when monitoring a storage.
 ///
 /// Returned by [`StorageMonitor::next_event`]
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Event {
     /// No details are known; only that something has changed.
     ///
@@ -59,7 +59,7 @@ pub enum Event {
 /// Specific event on a given resource or collection.
 ///
 /// See also: [`Event`].
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct SpecificEvent {
     /// The location of the resource.
     pub href: Href,
@@ -70,7 +70,7 @@ pub struct SpecificEvent {
 /// Kind of event.
 ///
 /// See: [`SpecificEvent`]
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum EventKind {
     /// A new element was created or an existing one was modified.
     Change,
