@@ -15,6 +15,8 @@ v0.4.0
   components.
 - When warning about emptied collections, clarify which storage was empty.
 - Fix crash if a previous execution left behind an sqlite journal file.
+- Storages are now initialise concurrently, which improves start-up time,
+  especially on slower networks.
 
 v0.3.0
 ------

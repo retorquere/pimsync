@@ -5,6 +5,7 @@
 use std::{
     collections::{HashMap, HashSet},
     fs::File,
+    mem::swap,
     path::PathBuf,
     process::Stdio,
     sync::Arc,
@@ -23,6 +24,7 @@ use libdav::{dav::WebDavClient, CalDavClient, CardDavClient};
 use log::{debug, error, info};
 use rustls::{client::danger::DangerousClientConfigBuilder, ClientConfig, RootCertStore};
 use scfg::{Directive, Scfg};
+use tokio::sync::{Mutex, Notify};
 use vstorage::{
     addressbook::VcardItem,
     base::{Item, Storage},
@@ -62,12 +64,11 @@ impl Config {
     ///
     /// This consumes the configuration to avoid copying any data needlessly and freeing up any
     /// unnecessary data.
-    pub(crate) async fn into_app(mut self) -> anyhow::Result<App> {
+    pub(crate) async fn into_app(self) -> anyhow::Result<App> {
         let status_dir =
             expand_tilde(self.status_path).context("Expanding tilde for status_dir")?;
 
-        // Only already-initialised storages (name -> instance).
-        let mut storages = HashMap::<String, (EitherStorage, Duration)>::new();
+        let storages = StorageBuilder::new(self.storages);
 
         let mut calendar_pairs = Vec::new();
         let mut contact_pairs = Vec::new();
@@ -77,15 +78,10 @@ impl Config {
             let mut collections = Vec::<Collections>::new();
 
             let name_a = take_single_param_from_directive(&mut config, "storage_a")?;
-
-            let (storage_a, interval_a) = init_storage(&mut self.storages, &mut storages, &name_a)
-                .await
-                .with_context(|| format!("initialising storage {name_a}"))?;
-
             let name_b = take_single_param_from_directive(&mut config, "storage_b")?;
-            let (storage_b, interval_b) = init_storage(&mut self.storages, &mut storages, &name_b)
-                .await
-                .with_context(|| format!("initialising storage {name_b}"))?;
+
+            let ((storage_a, interval_a), (storage_b, interval_b)) =
+                tokio::try_join!(storages.get_storage(&name_a), storages.get_storage(&name_b))?;
 
             if let Some(directives) = config.remove("collections") {
                 for directive in directives {
@@ -156,6 +152,86 @@ impl Config {
     }
 }
 
+enum LazyStorage {
+    Raw(Scfg),
+    Initialising(Arc<Notify>),
+    Ready(EitherStorage, Duration),
+}
+
+/// Build storages using configuration as input.
+struct StorageBuilder {
+    raw: HashMap<String, Mutex<LazyStorage>>,
+}
+
+impl StorageBuilder {
+    /// Create a new builder with raw configuration data.
+    fn new(raw: HashMap<String, Scfg>) -> Self {
+        let raw = raw
+            .into_iter()
+            .map(|(k, v)| (k, Mutex::new(LazyStorage::Raw(v))))
+            .collect();
+        StorageBuilder { raw }
+    }
+
+    /// Returns a storage with a matching name.
+    ///
+    /// This function ensures that each storage is initialised only once. If two concurrent calls
+    /// would return the same storage, one of them will wait until the other resolves the storage.
+    ///
+    /// # Errors
+    ///
+    /// Only returns an error if the call to `init_storage` fails. Errors include the name of the
+    /// failing storage, so can be bubbled up verbatim.
+    async fn get_storage(&self, storage_name: &str) -> anyhow::Result<(EitherStorage, Duration)> {
+        let Some(value) = self.raw.get(storage_name) else {
+            bail!("Storage {storage_name} is not defined.")
+        };
+        let mut lock = value.lock().await;
+        match &*lock {
+            LazyStorage::Raw(_) => {
+                // Set state to "initialising"
+                let mut data = LazyStorage::Initialising(Arc::new(Notify::new()));
+                swap(&mut *lock, &mut data);
+                drop(lock);
+
+                // Initialise storage
+                let LazyStorage::Raw(scfg) = data else {
+                    unreachable!("Data was mutated while we held a lock.");
+                };
+                let (storage, duration) = init_storage(scfg, storage_name)
+                    .await
+                    .with_context(|| format!("Initialising storage {storage_name}"))?;
+
+                // Save storage
+                let mut data = LazyStorage::Ready(storage.clone(), duration);
+                let mut lock = value.lock().await;
+                swap(&mut *lock, &mut data);
+                drop(lock);
+
+                // Notify others waiting for it
+                let LazyStorage::Initialising(notify) = data else {
+                    unreachable!("Value was mutated while initialising.");
+                };
+                notify.notify_waiters();
+
+                Ok((storage, duration))
+            }
+            LazyStorage::Initialising(notify) => {
+                let notify = notify.clone();
+                drop(lock);
+
+                notify.notified().await;
+                let lock = value.lock().await;
+                let LazyStorage::Ready(storage, duration) = &*lock else {
+                    unreachable!("Received notification for non-ready storage.");
+                };
+                Ok((storage.clone(), *duration))
+            }
+            LazyStorage::Ready(either_storage, duration) => Ok((either_storage.clone(), *duration)),
+        }
+    }
+}
+
 fn parse_collections_directive(params: &str) -> anyhow::Result<Collections> {
     let c = if params == "all" {
         Collections::All
@@ -176,36 +252,21 @@ fn parse_collections_directive(params: &str) -> anyhow::Result<Collections> {
 // - storage: refuses to operate if ALL collections would be emptied or deleted.
 // TODO: changelog MUST mention the change in default behaviour here.
 
-/// If the storage is in `raw_storages`, initialise it and add it into `parsed_storages`.
-/// Otherwise, find it in `parsed_storages`.
-async fn init_storage(
-    raw_storages: &mut HashMap<String, Scfg>,
-    parsed_storages: &mut HashMap<String, (EitherStorage, Duration)>,
-    storage_name: &str,
-) -> anyhow::Result<(EitherStorage, Duration)> {
-    if let Some((name, mut config)) = raw_storages.remove_entry(storage_name) {
-        let type_ = take_single_param_from_directive(&mut config, "type")?;
-        let interval = parse_interval(&mut config)?;
-        let storage = match type_.as_ref() {
-            "vdir/icalendar" => EitherStorage::Calendar(parse_vdir(config)?),
-            "vdir/vcard" => EitherStorage::AddressBook(parse_vdir(config)?),
-            "carddav" => EitherStorage::AddressBook(parse_carddav(config).await?),
-            "caldav" => EitherStorage::Calendar(parse_caldav(config).await?),
-            "webcal" => EitherStorage::Calendar(parse_webcal(config)?),
-            _ => bail!("Unknown storage type: {type_}"),
-        };
+/// Initialise a storage based on the given configuration.
+async fn init_storage(mut config: Scfg, name: &str) -> anyhow::Result<(EitherStorage, Duration)> {
+    let type_ = take_single_param_from_directive(&mut config, "type")?;
+    let interval = parse_interval(&mut config)?;
+    let storage = match type_.as_ref() {
+        "vdir/icalendar" => EitherStorage::Calendar(parse_vdir(config)?),
+        "vdir/vcard" => EitherStorage::AddressBook(parse_vdir(config)?),
+        "carddav" => EitherStorage::AddressBook(parse_carddav(config).await?),
+        "caldav" => EitherStorage::Calendar(parse_caldav(config).await?),
+        "webcal" => EitherStorage::Calendar(parse_webcal(config)?),
+        _ => bail!("Unknown storage type: {type_}"),
+    };
 
-        let inner = storage.clone();
-        info!("Initialised storage {name}");
-        parsed_storages.insert(name.to_string(), (storage, interval));
-        Ok((inner, interval))
-    } else {
-        debug!("Re-using storage {storage_name}");
-        parsed_storages
-            .get(storage_name)
-            .cloned()
-            .with_context(|| format!("Storage {storage_name} is not defined."))
-    }
+    info!("Initialised storage {name}");
+    Ok((storage, interval))
 }
 
 /// # Errors
