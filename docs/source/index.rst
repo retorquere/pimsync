@@ -21,6 +21,7 @@ software.
 
    intro
    guides
+   advanced
    man
    changelog
    history
