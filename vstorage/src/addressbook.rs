@@ -83,4 +83,18 @@ impl Property for AddressBookProperty {
             AddressBookProperty::Description => "description",
         }
     }
+
+    fn known_properties() -> &'static [Self] {
+        &[
+            AddressBookProperty::DisplayName,
+            AddressBookProperty::Description,
+        ]
+    }
+
+    fn filename(&self) -> &'static str {
+        match self {
+            AddressBookProperty::DisplayName => "displayname",
+            AddressBookProperty::Description => "description",
+        }
+    }
 }

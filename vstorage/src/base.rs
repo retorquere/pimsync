@@ -208,10 +208,21 @@ pub struct ItemRef {
 ///
 /// See [`Item::Property`].
 pub trait Property:
-    Sync + Send + Clone + Copy + std::fmt::Debug + std::hash::Hash + PartialEq + Eq
+    Sync + Send + Clone + Copy + std::fmt::Debug + std::hash::Hash + PartialEq + Eq + 'static
 {
     /// Return a friendly name for this property.
     fn name(&self) -> &str;
+
+    /// Return all known properties.
+    fn known_properties() -> &'static [Self]
+    where
+        Self: Sized;
+
+    /// Return the filename suitable for storing this property's data.
+    ///
+    /// This is used by the [`crate::vdir::VdirStorage`], and may be used by other future storages
+    /// where the same semantics are appropriate.
+    fn filename(&self) -> &str;
 }
 
 /// A type of item that is contained in a [`Storage`].

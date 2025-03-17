@@ -24,10 +24,10 @@ use tokio::io::{AsyncReadExt as _, AsyncWriteExt};
 use tokio::sync::oneshot::{self, Sender};
 use tokio::sync::RwLock;
 
-use crate::addressbook::AddressBookProperty;
 use crate::atomic::AtomicFile;
-use crate::base::{Collection, FetchedItem, FetchedProperty, Item, ItemRef, Storage};
-use crate::calendar::CalendarProperty;
+use crate::base::{
+    Collection, FetchedItem, FetchedProperty, Item, ItemRef, Property as _, Storage,
+};
 use crate::disco::{DiscoveredCollection, Discovery};
 use crate::watch::StorageMonitor;
 use crate::{CollectionId, Error, ErrorKind, Etag, Href, Result};
@@ -63,10 +63,7 @@ const SAFE_FILENAME_CHARS: &str =
     "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-+";
 
 #[async_trait]
-impl<I: Item> Storage<I> for VdirStorage<I>
-where
-    I::Property: PropertyWithFilename,
-{
+impl<I: Item> Storage<I> for VdirStorage<I> {
     async fn check(&self) -> Result<()> {
         let meta = metadata(&self.path)
             .await
@@ -458,59 +455,6 @@ async fn etag_for_path(path: impl AsRef<Path>) -> Result<Etag> {
 
 fn etag_for_metadata(metadata: &Metadata) -> Etag {
     format!("{};{}", metadata.mtime(), metadata.ino()).into()
-}
-
-/// Helper to synchronise collection properties into filesystem.
-///
-/// This trait should only be required when implementing a new [`Item`] type that should work with
-/// the existing [`VdirStorage`] implementation.
-///
-/// In order for the `Item`'s properties to synchronise to the filesystem, it should implement this
-/// trait.
-pub trait PropertyWithFilename: 'static {
-    /// Return the filename under which this property should be stored.
-    fn filename(&self) -> &'static str;
-
-    /// Return all known properties.
-    fn known_properties() -> &'static [Self]
-    where
-        Self: Sized;
-}
-
-impl PropertyWithFilename for CalendarProperty {
-    fn filename(&self) -> &'static str {
-        match self {
-            CalendarProperty::DisplayName => "displayname",
-            CalendarProperty::Colour => "color",
-            CalendarProperty::Description => "description",
-            CalendarProperty::Order => "order",
-        }
-    }
-
-    fn known_properties() -> &'static [Self] {
-        &[
-            CalendarProperty::DisplayName,
-            CalendarProperty::Colour,
-            CalendarProperty::Description,
-            CalendarProperty::Order,
-        ]
-    }
-}
-
-impl PropertyWithFilename for AddressBookProperty {
-    fn filename(&self) -> &'static str {
-        match self {
-            AddressBookProperty::DisplayName => "displayname",
-            AddressBookProperty::Description => "description",
-        }
-    }
-
-    fn known_properties() -> &'static [Self] {
-        &[
-            AddressBookProperty::DisplayName,
-            AddressBookProperty::Description,
-        ]
-    }
 }
 
 #[cfg(test)]

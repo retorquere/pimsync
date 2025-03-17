@@ -30,7 +30,7 @@ use vstorage::{
     calendar::IcsItem,
     carddav::CardDavStorage,
     sync::declare::{CollectionDescription, DeclaredMapping, OnDelete, OnEmpty, StoragePair},
-    vdir::{PropertyWithFilename, VdirStorage},
+    vdir::VdirStorage,
     webcal::WebCalStorage,
     CollectionId,
 };
@@ -360,10 +360,7 @@ pub(crate) enum EitherStorage {
     AddressBook(Arc<dyn Storage<VcardItem>>),
 }
 
-fn parse_vdir<I: Item + 'static>(mut config: Scfg) -> anyhow::Result<Arc<dyn Storage<I>>>
-where
-    I::Property: PropertyWithFilename,
-{
+fn parse_vdir<I: Item + 'static>(mut config: Scfg) -> anyhow::Result<Arc<dyn Storage<I>>> {
     let path = take_single_param_from_directive(&mut config, "path")?.into();
     let path = expand_tilde(path).context("Expanding tilde for storage")?;
 

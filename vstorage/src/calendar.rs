@@ -95,6 +95,24 @@ impl Property for CalendarProperty {
             CalendarProperty::Order => "order",
         }
     }
+
+    fn known_properties() -> &'static [Self] {
+        &[
+            CalendarProperty::DisplayName,
+            CalendarProperty::Colour,
+            CalendarProperty::Description,
+            CalendarProperty::Order,
+        ]
+    }
+
+    fn filename(&self) -> &'static str {
+        match self {
+            CalendarProperty::DisplayName => "displayname",
+            CalendarProperty::Colour => "color",
+            CalendarProperty::Description => "description",
+            CalendarProperty::Order => "order",
+        }
+    }
 }
 
 #[cfg(test)]

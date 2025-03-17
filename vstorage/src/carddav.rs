@@ -12,13 +12,14 @@ use libdav::CardDavClient;
 use tower::Service;
 
 use crate::addressbook::{AddressBookProperty, VcardItem};
-use crate::base::{Collection, FetchedItem, FetchedProperty, Item, ItemRef, Storage};
+use crate::base::{
+    Collection, FetchedItem, FetchedProperty, Item, ItemRef, Property as _, Storage,
+};
 use crate::dav::{
     collection_href_for_item, collection_id_for_href, join_hrefs, parse_list_items,
     path_for_collection_in_home_set,
 };
 use crate::disco::{DiscoveredCollection, Discovery};
-use crate::vdir::PropertyWithFilename;
 use crate::{CollectionId, Error, ErrorKind, Etag, Href, Result};
 
 impl<C> CardDavStorage<C>

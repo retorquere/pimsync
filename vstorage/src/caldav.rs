@@ -11,14 +11,15 @@ use libdav::dav::mime_types;
 use libdav::CalDavClient;
 use tower::Service;
 
-use crate::base::{Collection, FetchedItem, FetchedProperty, Item, ItemRef, Storage};
+use crate::base::{
+    Collection, FetchedItem, FetchedProperty, Item, ItemRef, Property as _, Storage,
+};
 use crate::calendar::{CalendarProperty, IcsItem};
 use crate::dav::{
     collection_href_for_item, collection_id_for_href, join_hrefs, parse_list_items,
     path_for_collection_in_home_set,
 };
 use crate::disco::{DiscoveredCollection, Discovery};
-use crate::vdir::PropertyWithFilename as _;
 use crate::{CollectionId, Error, ErrorKind, Etag, Href, Result};
 
 impl<C> CalDavStorage<C>
