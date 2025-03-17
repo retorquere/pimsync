@@ -10,11 +10,26 @@ use crate::{
     CollectionId, Href,
 };
 
-/// A collection declared either via its `href` or `collection_id`.
+/// Collection declared either via its `href` or `collection_id`.
+///
+/// This type represents a user-configured collection, which may or may not exist.
 #[derive(Debug, Clone)]
 pub enum CollectionDescription {
-    Id { id: CollectionId },
-    Href { href: Href },
+    /// Refers to a collection with a matching collection id.
+    ///
+    /// If it does not exist, a collection will be created with the expectation that discovery
+    /// would find it with this collection id.
+    Id {
+        /// The id for the declared collection.
+        id: CollectionId,
+    },
+    /// Refers to a collection with a matching `href`.
+    ///
+    /// If it does not exist, a collection with this exact `href` shall be created.
+    Href {
+        /// The href for the declared collection.
+        href: Href,
+    },
 }
 
 impl CollectionDescription {
@@ -28,19 +43,24 @@ impl CollectionDescription {
 
 /// A mapping between of a pair of collections across storages.
 ///
-/// This is an unresolved mapping which may be lacking information on one side.
+/// An unresolved mapping, as declared by a user, which may be lacking information on one side.
 #[derive(Debug, Clone)]
 pub enum DeclaredMapping {
     /// Copy between two collections with the same definition on both sides.
     ///
     /// Usage of [`CollectionDescription::Href`] between different storage implementations is
     /// discouraged.
-    Direct { description: CollectionDescription },
+    Direct {
+        /// Description which applies to the collection on both sides.
+        description: CollectionDescription,
+    },
     /// Copy between two collections with explicit definitions on both sides.
     Mapped {
         /// A descriptive name used for logging and display.
         alias: String,
+        /// The description for the collection on side `a`.
         a: CollectionDescription,
+        /// The description for the collection on side `b`.
         b: CollectionDescription,
     },
 }
@@ -146,16 +166,25 @@ impl<I: Item> StoragePair<I> {
     }
 }
 
+/// Action to take when a collection has been emptied on one side.
 #[derive(Debug, PartialEq, Default)]
 pub enum OnEmpty {
+    /// Skip synchronising this pair of collecitons.
     #[default]
     Skip,
+    /// Synchronise changes (e.g.: emptying the other side too).
     Sync,
 }
 
+/// Action to take when a collection has been deleted on one side.
 #[derive(Debug, PartialEq, Default)]
 pub enum OnDelete {
+    /// Skip synchronising this collection.
     Skip,
+    /// Synchronising the deletion.
+    ///
+    /// Note that only empty collections are deleted, so the collection on the opposite side will
+    /// not be deleted if it is non-empty.
     #[default]
     Sync,
 }

@@ -111,20 +111,36 @@ type Result<T, E = crate::Error> = std::result::Result<T, E>;
 /// Variants used to categorise [`Error`] instances.
 #[derive(Debug, PartialEq)]
 pub enum ErrorKind {
+    /// A storage, collection or resource does not exist.
     DoesNotExist,
+    /// Referenced resource is not a collection.
     NotACollection,
+    /// Referenced resource is not a storage.
     NotAStorage,
+    /// Access was denied by the underlying storage.
     AccessDenied,
+    /// Generic input / output error.
     Io,
+    /// Storage returned invalid data.
     InvalidData,
+    /// Input provided is invalid.
     InvalidInput,
+    /// Resources is read-only.
     ReadOnly,
+    /// Collection is not empty.
     CollectionNotEmpty,
+    /// A precondition has failed.
+    ///
+    /// Typically, this error is returned when attempting to operate on an item using a stale
+    /// [`Etag`].
     PreconditionFailed,
     /// The requested operation is not possible on this specific instance.
     Unavailable,
     /// This storage implementation does not support a required feature.
     Unsupported,
+    /// Uncategorised error.
+    ///
+    /// This variant is deprecated and should not be used for any new error paths.
     // #[deprecated]
     Uncategorised,
 }
@@ -182,6 +198,9 @@ impl Error {
         }
     }
 
+    /// Return the backtrace for this error.
+    ///
+    /// A backtrace is not always available, see documentation for the [`::std::backtrace`] module.
     pub fn backtrace(&self) -> &Backtrace {
         &self.backtrace
     }
@@ -256,6 +275,7 @@ impl std::error::Error for Error {
 pub struct Etag(String);
 
 impl Etag {
+    /// Return a reference to the underlying string.
     #[must_use]
     pub fn as_str(&self) -> &str {
         self.0.as_str()
@@ -342,10 +362,13 @@ impl std::fmt::Display for CollectionId {
 /// Error type when creating a new [`CollectionId`].
 #[derive(Debug, thiserror::Error)]
 pub enum CollectionIdError {
+    /// Found a slash in the collection id.
     #[error("collection id must not contain a slash")]
     Slash,
+    /// Collection id was `..`, which is an invalid id.
     #[error("collection id must not be '..'")]
     DoublePeriod,
+    /// Collection id was `.`, which is an invalid id.
     #[error("collection id must not be '.'")]
     SinglePeriod,
 }

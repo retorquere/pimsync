@@ -322,6 +322,7 @@ where
 }
 
 impl<I: Item> VdirStorage<I> {
+    /// Create a new storage instance.
     #[must_use]
     pub fn new(path: Utf8PathBuf, extension: String) -> Self {
         Self {
@@ -467,8 +468,10 @@ fn etag_for_metadata(metadata: &Metadata) -> Etag {
 /// In order for the `Item`'s properties to synchronise to the filesystem, it should implement this
 /// trait.
 pub trait PropertyWithFilename: 'static {
+    /// Return the filename under which this property should be stored.
     fn filename(&self) -> &'static str;
 
+    /// Return all known properties.
     fn known_properties() -> &'static [Self]
     where
         Self: Sized;

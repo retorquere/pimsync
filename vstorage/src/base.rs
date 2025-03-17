@@ -184,6 +184,7 @@ impl Collection {
         &self.href
     }
 
+    /// Return the inner [`Href`] instance.
     #[must_use]
     pub fn into_href(self) -> Href {
         self.href
@@ -197,7 +198,9 @@ impl Collection {
 /// Reference to a specific version of an [`Item`] inside a collection.
 #[derive(PartialEq, Debug, Clone)]
 pub struct ItemRef {
+    /// Path to the item.
     pub href: Href,
+    /// Etag for the item.
     pub etag: Etag,
 }
 
@@ -207,6 +210,7 @@ pub struct ItemRef {
 pub trait Property:
     Sync + Send + Clone + Copy + std::fmt::Debug + std::hash::Hash + PartialEq + Eq
 {
+    /// Return a friendly name for this property.
     fn name(&self) -> &str;
 }
 

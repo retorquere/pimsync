@@ -67,11 +67,14 @@ pub enum CalendarProperty {
     ///
     /// It is recommended to show this name in user interfaces.
     DisplayName,
+    /// Human readable description of the collection.
     Description,
+    /// Sorting order for this collection.
     Order,
 }
 
 impl CalendarProperty {
+    /// Returns the name of the corresponding DAV property.
     #[must_use]
     pub fn dav_propname(&self) -> &PropertyName<'_, '_> {
         match self {

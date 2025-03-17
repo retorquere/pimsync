@@ -63,7 +63,9 @@ pub enum PlanError {
 pub struct Plan<I: Item> {
     pub(super) storage_a: Arc<dyn Storage<I>>,
     pub(super) storage_b: Arc<dyn Storage<I>>,
+    /// Plans for individual collections and their respective items.
     pub collection_plans: Vec<CollectionPlan<I>>,
+    /// Collections found in the status database which no longer exist.
     pub stale_collections: Vec<MappingUid>,
 }
 
@@ -120,11 +122,13 @@ impl<I: Item> Plan<I> {
         })
     }
 
+    /// Returns the storage for side `a`.
     #[must_use]
     pub fn storage_a(&self) -> &dyn Storage<I> {
         self.storage_a.as_ref()
     }
 
+    /// Returns the storage for side `b`.
     #[must_use]
     pub fn storage_b(&self) -> &dyn Storage<I> {
         self.storage_b.as_ref()
@@ -385,8 +389,11 @@ fn resolve_mapping_counterpart<I: Item>(
 /// Actions required to sync a collection between two storages.
 #[derive(Debug)]
 pub struct CollectionPlan<I: Item> {
+    /// Actions for this collection.
     pub action: CollectionAction,
+    /// Actions for items inside this collection.
     pub items: Vec<ItemAction<I>>,
+    /// Actions for properties which describe this collection.
     pub properties: Vec<PropertyPlan<I>>,
     pub(super) mapping: ResolvedMapping,
 }
@@ -485,6 +492,7 @@ impl<I: Item> CollectionPlan<I> {
         })
     }
 
+    /// Return the friendly alias (used mostly for logging and presentational purposes).
     #[must_use]
     pub fn alias(&self) -> &str {
         &self.mapping.alias
@@ -526,6 +534,8 @@ pub enum ItemAction<I: Item> {
     },
     /// Item is gone from both sides but still present in status db.
     ClearStatus {
+        /// The UID of the item when it was last seen.
+        // TODO: if the item moved on both sides, does this still make sense?
         uid: String,
     },
     Create {

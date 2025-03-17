@@ -13,16 +13,21 @@ pub struct DiscoveredCollection {
 }
 
 impl DiscoveredCollection {
+    /// Create a new instance.
+    ///
+    /// This method should only be used when implementing discovery for storage implementations.
     #[must_use]
     pub fn new(href: String, id: CollectionId) -> DiscoveredCollection {
         DiscoveredCollection { href, id }
     }
 
+    /// Return the path for this collection.
     #[must_use]
     pub fn href(&self) -> &str {
         &self.href
     }
 
+    /// Return the collection id for this collection.
     #[must_use]
     pub fn id(&self) -> &CollectionId {
         // FIXME: duplicate ids?

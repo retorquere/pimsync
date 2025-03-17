@@ -57,11 +57,16 @@ impl From<String> for VcardItem {
 #[non_exhaustive]
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub enum AddressBookProperty {
+    /// A user-friendly name for a collection.
+    ///
+    /// It is recommended to show this name in user interfaces.
     DisplayName,
+    /// Human readable description of the collection.
     Description,
 }
 
 impl AddressBookProperty {
+    /// Returns the name of the corresponding DAV property.
     #[must_use]
     pub fn dav_propname(&self) -> &PropertyName<'_, '_> {
         match self {

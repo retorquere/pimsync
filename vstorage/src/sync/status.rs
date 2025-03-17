@@ -15,16 +15,25 @@ use crate::{
 /// Error interacting with status database.
 #[derive(thiserror::Error, Debug)]
 pub enum StatusError {
+    /// Error interacting with sqlite backed.
     #[error("Error interacting with sqlite backend: {0}")]
     Sqlite(#[from] sqlite::Error),
+    /// An update query did not affect any rows.
+    ///
+    /// This usually indicates a programming error.
     #[error("UPDATE did no affect any rows")]
     NoUpdate,
+    /// Could not create parent directories for the status database.
     #[error("Could not create parent directories")]
     ParentDirs(#[source] std::io::Error),
+    /// Database returned a hash that is not valid.
+    ///
+    /// This indicates either data corruption, or a programming error.
     #[error("Status DB contained an invalid hash")]
     InvalidHash(#[from] ItemHashError),
 }
 
+/// Error finding stale collection mappings.
 #[derive(thiserror::Error, Debug)]
 #[error("Finding stale mapping: {0}")]
 pub struct FindStaleMappingsError(#[from] sqlite::Error);
@@ -32,11 +41,16 @@ pub struct FindStaleMappingsError(#[from] sqlite::Error);
 /// Storages are synchronised between two "sides", 'a' or 'b'.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Side {
+    /// Side `a` from the sync pair.
+    ///
+    /// Serialised into the status database as `0`.
     A,
+    /// Side `b` from the sync pair.
     B,
 }
 
 impl Side {
+    /// Return the opposite side for this one.
     #[must_use]
     pub fn opposite(self) -> Side {
         match self {
@@ -45,6 +59,7 @@ impl Side {
         }
     }
 
+    /// Returns a human-friendly representation (i.e.: `a` or `b`).
     #[must_use]
     pub fn as_char(self) -> char {
         match self {
@@ -63,10 +78,17 @@ impl std::fmt::Display for Side {
 /// State for an item at some point in time.
 #[derive(PartialEq, Clone, Debug)]
 pub struct ItemState<I: Item> {
+    /// Path to the item.
     pub href: Href,
+    /// UID of the item.
     pub uid: String,
+    /// Etag of the item. See [`Etag`].
     pub etag: Etag,
+    /// Normalised hash of the item. See: [`Item::hash`].
     pub hash: ItemHash,
+    /// Data for this version of the item.
+    ///
+    /// If this is `None`, it indicates that the data was no available; items always contain data.
     pub data: Option<I>,
 }
 
