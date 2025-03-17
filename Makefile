@@ -59,3 +59,7 @@ check:
 	cargo clippy --all-targets
 	cargo test --workspace  # includes examples and doctests
 	cargo doc  # fails on broken links
+
+# Rebuild docs as changes occur.
+watch-docs:
+	sphinx-autobuild docs/source docs/build/html
