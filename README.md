@@ -1,6 +1,7 @@
 # pimsync
 
-[Source](https://git.sr.ht/~whynothugo/pimsync)
+[Documentation](https://pimsync.whynothugo.nl/)
+| [Source](https://git.sr.ht/~whynothugo/pimsync)
 | [Issues](https://todo.sr.ht/~whynothugo/pimsync)
 | [Patches](https://lists.sr.ht/~whynothugo/vdirsyncer-devel)
 | [Chat](irc://ircs.libera.chat:6697/#pimutils)
