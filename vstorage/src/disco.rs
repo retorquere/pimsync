@@ -2,6 +2,8 @@
 //!
 //! Discovery is the process of automatically locating collections inside a storage.
 
+use std::collections::HashSet;
+
 use crate::CollectionId;
 
 /// Collection found during discovery.
@@ -30,7 +32,6 @@ impl DiscoveredCollection {
     /// Return the collection id for this collection.
     #[must_use]
     pub fn id(&self) -> &CollectionId {
-        // FIXME: duplicate ids?
         &self.id
     }
 }
@@ -39,6 +40,7 @@ impl DiscoveredCollection {
 ///
 /// See [`crate::base::Storage::discover_collections`].
 pub struct Discovery {
+    // INVARIANT: each collection has a unique id.
     collections: Vec<DiscoveredCollection>,
 }
 
@@ -64,8 +66,20 @@ impl Discovery {
     }
 }
 
-impl From<Vec<DiscoveredCollection>> for Discovery {
-    fn from(collections: Vec<DiscoveredCollection>) -> Discovery {
-        Discovery { collections }
+#[derive(thiserror::Error, Debug)]
+#[error("Multiple collections share the same id.")]
+pub struct DuplicateIds;
+
+impl TryFrom<Vec<DiscoveredCollection>> for Discovery {
+    type Error = DuplicateIds;
+
+    fn try_from(collections: Vec<DiscoveredCollection>) -> Result<Self, DuplicateIds> {
+        let mut seen_ids = HashSet::new();
+        for collection in &collections {
+            if !seen_ids.insert(&collection.id) {
+                return Err(DuplicateIds);
+            }
+        }
+        Ok(Discovery { collections })
     }
 }

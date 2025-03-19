@@ -142,11 +142,12 @@ where
     /// Returns a single collection with the name originally specified.
     async fn discover_collections(&self) -> Result<Discovery> {
         // TODO: shouldn't I check that the collection actually exists?
-        Ok(vec![DiscoveredCollection::new(
+        vec![DiscoveredCollection::new(
             self.url.path().to_string(),
             self.collection_id.clone(),
         )]
-        .into())
+        .try_into()
+        .map_err(|e| ErrorKind::InvalidData.error(e))
     }
 
     /// Unsupported for this storage type.

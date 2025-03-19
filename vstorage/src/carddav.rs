@@ -99,7 +99,8 @@ where
                     .map(|id| DiscoveredCollection::new(collection.href, id))
             })
             .collect::<Result<Vec<_>>>()
-            .map(Discovery::from)
+            .map(Discovery::try_from)?
+            .map_err(|e| ErrorKind::InvalidData.error(e))
     }
 
     async fn create_collection(&self, href: &str) -> Result<Collection> {

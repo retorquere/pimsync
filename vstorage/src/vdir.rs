@@ -100,7 +100,9 @@ impl<I: ItemKind> Storage<I> for VdirStorage<I> {
             collections.push(DiscoveredCollection::new(href, id));
         }
 
-        Ok(collections.into())
+        collections
+            .try_into()
+            .map_err(|e| ErrorKind::InvalidData.error(e))
     }
 
     async fn create_collection(&self, href: &str) -> Result<Collection> {
