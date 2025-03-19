@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: EUPL-1.2
 
-use std::io::{read_to_string, stdin, Seek as _, Write as _};
+use std::io::{read_to_string, stdin, stdout, Seek as _, Write as _};
 
 use anyhow::{bail, Context as _};
 use log::{debug, error, info, warn};
@@ -17,16 +17,15 @@ use vstorage::{
 use crate::{ConflictResolution, NamedPair, RawCommand};
 
 /// Performs conflict resolution for this storage pair.
-// TODO: The UI can run in a deducted thread, taking a channel of conflicts to be resolved.
-//       All the related I/O would continue on other threads, asynchronously.
 pub async fn interactive_resolution<I: Item>(pair: NamedPair<I>) -> anyhow::Result<()> {
-    // TODO: are storage locks necessary here?
     let raw_cmd = match pair.conflict_resolution {
         Some(ConflictResolution::Cmd(ref rc)) => rc,
-        Some(_) => bail!("Conflict resolution is automatic for {}.", pair.name),
+        Some(_) => {
+            info!("Conflict resolution is automatic for {}.", pair.name);
+            return Ok(());
+        }
         _ => bail!("No conflict resolution command for {}.", pair.name),
     };
-    info!("Resolving conflicts for pair {}.", pair.name);
 
     let plan = pair.create_plan().await?;
     pair.print_plan(&plan);
@@ -43,11 +42,22 @@ pub async fn interactive_resolution<I: Item>(pair: NamedPair<I>) -> anyhow::Resu
         .collect::<Vec<_>>();
 
     let total = conflicts.len();
+    if total == 0 {
+        info!("No conflicts to resolve for {}.", pair.name);
+        return Ok(());
+    }
+    println!("Resolving {} conflicts for pair \"{}\".", total, pair.name);
 
     for (i, (a, b)) in conflicts.into_iter().enumerate() {
-        println!("Next is item {}/{total}", i + 1);
-        continue_or_abort()?;
-
+        println!("Next is item {}/{total}, with uid \"{}\".", i + 1, a.uid);
+        match continue_skip_or_quit()? {
+            YesNoQuit::Yes => {}
+            YesNoQuit::No => continue,
+            YesNoQuit::Quit => {
+                println!("Skipping all remaining items for pair \"{}\".", pair.name);
+                return Ok(());
+            }
+        };
         // TODO: should use pre-fetched data, if available.
         // TODO: improve logging here.
         info!("Running conflict resolution for item {}", a.uid);
@@ -70,14 +80,21 @@ pub async fn interactive_resolution<I: Item>(pair: NamedPair<I>) -> anyhow::Resu
 
         info!("Resolved conflicts for '{}'.", new.ident());
     }
+    println!("No conflicting items left for pair \"{}\".", pair.name);
 
     Ok(())
 }
 
-/// Returns an error if user chooses to abort.
-fn continue_or_abort() -> anyhow::Result<()> {
+enum YesNoQuit {
+    Yes,
+    No,
+    Quit,
+}
+
+fn continue_skip_or_quit() -> anyhow::Result<YesNoQuit> {
     loop {
-        println!("Continue? [Y/n]");
+        print!("Resolve it manually? (Y)es, (N)o, or (Q)uit? ");
+        stdout().flush()?;
         // Need to read entire lines because the stdlib implicitly buffers stdin.
         let mut response = String::new();
         stdin()
@@ -85,8 +102,9 @@ fn continue_or_abort() -> anyhow::Result<()> {
             .context("Reading response from stdin")?;
 
         match response.trim().to_lowercase().as_str() {
-            "" | "y" => return Ok(()),
-            "n" => bail!("Aborted by user."),
+            "" | "y" => return Ok(YesNoQuit::Yes),
+            "n" => return Ok(YesNoQuit::No),
+            "q" => return Ok(YesNoQuit::Quit),
             _ => {}
         };
     }
@@ -152,7 +170,8 @@ fn resolve_individual_conflict(
         bail!("Resolved item B is empty.");
     }
     if new_a.trim() != new_b.trim() {
-        bail!("Conflict resolution yielded mismatching items; skipping");
+        println!("Resulting item is not identical on both sides. Conflict not resolved.");
+        bail!("Conflict resolution yielded mismatching items.");
     }
     Ok(new_a)
 }
