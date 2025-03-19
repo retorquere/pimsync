@@ -5,6 +5,7 @@
 image: alpine/edge
 packages:
   - cargo
+  - cargo-audit
   - mandoc
   - py3-sphinx
   - rsync
@@ -32,6 +33,9 @@ tasks:
   - docs: |
       cd pimsync
       make docs
+  - audit: |
+      cd pimsync
+      cargo-audit audit
   - main-or-tag: |
       cd pimsync
       git diff --no-patch --exit-code origin/main || git describe --tag --exact-match || complete-build
