@@ -102,7 +102,6 @@ pub mod disco;
 pub mod readonly;
 mod simple_component;
 pub mod sync;
-mod util;
 pub mod vdir;
 pub mod watch;
 pub mod webcal;
