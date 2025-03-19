@@ -24,6 +24,10 @@ Typical usages include:
 
 - Synchronising data between two different CalDAV or CardDAV servers.
 
+pimsync is configured via a configuration file. It can then be used to
+synchronise data once (via the ``pimsync sync`` command) or to keep data
+synchronised continuously (via the ``pimsync daemon`` command).
+
 Philosophy
 ----------
 
