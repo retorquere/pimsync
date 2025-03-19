@@ -8,10 +8,10 @@ use anyhow::{bail, Context as _};
 use log::{debug, error, info, warn};
 use rustix::fs::sync;
 use tempfile::NamedTempFile;
+use tokio::try_join;
 use vstorage::{
-    base::{Item, Storage},
+    base::{Item, ItemRef, Storage},
     sync::{plan::ItemAction, status::ItemState},
-    Etag,
 };
 
 use crate::{ConflictResolution, NamedPair, RawCommand};
@@ -50,14 +50,14 @@ pub async fn interactive_resolution<I: Item>(pair: NamedPair<I>) -> anyhow::Resu
 
         // TODO: should use pre-fetched data, if available.
         // TODO: improve logging here.
-        let (fetched_a, fetched_b) = tokio::join!(
-            fetch_item(pair.inner.storage_a(), &a),
-            fetch_item(pair.inner.storage_b(), &b),
-        );
-        let (temp_a, item_a, etag_a) = fetched_a.context("fetching conflicted item from A")?;
-        let (temp_b, item_b, etag_b) = fetched_b.context("fetching conflicted item from B")?;
-
         info!("Running conflict resolution for item {}", a.uid);
+        let (fetched_a, fetched_b) = tokio::join!(
+            fetch_item(pair.inner.storage_a(), a),
+            fetch_item(pair.inner.storage_b(), b),
+        );
+        let (temp_a, item_a, ref_a) = fetched_a.context("fetching conflicted item from A")?;
+        let (temp_b, item_b, ref_b) = fetched_b.context("fetching conflicted item from B")?;
+
         let new = match resolve_individual_conflict(raw_cmd, temp_a, temp_b) {
             Ok(data) => I::from(data),
             Err(err) => {
@@ -66,27 +66,7 @@ pub async fn interactive_resolution<I: Item>(pair: NamedPair<I>) -> anyhow::Resu
             }
         };
 
-        if new.hash() == item_a.hash() {
-            debug!("Item is unchanged in A.");
-        } else {
-            pair.inner
-                .storage_a()
-                .update_item(&a.href, &etag_a, &new)
-                .await
-                .context("uploading resolved item into A")?;
-            debug!("Uploaded resolved item to A.");
-        }
-
-        if new.hash() == item_b.hash() {
-            debug!("Item is unchanged in B.");
-        } else {
-            pair.inner
-                .storage_b()
-                .update_item(&b.href, &etag_b, &new)
-                .await
-                .context("uploading resolved item into B")?;
-            debug!("Uploaded resolved item to B.");
-        }
+        upload_resolved(&pair, &ref_a, &ref_b, item_a, item_b, &new).await?;
 
         info!("Resolved conflicts for '{}'.", new.ident());
     }
@@ -115,8 +95,8 @@ fn continue_or_abort() -> anyhow::Result<()> {
 /// Returns (file, item, etag).
 async fn fetch_item<I: Item>(
     storage: &dyn Storage<I>,
-    item: &ItemState<I>,
-) -> anyhow::Result<(NamedTempFile, I, Etag)> {
+    item: ItemState<I>,
+) -> anyhow::Result<(NamedTempFile, I, ItemRef)> {
     let mut temp = NamedTempFile::new().context("Creating temporary file.")?;
     debug!("Fetching {} for conflict resolution...", item.href);
     let (data, etag) = if let Some(ref i) = item.data {
@@ -131,7 +111,11 @@ async fn fetch_item<I: Item>(
     temp.write_all(data.as_str().as_bytes())
         .context("writing item into temporary file")?;
 
-    Ok((temp, data, etag))
+    let item_ref = ItemRef {
+        href: item.href,
+        etag,
+    };
+    Ok((temp, data, item_ref))
 }
 
 /// Returns `None` if resolution failed.
@@ -171,4 +155,57 @@ fn resolve_individual_conflict(
         bail!("Conflict resolution yielded mismatching items; skipping");
     }
     Ok(new_a)
+}
+
+async fn upload_resolved<I: Item>(
+    pair: &NamedPair<I>,
+    ref_a: &ItemRef,
+    ref_b: &ItemRef,
+    orig_a: I,
+    orig_b: I,
+    new: &I,
+) -> anyhow::Result<()> {
+    let mut task_a = None;
+    let mut task_b = None;
+
+    if new.hash() == orig_a.hash() {
+        debug!("Item is unchanged in A.");
+    } else {
+        task_a = Some(async {
+            pair.inner
+                .storage_a()
+                .update_item(&ref_a.href, &ref_a.etag, new)
+                .await
+                .context("uploading resolved item into A")
+        });
+    }
+
+    if new.hash() == orig_b.hash() {
+        debug!("Item is unchanged in B.");
+    } else {
+        task_b = Some(async {
+            pair.inner
+                .storage_b()
+                .update_item(&ref_b.href, &ref_b.etag, new)
+                .await
+                .context("uploading resolved item into B")
+        });
+    }
+
+    match (task_a, task_b) {
+        (None, None) => {}
+        (None, Some(b)) => {
+            b.await?;
+            debug!("Uploaded resolved item to B.");
+        }
+        (Some(a), None) => {
+            a.await?;
+            debug!("Uploaded resolved item to A.");
+        }
+        (Some(a), Some(b)) => {
+            try_join!(a, b)?;
+            debug!("Uploaded resolved items.");
+        }
+    };
+    Ok(())
 }
