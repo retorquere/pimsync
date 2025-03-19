@@ -1,10 +1,7 @@
 //! Types and functions specific to address books and contacts.
 use libdav::{names, PropertyName};
 
-use crate::{
-    base::{uid, Item, Property},
-    util::{replace_uid, ItemHash},
-};
+use crate::base::{Item, Property};
 
 /// Immutable wrapper around a `VCARD`.
 ///
@@ -18,23 +15,6 @@ pub struct VcardItem {
 
 impl Item for VcardItem {
     type Property = AddressBookProperty;
-    /// Returns a unique identifier for this item.
-    #[must_use]
-    fn uid(&self) -> Option<String> {
-        uid(&self.raw)
-    }
-
-    /// Returns the hash of the normalised content.
-    #[must_use]
-    fn hash(&self) -> ItemHash {
-        crate::util::hash(&self.raw)
-    }
-
-    /// Returns a new copy of this Item with the supplied UID.
-    #[must_use]
-    fn with_uid(&self, new_uid: &str) -> Self {
-        VcardItem::from(replace_uid(&self.raw, new_uid))
-    }
 
     #[inline]
     #[must_use]

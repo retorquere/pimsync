@@ -1,10 +1,7 @@
 //! Types and functions specific to calendars and events.
 use libdav::{names, PropertyName};
 
-use crate::{
-    base::{uid, Item, Property},
-    util::{replace_uid, ItemHash},
-};
+use crate::base::{Item, Property};
 
 /// Immutable wrapper around a `VCALENDAR` or `VCARD`.
 ///
@@ -19,24 +16,6 @@ pub struct IcsItem {
 impl Item for IcsItem {
     /// Calendar properties defined by `CalDav`.
     type Property = CalendarProperty;
-
-    /// Returns the contents of the `UID` property, if defined.
-    #[must_use]
-    fn uid(&self) -> Option<String> {
-        uid(&self.raw)
-    }
-
-    /// Returns the hash of the normalised content.
-    #[must_use]
-    fn hash(&self) -> ItemHash {
-        crate::util::hash(&self.raw)
-    }
-
-    /// Returns a new copy of this Item with the supplied UID.
-    #[must_use]
-    fn with_uid(&self, new_uid: &str) -> Self {
-        IcsItem::from(replace_uid(&self.raw, new_uid))
-    }
 
     #[inline]
     #[must_use]

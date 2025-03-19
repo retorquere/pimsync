@@ -12,6 +12,7 @@
 use std::time::Duration;
 
 use async_trait::async_trait;
+use vparser::Parser;
 
 use crate::{
     disco::Discovery,
@@ -242,25 +243,40 @@ where
     /// See also [`Storage::get_property`] and [`Storage::set_property`].
     type Property: Property;
 
-    /// Parse the item and return a unique identifier for it.
+    /// Parse the item and return the value of its `UID` property, if defined..
     ///
     /// The `uid` does not change when the item is modified. The `uid` remains the same when the
     /// item is copied across storages and storage types.
     #[must_use]
-    fn uid(&self) -> Option<String>;
+    fn uid(&self) -> Option<String> {
+        let mut lines = self.as_str().split_terminator("\r\n");
+        let mut uid = lines
+            .find_map(|line| line.strip_prefix("UID:"))
+            .map(String::from)?;
+
+        // If the following lines start with a space or tab, they're a continuation of the UID.
+        // See: https://www.rfc-editor.org/rfc/rfc5545#section-3.1
+        lines
+            .map_while(|line| line.strip_prefix(' ').or_else(|| line.strip_prefix('\t')))
+            .for_each(|part| uid.push_str(part));
+
+        Some(uid)
+    }
 
     /// Return the hash of this item, usually normalised.
     ///
-    /// Implementations SHOULD normalise content before hashing to ensure that two semantically
-    /// equivalent items return the same hash.
+    /// The content shall be normalised before hashing to ensure that two semantically equivalent
+    /// items return the same hash.
     ///
-    /// The output of the function must remain the same across different versions, platforms and
+    /// The output of the function shall remain the same across different versions, platforms and
     /// architectures.
     ///
     /// This value is used as a fallback when a storage backend doesn't provide [`Etag`] values, or
     /// when an item's [`Item::uid`] returns `None`.
     #[must_use]
-    fn hash(&self) -> ItemHash;
+    fn hash(&self) -> ItemHash {
+        crate::util::hash(self.as_str())
+    }
 
     /// A unique identifier for this item. Is either the UID (if any), or the hash of its contents.
     #[must_use]
@@ -270,26 +286,40 @@ where
 
     /// Returns a new copy of this Item with the supplied UID.
     #[must_use]
-    fn with_uid(&self, new_uid: &str) -> Self;
+    fn with_uid(&self, new_uid: &str) -> Self {
+        Self::from({
+            let orig = self.as_str();
+            let mut inside_component = false;
+            let mut new = String::new();
+
+            for line in Parser::new(orig) {
+                if line.name() == "BEGIN"
+                    && ["VEVENT", "VTODO", "VJOURNAL", "VCARD"].contains(&line.value().as_ref())
+                {
+                    inside_component = true;
+                }
+                if line.name() == "END"
+                    && ["VEVENT", "VTODO", "VJOURNAL", "VCARD"].contains(&line.value().as_ref())
+                {
+                    inside_component = false;
+                }
+                if inside_component && line.name() == "UID" {
+                    new.push_str("UID:");
+                    new.push_str(new_uid);
+                    new.push_str("\r\n");
+                } else {
+                    new.push_str(line.raw());
+                    new.push_str("\r\n");
+                }
+            }
+
+            new
+        })
+    }
 
     #[must_use]
     /// Returns the raw contents of this item.
     fn as_str(&self) -> &str;
-}
-
-pub(crate) fn uid(raw: &str) -> Option<String> {
-    let mut lines = raw.split_terminator("\r\n");
-    let mut uid = lines
-        .find_map(|line| line.strip_prefix("UID:"))
-        .map(String::from)?;
-
-    // If the following lines start with a space or tab, they're a continuation of the UID.
-    // See: https://www.rfc-editor.org/rfc/rfc5545#section-3.1
-    lines
-        .map_while(|line| line.strip_prefix(' ').or_else(|| line.strip_prefix('\t')))
-        .for_each(|part| uid.push_str(part));
-
-    Some(uid)
 }
 
 /// Item fetched from a storage plus its metadata.
