@@ -4,6 +4,11 @@ Usage
 This is an introduction to usage of pimsync. For reference documentation, see
 the manual page, :doc:`pimsync.1`.
 
+As mentioned in the :doc:`introduction <intro>`, pimsync is configured via a
+configuration file. The default path for the configuration file is
+``~/.config/pimsync/pimsync.conf``, and it can be overridden using the ``-c``
+flag or by setting ``$XDG_CONFIG_HOME``.
+
 Basic setup
 -----------
 
@@ -21,7 +26,6 @@ events on both calendar storages. This helps resolve conflicts later: when a
 file changes on one storage, ``pimsync`` consults this status database to
 determine which side changed and which way data needs to flow to synchronise
 changes.
-
 
 The corresponding configuration file for this example would looks something like:
 
