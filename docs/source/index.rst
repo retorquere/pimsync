@@ -23,6 +23,7 @@ software.
    install
    usage
    advanced
+   security
    man
    changelog
    history
@@ -43,6 +44,3 @@ Development of this project is possible thanks to funding and support from the
 `NLnet foundation <https://nlnet.nl/project/vdirsyncer/>`_ and the `NGI Zero
 Entrust program <https://www.ngi.eu/ngi-projects/ngi-zero-entrust/>`_ of the
 European Commission.
-
-A security audit was completed by `Radically Open Security
-<https://www.radicallyopensecurity.com/>`_ in September 2024.
