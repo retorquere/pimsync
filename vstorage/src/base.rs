@@ -353,34 +353,30 @@ impl Item {
     /// Returns a new copy of this Item with the supplied UID.
     #[must_use]
     pub fn with_uid(&self, new_uid: &str) -> Self {
-        Self::from({
-            let orig = self.as_str();
-            let mut inside_component = false;
-            let mut new = String::new();
+        let mut inside_component = false;
+        let mut new = String::new();
 
-            for line in Parser::new(orig) {
-                if line.name() == "BEGIN"
-                    && ["VEVENT", "VTODO", "VJOURNAL", "VCARD"].contains(&line.value().as_ref())
-                {
-                    inside_component = true;
-                }
-                if line.name() == "END"
-                    && ["VEVENT", "VTODO", "VJOURNAL", "VCARD"].contains(&line.value().as_ref())
-                {
-                    inside_component = false;
-                }
-                if inside_component && line.name() == "UID" {
-                    new.push_str("UID:");
-                    new.push_str(new_uid);
-                    new.push_str("\r\n");
-                } else {
-                    new.push_str(line.raw());
-                    new.push_str("\r\n");
-                }
+        for line in Parser::new(self.as_str()) {
+            if line.name() == "BEGIN"
+                && ["VEVENT", "VTODO", "VJOURNAL", "VCARD"].contains(&line.value().as_ref())
+            {
+                inside_component = true;
             }
-
-            new
-        })
+            if line.name() == "END"
+                && ["VEVENT", "VTODO", "VJOURNAL", "VCARD"].contains(&line.value().as_ref())
+            {
+                inside_component = false;
+            }
+            if inside_component && line.name() == "UID" {
+                new.push_str("UID:");
+                new.push_str(new_uid);
+                new.push_str("\r\n");
+            } else {
+                new.push_str(line.raw());
+                new.push_str("\r\n");
+            }
+        }
+        Self::from(new)
     }
 
     #[must_use]
