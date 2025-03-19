@@ -271,6 +271,29 @@ impl ResolvedMapping {
             }),
         }
     }
+
+    /// Create a new mapping with a given alias.
+    ///
+    /// # Panics
+    ///
+    /// If the given alias is not a valid [`CollectionId`].
+    #[cfg(test)]
+    #[must_use]
+    pub(crate) fn new_with_alias(alias: &str) -> ResolvedMapping {
+        ResolvedMapping {
+            alias: alias.into(),
+            a: ResolvedCollection {
+                id: Some(alias.parse().unwrap()),
+                href: alias.into(),
+                exists: true,
+            },
+            b: ResolvedCollection {
+                id: Some(alias.parse().unwrap()),
+                href: alias.into(),
+                exists: true,
+            },
+        }
+    }
 }
 
 impl std::fmt::Display for ResolvedMapping {

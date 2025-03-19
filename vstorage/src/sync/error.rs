@@ -103,7 +103,6 @@ mod test {
     use crate::{
         calendar::IcsItem,
         sync::{
-            declare::DeclaredMapping,
             error::SomeAction,
             execute::ExecutionError,
             plan::{CollectionAction, ItemAction, ResolvedMapping},
@@ -146,28 +145,28 @@ mod test {
         assert_eq!(msg, expected);
     }
 
-    // #[test]
-    // fn test_syncerror_collection_display() {
-    //     let err = SyncError::<IcsItem> {
-    //         action: SomeAction::Collection {
-    //             action: CollectionAction::CreateInB,
-    //             alias: "guests",
-    //         },
-    //         error: ExecutionError::Storage(crate::Error {
-    //             kind: crate::ErrorKind::AccessDenied,
-    //             source: Some(Box::from(std::io::Error::new(
-    //                 std::io::ErrorKind::PermissionDenied,
-    //                 "Creating new collections is forbidden",
-    //             ))),
-    //             backtrace: Backtrace::capture(),
-    //         }),
-    //     };
-    //     let msg = err.to_string();
-    //     let expected = concat!(
-    //         "Error executing collection action 'create in storage b' for 'guests': ",
-    //         "access to the resource was denied: ",
-    //         "Creating new collections is forbidden"
-    //     );
-    //     assert_eq!(msg, expected);
-    // }
+    #[test]
+    fn test_syncerror_collection_display() {
+        let err = SyncError::<IcsItem> {
+            action: SomeAction::Collection {
+                action: CollectionAction::CreateInOne(Side::B),
+                mapping: ResolvedMapping::new_with_alias("guests"),
+            },
+            error: ExecutionError::Storage(crate::Error {
+                kind: crate::ErrorKind::AccessDenied,
+                source: Some(Box::from(std::io::Error::new(
+                    std::io::ErrorKind::PermissionDenied,
+                    "Creating new collections is forbidden",
+                ))),
+                backtrace: Backtrace::capture(),
+            }),
+        };
+        let msg = err.to_string();
+        let expected = concat!(
+            "Error executing collection action 'create in storage b' for 'guests': ",
+            "access to the resource was denied: ",
+            "Creating new collections is forbidden"
+        );
+        assert_eq!(msg, expected);
+    }
 }
