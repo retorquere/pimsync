@@ -26,7 +26,7 @@ use tokio::sync::RwLock;
 
 use crate::atomic::AtomicFile;
 use crate::base::{
-    Collection, FetchedItem, FetchedProperty, Item, ItemRef, Property as _, Storage,
+    Collection, FetchedItem, FetchedProperty, Item, ItemKind, ItemRef, Property as _, Storage,
 };
 use crate::disco::{DiscoveredCollection, Discovery};
 use crate::watch::StorageMonitor;
@@ -45,7 +45,7 @@ pub use monitor::VdirMonitor;
 ///
 /// Internally, all `href`s are paths relative to the base directory.
 // TODO: add link to spec here.
-pub struct VdirStorage<I: Item> {
+pub struct VdirStorage<I: ItemKind> {
     /// The path to a directory containing a storage.
     ///
     /// Each top-level subdirectory will be treated as a separate collection, and individual files
@@ -63,7 +63,7 @@ const SAFE_FILENAME_CHARS: &str =
     "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-+";
 
 #[async_trait]
-impl<I: Item> Storage<I> for VdirStorage<I> {
+impl<I: ItemKind> Storage<I> for VdirStorage<I> {
     async fn check(&self) -> Result<()> {
         let meta = metadata(&self.path)
             .await
@@ -134,20 +134,20 @@ impl<I: Item> Storage<I> for VdirStorage<I> {
         Ok(items)
     }
 
-    async fn get_item(&self, href: &str) -> Result<(I, Etag)> {
+    async fn get_item(&self, href: &str) -> Result<(Item, Etag)> {
         let path = build_item_path(&self.path, &self.extension, href)?;
 
         let mut file = File::open(&path).await?;
         let mut buf = String::new();
         file.read_to_string(&mut buf).await?;
 
-        let item = I::from(normalise_newlines(&buf));
+        let item = Item::from(normalise_newlines(&buf));
         let etag = etag_for_metadata(&file.metadata().await?);
 
         Ok((item, etag))
     }
 
-    async fn get_many_items(&self, hrefs: &[&str]) -> Result<Vec<FetchedItem<I>>> {
+    async fn get_many_items(&self, hrefs: &[&str]) -> Result<Vec<FetchedItem>> {
         futures_util::stream::iter(hrefs)
             .then(|href| async move {
                 self.get_item(href).await.map(|(item, etag)| FetchedItem {
@@ -160,7 +160,7 @@ impl<I: Item> Storage<I> for VdirStorage<I> {
             .await
     }
 
-    async fn get_all_items(&self, collection_href: &str) -> Result<Vec<FetchedItem<I>>> {
+    async fn get_all_items(&self, collection_href: &str) -> Result<Vec<FetchedItem>> {
         let mut read_dir = read_dir(build_collection_path(&self.path, collection_href)?).await?;
 
         let mut items = Vec::new();
@@ -175,7 +175,7 @@ impl<I: Item> Storage<I> for VdirStorage<I> {
             let mut buf = String::new();
             file.read_to_string(&mut buf).await?;
 
-            let item = I::from(normalise_newlines(&buf));
+            let item = Item::from(normalise_newlines(&buf));
             let etag = etag_for_metadata(&file.metadata().await?);
 
             items.push(FetchedItem {
@@ -220,7 +220,7 @@ impl<I: Item> Storage<I> for VdirStorage<I> {
         }
     }
 
-    async fn add_item(&self, collection_href: &str, item: &I) -> Result<ItemRef> {
+    async fn add_item(&self, collection_href: &str, item: &Item) -> Result<ItemRef> {
         // No lock is used for creating a new file; races are only possible when it already exists.
         let basename = item
             .ident()
@@ -245,7 +245,7 @@ impl<I: Item> Storage<I> for VdirStorage<I> {
         Ok(item_ref)
     }
 
-    async fn update_item(&self, href: &str, etag: &Etag, item: &I) -> Result<Etag> {
+    async fn update_item(&self, href: &str, etag: &Etag, item: &Item) -> Result<Etag> {
         let filename = build_item_path(&self.path, &self.extension, href)?;
 
         let actual_etag = etag_for_path(&filename).await?;
@@ -318,7 +318,7 @@ impl<I: Item> Storage<I> for VdirStorage<I> {
     }
 }
 
-impl<I: Item> VdirStorage<I> {
+impl<I: ItemKind> VdirStorage<I> {
     /// Create a new storage instance.
     #[must_use]
     pub fn new(path: Utf8PathBuf, extension: String) -> Self {
@@ -465,7 +465,7 @@ mod tests {
     };
 
     use crate::{
-        base::Storage,
+        base::{Item, Storage},
         calendar::{CalendarProperty, IcsItem},
         vdir::{build_collection_path, build_item_path, VdirStorage},
         CollectionId, ErrorKind,
@@ -532,7 +532,7 @@ mod tests {
 
         storage.delete_item("one/item.ics", &etag).await.unwrap();
 
-        let item = IcsItem::from(without_prodid);
+        let item = Item::from(without_prodid);
         storage.add_item("one", &item).await.unwrap();
 
         let all_items = storage.get_all_items(collection_name).await.unwrap();
@@ -676,7 +676,7 @@ mod tests {
             "END:VCALENDAR",
         ]
         .join("\r\n");
-        let item = IcsItem::from(valid);
+        let item = Item::from(valid);
         storage.create_collection("one").await.unwrap();
         let item_ref = storage.add_item("one", &item).await.unwrap();
         assert_eq!(
@@ -704,7 +704,7 @@ mod tests {
             "END:VCALENDAR",
         ]
         .join("\r\n");
-        let item = IcsItem::from(valid);
+        let item = Item::from(valid);
         storage.create_collection("one").await.unwrap();
         let item_ref = storage.add_item("one", &item).await.unwrap();
         assert_eq!(item_ref.href, "one/theseslashesarenotokay.ics");

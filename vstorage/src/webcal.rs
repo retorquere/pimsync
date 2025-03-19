@@ -181,7 +181,7 @@ where
             .map_err(|e| Error::new(ErrorKind::InvalidData, e))?
             .iter()
             .map(|c| {
-                let item = IcsItem::from(c.to_string());
+                let item = Item::from(c.to_string());
                 let hash = item.hash();
 
                 ItemRef {
@@ -198,7 +198,7 @@ where
     ///
     /// Note that, due to the nature of webcal, the whole collection needs to be retrieved. It is
     /// strongly recommended to use [`WebCalStorage::get_all_items`] instead.
-    async fn get_item(&self, href: &str) -> Result<(IcsItem, Etag)> {
+    async fn get_item(&self, href: &str) -> Result<(Item, Etag)> {
         let raw = self.fetch_raw(&self.url).await?;
 
         // TODO: it would be best if the parser could operate on a stream, although that might
@@ -209,7 +209,7 @@ where
             .map_err(|e| Error::new(ErrorKind::InvalidData, e))?
             .iter()
             .find_map(|c| {
-                let item = IcsItem::from(c.to_string());
+                let item = Item::from(c.to_string());
                 if item.ident() == href {
                     Some(item)
                 } else {
@@ -226,7 +226,7 @@ where
     ///
     /// Note that, due to the nature of webcal, the whole collection needs to be retrieved. It is
     /// generally best to use [`WebCalStorage::get_all_items`] instead.
-    async fn get_many_items(&self, hrefs: &[&str]) -> Result<Vec<FetchedItem<IcsItem>>> {
+    async fn get_many_items(&self, hrefs: &[&str]) -> Result<Vec<FetchedItem>> {
         let raw = self.fetch_raw(&self.url).await?;
 
         // TODO: it would be best if the parser could operate on a stream, although that might
@@ -238,7 +238,7 @@ where
             .map_err(|e| Error::new(ErrorKind::InvalidData, e))?
             .iter()
             .filter_map(|c| {
-                let item = IcsItem::from(c.to_string());
+                let item = Item::from(c.to_string());
                 if hrefs.contains(&(item.ident().as_ref())) {
                     Some(Ok(FetchedItem {
                         href: item.ident(),
@@ -255,7 +255,7 @@ where
     /// Fetch all items in the collection.
     ///
     /// Performs a single HTTP(s) request to fetch all items.
-    async fn get_all_items(&self, _collection: &str) -> Result<Vec<FetchedItem<IcsItem>>> {
+    async fn get_all_items(&self, _collection: &str) -> Result<Vec<FetchedItem>> {
         let raw = self.fetch_raw(&self.url).await?;
 
         // TODO: it would be best if the parser could operate on a stream, although that might
@@ -268,7 +268,7 @@ where
         components
             .iter()
             .map(|c| {
-                let item = IcsItem::from(c.to_string());
+                let item = Item::from(c.to_string());
                 Ok(FetchedItem {
                     href: item.ident(),
                     etag: item.hash().to_string().into(),
@@ -279,7 +279,7 @@ where
     }
 
     /// Unsupported for this storage type.
-    async fn add_item(&self, _collection: &str, _: &IcsItem) -> Result<ItemRef> {
+    async fn add_item(&self, _collection: &str, _: &Item) -> Result<ItemRef> {
         Err(Error::new(
             ErrorKind::Unsupported,
             "adding items via webcal is not supported",
@@ -287,7 +287,7 @@ where
     }
 
     /// Unsupported for this storage type.
-    async fn update_item(&self, _: &str, _: &Etag, _: &IcsItem) -> Result<Etag> {
+    async fn update_item(&self, _: &str, _: &Etag, _: &Item) -> Result<Etag> {
         Err(Error::new(
             ErrorKind::Unsupported,
             "updating items via webcal is not supported",

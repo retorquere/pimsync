@@ -13,7 +13,7 @@ use std::{pin::pin, time::Duration};
 use tokio::time::Interval;
 
 use crate::{
-    base::Item,
+    base::ItemKind,
     watch::{Event, EventKind, SpecificEvent, StorageMonitor},
     Error, ErrorKind, Result,
 };
@@ -42,7 +42,7 @@ impl VdirMonitor {
     /// # Errors
     ///
     /// If an error occurs setting up the underlying filesystem watcher.
-    pub fn new<I: Item>(storage: &VdirStorage<I>, interval: Duration) -> Result<VdirMonitor> {
+    pub fn new<I: ItemKind>(storage: &VdirStorage<I>, interval: Duration) -> Result<VdirMonitor> {
         // TODO: errors don't help understand the root cause.
         let events = init_inotify(&storage.path)?;
 

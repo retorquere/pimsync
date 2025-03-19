@@ -6,7 +6,7 @@
 use std::sync::Arc;
 
 use crate::{
-    base::{Item, Storage},
+    base::{ItemKind, Storage},
     CollectionId, Href,
 };
 
@@ -86,7 +86,7 @@ impl DeclaredMapping {
 /// New pairs can be created via [`StoragePair::new`].
 ///
 /// [`Plan`]: crate::sync::plan::Plan
-pub struct StoragePair<I: Item> {
+pub struct StoragePair<I: ItemKind> {
     pub(super) storage_a: Arc<dyn Storage<I>>,
     pub(super) storage_b: Arc<dyn Storage<I>>,
     pub(super) mappings: Vec<DeclaredMapping>,
@@ -96,7 +96,7 @@ pub struct StoragePair<I: Item> {
     pub(super) on_delete: OnDelete,
 }
 
-impl<I: Item> StoragePair<I> {
+impl<I: ItemKind> StoragePair<I> {
     /// Create a new instance.
     ///
     /// By default, no collections are to be synchronised. See other associated functions for

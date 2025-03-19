@@ -11,10 +11,10 @@ use std::sync::Arc;
 
 use log::{debug, warn};
 
-use crate::base::{FetchedItem, ItemRef, Property, Storage};
+use crate::base::{FetchedItem, ItemKind, ItemRef, Property, Storage};
 use crate::disco::{DiscoveredCollection, Discovery};
+use crate::sync::declare::StoragePair;
 use crate::util::ItemHash;
-use crate::{base::Item, sync::declare::StoragePair};
 use crate::{CollectionId, ErrorKind, Href};
 
 use super::declare::{CollectionDescription, DeclaredMapping, OnDelete, OnEmpty};
@@ -60,7 +60,7 @@ pub enum PlanError {
 ///
 /// Use [`Plan::collection_plans`]) to inspect the plan and render it into a human-friendly
 /// representation, into a CSV, or into any other format that is necessary.
-pub struct Plan<I: Item> {
+pub struct Plan<I: ItemKind> {
     pub(super) storage_a: Arc<dyn Storage<I>>,
     pub(super) storage_b: Arc<dyn Storage<I>>,
     /// Plans for individual collections and their respective items.
@@ -73,13 +73,13 @@ pub struct Plan<I: Item> {
 ///
 /// This is partially necessary because storages don't yet implement `Debug` .
 // TODO: they should
-impl<I: Item> std::fmt::Debug for Plan<I> {
+impl<I: ItemKind> std::fmt::Debug for Plan<I> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         std::fmt::Debug::fmt(&self.collection_plans, f)
     }
 }
 
-impl<I: Item> Plan<I> {
+impl<I: ItemKind> Plan<I> {
     /// Create a new plan for a given storage pair.
     ///
     /// Analyses the provided [`StoragePair`], fetches necessary metadata, and prepares a plan of
@@ -136,7 +136,7 @@ impl<I: Item> Plan<I> {
 }
 
 /// Resolve all collection mappings for a given pair.
-async fn create_mappings_for_pair<I: Item>(
+async fn create_mappings_for_pair<I: ItemKind>(
     pair: &StoragePair<I>,
 ) -> Result<Vec<ResolvedMapping>, PlanError> {
     let mut mappings = Vec::<ResolvedMapping>::with_capacity(pair.mappings.len());
@@ -251,7 +251,7 @@ impl ResolvedMapping {
         &self.b
     }
 
-    pub(crate) async fn from_declared_mapping<I: Item>(
+    pub(crate) async fn from_declared_mapping<I: ItemKind>(
         declared: &DeclaredMapping,
         storage_a: &dyn Storage<I>,
         storage_b: &dyn Storage<I>,
@@ -328,7 +328,7 @@ impl ResolvedCollection {
     }
 
     /// Resolve the collection based on a storage and its collections.
-    async fn from_declaration<I: Item>(
+    async fn from_declaration<I: ItemKind>(
         declared: &CollectionDescription,
         discovery: &Discovery,
         storage: &dyn Storage<I>,
@@ -366,7 +366,7 @@ impl ResolvedCollection {
     }
 }
 
-async fn storage_exists<I: Item>(
+async fn storage_exists<I: ItemKind>(
     storage: &dyn Storage<I>,
     href: &str,
 ) -> Result<bool, crate::Error> {
@@ -385,7 +385,7 @@ async fn storage_exists<I: Item>(
 }
 
 /// Finds a counterpart for a collection matching by id.
-fn resolve_mapping_counterpart<I: Item>(
+fn resolve_mapping_counterpart<I: ItemKind>(
     source_collection: &DiscoveredCollection,
     target_discovery: &Discovery,
     target_storage: &dyn Storage<I>,
@@ -407,17 +407,17 @@ fn resolve_mapping_counterpart<I: Item>(
 
 /// Actions required to sync a collection between two storages.
 #[derive(Debug)]
-pub struct CollectionPlan<I: Item> {
+pub struct CollectionPlan<I: ItemKind> {
     /// Actions for this collection.
     pub action: CollectionAction,
     /// Actions for items inside this collection.
-    pub items: Vec<ItemAction<I>>,
+    pub items: Vec<ItemAction>,
     /// Actions for properties which describe this collection.
     pub properties: Vec<PropertyPlan<I>>,
     pub(super) mapping: ResolvedMapping,
 }
 
-impl<I: Item> CollectionPlan<I> {
+impl<I: ItemKind> CollectionPlan<I> {
     fn no_action(uid: MappingUid, mapping: ResolvedMapping) -> CollectionPlan<I> {
         CollectionPlan {
             action: CollectionAction::NoAction(uid),
@@ -534,7 +534,7 @@ impl<I: Item> CollectionPlan<I> {
 /// collection does not exist).
 // TODO: they could contain an `Arc<ResolvedMapping>`, which makes them standalone.
 #[derive(PartialEq, Debug, Clone)]
-pub enum ItemAction<I: Item> {
+pub enum ItemAction {
     /// Item is new and identical on both sides.
     SaveToStatus {
         a: ItemRef,
@@ -559,14 +559,14 @@ pub enum ItemAction<I: Item> {
     },
     Create {
         side: Side,
-        source: ItemState<I>,
+        source: ItemState,
     },
     /// Update an item with data from the other side.
     ///
     /// The `old` field contains data to update the status db atomically.
     Update {
         side: Side,
-        source: ItemState<I>,
+        source: ItemState,
         target: ItemRef,
         old: (ItemRef, ItemRef),
     },
@@ -577,21 +577,21 @@ pub enum ItemAction<I: Item> {
     },
     /// Item is in conflict which needs to be resolved externally.
     Conflict {
-        a: ItemState<I>,
-        b: ItemState<I>,
+        a: ItemState,
+        b: ItemState,
         // Data for the previous version, in case this is not new.
         old: Option<(ItemRef, ItemRef)>,
     },
 }
 
-impl<I: Item> ItemAction<I> {
+impl ItemAction {
     #[must_use]
     fn for_item(
-        current_a: Option<&ItemState<I>>,
-        current_b: Option<&ItemState<I>>,
+        current_a: Option<&ItemState>,
+        current_b: Option<&ItemState>,
         previous: Option<StatusForItem>,
         uid: &str,
-    ) -> Option<ItemAction<I>> {
+    ) -> Option<ItemAction> {
         match (current_a, current_b, previous) {
             (None, None, None) => unreachable!("no action for item that doesn't exist anywhere"),
             (None, None, Some(_)) => Some(ItemAction::ClearStatus {
@@ -735,7 +735,7 @@ impl<I: Item> ItemAction<I> {
     }
 }
 
-impl<I: Item> std::fmt::Display for ItemAction<I> {
+impl std::fmt::Display for ItemAction {
     /// This function is mostly implemented to be used for error reporting.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -829,13 +829,13 @@ impl std::fmt::Display for CollectionAction {
 /// Returns only items that currently exist in the remote storage.
 /// Only items that have changed shall have any `data`.
 /// If an item has changed `href`, the updated `href` is returned.
-async fn items_for_collection<I: Item>(
+async fn items_for_collection<I: ItemKind>(
     status: Option<&StatusDatabase>,
     storage: &dyn Storage<I>,
     collection: &Href,
     side: Side,
     mapping_uid: Option<MappingUid>,
-) -> Result<Vec<ItemState<I>>, PlanError> {
+) -> Result<Vec<ItemState>, PlanError> {
     debug!("Resolving state for collection: {}.", collection);
     let mut items = Vec::new();
 
@@ -907,12 +907,12 @@ impl std::fmt::Display for PropertyAction {
 }
 
 #[derive(Debug)]
-pub struct PropertyPlan<I: Item> {
+pub struct PropertyPlan<I: ItemKind> {
     pub(super) property: I::Property,
     pub(super) action: PropertyAction,
 }
 
-impl<I: Item> PropertyPlan<I> {
+impl<I: ItemKind> PropertyPlan<I> {
     async fn create_for_collection(
         pair: &StoragePair<I>,
         mapping: &ResolvedMapping,

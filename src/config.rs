@@ -27,7 +27,7 @@ use scfg::{Directive, Scfg};
 use tokio::sync::{Mutex, Notify};
 use vstorage::{
     addressbook::VcardItem,
-    base::{Item, Storage},
+    base::{ItemKind, Storage},
     caldav::CalDavStorage,
     calendar::IcsItem,
     carddav::CardDavStorage,
@@ -294,7 +294,7 @@ fn expand_tilde(orig: Utf8PathBuf) -> Result<Utf8PathBuf, camino::FromPathBufErr
     Ok(orig)
 }
 
-fn init_pair<I: Item>(
+fn init_pair<I: ItemKind>(
     collections: Vec<Collections>,
     storages: (Arc<dyn Storage<I>>, Arc<dyn Storage<I>>),
     on_empty: OnEmpty,
@@ -429,7 +429,7 @@ pub(crate) enum EitherStorage {
     AddressBook(Arc<dyn Storage<VcardItem>>),
 }
 
-fn parse_vdir<I: Item + 'static>(mut config: Scfg) -> anyhow::Result<Arc<dyn Storage<I>>> {
+fn parse_vdir<I: ItemKind + 'static>(mut config: Scfg) -> anyhow::Result<Arc<dyn Storage<I>>> {
     let path = take_single_param_from_directive(&mut config, "path")?.into();
     let path = expand_tilde(path).context("Expanding tilde for storage")?;
 

@@ -20,7 +20,7 @@ use log::{debug, error, info, trace, warn};
 use tokio::task::JoinSet;
 use vstorage::{
     addressbook::VcardItem,
-    base::Item,
+    base::ItemKind,
     calendar::IcsItem,
     sync::{
         declare::StoragePair,
@@ -52,7 +52,7 @@ pub(crate) enum ConflictResolution {
 }
 
 /// Pair with a name, as defined in the configuration file.
-pub(crate) struct NamedPair<I: Item> {
+pub(crate) struct NamedPair<I: ItemKind> {
     name: String,
     pub(crate) inner: StoragePair<I>,
     status_path: Utf8PathBuf,
@@ -94,7 +94,7 @@ impl RawCommand {
 
 /// Simply log non-fatal errors.
 #[allow(clippy::needless_pass_by_value)] // Required interface to pass this function.
-pub fn log_error<I: Item>(error: SyncError<I>) {
+pub fn log_error(error: SyncError) {
     error!("{error:?}");
 }
 
@@ -106,7 +106,7 @@ enum DaemonError {
     Monitor(vstorage::Error),
 }
 
-impl<I: Item> NamedPair<I> {
+impl<I: ItemKind> NamedPair<I> {
     /// Sync this pair indefinitely
     ///
     /// Returns an error if an only if a fatal synchronisation error occurred.

@@ -10,7 +10,7 @@ use rustix::fs::sync;
 use tempfile::NamedTempFile;
 use tokio::try_join;
 use vstorage::{
-    base::{Item, ItemRef, Storage},
+    base::{Item, ItemKind, ItemRef, Storage},
     sync::{plan::ItemAction, status::ItemState},
 };
 
@@ -19,7 +19,7 @@ use crate::{ConflictResolution, NamedPair, RawCommand};
 /// Performs conflict resolution for this storage pair.
 ///
 /// Hint: use the `testing/conflicts.sh` script to interactively test this.
-pub async fn interactive_resolution<I: Item>(pair: NamedPair<I>) -> anyhow::Result<()> {
+pub async fn interactive_resolution<I: ItemKind>(pair: NamedPair<I>) -> anyhow::Result<()> {
     let raw_cmd = match pair.conflict_resolution {
         Some(ConflictResolution::Cmd(ref rc)) => rc,
         Some(_) => {
@@ -71,7 +71,7 @@ pub async fn interactive_resolution<I: Item>(pair: NamedPair<I>) -> anyhow::Resu
         let (temp_b, item_b, ref_b) = fetched_b.context("fetching conflicted item from B")?;
 
         let new = match resolve_individual_conflict(raw_cmd, temp_a, temp_b) {
-            Ok(data) => I::from(data),
+            Ok(data) => Item::from(data),
             Err(err) => {
                 error!("Error resolving conflict: {err}");
                 continue;
@@ -113,10 +113,10 @@ fn continue_skip_or_quit() -> anyhow::Result<YesNoQuit> {
 }
 
 /// Returns (file, item, etag).
-async fn fetch_item<I: Item>(
+async fn fetch_item<I: ItemKind>(
     storage: &dyn Storage<I>,
-    item: ItemState<I>,
-) -> anyhow::Result<(NamedTempFile, I, ItemRef)> {
+    item: ItemState,
+) -> anyhow::Result<(NamedTempFile, Item, ItemRef)> {
     let mut temp = NamedTempFile::new().context("Creating temporary file.")?;
     debug!("Fetching {} for conflict resolution...", item.href);
     let (data, etag) = if let Some(ref i) = item.data {
@@ -178,13 +178,13 @@ fn resolve_individual_conflict(
     Ok(new_a)
 }
 
-async fn upload_resolved<I: Item>(
+async fn upload_resolved<I: ItemKind>(
     pair: &NamedPair<I>,
     ref_a: &ItemRef,
     ref_b: &ItemRef,
-    orig_a: I,
-    orig_b: I,
-    new: &I,
+    orig_a: Item,
+    orig_b: Item,
+    new: &Item,
 ) -> anyhow::Result<()> {
     let mut task_a = None;
     let mut task_b = None;

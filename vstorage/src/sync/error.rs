@@ -6,8 +6,6 @@
 //!
 //! These types represent non-fatal errors which may occurs during synchronisation.
 
-use crate::base::Item;
-
 use super::{
     execute::ExecutionError,
     plan::{CollectionAction, ItemAction, PropertyAction, ResolvedMapping},
@@ -20,14 +18,14 @@ use super::{
 ///
 /// Use the [`std::fmt::Display`] implementation for a quick description.
 #[derive(Debug)]
-pub struct SyncError<I: Item> {
-    action: SomeAction<I>,
+pub struct SyncError {
+    action: SomeAction,
     error: ExecutionError,
 }
 
-impl<I: Item> SyncError<I> {
+impl SyncError {
     #[must_use]
-    pub(crate) fn item(action: ItemAction<I>, error: ExecutionError) -> Self {
+    pub(crate) fn item(action: ItemAction, error: ExecutionError) -> Self {
         Self {
             action: SomeAction::Item(Box::from(action)),
             error,
@@ -55,13 +53,13 @@ impl<I: Item> SyncError<I> {
     }
 }
 
-impl<I: Item> std::fmt::Display for SyncError<I> {
+impl std::fmt::Display for SyncError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "Error executing {}: {}", self.action, self.error)
     }
 }
 
-impl<I: Item> std::error::Error for SyncError<I> {
+impl std::error::Error for SyncError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         Some(&self.error)
     }
@@ -69,8 +67,8 @@ impl<I: Item> std::error::Error for SyncError<I> {
 
 /// An action that has failed to execute. See [`SyncError`].
 #[derive(Debug)]
-pub enum SomeAction<I: Item> {
-    Item(Box<ItemAction<I>>),
+pub enum SomeAction {
+    Item(Box<ItemAction>),
     // TODO: this is missing the details of the collection itself (e.g.: alias?).
     Collection {
         action: CollectionAction,
@@ -80,7 +78,7 @@ pub enum SomeAction<I: Item> {
     Property(PropertyAction),
 }
 
-impl<I: Item> std::fmt::Display for SomeAction<I> {
+impl std::fmt::Display for SomeAction {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             SomeAction::Item(action) => {
@@ -100,14 +98,11 @@ impl<I: Item> std::fmt::Display for SomeAction<I> {
 mod test {
     use std::backtrace::Backtrace;
 
-    use crate::{
-        calendar::IcsItem,
-        sync::{
-            error::SomeAction,
-            execute::ExecutionError,
-            plan::{CollectionAction, ItemAction, ResolvedMapping},
-            status::{ItemState, Side},
-        },
+    use crate::sync::{
+        error::SomeAction,
+        execute::ExecutionError,
+        plan::{CollectionAction, ItemAction, ResolvedMapping},
+        status::{ItemState, Side},
     };
 
     use super::SyncError;
@@ -117,7 +112,7 @@ mod test {
         let err = SyncError {
             action: SomeAction::Item(Box::from(ItemAction::Create {
                 side: Side::A,
-                source: ItemState::<IcsItem> {
+                source: ItemState {
                     href: "/path/to/some/file.vcf".into(),
                     uid: "d99ed506-dceb-49f2-a1c9-efa63c68acd0".into(),
                     etag: "123890".into(),
@@ -147,7 +142,7 @@ mod test {
 
     #[test]
     fn test_syncerror_collection_display() {
-        let err = SyncError::<IcsItem> {
+        let err = SyncError {
             action: SomeAction::Collection {
                 action: CollectionAction::CreateInOne(Side::B),
                 mapping: ResolvedMapping::new_with_alias("guests"),

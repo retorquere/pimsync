@@ -1,7 +1,7 @@
 //! Types and functions specific to address books and contacts.
 use libdav::{names, PropertyName};
 
-use crate::base::{Item, Property};
+use crate::base::{ItemKind, Property};
 
 /// Immutable wrapper around a `VCARD`.
 ///
@@ -9,26 +9,10 @@ use crate::base::{Item, Property};
 /// sole purpose of extracting a UID. Proper parsing of components is out of scope, since we want
 /// to enable operating on potentially invalid items too.
 #[derive(Debug, Clone)]
-pub struct VcardItem {
-    raw: String,
-}
+pub struct VcardItem;
 
-impl Item for VcardItem {
+impl ItemKind for VcardItem {
     type Property = AddressBookProperty;
-
-    #[inline]
-    #[must_use]
-    /// Returns the raw contents of this item.
-    fn as_str(&self) -> &str {
-        &self.raw
-    }
-}
-
-impl From<String> for VcardItem {
-    /// Creates a new instance from valid Vcard data.
-    fn from(value: String) -> Self {
-        VcardItem { raw: value }
-    }
 }
 
 /// Properties supported for address books.

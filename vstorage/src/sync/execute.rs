@@ -7,7 +7,7 @@
 use log::{debug, error, info, warn};
 
 use crate::{
-    base::{Item, ItemRef, Property, Storage},
+    base::{ItemKind, ItemRef, Property, Storage},
     disco::DiscoveredCollection,
     CollectionId, Href,
 };
@@ -25,16 +25,16 @@ use super::{
 ///
 /// At this time, an executor can only execute a plan, but in future it may be able to execute a
 /// stream of actions for keeping collections continuously in sync.
-pub struct Executor<I: Item> {
-    on_error: fn(SyncError<I>),
+pub struct Executor {
+    on_error: fn(SyncError),
 }
 
-impl<I: Item> Executor<I> {
+impl Executor {
     /// Create a new instance.
     ///
     /// Use the given `on_error` function to handle non-fatal errors. See [`Executor::plan`] for
     /// further details on error handling.
-    pub fn new(on_error: fn(SyncError<I>)) -> Executor<I> {
+    pub fn new(on_error: fn(SyncError)) -> Executor {
         Executor { on_error }
     }
 
@@ -52,7 +52,11 @@ impl<I: Item> Executor<I> {
     /// passed to the `on_error` function, while the overall operation continues. This allows
     /// handling individual errors (e.g.: displaying them to a user) without interrupting the
     /// operation or having to wait for the completion of the entire operation.
-    pub async fn plan(&self, plan: Plan<I>, status: &StatusDatabase) -> Result<(), StatusError> {
+    pub async fn plan<I: ItemKind>(
+        &self,
+        plan: Plan<I>,
+        status: &StatusDatabase,
+    ) -> Result<(), StatusError> {
         let storage_a = plan.storage_a.as_ref();
         let storage_b = plan.storage_b.as_ref();
 
@@ -118,7 +122,7 @@ impl<I: Item> Executor<I> {
     ///
     /// - Returns `Err(_)` if a fatal error occurred when interacting with the status database.
     /// - Returns `Ok(Err(_))` in case of non-fatal error.
-    async fn collection(
+    async fn collection<I: ItemKind>(
         &self,
         action: &CollectionAction,
         status: &StatusDatabase,
@@ -158,9 +162,9 @@ impl<I: Item> Executor<I> {
     /// - Returns `Err(_)` if a fatal error occurred when interacting with the status database.
     /// - Returns `Ok(Err(_))` in case of non-fatal error.
     #[inline]
-    async fn item(
+    async fn item<I: ItemKind>(
         &self,
-        item: ItemAction<I>,
+        item: ItemAction,
         a: &dyn Storage<I>,
         b: &dyn Storage<I>,
         mapping: &ResolvedMapping,
@@ -223,7 +227,7 @@ impl<I: Item> Executor<I> {
     /// # Errors
     ///
     /// Returns an error in case of a fatal error. See: [`Executor::plan`]
-    async fn property(
+    async fn property<I: ItemKind>(
         &self,
         plan: PropertyPlan<I>,
         a: &dyn Storage<I>,
@@ -283,9 +287,9 @@ pub enum ExecutionError {
     IdMismatch(Side, Href, Option<CollectionId>),
 }
 
-async fn create_item<I: Item>(
+async fn create_item<I: ItemKind>(
     // TODO: Unused field: source.hash, source.uid
-    source: &ItemState<I>,
+    source: &ItemState,
     status: &StatusDatabase,
     mapping: &ResolvedMapping,
     storage_a: &dyn Storage<I>,
@@ -330,11 +334,11 @@ async fn create_item<I: Item>(
     Ok(Ok(()))
 }
 
-async fn update_item<I: Item>(
+async fn update_item<I: ItemKind>(
     storage_a: &dyn Storage<I>,
     storage_b: &dyn Storage<I>,
     // TODO: Unused field: source.hash, source.uid
-    source: &ItemState<I>,
+    source: &ItemState,
     target: &ItemRef,
     old: &(ItemRef, ItemRef),
     status: &StatusDatabase,
@@ -380,7 +384,7 @@ async fn update_item<I: Item>(
     Ok(Ok(()))
 }
 
-async fn delete_item<I: Item>(
+async fn delete_item<I: ItemKind>(
     target: &ItemRef,
     status: &StatusDatabase,
     storage: &dyn Storage<I>,
@@ -394,7 +398,7 @@ async fn delete_item<I: Item>(
     }
 }
 
-async fn delete_collection<I: Item>(
+async fn delete_collection<I: ItemKind>(
     href: &Href,
     status: &StatusDatabase,
     storage: &dyn Storage<I>,
@@ -407,7 +411,7 @@ async fn delete_collection<I: Item>(
 }
 
 /// Creates a collection and updates the state accordingly.
-async fn create_collection<I: Item>(
+async fn create_collection<I: ItemKind>(
     storage: &dyn Storage<I>,
     status: &StatusDatabase,
     mapping: &ResolvedMapping,
@@ -439,7 +443,7 @@ async fn create_collection<I: Item>(
     Ok(Ok(mapping_uid))
 }
 
-async fn create_both_collections<I: Item>(
+async fn create_both_collections<I: ItemKind>(
     storage_a: &dyn Storage<I>,
     storage_b: &dyn Storage<I>,
     mapping: &ResolvedMapping,
@@ -468,7 +472,7 @@ async fn create_both_collections<I: Item>(
     Ok(Ok(status.get_or_add_collection(href_a, href_b)?))
 }
 
-async fn check_id_matches_expected<I: Item>(
+async fn check_id_matches_expected<I: ItemKind>(
     expected_id: Option<&CollectionId>,
     storage: &dyn Storage<I>,
     collection: &Href,

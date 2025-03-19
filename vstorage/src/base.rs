@@ -37,7 +37,7 @@ use crate::{
 /// [`#[async_trait]`](mod@async_trait) macro. You might want to consider clicking on the
 /// `source` link and reading the documentation from the raw code for this trait.
 #[async_trait]
-pub trait Storage<I: Item>: Sync + Send {
+pub trait Storage<I: ItemKind>: Sync + Send {
     // TODO: Some calendar instances only allow a single item type (e.g.: events but not todos).
 
     /// Checks that the storage works. This includes validating credentials, and reachability.
@@ -80,7 +80,7 @@ pub trait Storage<I: Item>: Sync + Send {
     ///
     /// Storages never cache data locally. For reading items in bulk, prefer
     /// [`Storage::get_many_items`].
-    async fn get_item(&self, href: &str) -> Result<(I, Etag)>;
+    async fn get_item(&self, href: &str) -> Result<(Item, Etag)>;
 
     /// Fetches multiple items.
     ///
@@ -93,7 +93,7 @@ pub trait Storage<I: Item>: Sync + Send {
     ///
     /// The default implementation is usually not optimal, and implementations of this trait should
     /// override it.
-    async fn get_many_items(&self, hrefs: &[&str]) -> Result<Vec<FetchedItem<I>>> {
+    async fn get_many_items(&self, hrefs: &[&str]) -> Result<Vec<FetchedItem>> {
         let mut items = Vec::with_capacity(hrefs.len());
         for href in hrefs {
             let item = self.get_item(href).await?;
@@ -112,7 +112,7 @@ pub trait Storage<I: Item>: Sync + Send {
     ///
     /// The default implementation is usually not optimal, and implementations of this trait should
     /// override it.
-    async fn get_all_items(&self, collection: &str) -> Result<Vec<FetchedItem<I>>> {
+    async fn get_all_items(&self, collection: &str) -> Result<Vec<FetchedItem>> {
         let item_refs = self.list_items(collection).await?;
         let mut items = Vec::with_capacity(item_refs.len());
         for item_ref in item_refs {
@@ -127,10 +127,10 @@ pub trait Storage<I: Item>: Sync + Send {
     }
 
     /// Saves a new item into a given collection
-    async fn add_item(&self, collection: &str, item: &I) -> Result<ItemRef>;
+    async fn add_item(&self, collection: &str, item: &Item) -> Result<ItemRef>;
 
     /// Updates the contents of an existing item.
-    async fn update_item(&self, href: &str, etag: &Etag, item: &I) -> Result<Etag>;
+    async fn update_item(&self, href: &str, etag: &Etag, item: &Item) -> Result<Etag>;
 
     /// Deletes an existing item.
     async fn delete_item(&self, href: &str, etag: &Etag) -> Result<()>;
@@ -207,7 +207,7 @@ pub struct ItemRef {
 
 /// Properties for storage collections.
 ///
-/// See [`Item::Property`].
+/// See [`ItemKind::Property`].
 pub trait Property:
     Sync + Send + Clone + Copy + std::fmt::Debug + std::hash::Hash + PartialEq + Eq + 'static
 {
@@ -226,29 +226,33 @@ pub trait Property:
     fn filename(&self) -> &str;
 }
 
-/// A type of item that is contained in a [`Storage`].
-///
-/// A `Storage` can contain items of a concrete type described by implementations of this trait.
-/// This trait defines how to extract the basic information that is required to synchronise
-/// storages. Additional parsing is out of scope here and should be done by inspecting the raw data
-/// inside an item via [`Item::as_str`].
-pub trait Item: Sync + Send + std::fmt::Debug + Clone
-where
-    Self: From<String>,
-{
+pub trait ItemKind: Sync + Send + std::fmt::Debug + Clone {
     /// Property types supported by storages.
     ///
     /// These were known as "metadata" in the original vdirsyncer implementation.
     ///
     /// See also [`Storage::get_property`] and [`Storage::set_property`].
     type Property: Property;
+}
 
+/// A type of item that is contained in a [`Storage`].
+///
+/// A `Storage` can contain items of a concrete type described by implementations of this trait.
+/// This trait defines how to extract the basic information that is required to synchronise
+/// storages. Additional parsing is out of scope here and should be done by inspecting the raw data
+/// inside an item via [`Item::as_str`].
+#[derive(Debug, Clone, PartialEq)]
+pub struct Item {
+    raw: String,
+}
+
+impl Item {
     /// Parse the item and return the value of its `UID` property, if defined..
     ///
     /// The `uid` does not change when the item is modified. The `uid` remains the same when the
     /// item is copied across storages and storage types.
     #[must_use]
-    fn uid(&self) -> Option<String> {
+    pub fn uid(&self) -> Option<String> {
         let mut lines = self.as_str().split_terminator("\r\n");
         let mut uid = lines
             .find_map(|line| line.strip_prefix("UID:"))
@@ -274,19 +278,19 @@ where
     /// This value is used as a fallback when a storage backend doesn't provide [`Etag`] values, or
     /// when an item's [`Item::uid`] returns `None`.
     #[must_use]
-    fn hash(&self) -> ItemHash {
+    pub fn hash(&self) -> ItemHash {
         crate::util::hash(self.as_str())
     }
 
     /// A unique identifier for this item. Is either the UID (if any), or the hash of its contents.
     #[must_use]
-    fn ident(&self) -> String {
+    pub fn ident(&self) -> String {
         self.uid().unwrap_or_else(|| self.hash().to_string())
     }
 
     /// Returns a new copy of this Item with the supplied UID.
     #[must_use]
-    fn with_uid(&self, new_uid: &str) -> Self {
+    pub fn with_uid(&self, new_uid: &str) -> Self {
         Self::from({
             let orig = self.as_str();
             let mut inside_component = false;
@@ -319,15 +323,24 @@ where
 
     #[must_use]
     /// Returns the raw contents of this item.
-    fn as_str(&self) -> &str;
+    pub fn as_str(&self) -> &str {
+        &self.raw
+    }
+}
+
+impl From<String> for Item {
+    /// Creates a new instance from valid iCalendar data.
+    fn from(value: String) -> Self {
+        Item { raw: value }
+    }
 }
 
 /// Item fetched from a storage plus its metadata.
-pub struct FetchedItem<I: Item> {
+pub struct FetchedItem {
     /// See [`Href`]
     pub href: Href,
     /// The actual content of this item. See [`Item`].
-    pub item: I,
+    pub item: Item,
     /// See [`Etag`]
     pub etag: Etag,
 }
@@ -338,4 +351,214 @@ pub struct FetchedProperty<P: Property> {
     pub property: P,
     /// The value of the property.
     pub value: String,
+}
+
+#[cfg(test)]
+mod test {
+    use crate::base::Item;
+
+    #[test]
+    fn compare_hashing_with_and_without_prodid() {
+        let without_prodid: Item = [
+            "BEGIN:VCALENDAR",
+            "BEGIN:VEVENT",
+            "DTSTART:19970714T170000Z",
+            "DTEND:19970715T035959Z",
+            "SUMMARY:Bastille Day Party",
+            "UID:11bb6bed-c29b-4999-a627-12dee35f8395",
+            "END:VEVENT",
+            "END:VCALENDAR",
+        ]
+        .join("\r\n")
+        .into();
+        let with_prodid: Item = [
+            "PRODID:test-client",
+            "BEGIN:VCALENDAR",
+            "BEGIN:VEVENT",
+            "DTSTART:19970714T170000Z",
+            "DTEND:19970715T035959Z",
+            "SUMMARY:Bastille Day Party",
+            "UID:11bb6bed-c29b-4999-a627-12dee35f8395",
+            "END:VEVENT",
+            "END:VCALENDAR",
+        ]
+        .join("\r\n")
+        .into();
+
+        assert_eq!(without_prodid.hash(), with_prodid.hash());
+        assert_eq!(
+            without_prodid.hash().to_string(),
+            "E6DF19EB84E6DCE351EFB015D25C76D31A1FE09F2A8732BE6BC565A01EFA1A41"
+        );
+    }
+
+    #[test]
+    fn compare_hashing_with_different_folding() {
+        let first: Item = [
+            "DESCRIPTION:Voor meer informatie zie https://nluug.nl/evenementen/nluug/na",
+            " jaarsconferentie-2023/",
+        ]
+        .join("\r\n")
+        .into();
+        let second: Item = [
+            "DESCRIPTION:Voor meer informatie zie https:",
+            " //nluug.nl/evenementen/nluug/najaarsconferentie-2023/",
+        ]
+        .join("\r\n")
+        .into();
+
+        assert_eq!(first.hash(), second.hash());
+        assert_eq!(
+            first.hash().to_string(),
+            "9FCE34302FB7B6677542987089C91FDDF79F18F1D42862B03B1DEDF8E72F0CE2"
+        );
+    }
+
+    #[test]
+    fn hash_with_reordered_timezone() {
+        let timezone_first:Item = [
+            "BEGIN:VCALENDAR",
+            "VERSION:2.0",
+            "CALSCALE:GREGORIAN",
+            "BEGIN:VTIMEZONE",
+            "TZID:Europe/Amsterdam",
+            "X-LIC-LOCATION:Europe/Amsterdam",
+            "BEGIN:DAYLIGHT",
+            "TZOFFSETFROM:+0100",
+            "TZOFFSETTO:+0200",
+            "TZNAME:CEST",
+            "DTSTART:19700329T020000",
+            "RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=-1SU",
+            "END:DAYLIGHT",
+            "BEGIN:STANDARD",
+            "TZOFFSETFROM:+0200",
+            "TZOFFSETTO:+0100",
+            "TZNAME:CET",
+            "DTSTART:19701025T030000",
+            "RRULE:FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU",
+            "END:STANDARD",
+            "END:VTIMEZONE",
+            "BEGIN:VEVENT",
+            "UID:DF1E090791D8A93F3B530CFDA9CBFC0573CE3AB61C63A02AA33051B903F68A82",
+            "SUMMARY:NLUUG najaarsconferentie 2023",
+            "DESCRIPTION:Voor meer informatie zie https://nluug.nl/evenementen/nluug/najaarsconferentie-2023/",
+            "DTSTART;TZID=Europe/Amsterdam:20231128T083000",
+            "DTEND;TZID=Europe/Amsterdam:20231128T180000",
+            "LOCATION:Winthontlaan 4-6, Utrecht, The Netherlands",
+            "END:VEVENT",
+            "END:VCALENDAR",
+        ]
+        .join("\r\n").into();
+        let timezone_last :Item = [
+            "BEGIN:VCALENDAR",
+            "VERSION:2.0",
+            "CALSCALE:GREGORIAN",
+            "BEGIN:VEVENT",
+            "UID:DF1E090791D8A93F3B530CFDA9CBFC0573CE3AB61C63A02AA33051B903F68A82",
+            "SUMMARY:NLUUG najaarsconferentie 2023",
+            "DESCRIPTION:Voor meer informatie zie https://nluug.nl/evenementen/nluug/najaarsconferentie-2023/",
+            "DTSTART;TZID=Europe/Amsterdam:20231128T083000",
+            "DTEND;TZID=Europe/Amsterdam:20231128T180000",
+            "LOCATION:Winthontlaan 4-6, Utrecht, The Netherlands",
+            "END:VEVENT",
+            "BEGIN:VTIMEZONE",
+            "TZID:Europe/Amsterdam",
+            "X-LIC-LOCATION:Europe/Amsterdam",
+            "BEGIN:DAYLIGHT",
+            "TZOFFSETFROM:+0100",
+            "TZOFFSETTO:+0200",
+            "TZNAME:CEST",
+            "DTSTART:19700329T020000",
+            "RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=-1SU",
+            "END:DAYLIGHT",
+            "BEGIN:STANDARD",
+            "TZOFFSETFROM:+0200",
+            "TZOFFSETTO:+0100",
+            "TZNAME:CET",
+            "DTSTART:19701025T030000",
+            "RRULE:FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU",
+            "END:STANDARD",
+            "END:VTIMEZONE",
+            "END:VCALENDAR",
+        ]
+        .join("\r\n").into();
+
+        assert_eq!(timezone_first.hash(), timezone_last.hash());
+    }
+
+    #[test]
+    fn test_single_line_uid() {
+        let raw = ["BEGIN:VCARD", "UID:hello", "END:VCARD"].join("\r\n");
+        let item = Item::from(raw);
+        assert_eq!(item.uid(), Some(String::from("hello")));
+        assert_eq!(item.ident(), String::from("hello"));
+
+        let raw = ["BEGIN:VCARD", "UID:hel", "lo", "END:VCARD"].join("\r\n");
+        let item = Item::from(raw);
+        assert_eq!(item.uid(), Some(String::from("hel")));
+        assert_eq!(item.ident(), String::from("hel"));
+
+        let raw = [
+            "BEGIN:VCARD",
+            "UID:hello",
+            "REV:20210307T195614Z\tthere",
+            "END:VCARD",
+        ]
+        .join("\r\n");
+        let item = Item::from(raw);
+        assert_eq!(item.uid(), Some(String::from("hello")));
+        assert_eq!(item.ident(), String::from("hello"));
+    }
+
+    #[test]
+    fn test_multi_line_uid() {
+        let raw = ["BEGIN:VCARD", "UID:hello", "\tthere", "END:VCARD"].join("\r\n");
+        let item = Item::from(raw);
+        assert_eq!(item.uid(), Some(String::from("hellothere")));
+        assert_eq!(item.ident(), String::from("hellothere"));
+
+        let raw = [
+            "BEGIN:VCARD",
+            "UID:hello",
+            "\tthere",
+            "REV:20210307T195614Z",
+            "\tnope",
+            "END:VCARD",
+        ]
+        .join("\r\n");
+        let item = Item::from(raw);
+        assert_eq!(item.uid(), Some(String::from("hellothere")));
+        assert_eq!(item.ident(), String::from("hellothere"));
+    }
+
+    #[test]
+    fn test_missing_uid() {
+        let raw = [
+            "BEGIN:VCARD",
+            "UIDX:hello",
+            "REV:20210307T195614Z\tthere",
+            "END:VCARD",
+        ]
+        .join("\r\n");
+        let item = Item::from(raw);
+        assert_eq!(item.uid(), None);
+        assert_eq!(item.ident(), item.hash().to_string());
+    }
+
+    #[test]
+    fn test_with_uid() {
+        let raw = ["BEGIN:VCARD", "UID:hello", "END:VCARD"].join("\r\n");
+        let item = Item::from(raw);
+        let item2 = item.with_uid("goodbye");
+        assert_eq!(item2.uid(), Some(String::from("goodbye")));
+        assert_eq!(item2.ident(), String::from("goodbye"));
+    }
+
+    #[test]
+    fn test_with_uid_without_uid() {
+        let raw = ["BEGIN:VCARD", "SUMMARY:hello", "END:VCARD"].join("\r\n");
+        let item = Item::from(raw);
+        let item2 = item.with_uid("goodbye");
+        assert_eq!(item2.uid(), None);
+    }
 }

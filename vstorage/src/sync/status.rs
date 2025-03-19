@@ -77,7 +77,7 @@ impl std::fmt::Display for Side {
 
 /// State for an item at some point in time.
 #[derive(PartialEq, Clone, Debug)]
-pub struct ItemState<I: Item> {
+pub struct ItemState {
     /// Path to the item.
     pub href: Href,
     /// UID of the item.
@@ -89,16 +89,16 @@ pub struct ItemState<I: Item> {
     /// Data for this version of the item.
     ///
     /// If this is `None`, it indicates that the data was no available; items always contain data.
-    pub data: Option<I>,
+    pub data: Option<Item>,
 }
 
-impl<I: Item> PartialEq<ItemRef> for ItemState<I> {
+impl PartialEq<ItemRef> for ItemState {
     fn eq(&self, other: &ItemRef) -> bool {
         self.href.eq(&other.href) && self.etag.eq(&other.etag)
     }
 }
 
-impl<I: Item> ItemState<I> {
+impl ItemState {
     /// Create an `ItemRef` by copying the `href` and `etag`.
     #[must_use]
     pub fn to_item_ref(&self) -> ItemRef {
@@ -109,8 +109,8 @@ impl<I: Item> ItemState<I> {
     }
 }
 
-impl<I: Item> From<ItemState<I>> for ItemRef {
-    fn from(value: ItemState<I>) -> Self {
+impl From<ItemState> for ItemRef {
+    fn from(value: ItemState) -> Self {
         ItemRef {
             href: value.href,
             etag: value.etag,
@@ -269,12 +269,12 @@ impl StatusDatabase {
     }
 
     /// Returns an `ItemState`, if it exists AND has an Etag.
-    pub(super) fn get_item_by_href<I: Item>(
+    pub(super) fn get_item_by_href(
         &self,
         side: Side,
         href: &str,
         mapping_uid: MappingUid,
-    ) -> Result<Option<ItemState<I>>, StatusError> {
+    ) -> Result<Option<ItemState>, StatusError> {
         let query = vec![
             &format!("SELECT ident, href_{side} AS href, hash, etag_{side} AS etag"),
             " FROM items",
@@ -619,7 +619,7 @@ impl StatusDatabase {
 
 #[cfg(test)]
 mod test {
-    use crate::{base::ItemRef, calendar::IcsItem, sync::status::StatusError, Etag};
+    use crate::{base::ItemRef, sync::status::StatusError, Etag};
 
     use super::{MappingUid, Side, StatusDatabase};
 
@@ -651,7 +651,7 @@ mod test {
             .unwrap();
 
         let item_a_fetched = db
-            .get_item_by_href::<IcsItem>(Side::A, &item_a.href, mapping_uid)
+            .get_item_by_href(Side::A, &item_a.href, mapping_uid)
             .unwrap()
             .unwrap();
         assert_eq!(item_a_fetched.uid, uid);
@@ -660,7 +660,7 @@ mod test {
         assert_eq!(item_a_fetched.etag, item_a.etag);
 
         let item_b_fetched = db
-            .get_item_by_href::<IcsItem>(Side::B, &item_b.href, mapping_uid)
+            .get_item_by_href(Side::B, &item_b.href, mapping_uid)
             .unwrap()
             .unwrap();
         assert_eq!(item_b_fetched.uid, uid);
@@ -680,11 +680,11 @@ mod test {
 
         db.delete_item(mapping_uid, uid).unwrap();
         assert!(db
-            .get_item_by_href::<IcsItem>(Side::A, &item_a.href, mapping_uid)
+            .get_item_by_href(Side::A, &item_a.href, mapping_uid)
             .unwrap()
             .is_none());
         assert!(db
-            .get_item_by_href::<IcsItem>(Side::B, &item_b.href, mapping_uid)
+            .get_item_by_href(Side::B, &item_b.href, mapping_uid)
             .unwrap()
             .is_none());
         assert!(db.get_item_hash_by_uid(mapping_uid, uid).unwrap().is_none());
@@ -732,7 +732,7 @@ mod test {
         .unwrap();
 
         let item_a_fetched = db
-            .get_item_by_href::<IcsItem>(Side::A, &item_a.href, mapping_uid)
+            .get_item_by_href(Side::A, &item_a.href, mapping_uid)
             .unwrap()
             .unwrap();
         assert_eq!(item_a_fetched.uid, uid);
@@ -741,7 +741,7 @@ mod test {
         assert_eq!(item_a_fetched.etag, updated_etag_a);
 
         let item_b_fetched = db
-            .get_item_by_href::<IcsItem>(Side::B, &item_b.href, mapping_uid)
+            .get_item_by_href(Side::B, &item_b.href, mapping_uid)
             .unwrap()
             .unwrap();
         assert_eq!(item_b_fetched.uid, uid);

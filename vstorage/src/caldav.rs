@@ -168,7 +168,7 @@ where
         parse_list_items(response)
     }
 
-    async fn get_item(&self, href: &str) -> Result<(IcsItem, Etag)> {
+    async fn get_item(&self, href: &str) -> Result<(Item, Etag)> {
         let collection_href = collection_href_for_item(href)?;
         let mut results = self
             .client
@@ -192,10 +192,10 @@ where
             .content
             .map_err(|e| Error::new(ErrorKind::Uncategorised, format!("Got status code: {e}")))?;
 
-        Ok((IcsItem::from(content.data), content.etag.into()))
+        Ok((Item::from(content.data), content.etag.into()))
     }
 
-    async fn get_many_items(&self, hrefs: &[&str]) -> Result<Vec<FetchedItem<IcsItem>>> {
+    async fn get_many_items(&self, hrefs: &[&str]) -> Result<Vec<FetchedItem>> {
         // TODO: use generics for CalDavClient+CardDavClient and make this method generic too.
         if hrefs.is_empty() {
             return Ok(Vec::new());
@@ -209,7 +209,7 @@ where
             .filter_map(|resource| match resource.content {
                 Ok(content) => Some(Ok(FetchedItem {
                     href: resource.href,
-                    item: IcsItem::from(content.data),
+                    item: Item::from(content.data),
                     etag: content.etag.into(),
                 })),
                 Err(StatusCode::NOT_FOUND) => None,
@@ -220,13 +220,13 @@ where
             .collect()
     }
 
-    async fn get_all_items(&self, collection: &str) -> Result<Vec<FetchedItem<IcsItem>>> {
+    async fn get_all_items(&self, collection: &str) -> Result<Vec<FetchedItem>> {
         let list = self.list_items(collection).await?;
         let hrefs = list.iter().map(|i| i.href.as_str()).collect::<Vec<_>>();
         self.get_many_items(&hrefs).await
     }
 
-    async fn add_item(&self, collection_href: &str, item: &IcsItem) -> Result<ItemRef> {
+    async fn add_item(&self, collection_href: &str, item: &Item) -> Result<ItemRef> {
         let href = join_hrefs(collection_href, &item.ident());
         // TODO: ident: .chars().filter(char::is_ascii_alphanumeric)
 
@@ -249,7 +249,7 @@ where
         })
     }
 
-    async fn update_item(&self, href: &str, etag: &Etag, item: &IcsItem) -> Result<Etag> {
+    async fn update_item(&self, href: &str, etag: &Etag, item: &Item) -> Result<Etag> {
         // TODO: check that href is a sub-path of collection.href?
         let raw_etag = self
             .client

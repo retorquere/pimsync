@@ -19,7 +19,7 @@ use hyper_rustls::HttpsConnectorBuilder;
 use hyper_util::{client::legacy::Client as HyperClient, rt::TokioExecutor};
 use std::sync::Arc;
 use vstorage::base::FetchedItem;
-use vstorage::base::Item;
+use vstorage::base::ItemKind;
 use vstorage::base::Storage;
 use vstorage::vdir::VdirStorage;
 use vstorage::webcal::WebCalStorage;
@@ -60,7 +60,7 @@ async fn main() {
 }
 
 /// Copies from `source` to `target` and returns the amount of items copied.
-async fn copy_collection<I: Item>(
+async fn copy_collection<I: ItemKind>(
     source_storage: Arc<dyn Storage<I>>,
     source_collection_id: &str,
     target_storage: Arc<dyn Storage<I>>,

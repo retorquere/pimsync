@@ -1,7 +1,7 @@
 //! Types and functions specific to calendars and events.
 use libdav::{names, PropertyName};
 
-use crate::base::{Item, Property};
+use crate::base::{ItemKind, Property};
 
 /// Immutable wrapper around a `VCALENDAR` or `VCARD`.
 ///
@@ -9,27 +9,11 @@ use crate::base::{Item, Property};
 /// with the sole purpose of extracting a UID. Proper parsing of components is out of scope, since
 /// supporting potentially invalid items is required.
 #[derive(Debug, Clone)]
-pub struct IcsItem {
-    raw: String,
-}
+pub struct IcsItem;
 
-impl Item for IcsItem {
+impl ItemKind for IcsItem {
     /// Calendar properties defined by `CalDav`.
     type Property = CalendarProperty;
-
-    #[inline]
-    #[must_use]
-    /// Returns the raw contents of this item.
-    fn as_str(&self) -> &str {
-        &self.raw
-    }
-}
-
-impl From<String> for IcsItem {
-    /// Creates a new instance from valid iCalendar data.
-    fn from(value: String) -> Self {
-        IcsItem { raw: value }
-    }
 }
 
 /// Properties supported for calendars.
@@ -96,90 +80,11 @@ impl Property for CalendarProperty {
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        base::{Item as _, Storage},
-        calendar::IcsItem,
-    };
-
-    #[test]
-    fn test_single_line_uid() {
-        let raw = ["BEGIN:VCARD", "UID:hello", "END:VCARD"].join("\r\n");
-        let item = IcsItem::from(raw);
-        assert_eq!(item.uid(), Some(String::from("hello")));
-        assert_eq!(item.ident(), String::from("hello"));
-
-        let raw = ["BEGIN:VCARD", "UID:hel", "lo", "END:VCARD"].join("\r\n");
-        let item = IcsItem::from(raw);
-        assert_eq!(item.uid(), Some(String::from("hel")));
-        assert_eq!(item.ident(), String::from("hel"));
-
-        let raw = [
-            "BEGIN:VCARD",
-            "UID:hello",
-            "REV:20210307T195614Z\tthere",
-            "END:VCARD",
-        ]
-        .join("\r\n");
-        let item = IcsItem::from(raw);
-        assert_eq!(item.uid(), Some(String::from("hello")));
-        assert_eq!(item.ident(), String::from("hello"));
-    }
-
-    #[test]
-    fn test_multi_line_uid() {
-        let raw = ["BEGIN:VCARD", "UID:hello", "\tthere", "END:VCARD"].join("\r\n");
-        let item = IcsItem::from(raw);
-        assert_eq!(item.uid(), Some(String::from("hellothere")));
-        assert_eq!(item.ident(), String::from("hellothere"));
-
-        let raw = [
-            "BEGIN:VCARD",
-            "UID:hello",
-            "\tthere",
-            "REV:20210307T195614Z",
-            "\tnope",
-            "END:VCARD",
-        ]
-        .join("\r\n");
-        let item = IcsItem::from(raw);
-        assert_eq!(item.uid(), Some(String::from("hellothere")));
-        assert_eq!(item.ident(), String::from("hellothere"));
-    }
-
-    #[test]
-    fn test_missing_uid() {
-        let raw = [
-            "BEGIN:VCARD",
-            "UIDX:hello",
-            "REV:20210307T195614Z\tthere",
-            "END:VCARD",
-        ]
-        .join("\r\n");
-        let item = IcsItem::from(raw);
-        assert_eq!(item.uid(), None);
-        assert_eq!(item.ident(), item.hash().to_string());
-    }
+    use crate::{base::Storage, calendar::IcsItem};
 
     #[test]
     fn test_storage_is_object_safe() {
         #[allow(dead_code)]
         fn dummy(_: Box<dyn Storage<IcsItem>>) {}
-    }
-
-    #[test]
-    fn test_with_uid() {
-        let raw = ["BEGIN:VCARD", "UID:hello", "END:VCARD"].join("\r\n");
-        let item = IcsItem::from(raw);
-        let item2 = item.with_uid("goodbye");
-        assert_eq!(item2.uid(), Some(String::from("goodbye")));
-        assert_eq!(item2.ident(), String::from("goodbye"));
-    }
-
-    #[test]
-    fn test_with_uid_without_uid() {
-        let raw = ["BEGIN:VCARD", "SUMMARY:hello", "END:VCARD"].join("\r\n");
-        let item = IcsItem::from(raw);
-        let item2 = item.with_uid("goodbye");
-        assert_eq!(item2.uid(), None);
     }
 }
