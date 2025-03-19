@@ -6,6 +6,11 @@ public API is still subject to change. This includes commands, arguments and
 configuration directives. Upon the release of v1.0.0, backwards incompatible
 changes will be avoided unless absolutely necessary.
 
+v0.4.1
+------
+
+- Don't build documentation website with `make build`.
+
 v0.4.0
 ------
 

@@ -5,7 +5,7 @@
 DESTDIR?=/
 PREFIX?=/usr/local
 
-build: target/release/pimsync docs
+build: target/release/pimsync man
 
 target/release/pimsync:
 	cargo build -p pimsync --release
