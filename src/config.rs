@@ -24,7 +24,10 @@ use libdav::{dav::WebDavClient, CalDavClient, CardDavClient};
 use log::{debug, error, info};
 use rustls::{client::danger::DangerousClientConfigBuilder, ClientConfig, RootCertStore};
 use scfg::{Directive, Scfg};
-use tokio::sync::{Mutex, Notify};
+use tokio::{
+    sync::{Mutex, Notify},
+    task::JoinSet,
+};
 use vstorage::{
     addressbook::VcardItem,
     base::{ItemKind, Storage},
@@ -67,81 +70,94 @@ impl Config {
     pub(crate) async fn into_app(self) -> anyhow::Result<App> {
         let status_dir =
             expand_tilde(self.status_path).context("Expanding tilde for status_dir")?;
+        let status_dir = Arc::new(status_dir); // TODO: could be Arc<str>
+        let storages = Arc::new(StorageBuilder::new(self.storages));
 
-        let storages = StorageBuilder::new(self.storages);
-
-        let mut calendar_pairs = Vec::new();
-        let mut contact_pairs = Vec::new();
-
+        let mut tasks = JoinSet::new();
         for (name, mut config) in self.pairs {
             info!("Initialising pair {name}");
-            let mut collections = Vec::<Collections>::new();
 
             let name_a = take_single_param_from_directive(&mut config, "storage_a")?;
             let name_b = take_single_param_from_directive(&mut config, "storage_b")?;
 
-            let ((storage_a, interval_a), (storage_b, interval_b)) =
-                tokio::try_join!(storages.get_storage(&name_a), storages.get_storage(&name_b))?;
+            let storages = storages.clone(); // Arc
+            let status_dir = status_dir.clone(); // Arc
+            tasks.spawn(async move {
+                let ((storage_a, interval_a), (storage_b, interval_b)) =
+                    tokio::try_join!(storages.get_storage(&name_a), storages.get_storage(&name_b))?;
 
-            if let Some(directives) = config.remove("collections") {
-                for directive in directives {
-                    let params = directive.params().join(" ");
-                    collections.push(parse_collections_directive(&params)?);
+                let mut collections = Vec::<Collections>::new();
+                if let Some(directives) = config.remove("collections") {
+                    for directive in directives {
+                        let params = directive.params().join(" ");
+                        collections.push(parse_collections_directive(&params)?);
+                    }
                 }
-            }
-
-            if let Some(directives) = config.remove("collection") {
-                for directive in directives {
-                    collections.push(parse_collection_directive(directive)?);
+                if let Some(directives) = config.remove("collection") {
+                    for directive in directives {
+                        collections.push(parse_collection_directive(directive)?);
+                    }
                 }
-            }
 
-            let on_empty = take_single_directive(&mut config, "on_empty")?
-                .map(parse_on_empty)
-                .transpose()
-                .context("parsing on_empty")?
-                .unwrap_or_default();
+                let on_empty = take_single_directive(&mut config, "on_empty")?
+                    .map(parse_on_empty)
+                    .transpose()
+                    .context("parsing on_empty")?
+                    .unwrap_or_default();
 
-            let on_delete = take_single_directive(&mut config, "on_delete")?
-                .map(parse_on_delete)
-                .transpose()
-                .context("parsing on_delete")?
-                .unwrap_or_default();
+                let on_delete = take_single_directive(&mut config, "on_delete")?
+                    .map(parse_on_delete)
+                    .transpose()
+                    .context("parsing on_delete")?
+                    .unwrap_or_default();
 
-            let conflict_resolution = take_single_directive(&mut config, "conflict_resolution")?
-                .map(parse_conflict_resolution)
-                .transpose()?;
+                let conflict_resolution =
+                    take_single_directive(&mut config, "conflict_resolution")?
+                        .map(parse_conflict_resolution)
+                        .transpose()?;
 
-            // TODO: metadata
+                // TODO: metadata
 
-            let status_path = status_dir.join(format!("{name}.status"));
-            match (storage_a, storage_b) {
-                (EitherStorage::Calendar(a), EitherStorage::Calendar(b)) => {
-                    calendar_pairs.push(NamedPair {
-                        name,
-                        inner: init_pair(collections, (a, b), on_empty, on_delete),
-                        status_path,
-                        conflict_resolution,
-                        names: (name_a, name_b),
-                        intervals: (interval_a, interval_b),
-                    });
-                }
-                (EitherStorage::Calendar(_), EitherStorage::AddressBook(_)) => {
-                    bail!("pair {} mixes calendar storage with contacts storage", name)
-                }
-                (EitherStorage::AddressBook(_), EitherStorage::Calendar(_)) => {
-                    bail!("pair {} mixes contacts storage with calendar storage", name)
-                }
-                (EitherStorage::AddressBook(a), EitherStorage::AddressBook(b)) => {
-                    contact_pairs.push(NamedPair {
-                        name,
-                        inner: init_pair(collections, (a, b), on_empty, on_delete),
-                        status_path,
-                        conflict_resolution,
-                        names: (name_a, name_b),
-                        intervals: (interval_a, interval_b),
-                    });
-                }
+                let status_path = status_dir.join(format!("{name}.status"));
+                Ok(match (storage_a, storage_b) {
+                    (EitherStorage::Calendar(a), EitherStorage::Calendar(b)) => {
+                        EitherPair::Calendar(NamedPair {
+                            name,
+                            inner: init_pair(collections, (a, b), on_empty, on_delete),
+                            status_path,
+                            conflict_resolution,
+                            names: (name_a, name_b),
+                            intervals: (interval_a, interval_b),
+                        })
+                    }
+                    (EitherStorage::Calendar(_), EitherStorage::AddressBook(_)) => {
+                        bail!("pair {} mixes calendar storage with contacts storage", name)
+                    }
+                    (EitherStorage::AddressBook(_), EitherStorage::Calendar(_)) => {
+                        bail!("pair {} mixes contacts storage with calendar storage", name)
+                    }
+                    (EitherStorage::AddressBook(a), EitherStorage::AddressBook(b)) => {
+                        EitherPair::AddressBook(NamedPair {
+                            name,
+                            inner: init_pair(collections, (a, b), on_empty, on_delete),
+                            status_path,
+                            conflict_resolution,
+                            names: (name_a, name_b),
+                            intervals: (interval_a, interval_b),
+                        })
+                    }
+                })
+            });
+        }
+
+        let mut calendar_pairs = Vec::new();
+        let mut contact_pairs = Vec::new();
+        while let Some(res) = tasks.join_next().await {
+            match res {
+                Ok(Ok(EitherPair::Calendar(p))) => calendar_pairs.push(p),
+                Ok(Ok(EitherPair::AddressBook(p))) => contact_pairs.push(p),
+                Ok(Err(err)) => bail!(err),
+                Err(joinerr) => bail!(joinerr),
             }
         }
 
@@ -427,6 +443,11 @@ enum Collections {
 pub(crate) enum EitherStorage {
     Calendar(Arc<dyn Storage<IcsItem>>),
     AddressBook(Arc<dyn Storage<VcardItem>>),
+}
+
+pub(crate) enum EitherPair {
+    Calendar(NamedPair<IcsItem>),
+    AddressBook(NamedPair<VcardItem>),
 }
 
 fn parse_vdir<I: ItemKind + 'static>(mut config: Scfg) -> anyhow::Result<Arc<dyn Storage<I>>> {
