@@ -387,6 +387,5 @@ async fn main() -> anyhow::Result<()> {
         Command::Version => unreachable!(),
     }
 
-    // TODO: turn storages into lockables
     // TODO: create per-pair tasks and sync pairs in parallel.
 }
