@@ -16,6 +16,14 @@ storages are:
   directories using standardised and well-documented formats.
 - **WebCal**: Convention for exposing a calendar or event read-only using HTTP.
 
+Typical usages include:
+
+- Synchronising a CalDAV or CardDAV server with a local directory. Local data
+  can then be accessed by a variety of programs, none of which have to know or
+  worry about synchronisation, network connectivity, or remote servers.
+
+- Synchronising data between two different CalDAV or CardDAV servers.
+
 Philosophy
 ----------
 

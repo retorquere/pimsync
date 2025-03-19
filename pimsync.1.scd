@@ -14,14 +14,6 @@ pimsync - synchronise caldav, carddav, webcal and local directories
 operating on a local directories, CalDAV servers or Webcal URLs. For contacts,
 it supports operating on local directories or CardDav servers.
 
-A typical usages include:
-
-- Synchronising a CalDAV or CardDAV server with a local directory. Local data
-  can then be accessed by a variety of programs, none of which have to know or
-  worry about synchronisation, network connectivity, or remote servers.
-
-- Synchronising data between two different CalDAV or CardDAV servers.
-
 The following glossary provides a brief overview of relevant terminology:
 
 *item*
