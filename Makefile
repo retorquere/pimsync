@@ -61,5 +61,5 @@ check:
 	cargo doc  # fails on broken links
 
 # Rebuild docs as changes occur.
-watch-docs:
+watch-docs: html
 	sphinx-autobuild docs/source docs/build/html
