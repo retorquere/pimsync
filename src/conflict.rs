@@ -17,6 +17,8 @@ use vstorage::{
 use crate::{ConflictResolution, NamedPair, RawCommand};
 
 /// Performs conflict resolution for this storage pair.
+///
+/// Hint: use the `testing/conflicts.sh` script to interactively test this.
 pub async fn interactive_resolution<I: Item>(pair: NamedPair<I>) -> anyhow::Result<()> {
     let raw_cmd = match pair.conflict_resolution {
         Some(ConflictResolution::Cmd(ref rc)) => rc,
