@@ -15,10 +15,10 @@ v0.4.0
   components.
 - When warning about emptied collections, clarify which storage was empty.
 - Fix crash if a previous execution left behind an sqlite journal file.
-- Storages are now initialise concurrently, which improves start-up time,
-  especially on slower networks.
-- Discovery is now performed concurrently on both sides, reducing total
-  discovery time to that of the slowest side (rather than the sum of both).
+- Perform a few operations (including initialisation and discovery)
+  concurrently, improving start-up times and plan times.
+- Improve the conflict resolution UI.
+- Implement a sphinx-based website, published via CI.
 
 v0.3.0
 ------
