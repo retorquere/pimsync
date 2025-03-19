@@ -5,8 +5,7 @@ use log::{debug, error};
 use sqlite::{Connection, ConnectionThreadSafe, OpenFlags, State};
 
 use crate::{
-    base::{Item, ItemRef},
-    util::{ItemHash, ItemHashError},
+    base::{Item, ItemHash, ItemHashError, ItemRef},
     Etag, Href,
 };
 

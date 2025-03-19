@@ -11,10 +11,9 @@ use std::sync::Arc;
 
 use log::{debug, warn};
 
-use crate::base::{FetchedItem, ItemKind, ItemRef, Property, Storage};
+use crate::base::{FetchedItem, ItemHash, ItemKind, ItemRef, Property, Storage};
 use crate::disco::{DiscoveredCollection, Discovery};
 use crate::sync::declare::StoragePair;
-use crate::util::ItemHash;
 use crate::{CollectionId, ErrorKind, Href};
 
 use super::declare::{CollectionDescription, DeclaredMapping, OnDelete, OnEmpty};

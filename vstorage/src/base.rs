@@ -9,17 +9,29 @@
 //!
 //! See [`Storage`] as an entry point to this module.
 
-use std::time::Duration;
+use std::{collections::VecDeque, str::FromStr, sync::Arc, time::Duration};
 
 use async_trait::async_trait;
+use sha2::{Digest as _, Sha256};
 use vparser::Parser;
 
 use crate::{
     disco::Discovery,
-    util::ItemHash,
     watch::{IntervalMonitor, StorageMonitor},
     CollectionId, Etag, Href, Result,
 };
+// TODO: See (in vdirsyncer) IGNORE_PROPS for more props that might make sense to ignore.
+pub const ICS_FIELDS_TO_IGNORE: &[&str] = &[
+    // Servers often mutate this; resulting in noise when comparing.
+    "PRODID",
+    // When the information was last revised.
+    // I don't think that servers SHOULD modify this, but they often do.
+    // See: https://www.rfc-editor.org/rfc/rfc5545#section-3.8.7.2
+    "DTSTAMP",
+    // Ditto
+    // See: https://www.rfc-editor.org/rfc/rfc5545#section-3.8.7.3
+    "LAST-MODIFIED",
+];
 
 /// A storage is the highest level abstraction where items can be stored. It can be a remote CalDav
 /// account, a local filesystem, etc.
@@ -267,7 +279,7 @@ impl Item {
         Some(uid)
     }
 
-    /// Return the hash of this item, usually normalised.
+    /// Return the SHA256 hash of an icalendar or vcard.
     ///
     /// The content shall be normalised before hashing to ensure that two semantically equivalent
     /// items return the same hash.
@@ -279,7 +291,57 @@ impl Item {
     /// when an item's [`Item::uid`] returns `None`.
     #[must_use]
     pub fn hash(&self) -> ItemHash {
-        crate::util::hash(self.as_str())
+        let mut hasher = Sha256::new();
+        let parser = Parser::new(&self.raw);
+
+        let mut in_tz = false;
+        let mut tz_lines = VecDeque::new();
+
+        for line in parser {
+            if ICS_FIELDS_TO_IGNORE.contains(&line.name().as_ref()) {
+                continue;
+            }
+
+            // TODO: strip/normalize timezones (tip: they are sometimes renamed)?
+            // TODO: normalise order of lines inside each component?
+            let raw = line.raw();
+            if raw.is_empty() {
+                continue;
+            }
+
+            // Swallow timezones, so we place them at the end.
+            if line.name() == "BEGIN" && line.value() == "VTIMEZONE" {
+                in_tz = true;
+            }
+            if in_tz {
+                if line.name() == "END" && line.value() == "VTIMEZONE" {
+                    in_tz = false;
+                }
+                tz_lines.push_back(line);
+                continue;
+            }
+
+            // Place all timezones at the end to normalise discrepancies in ordering.
+            if line.name() == "END" && line.value() == "VCALENDAR" {
+                while let Some(l) = tz_lines.pop_front() {
+                    hasher.update(l.unfolded().as_ref());
+                    hasher.update("\r\n"); // Included even for the last line.
+                }
+            }
+
+            // Use unfolded lines to ignore discrepancies in folding.
+            hasher.update(line.unfolded().as_ref());
+            hasher.update("\r\n"); // Included even for the last line.
+        }
+
+        // Only extremely malformed entries will match this branch,
+        // well-formed icalendar files will have drained this queue already.
+        while let Some(l) = tz_lines.pop_front() {
+            hasher.update(l.unfolded().as_ref());
+            hasher.update("\r\n"); // Included even for the last line.
+        }
+
+        ItemHash(Arc::from(<[u8; 32]>::from(hasher.finalize())))
     }
 
     /// A unique identifier for this item. Is either the UID (if any), or the hash of its contents.
@@ -325,6 +387,57 @@ impl Item {
     /// Returns the raw contents of this item.
     pub fn as_str(&self) -> &str {
         &self.raw
+    }
+}
+
+/// The hash of an item. See [`Item::hash`].
+#[derive(Default, PartialEq, Clone)]
+pub struct ItemHash(Arc<[u8; 32]>);
+
+// TODO: must confirm that this matches previous impl to ensure statusDb makes sense.
+impl std::fmt::Display for ItemHash {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for byte in self.0.iter() {
+            write!(f, "{byte:02X}")?;
+        }
+        Ok(())
+    }
+}
+
+impl std::fmt::Debug for ItemHash {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "ItemHash(")?;
+        for byte in self.0.iter() {
+            write!(f, "{byte:02X}")?;
+        }
+        write!(f, ")")
+    }
+}
+
+/// Error returned by [`ItemHash::from_str`].
+#[derive(Debug, thiserror::Error)]
+pub enum ItemHashError {
+    #[error("Hash must be exactly 64 characters long")]
+    InvalidLength,
+    #[error("Invalid character in hash representation")]
+    InvalidCharacter,
+}
+
+impl FromStr for ItemHash {
+    type Err = ItemHashError;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        if value.len() != 64 {
+            return Err(ItemHashError::InvalidLength);
+        }
+
+        let mut bytes = [0u8; 32];
+        for (i, chunk) in value.as_bytes().chunks(2).enumerate() {
+            let hex = std::str::from_utf8(chunk).map_err(|_| ItemHashError::InvalidCharacter)?;
+            bytes[i] = u8::from_str_radix(hex, 16).map_err(|_| ItemHashError::InvalidCharacter)?;
+        }
+
+        Ok(ItemHash(Arc::new(bytes)))
     }
 }
 
