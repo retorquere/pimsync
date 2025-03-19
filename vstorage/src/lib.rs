@@ -5,6 +5,7 @@
 #![deny(clippy::unwrap_used)]
 #![allow(clippy::module_name_repetitions)]
 #![forbid(unsafe_code)]
+#![forbid(clippy::print_stdout)]
 
 //! Interact with and synchronise with storages with different underlying implementations.
 //!
