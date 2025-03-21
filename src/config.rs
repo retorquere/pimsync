@@ -756,6 +756,7 @@ pub(crate) fn parse_config(
     let mut pairs = HashMap::<String, Scfg>::new();
     let mut storages = HashMap::<String, Scfg>::new();
 
+    resolve_cmd_inplace(&mut parser, "status_path").context("resolving status path")?;
     let status_path = take_single_param_from_directive(&mut parser, "status_path")?;
 
     let mut enabled_pairs = enabled_pairs.map(|vec| vec.iter().collect::<HashSet<_>>());
@@ -856,7 +857,9 @@ fn resolve_storage_cmds(storage: &mut Scfg) -> anyhow::Result<()> {
         .context("type directive must specify one parameter")?;
 
     match type_.as_ref() {
-        "vdir/icalendar" | "vdir/vcard" => Ok(()),
+        "vdir/icalendar" | "vdir/vcard" => {
+            resolve_cmd_inplace(storage, "path").context("resolving path for storage")
+        }
         "carddav" | "caldav" => {
             resolve_cmd_inplace(storage, "username").context("resolving username for storage")?;
             resolve_cmd_inplace(storage, "password").context("resolving password for storage")

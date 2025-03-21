@@ -75,7 +75,8 @@ Storages of type *vdir* take the following directives:
 
 ; TODO: should point to docs for *vdir*.
 
-*path* _path_
+*path* _path_++
+*path* { … }
 	Path to a directory storing a vdir. A leading tilde will be expanded to
 	match the current user's home directory.
 
@@ -124,10 +125,10 @@ Storages of type *caldav*, *carddav* or *webcal* take the following directive:
 	default uses *pimsync/* followed by the current version number. E.g.:
 	*pimsync/1.0.0*.
 
-The *url*, *username* and *password* fields may be defined in the configuration
-file, or may specify a command to retrieve this value from an external storage.
-When specifying an external command, instead of defining a value for the
-directive, specify a new block with a single *cmd* directive.
+The *url*, *username*, *password* and *path* fields may be defined in the
+configuration file, or may specify a command to retrieve this value from an
+external storage. When specifying an external command, instead of defining a
+value for the directive, specify a new block with a single *cmd* directive.
 
 For example, to read a password via the external command
 _secret-store --get-caldav-password_, use the following syntax:
