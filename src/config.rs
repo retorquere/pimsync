@@ -861,6 +861,7 @@ fn resolve_storage_cmds(storage: &mut Scfg) -> anyhow::Result<()> {
             resolve_cmd_inplace(storage, "path").context("resolving path for storage")
         }
         "carddav" | "caldav" => {
+            resolve_cmd_inplace(storage, "url").context("resolving url for storage")?;
             resolve_cmd_inplace(storage, "username").context("resolving username for storage")?;
             resolve_cmd_inplace(storage, "password").context("resolving password for storage")
         }
