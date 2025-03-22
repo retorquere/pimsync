@@ -117,52 +117,36 @@ impl Config {
                 // TODO: metadata
 
                 let status_path = status_dir.join(format!("{name}.status"));
-                Ok(match (storage_a, storage_b) {
-                    (EitherStorage::Calendar(a), EitherStorage::Calendar(b)) => {
-                        EitherPair::Calendar(NamedPair {
-                            name,
-                            inner: init_pair(collections, (a, b), on_empty, on_delete),
-                            status_path,
-                            conflict_resolution,
-                            names: (name_a, name_b),
-                            intervals: (interval_a, interval_b),
-                        })
-                    }
+                match (storage_a, storage_b) {
                     (EitherStorage::Calendar(_), EitherStorage::AddressBook(_)) => {
                         bail!("pair {} mixes calendar storage with contacts storage", name)
                     }
                     (EitherStorage::AddressBook(_), EitherStorage::Calendar(_)) => {
                         bail!("pair {} mixes contacts storage with calendar storage", name)
                     }
-                    (EitherStorage::AddressBook(a), EitherStorage::AddressBook(b)) => {
-                        EitherPair::AddressBook(NamedPair {
-                            name,
-                            inner: init_pair(collections, (a, b), on_empty, on_delete),
-                            status_path,
-                            conflict_resolution,
-                            names: (name_a, name_b),
-                            intervals: (interval_a, interval_b),
-                        })
-                    }
-                })
+                    (EitherStorage::AddressBook(a), EitherStorage::AddressBook(b))
+                    | (EitherStorage::Calendar(a), EitherStorage::Calendar(b)) => Ok(NamedPair {
+                        name,
+                        inner: init_pair(collections, (a, b), on_empty, on_delete),
+                        status_path,
+                        conflict_resolution,
+                        names: (name_a, name_b),
+                        intervals: (interval_a, interval_b),
+                    }),
+                }
             });
         }
 
-        let mut calendar_pairs = Vec::new();
-        let mut contact_pairs = Vec::new();
+        let mut pairs = Vec::new();
         while let Some(res) = tasks.join_next().await {
             match res {
-                Ok(Ok(EitherPair::Calendar(p))) => calendar_pairs.push(p),
-                Ok(Ok(EitherPair::AddressBook(p))) => contact_pairs.push(p),
+                Ok(Ok(p)) => pairs.push(p),
                 Ok(Err(err)) => bail!(err),
                 Err(joinerr) => bail!(joinerr),
             }
         }
 
-        Ok(App {
-            calendar_pairs,
-            contact_pairs,
-        })
+        Ok(App { pairs })
     }
 }
 
@@ -441,11 +425,6 @@ enum Collections {
 pub(crate) enum EitherStorage {
     Calendar(Arc<dyn Storage>),
     AddressBook(Arc<dyn Storage>),
-}
-
-pub(crate) enum EitherPair {
-    Calendar(NamedPair),
-    AddressBook(NamedPair),
 }
 
 fn parse_vdir(mut config: Scfg, item_kind: ItemKind) -> anyhow::Result<Arc<dyn Storage>> {

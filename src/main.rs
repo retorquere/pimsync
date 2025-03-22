@@ -236,17 +236,13 @@ impl NamedPair {
 }
 
 pub(crate) struct App {
-    calendar_pairs: Vec<NamedPair>,
-    contact_pairs: Vec<NamedPair>,
+    pairs: Vec<NamedPair>,
 }
 
 impl App {
     async fn discover(&self) -> anyhow::Result<()> {
         // FIXME: if multiple pairs share a storage, only print that storage once.
-        for pair in &self.calendar_pairs {
-            pair.discover().await?;
-        }
-        for pair in &self.contact_pairs {
+        for pair in &self.pairs {
             pair.discover().await?;
         }
         Ok(())
@@ -254,10 +250,7 @@ impl App {
 
     async fn daemon(self) -> anyhow::Result<()> {
         let mut set = JoinSet::new();
-        for pair in self.calendar_pairs {
-            set.spawn(pair.daemon());
-        }
-        for pair in self.contact_pairs {
+        for pair in self.pairs {
             set.spawn(pair.daemon());
         }
 
@@ -272,10 +265,7 @@ impl App {
 
     async fn sync(self, dry_run: bool) -> anyhow::Result<()> {
         let mut set = JoinSet::new();
-        for pair in self.calendar_pairs {
-            set.spawn(async move { pair.sync_once(dry_run).await });
-        }
-        for pair in self.contact_pairs {
+        for pair in self.pairs {
             set.spawn(async move { pair.sync_once(dry_run).await });
         }
 
@@ -297,12 +287,7 @@ impl App {
             bail!("dry_run is not implemented for resolve-conflicts");
         }
 
-        for pair in self.calendar_pairs {
-            if let Err(err) = interactive_resolution(pair).await {
-                error!("Error resolving conflicts: {:?}.", err);
-            }
-        }
-        for pair in self.contact_pairs {
+        for pair in self.pairs {
             if let Err(err) = interactive_resolution(pair).await {
                 error!("Error resolving conflicts: {:?}.", err);
             }
