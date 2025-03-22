@@ -131,10 +131,7 @@ async fn fetch_item<I: ItemKind>(
     temp.write_all(data.as_str().as_bytes())
         .context("writing item into temporary file")?;
 
-    let item_ver = ItemVersion {
-        href: item.href,
-        etag,
-    };
+    let item_ver = ItemVersion::new(item.href, etag);
     Ok((temp, data, item_ver))
 }
 

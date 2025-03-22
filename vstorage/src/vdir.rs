@@ -130,7 +130,7 @@ impl<I: ItemKind> Storage<I> for VdirStorage<I> {
             let href = href_for_path(&self.path, &path)?;
             let etag = etag_for_path(path).await?;
 
-            items.push(ItemVersion { href, etag });
+            items.push(ItemVersion::new(href, etag));
         }
 
         Ok(items)
@@ -239,11 +239,9 @@ impl<I: ItemKind> Storage<I> for VdirStorage<I> {
         file.write_all(item.as_str().as_bytes()).await?;
         file.commit_new()?;
 
-        let item_ver = ItemVersion {
-            href: relpath.into_string(),
-            // FIXME: etag calculation is subject to races. Should use `fstat` here
-            etag: etag_for_path(absolute_path).await?,
-        };
+        // FIXME: etag calculation is subject to races. Should use `fstat` here
+        let etag = etag_for_path(absolute_path).await?;
+        let item_ver = ItemVersion::new(relpath.into_string(), etag);
         Ok(item_ver)
     }
 

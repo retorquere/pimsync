@@ -244,10 +244,7 @@ where
             // TODO: we should only perform a HEAD request here; we don't need actual data.
             None => self.get_item(&href).await?.1.to_string(),
         };
-        Ok(ItemVersion {
-            href,
-            etag: Etag::from(etag),
-        })
+        Ok(ItemVersion::new(href, Etag::from(etag)))
     }
 
     async fn update_item(&self, href: &str, etag: &Etag, item: &Item) -> Result<Etag> {

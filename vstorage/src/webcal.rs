@@ -185,10 +185,7 @@ where
                 let item = Item::from(c.to_string());
                 let hash = item.hash();
 
-                ItemVersion {
-                    href: item.ident(),
-                    etag: hash.to_string().into(),
-                }
+                ItemVersion::new(item.ident(), Etag::from(hash.to_string()))
             })
             .collect();
 

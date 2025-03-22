@@ -217,6 +217,14 @@ pub struct ItemVersion {
     pub etag: Etag,
 }
 
+impl ItemVersion {
+    /// Create a new instance with the given values.
+    #[must_use]
+    pub fn new(href: Href, etag: Etag) -> ItemVersion {
+        ItemVersion { href, etag }
+    }
+}
+
 /// Properties for storage collections.
 ///
 /// See [`ItemKind::Property`].

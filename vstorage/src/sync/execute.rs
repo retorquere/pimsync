@@ -321,10 +321,7 @@ async fn create_item<I: ItemKind>(
     };
 
     // The original Etag MAY have changed.
-    let source_ref = ItemVersion {
-        href: source.href.clone(),
-        etag: source_etag,
-    };
+    let source_ref = ItemVersion::new(source.href.clone(), source_etag);
 
     match side {
         Side::A => status.insert_item(mapping_uid, &uid, &item_data.hash(), &new_item, &source_ref),
@@ -368,14 +365,8 @@ async fn update_item<I: ItemKind>(
     };
 
     let hash = source_item.hash();
-    let target_ref = &ItemVersion {
-        href: target.href.clone(),
-        etag: new_etag,
-    };
-    let source_ref = &ItemVersion {
-        href: source.href.clone(),
-        etag: source_etag,
-    };
+    let target_ref = &ItemVersion::new(target.href.clone(), new_etag);
+    let source_ref = &ItemVersion::new(source.href.clone(), source_etag);
     match side {
         Side::A => status.update_item(&hash, &old.0, &old.1, target_ref, source_ref),
         Side::B => status.update_item(&hash, &old.0, &old.1, source_ref, target_ref),
