@@ -19,6 +19,7 @@ use crate::base::FetchedItem;
 use crate::base::FetchedProperty;
 use crate::base::Item;
 use crate::base::ItemKind;
+use crate::base::ItemVersion;
 use crate::base::Storage;
 use crate::disco::Discovery;
 use crate::watch::StorageMonitor;
@@ -65,7 +66,7 @@ impl<S: Storage<I>, I: ItemKind> Storage<I> for ReadOnlyStorage<S, I> {
         Err(ErrorKind::ReadOnly.into())
     }
 
-    async fn list_items(&self, collection_href: &str) -> Result<Vec<crate::base::ItemVersion>> {
+    async fn list_items(&self, collection_href: &str) -> Result<Vec<ItemVersion>> {
         self.inner.list_items(collection_href).await
     }
 
@@ -81,7 +82,7 @@ impl<S: Storage<I>, I: ItemKind> Storage<I> for ReadOnlyStorage<S, I> {
         self.inner.get_all_items(collection_href).await
     }
 
-    async fn add_item(&self, _: &str, _: &Item) -> Result<crate::base::ItemVersion> {
+    async fn add_item(&self, _: &str, _: &Item) -> Result<ItemVersion> {
         Err(ErrorKind::ReadOnly.into())
     }
 
