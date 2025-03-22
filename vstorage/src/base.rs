@@ -86,7 +86,7 @@ pub trait Storage<I: ItemKind>: Sync + Send {
     async fn unset_property(&self, href: &str, property: I::Property) -> Result<()>;
 
     /// Enumerates items in a given collection.
-    async fn list_items(&self, collection_href: &str) -> Result<Vec<ItemRef>>;
+    async fn list_items(&self, collection_href: &str) -> Result<Vec<ItemVersion>>;
 
     /// Fetches a single item from given collection.
     ///
@@ -125,12 +125,12 @@ pub trait Storage<I: ItemKind>: Sync + Send {
     /// The default implementation is usually not optimal, and implementations of this trait should
     /// override it.
     async fn get_all_items(&self, collection: &str) -> Result<Vec<FetchedItem>> {
-        let item_refs = self.list_items(collection).await?;
-        let mut items = Vec::with_capacity(item_refs.len());
-        for item_ref in item_refs {
-            let item = self.get_item(&item_ref.href).await?;
+        let item_vers = self.list_items(collection).await?;
+        let mut items = Vec::with_capacity(item_vers.len());
+        for item_ver in item_vers {
+            let item = self.get_item(&item_ver.href).await?;
             items.push(FetchedItem {
-                href: item_ref.href,
+                href: item_ver.href,
                 item: item.0,
                 etag: item.1,
             });
@@ -139,7 +139,7 @@ pub trait Storage<I: ItemKind>: Sync + Send {
     }
 
     /// Saves a new item into a given collection
-    async fn add_item(&self, collection: &str, item: &Item) -> Result<ItemRef>;
+    async fn add_item(&self, collection: &str, item: &Item) -> Result<ItemVersion>;
 
     /// Updates the contents of an existing item.
     async fn update_item(&self, href: &str, etag: &Etag, item: &Item) -> Result<Etag>;
@@ -210,7 +210,7 @@ impl Collection {
 
 /// Reference to a specific version of an [`Item`] inside a collection.
 #[derive(PartialEq, Debug, Clone)]
-pub struct ItemRef {
+pub struct ItemVersion {
     /// Path to the item.
     pub href: Href,
     /// Etag for the item.

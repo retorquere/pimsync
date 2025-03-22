@@ -288,7 +288,7 @@ async fn test_empty_on_empty_skip() {
     let item = &minimal_icalendar("First calendar event one")
         .unwrap()
         .into();
-    let item_ref = storage_a.add_item(first.href(), item).await.unwrap();
+    let item_ver = storage_a.add_item(first.href(), item).await.unwrap();
 
     let pair = StoragePair::<IcsItem>::new(storage_a.clone(), storage_b.clone())
         .with_all_from_a()
@@ -300,7 +300,7 @@ async fn test_empty_on_empty_skip() {
     // At this point both storages and the status DB are all in sync.
 
     storage_a
-        .delete_item(&item_ref.href, &item_ref.etag)
+        .delete_item(&item_ver.href, &item_ver.etag)
         .await
         .unwrap();
 
@@ -329,7 +329,7 @@ async fn test_empty_on_empty_sync() {
     let item = &minimal_icalendar("First calendar event one")
         .unwrap()
         .into();
-    let item_ref = storage_a.add_item(first.href(), item).await.unwrap();
+    let item_ver = storage_a.add_item(first.href(), item).await.unwrap();
 
     let pair = StoragePair::<IcsItem>::new(storage_a.clone(), storage_b.clone())
         .with_all_from_a()
@@ -341,7 +341,7 @@ async fn test_empty_on_empty_sync() {
     // At this point both storages and the status DB are all in sync.
 
     storage_a
-        .delete_item(&item_ref.href, &item_ref.etag)
+        .delete_item(&item_ver.href, &item_ver.etag)
         .await
         .unwrap();
 

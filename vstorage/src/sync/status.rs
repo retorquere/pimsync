@@ -5,7 +5,7 @@ use log::{debug, error};
 use sqlite::{Connection, ConnectionThreadSafe, OpenFlags, State};
 
 use crate::{
-    base::{Item, ItemHash, ItemHashError, ItemRef},
+    base::{Item, ItemHash, ItemHashError, ItemVersion},
     Etag, Href,
 };
 
@@ -91,26 +91,26 @@ pub struct ItemState {
     pub data: Option<Item>,
 }
 
-impl PartialEq<ItemRef> for ItemState {
-    fn eq(&self, other: &ItemRef) -> bool {
+impl PartialEq<ItemVersion> for ItemState {
+    fn eq(&self, other: &ItemVersion) -> bool {
         self.href.eq(&other.href) && self.etag.eq(&other.etag)
     }
 }
 
 impl ItemState {
-    /// Create an `ItemRef` by copying the `href` and `etag`.
+    /// Create an [`ItemVersion`] by copying the `href` and `etag`.
     #[must_use]
-    pub fn to_item_ref(&self) -> ItemRef {
-        ItemRef {
+    pub fn to_item_ver(&self) -> ItemVersion {
+        ItemVersion {
             href: self.href.clone(),
             etag: self.etag.clone(),
         }
     }
 }
 
-impl From<ItemState> for ItemRef {
+impl From<ItemState> for ItemVersion {
     fn from(value: ItemState) -> Self {
-        ItemRef {
+        ItemVersion {
             href: value.href,
             etag: value.etag,
         }
@@ -120,13 +120,13 @@ impl From<ItemState> for ItemRef {
 /// The status for an item as retrieved from a [`StatusDatabase`].
 pub(super) struct StatusForItem {
     pub(super) hash: ItemHash,
-    pub(super) a: ItemRef,
-    pub(super) b: ItemRef,
+    pub(super) a: ItemVersion,
+    pub(super) b: ItemVersion,
 }
 
 impl StatusForItem {
     #[must_use]
-    pub fn into_item_refs(self) -> (ItemRef, ItemRef) {
+    pub fn into_item_vers(self) -> (ItemVersion, ItemVersion) {
         (self.a, self.b)
     }
 }
@@ -317,11 +317,11 @@ impl StatusDatabase {
         if let Ok(State::Row) = statement.next() {
             Ok(Some(StatusForItem {
                 hash: statement.read::<String, _>("hash")?.parse()?,
-                a: ItemRef {
+                a: ItemVersion {
                     href: statement.read::<String, _>("href_a")?,
                     etag: statement.read::<String, _>("etag_a")?.into(),
                 },
-                b: ItemRef {
+                b: ItemVersion {
                     etag: statement.read::<String, _>("etag_b")?.into(),
                     href: statement.read::<String, _>("href_b")?,
                 },
@@ -428,8 +428,8 @@ impl StatusDatabase {
         mapping_uid: MappingUid,
         uid: &str,
         hash: &ItemHash,
-        ref_a: &ItemRef,
-        ref_b: &ItemRef,
+        ref_a: &ItemVersion,
+        ref_b: &ItemVersion,
     ) -> Result<(), StatusError> {
         let query = concat!(
             "INSERT INTO items(ident, mapping_uid, hash, href_a, etag_a, href_b, etag_b)",
@@ -450,10 +450,10 @@ impl StatusDatabase {
     pub(super) fn update_item(
         &self,
         new_hash: &ItemHash,
-        old_a: &ItemRef,
-        old_b: &ItemRef,
-        new_a: &ItemRef,
-        new_b: &ItemRef,
+        old_a: &ItemVersion,
+        old_b: &ItemVersion,
+        new_a: &ItemVersion,
+        new_b: &ItemVersion,
     ) -> Result<(), StatusError> {
         // Items in other collections may have the same UID, so update by href.
         let query = concat!(
@@ -618,7 +618,7 @@ impl StatusDatabase {
 
 #[cfg(test)]
 mod test {
-    use crate::{base::ItemRef, sync::status::StatusError, Etag};
+    use crate::{base::ItemVersion, sync::status::StatusError, Etag};
 
     use super::{MappingUid, Side, StatusDatabase};
 
@@ -636,11 +636,11 @@ mod test {
         let hash = "133ee989293f92736301280c6f14c89d521200c17dcdcecca30cd20705332d44"
             .parse()
             .unwrap();
-        let item_a = ItemRef {
+        let item_a = ItemVersion {
             href: "/collections/work/item.ics".into(),
             etag: "123".into(),
         };
-        let item_b = ItemRef {
+        let item_b = ItemVersion {
             href: "work/item.ics".into(),
             etag: "abc000".into(),
         };
@@ -697,11 +697,11 @@ mod test {
         let hash = "0000000000000000000000000000000000000000000000000000000000000000"
             .parse()
             .unwrap();
-        let item_a = ItemRef {
+        let item_a = ItemVersion {
             href: "/collections/work/item.ics".into(),
             etag: "123".into(),
         };
-        let item_b = ItemRef {
+        let item_b = ItemVersion {
             href: "work/item.ics".into(),
             etag: "abc000".into(),
         };
@@ -719,11 +719,11 @@ mod test {
             &updated_hash,
             &item_a,
             &item_b,
-            &ItemRef {
+            &ItemVersion {
                 etag: updated_etag_a.clone(),
                 href: item_a.href.clone(),
             },
-            &ItemRef {
+            &ItemVersion {
                 etag: updated_etag_b.clone(),
                 href: item_b.href.clone(),
             },
@@ -766,11 +766,11 @@ mod test {
         let hash = "2222222222222222222222222222222222222222222222222222222222222222"
             .parse()
             .unwrap();
-        let item_a = ItemRef {
+        let item_a = ItemVersion {
             href: "/collections/work/item.ics".into(),
             etag: "123".into(),
         };
-        let item_b = ItemRef {
+        let item_b = ItemVersion {
             href: "work/item.ics".into(),
             etag: "abc000".into(),
         };
@@ -787,16 +787,16 @@ mod test {
         let err = db
             .update_item(
                 &updated_hash,
-                &ItemRef {
+                &ItemVersion {
                     href: "not/correct.ics".into(),
                     etag: item_a.etag,
                 },
                 &item_b,
-                &ItemRef {
+                &ItemVersion {
                     href: "not/correct.ics".into(),
                     etag: updated_etag_a,
                 },
-                &ItemRef {
+                &ItemVersion {
                     href: item_b.href.clone(),
                     etag: updated_etag_b,
                 },

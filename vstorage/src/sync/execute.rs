@@ -7,7 +7,7 @@
 use log::{debug, error, info, warn};
 
 use crate::{
-    base::{ItemKind, ItemRef, Property, Storage},
+    base::{ItemKind, ItemVersion, Property, Storage},
     disco::DiscoveredCollection,
     CollectionId, Href,
 };
@@ -321,7 +321,7 @@ async fn create_item<I: ItemKind>(
     };
 
     // The original Etag MAY have changed.
-    let source_ref = ItemRef {
+    let source_ref = ItemVersion {
         href: source.href.clone(),
         etag: source_etag,
     };
@@ -339,8 +339,8 @@ async fn update_item<I: ItemKind>(
     storage_b: &dyn Storage<I>,
     // TODO: Unused field: source.hash, source.uid
     source: &ItemState,
-    target: &ItemRef,
-    old: &(ItemRef, ItemRef),
+    target: &ItemVersion,
+    old: &(ItemVersion, ItemVersion),
     status: &StatusDatabase,
     side: Side,
 ) -> Result<Result<(), ExecutionError>, StatusError> {
@@ -368,11 +368,11 @@ async fn update_item<I: ItemKind>(
     };
 
     let hash = source_item.hash();
-    let target_ref = &ItemRef {
+    let target_ref = &ItemVersion {
         href: target.href.clone(),
         etag: new_etag,
     };
-    let source_ref = &ItemRef {
+    let source_ref = &ItemVersion {
         href: source.href.clone(),
         etag: source_etag,
     };
@@ -385,7 +385,7 @@ async fn update_item<I: ItemKind>(
 }
 
 async fn delete_item<I: ItemKind>(
-    target: &ItemRef,
+    target: &ItemVersion,
     status: &StatusDatabase,
     storage: &dyn Storage<I>,
     mapping_uid: MappingUid,

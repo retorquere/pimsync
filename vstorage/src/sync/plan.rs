@@ -11,7 +11,7 @@ use std::sync::Arc;
 
 use log::{debug, warn};
 
-use crate::base::{FetchedItem, ItemHash, ItemKind, ItemRef, Property, Storage};
+use crate::base::{FetchedItem, ItemHash, ItemKind, ItemVersion, Property, Storage};
 use crate::disco::{DiscoveredCollection, Discovery};
 use crate::sync::declare::StoragePair;
 use crate::{CollectionId, ErrorKind, Href};
@@ -536,8 +536,8 @@ impl<I: ItemKind> CollectionPlan<I> {
 pub enum ItemAction {
     /// Item is new and identical on both sides.
     SaveToStatus {
-        a: ItemRef,
-        b: ItemRef,
+        a: ItemVersion,
+        b: ItemVersion,
         uid: String,
         hash: ItemHash,
     },
@@ -547,8 +547,8 @@ pub enum ItemAction {
     /// update the status db atomically.
     UpdateStatus {
         hash: ItemHash,
-        old: (ItemRef, ItemRef),
-        new: (ItemRef, ItemRef),
+        old: (ItemVersion, ItemVersion),
+        new: (ItemVersion, ItemVersion),
     },
     /// Item is gone from both sides but still present in status db.
     ClearStatus {
@@ -566,12 +566,12 @@ pub enum ItemAction {
     Update {
         side: Side,
         source: ItemState,
-        target: ItemRef,
-        old: (ItemRef, ItemRef),
+        target: ItemVersion,
+        old: (ItemVersion, ItemVersion),
     },
     Delete {
         side: Side,
-        target: ItemRef,
+        target: ItemVersion,
         uid: String,
     },
     /// Item is in conflict which needs to be resolved externally.
@@ -579,7 +579,7 @@ pub enum ItemAction {
         a: ItemState,
         b: ItemState,
         // Data for the previous version, in case this is not new.
-        old: Option<(ItemRef, ItemRef)>,
+        old: Option<(ItemVersion, ItemVersion)>,
     },
 }
 
@@ -604,7 +604,7 @@ impl ItemAction {
                 if b.hash == prev.hash {
                     Some(ItemAction::Delete {
                         side: Side::B,
-                        target: b.to_item_ref(),
+                        target: b.to_item_ver(),
                         uid: b.uid.clone(),
                     })
                 } else {
@@ -623,7 +623,7 @@ impl ItemAction {
                 if a.hash == prev.hash {
                     Some(ItemAction::Delete {
                         side: Side::A,
-                        target: a.to_item_ref(),
+                        target: a.to_item_ver(),
                         uid: a.uid.clone(),
                     })
                 } else {
@@ -642,8 +642,8 @@ impl ItemAction {
                         // This prevents fetching the item until it changes again.
                         Some(ItemAction::UpdateStatus {
                             hash: a.hash.clone(),
-                            old: prev.into_item_refs(),
-                            new: (a.to_item_ref(), b.to_item_ref()),
+                            old: prev.into_item_vers(),
+                            new: (a.to_item_ver(), b.to_item_ver()),
                         })
                     } else {
                         // Item is identical, has not moved and Etag has not changed.
@@ -654,31 +654,31 @@ impl ItemAction {
                     Some(ItemAction::Update {
                         side: Side::A,
                         source: b.clone(),
-                        target: a.to_item_ref(),
-                        old: prev.into_item_refs(),
+                        target: a.to_item_ver(),
+                        old: prev.into_item_vers(),
                     })
                 } else if b.hash == prev.hash {
                     // Side B has not changed
                     Some(ItemAction::Update {
                         side: Side::B,
                         source: a.clone(),
-                        target: b.to_item_ref(),
-                        old: prev.into_item_refs(),
+                        target: b.to_item_ver(),
+                        old: prev.into_item_vers(),
                     })
                 } else {
                     // Both sides have changed
                     Some(ItemAction::Conflict {
                         a: a.clone(),
                         b: b.clone(),
-                        old: Some(prev.into_item_refs()),
+                        old: Some(prev.into_item_vers()),
                     })
                 }
             }
             (Some(a), Some(b), None) => {
                 if a.hash == b.hash {
                     Some(ItemAction::SaveToStatus {
-                        a: a.to_item_ref(),
-                        b: b.to_item_ref(),
+                        a: a.to_item_ver(),
+                        b: b.to_item_ver(),
                         uid: a.uid.clone(),
                         hash: a.hash.clone(),
                     })
@@ -847,17 +847,17 @@ async fn items_for_collection<I: ItemKind>(
             Err(err) => return Err(err.into()),
         };
 
-        for item_ref in listed_items {
+        for item_ver in listed_items {
             if let Some(m) = mapping_uid {
-                if let Some(prev_item) = status.get_item_by_href(side, &item_ref.href, m)? {
-                    if prev_item.etag == item_ref.etag {
+                if let Some(prev_item) = status.get_item_by_href(side, &item_ver.href, m)? {
+                    if prev_item.etag == item_ver.etag {
                         // Item has not changed; nothing to fetch.
                         items.push(prev_item);
                         continue;
                     } // else: item has changed
                 } // else: item is new OR item has moved
             } // else: new mapping
-            to_prefetch.push(item_ref.href);
+            to_prefetch.push(item_ver.href);
         }
 
         let to_prefetch = to_prefetch.iter().map(String::as_str).collect::<Vec<_>>();

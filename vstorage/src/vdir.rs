@@ -26,7 +26,7 @@ use tokio::sync::RwLock;
 
 use crate::atomic::AtomicFile;
 use crate::base::{
-    Collection, FetchedItem, FetchedProperty, Item, ItemKind, ItemRef, Property as _, Storage,
+    Collection, FetchedItem, FetchedProperty, Item, ItemKind, ItemVersion, Property as _, Storage,
 };
 use crate::disco::{DiscoveredCollection, Discovery};
 use crate::watch::StorageMonitor;
@@ -117,7 +117,7 @@ impl<I: ItemKind> Storage<I> for VdirStorage<I> {
         remove_dir(path).await.map_err(Error::from)
     }
 
-    async fn list_items(&self, collection_href: &str) -> Result<Vec<ItemRef>> {
+    async fn list_items(&self, collection_href: &str) -> Result<Vec<ItemVersion>> {
         let mut read_dir = read_dir(build_collection_path(&self.path, collection_href)?).await?;
 
         let mut items = Vec::new();
@@ -130,7 +130,7 @@ impl<I: ItemKind> Storage<I> for VdirStorage<I> {
             let href = href_for_path(&self.path, &path)?;
             let etag = etag_for_path(path).await?;
 
-            items.push(ItemRef { href, etag });
+            items.push(ItemVersion { href, etag });
         }
 
         Ok(items)
@@ -222,7 +222,7 @@ impl<I: ItemKind> Storage<I> for VdirStorage<I> {
         }
     }
 
-    async fn add_item(&self, collection_href: &str, item: &Item) -> Result<ItemRef> {
+    async fn add_item(&self, collection_href: &str, item: &Item) -> Result<ItemVersion> {
         // No lock is used for creating a new file; races are only possible when it already exists.
         let basename = item
             .ident()
@@ -239,12 +239,12 @@ impl<I: ItemKind> Storage<I> for VdirStorage<I> {
         file.write_all(item.as_str().as_bytes()).await?;
         file.commit_new()?;
 
-        let item_ref = ItemRef {
+        let item_ver = ItemVersion {
             href: relpath.into_string(),
             // FIXME: etag calculation is subject to races. Should use `fstat` here
             etag: etag_for_path(absolute_path).await?,
         };
-        Ok(item_ref)
+        Ok(item_ver)
     }
 
     async fn update_item(&self, href: &str, etag: &Etag, item: &Item) -> Result<Etag> {
@@ -680,9 +680,9 @@ mod tests {
         .join("\r\n");
         let item = Item::from(valid);
         storage.create_collection("one").await.unwrap();
-        let item_ref = storage.add_item("one", &item).await.unwrap();
+        let item_ver = storage.add_item("one", &item).await.unwrap();
         assert_eq!(
-            item_ref.href,
+            item_ver.href,
             "one/11bb6bed-c29b-4999-a627-12dee35f8395.ics"
         );
     }
@@ -708,7 +708,7 @@ mod tests {
         .join("\r\n");
         let item = Item::from(valid);
         storage.create_collection("one").await.unwrap();
-        let item_ref = storage.add_item("one", &item).await.unwrap();
-        assert_eq!(item_ref.href, "one/theseslashesarenotokay.ics");
+        let item_ver = storage.add_item("one", &item).await.unwrap();
+        assert_eq!(item_ver.href, "one/theseslashesarenotokay.ics");
     }
 }

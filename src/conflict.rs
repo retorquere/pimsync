@@ -10,7 +10,7 @@ use rustix::fs::sync;
 use tempfile::NamedTempFile;
 use tokio::try_join;
 use vstorage::{
-    base::{Item, ItemKind, ItemRef, Storage},
+    base::{Item, ItemKind, ItemVersion, Storage},
     sync::{plan::ItemAction, status::ItemState},
 };
 
@@ -116,7 +116,7 @@ fn continue_skip_or_quit() -> anyhow::Result<YesNoQuit> {
 async fn fetch_item<I: ItemKind>(
     storage: &dyn Storage<I>,
     item: ItemState,
-) -> anyhow::Result<(NamedTempFile, Item, ItemRef)> {
+) -> anyhow::Result<(NamedTempFile, Item, ItemVersion)> {
     let mut temp = NamedTempFile::new().context("Creating temporary file.")?;
     debug!("Fetching {} for conflict resolution...", item.href);
     let (data, etag) = if let Some(ref i) = item.data {
@@ -131,11 +131,11 @@ async fn fetch_item<I: ItemKind>(
     temp.write_all(data.as_str().as_bytes())
         .context("writing item into temporary file")?;
 
-    let item_ref = ItemRef {
+    let item_ver = ItemVersion {
         href: item.href,
         etag,
     };
-    Ok((temp, data, item_ref))
+    Ok((temp, data, item_ver))
 }
 
 /// Returns `None` if resolution failed.
@@ -180,8 +180,8 @@ fn resolve_individual_conflict(
 
 async fn upload_resolved<I: ItemKind>(
     pair: &NamedPair<I>,
-    ref_a: &ItemRef,
-    ref_b: &ItemRef,
+    ref_a: &ItemVersion,
+    ref_b: &ItemVersion,
     orig_a: Item,
     orig_b: Item,
     new: &Item,

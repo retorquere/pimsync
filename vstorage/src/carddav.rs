@@ -13,7 +13,7 @@ use tower::Service;
 
 use crate::addressbook::{AddressBookProperty, VcardItem};
 use crate::base::{
-    Collection, FetchedItem, FetchedProperty, Item, ItemRef, Property as _, Storage,
+    Collection, FetchedItem, FetchedProperty, Item, ItemVersion, Property as _, Storage,
 };
 use crate::dav::{
     collection_href_for_item, collection_id_for_href, join_hrefs, parse_list_items,
@@ -165,7 +165,7 @@ where
         Ok(())
     }
 
-    async fn list_items(&self, collection_href: &str) -> Result<Vec<ItemRef>> {
+    async fn list_items(&self, collection_href: &str) -> Result<Vec<ItemVersion>> {
         let response = self.client.list_resources(collection_href).await?;
         parse_list_items(response)
     }
@@ -228,7 +228,7 @@ where
         self.get_many_items(&hrefs).await
     }
 
-    async fn add_item(&self, collection_href: &str, item: &Item) -> Result<ItemRef> {
+    async fn add_item(&self, collection_href: &str, item: &Item) -> Result<ItemVersion> {
         let href = join_hrefs(collection_href, &item.ident());
         // TODO: ident: .chars().filter(char::is_ascii_alphanumeric)
 
@@ -246,7 +246,7 @@ where
             // TODO: we should only perform a HEAD request here; we don't need actual data.
             None => self.get_item(&href).await?.1.to_string(),
         };
-        Ok(ItemRef {
+        Ok(ItemVersion {
             href,
             etag: Etag::from(etag),
         })

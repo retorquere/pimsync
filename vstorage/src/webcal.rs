@@ -15,7 +15,7 @@ use hyper::body::Incoming;
 use tower::Service;
 
 use crate::{
-    base::{Collection, FetchedItem, FetchedProperty, Item, ItemRef, Storage},
+    base::{Collection, FetchedItem, FetchedProperty, Item, ItemVersion, Storage},
     calendar::{CalendarProperty, IcsItem},
     disco::{DiscoveredCollection, Discovery},
     simple_component::Component,
@@ -171,7 +171,7 @@ where
     /// Note that, due to the nature of webcal, the whole collection needs to be retrieved. If some
     /// items need to be read as well, it is generally best to use
     /// [`WebCalStorage::get_all_items`] instead.
-    async fn list_items(&self, _collection: &str) -> Result<Vec<ItemRef>> {
+    async fn list_items(&self, _collection: &str) -> Result<Vec<ItemVersion>> {
         let raw = self.fetch_raw(&self.url).await?;
 
         // TODO: it would be best if the parser could operate on a stream, although that might
@@ -185,7 +185,7 @@ where
                 let item = Item::from(c.to_string());
                 let hash = item.hash();
 
-                ItemRef {
+                ItemVersion {
                     href: item.ident(),
                     etag: hash.to_string().into(),
                 }
@@ -280,7 +280,7 @@ where
     }
 
     /// Unsupported for this storage type.
-    async fn add_item(&self, _collection: &str, _: &Item) -> Result<ItemRef> {
+    async fn add_item(&self, _collection: &str, _: &Item) -> Result<ItemVersion> {
         Err(Error::new(
             ErrorKind::Unsupported,
             "adding items via webcal is not supported",
@@ -382,19 +382,19 @@ mod test {
             &discovery.collections().first().unwrap().href()
         );
 
-        let item_refs = storage.list_items(collection).await.unwrap();
+        let item_vers = storage.list_items(collection).await.unwrap();
 
-        for item_ref in &item_refs {
-            let (_item, etag) = storage.get_item(&item_ref.href).await.unwrap();
+        for item_ver in &item_vers {
+            let (_item, etag) = storage.get_item(&item_ver.href).await.unwrap();
             // Might file if upstream file mutates between requests.
-            assert_eq!(etag, item_ref.etag);
+            assert_eq!(etag, item_ver.etag);
         }
 
-        let hrefs: Vec<&str> = item_refs.iter().map(|r| r.href.as_ref()).collect();
+        let hrefs: Vec<&str> = item_vers.iter().map(|r| r.href.as_ref()).collect();
         let many = storage.get_many_items(&hrefs.clone()).await.unwrap();
 
         assert_eq!(many.len(), hrefs.len());
-        assert_eq!(many.len(), item_refs.len());
+        assert_eq!(many.len(), item_vers.len());
         // TODO: compare their contents and etags, though these should all match.
     }
 }

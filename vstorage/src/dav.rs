@@ -11,7 +11,7 @@ use libdav::{
 };
 use log::warn;
 
-use crate::{base::ItemRef, CollectionId, CollectionIdError, Error, ErrorKind, Result};
+use crate::{base::ItemVersion, CollectionId, CollectionIdError, Error, ErrorKind, Result};
 
 /// Generate a path for a collection expected to have id `id`.
 pub(crate) fn path_for_collection_in_home_set(home_set: &Uri, id: &str) -> String {
@@ -53,7 +53,7 @@ pub(crate) fn collection_id_for_href(href: &str) -> Result<CollectionId, Collect
         .parse()
 }
 
-pub(crate) fn parse_list_items(response: Vec<ListedResource>) -> Result<Vec<ItemRef>> {
+pub(crate) fn parse_list_items(response: Vec<ListedResource>) -> Result<Vec<ItemVersion>> {
     // TODO: should actually check that href's path matches the requested path.
     if response.len() == 1 && response[0].status == Some(StatusCode::NOT_FOUND) {
         return Err(ErrorKind::DoesNotExist.into());
@@ -62,7 +62,7 @@ pub(crate) fn parse_list_items(response: Vec<ListedResource>) -> Result<Vec<Item
     response
         .into_iter()
         .filter_map(|r| match (r.status, r.etag) {
-            (Some(StatusCode::OK) | None, Some(etag)) => Some(Ok(ItemRef {
+            (Some(StatusCode::OK) | None, Some(etag)) => Some(Ok(ItemVersion {
                 href: r.href,
                 etag: etag.into(),
             })),

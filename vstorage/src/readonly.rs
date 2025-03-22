@@ -65,7 +65,7 @@ impl<S: Storage<I>, I: ItemKind> Storage<I> for ReadOnlyStorage<S, I> {
         Err(ErrorKind::ReadOnly.into())
     }
 
-    async fn list_items(&self, collection_href: &str) -> Result<Vec<crate::base::ItemRef>> {
+    async fn list_items(&self, collection_href: &str) -> Result<Vec<crate::base::ItemVersion>> {
         self.inner.list_items(collection_href).await
     }
 
@@ -81,7 +81,7 @@ impl<S: Storage<I>, I: ItemKind> Storage<I> for ReadOnlyStorage<S, I> {
         self.inner.get_all_items(collection_href).await
     }
 
-    async fn add_item(&self, _: &str, _: &Item) -> Result<crate::base::ItemRef> {
+    async fn add_item(&self, _: &str, _: &Item) -> Result<crate::base::ItemVersion> {
         Err(ErrorKind::ReadOnly.into())
     }
 
