@@ -159,6 +159,7 @@ async fn create_mappings_for_pair(pair: &StoragePair) -> Result<Vec<ResolvedMapp
     }
 
     if pair.all_from_a {
+        debug!("Adding collections from a");
         mappings.reserve(disco_a.collection_count());
         for collection in disco_a.collections() {
             mappings.push(ResolvedMapping {
@@ -173,6 +174,7 @@ async fn create_mappings_for_pair(pair: &StoragePair) -> Result<Vec<ResolvedMapp
         }
     }
     if pair.all_from_b {
+        debug!("Adding collections from b");
         mappings.reserve(disco_b.collection_count());
         for collection in disco_b.collections() {
             let mapping = ResolvedMapping {
