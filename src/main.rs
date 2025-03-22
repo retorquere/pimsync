@@ -249,7 +249,8 @@ impl App {
         Ok(())
     }
 
-    async fn daemon(self) -> anyhow::Result<()> {
+    /// Returns only if all daemon tasks fail.
+    async fn daemon(self) -> anyhow::Error {
         warn!("Partial sync is not implemented; will perform full sync");
 
         let mut set = JoinSet::new();
@@ -263,7 +264,8 @@ impl App {
                 Err(joinerr) => error!("Daemon task aborted: {:?}.", joinerr),
             }
         }
-        anyhow::bail!("All sync tasks exited.");
+
+        anyhow::anyhow!("All sync tasks exited.")
     }
 
     async fn sync(self, dry_run: bool) -> anyhow::Result<()> {
@@ -362,7 +364,7 @@ async fn main() -> anyhow::Result<()> {
                     .context("writing to readiness fd")?;
                 // File is closed implicitly here.
             };
-            app.daemon().await
+            Err(app.daemon().await)
         }
         Command::Sync { dry_run } => app.sync(dry_run).await,
         Command::ResolveConflicts { dry_run } => app.resolve_conflicts(dry_run).await,
