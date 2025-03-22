@@ -7,7 +7,6 @@ use std::time::Duration;
 use tokio::time::Interval;
 
 use crate::{
-    base::ItemKind,
     watch::{Event, StorageMonitor},
     Result,
 };
@@ -32,7 +31,7 @@ impl VdirMonitor {
     /// # Errors
     ///
     /// This portable implementation is infallible.
-    pub fn new<I: ItemKind>(_: &VdirStorage<I>, interval: Duration) -> Result<VdirMonitor> {
+    pub fn new(_: &VdirStorage, interval: Duration) -> Result<VdirMonitor> {
         let mut timer = tokio::time::interval(interval);
         timer.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
         Ok(VdirMonitor { timer })
