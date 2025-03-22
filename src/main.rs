@@ -142,8 +142,6 @@ impl NamedPair {
             // TODO: Drain any remaining events in a non-blocking way (or with <100ms timeout).
             //       Handle batches of events together.
 
-            warn!("Partial sync is not implemented; will perform full sync");
-
             debug!("Creating plan for storage pair '{}'.", self.name);
             match Plan::new(&self.inner, Some(&status)).await {
                 Ok(plan) => {
@@ -252,6 +250,8 @@ impl App {
     }
 
     async fn daemon(self) -> anyhow::Result<()> {
+        warn!("Partial sync is not implemented; will perform full sync");
+
         let mut set = JoinSet::new();
         for pair in self.pairs {
             set.spawn(pair.daemon());
