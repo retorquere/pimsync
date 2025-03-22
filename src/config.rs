@@ -32,7 +32,7 @@ use vstorage::{
     base::Storage,
     caldav::CalDavStorage,
     carddav::CardDavStorage,
-    sync::declare::{CollectionDescription, DeclaredMapping, OnDelete, OnEmpty, StoragePair},
+    sync::declare::{CollectionDescription, OnDelete, OnEmpty, StoragePair, SyncedCollection},
     vdir::VdirStorage,
     webcal::WebCalStorage,
     CollectionId, ItemKind,
@@ -306,9 +306,9 @@ fn init_pair(
             Collections::All => pair.with_all_from_a().with_all_from_b(),
             Collections::FromA => pair.with_all_from_a(),
             Collections::FromB => pair.with_all_from_b(),
-            Collections::Named(id) => pair.with_mapping(DeclaredMapping::direct(id)),
+            Collections::Named(id) => pair.with_mapping(SyncedCollection::direct(id)),
             Collections::Mapped(alias, a, b) => {
-                pair.with_mapping(DeclaredMapping::Mapped { alias, a, b })
+                pair.with_mapping(SyncedCollection::Mapped { alias, a, b })
             }
         }
     }

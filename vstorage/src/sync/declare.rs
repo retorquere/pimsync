@@ -38,11 +38,11 @@ impl CollectionDescription {
     }
 }
 
-/// A mapping between of a pair of collections across storages.
+/// A pair of collections to be synchronised between a pair of storages.
 ///
-/// An unresolved mapping, as declared by a user, which may be lacking information on one side.
+/// As declared by a user, which may be lacking information on one side.
 #[derive(Debug, Clone)]
-pub enum DeclaredMapping {
+pub enum SyncedCollection {
     /// Copy between two collections with the same definition on both sides.
     ///
     /// Usage of [`CollectionDescription::Href`] between different storage implementations is
@@ -62,14 +62,14 @@ pub enum DeclaredMapping {
     },
 }
 
-impl DeclaredMapping {
-    /// Create a direct mapping.
+impl SyncedCollection {
+    /// Create a direct collection mapping.
     ///
     /// This creates the simplest kind of mapping: it maps two collections with the same
     /// [`CollectionId`].
     #[must_use]
     pub fn direct(id: CollectionId) -> Self {
-        DeclaredMapping::Direct {
+        SyncedCollection::Direct {
             description: CollectionDescription::Id { id },
         }
     }
@@ -86,7 +86,7 @@ impl DeclaredMapping {
 pub struct StoragePair {
     pub(super) storage_a: Arc<dyn Storage>,
     pub(super) storage_b: Arc<dyn Storage>,
-    pub(super) mappings: Vec<DeclaredMapping>,
+    pub(super) mappings: Vec<SyncedCollection>,
     pub(super) all_from_a: bool,
     pub(super) all_from_b: bool,
     pub(super) on_empty: OnEmpty,
@@ -113,7 +113,7 @@ impl StoragePair {
 
     /// Include the specified mapping when synchronising.
     #[must_use]
-    pub fn with_mapping(mut self, mapping: DeclaredMapping) -> Self {
+    pub fn with_mapping(mut self, mapping: SyncedCollection) -> Self {
         self.mappings.push(mapping);
         self
     }

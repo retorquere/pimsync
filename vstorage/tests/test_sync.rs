@@ -7,7 +7,7 @@ use rand::{distributions::Alphanumeric, thread_rng, Rng};
 use std::fmt::Write;
 use std::sync::Arc;
 use vstorage::base::Storage;
-use vstorage::sync::declare::{DeclaredMapping, OnDelete, OnEmpty, StoragePair};
+use vstorage::sync::declare::{OnDelete, OnEmpty, StoragePair, SyncedCollection};
 use vstorage::sync::execute::Executor;
 use vstorage::sync::plan::{CollectionAction, ItemAction, Plan};
 use vstorage::sync::status::{Side, StatusDatabase};
@@ -102,8 +102,8 @@ async fn test_sync_only_declared_mappings() {
     let populated = create_populated_storage(populated_path.clone()).await;
     let empty = create_empty_storage(empty_path.clone()).await;
 
-    let first_mapping = DeclaredMapping::direct("first-calendar".parse().unwrap());
-    let second_mapping = DeclaredMapping::direct("second-calendar".parse().unwrap());
+    let first_mapping = SyncedCollection::direct("first-calendar".parse().unwrap());
+    let second_mapping = SyncedCollection::direct("second-calendar".parse().unwrap());
     // third-calendar is not synced.
 
     let pair = StoragePair::new(populated, empty)

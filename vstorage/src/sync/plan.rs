@@ -16,7 +16,7 @@ use crate::disco::{DiscoveredCollection, Discovery};
 use crate::sync::declare::StoragePair;
 use crate::{CollectionId, ErrorKind, Href};
 
-use super::declare::{CollectionDescription, DeclaredMapping, OnDelete, OnEmpty};
+use super::declare::{CollectionDescription, OnDelete, OnEmpty, SyncedCollection};
 use super::status::{
     FindStaleMappingsError, ItemState, MappingUid, Side, StatusDatabase, StatusError, StatusForItem,
 };
@@ -251,19 +251,19 @@ impl ResolvedMapping {
     }
 
     pub(crate) async fn from_declared_mapping(
-        declared: &DeclaredMapping,
+        declared: &SyncedCollection,
         storage_a: &dyn Storage,
         storage_b: &dyn Storage,
         disco_a: &Discovery,
         disco_b: &Discovery,
     ) -> Result<Self, crate::Error> {
         match declared {
-            DeclaredMapping::Direct { description } => Ok(ResolvedMapping {
+            SyncedCollection::Direct { description } => Ok(ResolvedMapping {
                 alias: description.alias(),
                 a: ResolvedCollection::from_declaration(description, disco_a, storage_a).await?,
                 b: ResolvedCollection::from_declaration(description, disco_b, storage_b).await?,
             }),
-            DeclaredMapping::Mapped { a, b, alias } => Ok(ResolvedMapping {
+            SyncedCollection::Mapped { a, b, alias } => Ok(ResolvedMapping {
                 alias: alias.to_string(),
                 a: ResolvedCollection::from_declaration(a, disco_a, storage_a).await?,
                 b: ResolvedCollection::from_declaration(b, disco_b, storage_b).await?,
@@ -1014,7 +1014,7 @@ mod test {
     use crate::{
         base::Storage,
         sync::{
-            declare::{CollectionDescription, DeclaredMapping, StoragePair},
+            declare::{CollectionDescription, StoragePair, SyncedCollection},
             plan::{create_mappings_for_pair, Plan, PlanError},
         },
         vdir::VdirStorage,
@@ -1060,7 +1060,7 @@ mod test {
         // This sync is okay.
         let collection = CollectionId::from_str("test").unwrap();
         let pair = StoragePair::new(storage_a.clone(), storage_b.clone())
-            .with_mapping(DeclaredMapping::direct(collection));
+            .with_mapping(SyncedCollection::direct(collection));
 
         let mappings = create_mappings_for_pair(&pair).await.unwrap();
         assert_eq!(mappings.len(), 1);
@@ -1088,8 +1088,8 @@ mod test {
         // Duplicate mapping
         let collection = CollectionId::from_str("test").unwrap();
         let pair = StoragePair::new(storage_a.clone(), storage_b.clone())
-            .with_mapping(DeclaredMapping::direct(collection.clone()))
-            .with_mapping(DeclaredMapping::direct(collection));
+            .with_mapping(SyncedCollection::direct(collection.clone()))
+            .with_mapping(SyncedCollection::direct(collection));
 
         let err = create_mappings_for_pair(&pair).await.unwrap_err();
         assert!(matches!(err, PlanError::ConflictingMappings(..)));
@@ -1113,8 +1113,8 @@ mod test {
         // This sync has duplicate items.
         let collection = CollectionId::from_str("test").unwrap();
         let pair = StoragePair::new(storage_a.clone(), storage_b.clone())
-            .with_mapping(DeclaredMapping::direct(collection.clone()))
-            .with_mapping(DeclaredMapping::Mapped {
+            .with_mapping(SyncedCollection::direct(collection.clone()))
+            .with_mapping(SyncedCollection::Mapped {
                 alias: "test".to_string(),
                 a: CollectionDescription::Id { id: collection },
                 b: CollectionDescription::Id {
