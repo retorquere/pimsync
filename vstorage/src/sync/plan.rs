@@ -11,7 +11,7 @@ use std::sync::Arc;
 
 use log::{debug, warn};
 
-use crate::base::{FetchedItem, ItemHash, ItemKind, ItemVersion, Property, Storage};
+use crate::base::{FetchedItem, ItemHash, ItemVersion, Property, Storage};
 use crate::disco::{DiscoveredCollection, Discovery};
 use crate::sync::declare::StoragePair;
 use crate::{CollectionId, ErrorKind, Href};
@@ -59,11 +59,11 @@ pub enum PlanError {
 ///
 /// Use [`Plan::collection_plans`]) to inspect the plan and render it into a human-friendly
 /// representation, into a CSV, or into any other format that is necessary.
-pub struct Plan<I: ItemKind> {
-    pub(super) storage_a: Arc<dyn Storage<I>>,
-    pub(super) storage_b: Arc<dyn Storage<I>>,
+pub struct Plan {
+    pub(super) storage_a: Arc<dyn Storage>,
+    pub(super) storage_b: Arc<dyn Storage>,
     /// Plans for individual collections and their respective items.
-    pub collection_plans: Vec<CollectionPlan<I>>,
+    pub collection_plans: Vec<CollectionPlan>,
     /// Collections found in the status database which no longer exist.
     pub stale_collections: Vec<MappingUid>,
 }
@@ -72,13 +72,13 @@ pub struct Plan<I: ItemKind> {
 ///
 /// This is partially necessary because storages don't yet implement `Debug` .
 // TODO: they should
-impl<I: ItemKind> std::fmt::Debug for Plan<I> {
+impl std::fmt::Debug for Plan {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         std::fmt::Debug::fmt(&self.collection_plans, f)
     }
 }
 
-impl<I: ItemKind> Plan<I> {
+impl Plan {
     /// Create a new plan for a given storage pair.
     ///
     /// Analyses the provided [`StoragePair`], fetches necessary metadata, and prepares a plan of
@@ -91,9 +91,9 @@ impl<I: ItemKind> Plan<I> {
     ///
     /// See: [`PlanError`].
     pub async fn new(
-        pair: &StoragePair<I>,
+        pair: &StoragePair,
         status: Option<&StatusDatabase>,
-    ) -> Result<Plan<I>, PlanError> {
+    ) -> Result<Plan, PlanError> {
         let mappings = create_mappings_for_pair(pair).await?;
 
         let mut collection_plans = Vec::with_capacity(mappings.len());
@@ -123,21 +123,19 @@ impl<I: ItemKind> Plan<I> {
 
     /// Returns the storage for side `a`.
     #[must_use]
-    pub fn storage_a(&self) -> &dyn Storage<I> {
+    pub fn storage_a(&self) -> &dyn Storage {
         self.storage_a.as_ref()
     }
 
     /// Returns the storage for side `b`.
     #[must_use]
-    pub fn storage_b(&self) -> &dyn Storage<I> {
+    pub fn storage_b(&self) -> &dyn Storage {
         self.storage_b.as_ref()
     }
 }
 
 /// Resolve all collection mappings for a given pair.
-async fn create_mappings_for_pair<I: ItemKind>(
-    pair: &StoragePair<I>,
-) -> Result<Vec<ResolvedMapping>, PlanError> {
+async fn create_mappings_for_pair(pair: &StoragePair) -> Result<Vec<ResolvedMapping>, PlanError> {
     let mut mappings = Vec::<ResolvedMapping>::with_capacity(pair.mappings.len());
 
     let (disco_a, disco_b) = tokio::join!(
@@ -250,10 +248,10 @@ impl ResolvedMapping {
         &self.b
     }
 
-    pub(crate) async fn from_declared_mapping<I: ItemKind>(
+    pub(crate) async fn from_declared_mapping(
         declared: &DeclaredMapping,
-        storage_a: &dyn Storage<I>,
-        storage_b: &dyn Storage<I>,
+        storage_a: &dyn Storage,
+        storage_b: &dyn Storage,
         disco_a: &Discovery,
         disco_b: &Discovery,
     ) -> Result<Self, crate::Error> {
@@ -327,10 +325,10 @@ impl ResolvedCollection {
     }
 
     /// Resolve the collection based on a storage and its collections.
-    async fn from_declaration<I: ItemKind>(
+    async fn from_declaration(
         declared: &CollectionDescription,
         discovery: &Discovery,
-        storage: &dyn Storage<I>,
+        storage: &dyn Storage,
     ) -> Result<ResolvedCollection, crate::Error> {
         match declared {
             CollectionDescription::Id { id } => {
@@ -365,10 +363,7 @@ impl ResolvedCollection {
     }
 }
 
-async fn storage_exists<I: ItemKind>(
-    storage: &dyn Storage<I>,
-    href: &str,
-) -> Result<bool, crate::Error> {
+async fn storage_exists(storage: &dyn Storage, href: &str) -> Result<bool, crate::Error> {
     // FIXME: Listing items is a bit heavyweight.
     //        I need a separate method that just checks this (e.g.: HTTP HEAD).
     match storage.list_items(href).await {
@@ -384,10 +379,10 @@ async fn storage_exists<I: ItemKind>(
 }
 
 /// Finds a counterpart for a collection matching by id.
-fn resolve_mapping_counterpart<I: ItemKind>(
+fn resolve_mapping_counterpart(
     source_collection: &DiscoveredCollection,
     target_discovery: &Discovery,
-    target_storage: &dyn Storage<I>,
+    target_storage: &dyn Storage,
 ) -> Result<ResolvedCollection, PlanError> {
     let id = source_collection.id();
     match target_discovery.find_collection_by_id(id) {
@@ -406,18 +401,18 @@ fn resolve_mapping_counterpart<I: ItemKind>(
 
 /// Actions required to sync a collection between two storages.
 #[derive(Debug)]
-pub struct CollectionPlan<I: ItemKind> {
+pub struct CollectionPlan {
     /// Actions for this collection.
     pub action: CollectionAction,
     /// Actions for items inside this collection.
     pub items: Vec<ItemAction>,
     /// Actions for properties which describe this collection.
-    pub properties: Vec<PropertyPlan<I>>,
+    pub properties: Vec<PropertyPlan>,
     pub(super) mapping: ResolvedMapping,
 }
 
-impl<I: ItemKind> CollectionPlan<I> {
-    fn no_action(uid: MappingUid, mapping: ResolvedMapping) -> CollectionPlan<I> {
+impl CollectionPlan {
+    fn no_action(uid: MappingUid, mapping: ResolvedMapping) -> CollectionPlan {
         CollectionPlan {
             action: CollectionAction::NoAction(uid),
             items: Vec::new(),
@@ -428,10 +423,10 @@ impl<I: ItemKind> CollectionPlan<I> {
 
     /// Calculate actions to sync a collection between two storages.
     async fn new(
-        pair: &StoragePair<I>,
+        pair: &StoragePair,
         mapping: ResolvedMapping,
         status: Option<&StatusDatabase>,
-    ) -> Result<CollectionPlan<I>, PlanError> {
+    ) -> Result<CollectionPlan, PlanError> {
         let (href_a, href_b) = (&mapping.a.href, &mapping.b.href);
         let mapping_uid = status
             .map(|s| s.get_mapping_uid(href_a, href_b))
@@ -828,9 +823,9 @@ impl std::fmt::Display for CollectionAction {
 /// Returns only items that currently exist in the remote storage.
 /// Only items that have changed shall have any `data`.
 /// If an item has changed `href`, the updated `href` is returned.
-async fn items_for_collection<I: ItemKind>(
+async fn items_for_collection(
     status: Option<&StatusDatabase>,
-    storage: &dyn Storage<I>,
+    storage: &dyn Storage,
     collection: &Href,
     side: Side,
     mapping_uid: Option<MappingUid>,
@@ -906,18 +901,18 @@ impl std::fmt::Display for PropertyAction {
 }
 
 #[derive(Debug)]
-pub struct PropertyPlan<I: ItemKind> {
-    pub(super) property: I::Property,
+pub struct PropertyPlan {
+    pub(super) property: Property,
     pub(super) action: PropertyAction,
 }
 
-impl<I: ItemKind> PropertyPlan<I> {
+impl PropertyPlan {
     async fn create_for_collection(
-        pair: &StoragePair<I>,
+        pair: &StoragePair,
         mapping: &ResolvedMapping,
         status: Option<&StatusDatabase>,
         uid: Option<MappingUid>,
-    ) -> Result<Vec<PropertyPlan<I>>, PlanError> {
+    ) -> Result<Vec<PropertyPlan>, PlanError> {
         let (props_a, props_b) = match tokio::try_join!(
             pair.storage_a().list_properties(&mapping.a.href),
             pair.storage_b().list_properties(&mapping.b.href),
@@ -927,7 +922,7 @@ impl<I: ItemKind> PropertyPlan<I> {
                 // If a storage doesn't support properties or does not exist,
                 // simply no-op (but don't return error).
                 return if let ErrorKind::DoesNotExist | ErrorKind::Unsupported = error.kind {
-                    Ok(Vec::<PropertyPlan<I>>::new())
+                    Ok(Vec::<PropertyPlan>::new())
                 } else {
                     Err(error.into())
                 };
@@ -1016,13 +1011,12 @@ mod test {
 
     use crate::{
         base::Storage,
-        calendar::IcsItem,
         sync::{
             declare::{CollectionDescription, DeclaredMapping, StoragePair},
             plan::{create_mappings_for_pair, Plan, PlanError},
         },
         vdir::VdirStorage,
-        CollectionId,
+        CollectionId, ItemKind,
     };
 
     #[tokio::test]
@@ -1030,13 +1024,15 @@ mod test {
         let dir_a = Builder::new().prefix("vstorage").tempdir().unwrap();
         let dir_b = Builder::new().prefix("vstorage").tempdir().unwrap();
 
-        let storage_a = Arc::new(VdirStorage::<IcsItem>::new(
+        let storage_a = Arc::new(VdirStorage::new(
             dir_a.path().to_path_buf().try_into().unwrap(),
             "ics".to_string(),
+            ItemKind::Calendar,
         ));
-        let storage_b = Arc::from(VdirStorage::<IcsItem>::new(
+        let storage_b = Arc::from(VdirStorage::new(
             dir_b.path().to_path_buf().try_into().unwrap(),
             "ics".to_string(),
+            ItemKind::Calendar,
         ));
 
         // This sync would be a no-op, but it's not "wrong".
@@ -1049,13 +1045,15 @@ mod test {
         let dir_a = Builder::new().prefix("vstorage").tempdir().unwrap();
         let dir_b = Builder::new().prefix("vstorage").tempdir().unwrap();
 
-        let storage_a = Arc::new(VdirStorage::<IcsItem>::new(
+        let storage_a = Arc::new(VdirStorage::new(
             dir_a.path().to_path_buf().try_into().unwrap(),
             "ics".to_string(),
+            ItemKind::Calendar,
         ));
-        let storage_b = Arc::from(VdirStorage::<IcsItem>::new(
+        let storage_b = Arc::from(VdirStorage::new(
             dir_b.path().to_path_buf().try_into().unwrap(),
             "ics".to_string(),
+            ItemKind::Calendar,
         ));
         // This sync is okay.
         let collection = CollectionId::from_str("test").unwrap();
@@ -1074,13 +1072,15 @@ mod test {
         let dir_a = Builder::new().prefix("vstorage").tempdir().unwrap();
         let dir_b = Builder::new().prefix("vstorage").tempdir().unwrap();
 
-        let storage_a = Arc::new(VdirStorage::<IcsItem>::new(
+        let storage_a = Arc::new(VdirStorage::new(
             dir_a.path().to_path_buf().try_into().unwrap(),
             "ics".to_string(),
+            ItemKind::Calendar,
         ));
-        let storage_b = Arc::from(VdirStorage::<IcsItem>::new(
+        let storage_b = Arc::from(VdirStorage::new(
             dir_b.path().to_path_buf().try_into().unwrap(),
             "ics".to_string(),
+            ItemKind::Calendar,
         ));
 
         // Duplicate mapping
@@ -1098,13 +1098,15 @@ mod test {
         let dir_a = Builder::new().prefix("vstorage").tempdir().unwrap();
         let dir_b = Builder::new().prefix("vstorage").tempdir().unwrap();
 
-        let storage_a = Arc::new(VdirStorage::<IcsItem>::new(
+        let storage_a = Arc::new(VdirStorage::new(
             dir_a.path().to_path_buf().try_into().unwrap(),
             "ics".to_string(),
+            ItemKind::Calendar,
         ));
-        let storage_b = Arc::from(VdirStorage::<IcsItem>::new(
+        let storage_b = Arc::from(VdirStorage::new(
             dir_b.path().to_path_buf().try_into().unwrap(),
             "ics".to_string(),
+            ItemKind::Calendar,
         ));
         // This sync has duplicate items.
         let collection = CollectionId::from_str("test").unwrap();
@@ -1127,13 +1129,15 @@ mod test {
         let dir_a = Builder::new().prefix("vstorage").tempdir().unwrap();
         let dir_b = Builder::new().prefix("vstorage").tempdir().unwrap();
 
-        let storage_a = Arc::new(VdirStorage::<IcsItem>::new(
+        let storage_a = Arc::new(VdirStorage::new(
             dir_a.path().to_path_buf().try_into().unwrap(),
             "ics".to_string(),
+            ItemKind::Calendar,
         ));
-        let storage_b = Arc::from(VdirStorage::<IcsItem>::new(
+        let storage_b = Arc::from(VdirStorage::new(
             dir_b.path().to_path_buf().try_into().unwrap(),
             "ics".to_string(),
+            ItemKind::Calendar,
         ));
         // `from_a` and `from_b` with collection existing on both sides.
         // This particular scenario is special-cased.

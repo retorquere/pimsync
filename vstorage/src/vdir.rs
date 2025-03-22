@@ -15,7 +15,6 @@ use libdav::xmlutils::normalise_newlines;
 use std::collections::{HashMap, VecDeque};
 use std::ffi::OsStr;
 use std::fs::Metadata;
-use std::marker::PhantomData;
 use std::os::unix::prelude::MetadataExt;
 use std::path::Path;
 use std::time::Duration;
@@ -25,12 +24,10 @@ use tokio::sync::oneshot::{self, Sender};
 use tokio::sync::RwLock;
 
 use crate::atomic::AtomicFile;
-use crate::base::{
-    Collection, FetchedItem, FetchedProperty, Item, ItemKind, ItemVersion, Property as _, Storage,
-};
+use crate::base::{Collection, FetchedItem, FetchedProperty, Item, ItemVersion, Property, Storage};
 use crate::disco::{DiscoveredCollection, Discovery};
 use crate::watch::StorageMonitor;
-use crate::{CollectionId, Error, ErrorKind, Etag, Href, Result};
+use crate::{CollectionId, Error, ErrorKind, Etag, Href, ItemKind, Result};
 
 #[cfg_attr(target_os = "linux", path = "vdir/linux.rs")]
 #[cfg_attr(not(target_os = "linux"), path = "vdir/non_linux.rs")]
@@ -45,7 +42,7 @@ pub use monitor::VdirMonitor;
 ///
 /// Internally, all `href`s are paths relative to the base directory.
 // TODO: add link to spec here.
-pub struct VdirStorage<I: ItemKind> {
+pub struct VdirStorage {
     /// The path to a directory containing a storage.
     ///
     /// Each top-level subdirectory will be treated as a separate collection, and individual files
@@ -54,7 +51,7 @@ pub struct VdirStorage<I: ItemKind> {
     /// Filename extension for items in a storage. Files with matching extension are treated a
     /// items for a collection, and all other files are ignored.
     pub extension: String,
-    i: PhantomData<I>,
+    kind: ItemKind,
     // Discretionary locks to prevent multiple tasks from operating on the same file concurrently.
     file_locks: FileLocker,
 }
@@ -63,7 +60,7 @@ const SAFE_FILENAME_CHARS: &str =
     "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-+";
 
 #[async_trait]
-impl<I: ItemKind> Storage<I> for VdirStorage<I> {
+impl Storage for VdirStorage {
     async fn check(&self) -> Result<()> {
         let meta = metadata(&self.path)
             .await
@@ -190,8 +187,8 @@ impl<I: ItemKind> Storage<I> for VdirStorage<I> {
         Ok(items)
     }
 
-    async fn set_property(&self, href: &str, meta: I::Property, value: &str) -> Result<()> {
-        let filename = meta.filename();
+    async fn set_property(&self, href: &str, meta: Property, value: &str) -> Result<()> {
+        let filename = self.property_filename(meta)?;
         let path = build_collection_path(&self.path, href)?.join(filename);
         let file_lock = self.file_locks.lock_file(path.as_str()).await;
 
@@ -202,8 +199,8 @@ impl<I: ItemKind> Storage<I> for VdirStorage<I> {
         Ok(())
     }
 
-    async fn unset_property(&self, href: &str, meta: I::Property) -> Result<()> {
-        let filename = meta.filename();
+    async fn unset_property(&self, href: &str, meta: Property) -> Result<()> {
+        let filename = self.property_filename(meta)?;
         let path = build_collection_path(&self.path, href)?.join(filename);
         let file_lock = self.file_locks.lock_file(path.as_str()).await;
         remove_file(filename).await?;
@@ -211,8 +208,8 @@ impl<I: ItemKind> Storage<I> for VdirStorage<I> {
         Ok(())
     }
 
-    async fn get_property(&self, href: &str, meta: I::Property) -> Result<Option<String>> {
-        let filename = meta.filename();
+    async fn get_property(&self, href: &str, meta: Property) -> Result<Option<String>> {
+        let filename = self.property_filename(meta)?;
 
         let path = build_collection_path(&self.path, href)?.join(filename);
         match read_to_string(path).await {
@@ -289,12 +286,9 @@ impl<I: ItemKind> Storage<I> for VdirStorage<I> {
         Ok(id.to_string())
     }
 
-    async fn list_properties(
-        &self,
-        collection_href: &str,
-    ) -> Result<Vec<FetchedProperty<I::Property>>> {
-        let mut props = Vec::<FetchedProperty<I::Property>>::new();
-        for property in I::Property::known_properties() {
+    async fn list_properties(&self, collection_href: &str) -> Result<Vec<FetchedProperty>> {
+        let mut props = Vec::<FetchedProperty>::new();
+        for property in Property::known_properties(self.kind) {
             let prop_value = self.get_property(collection_href, *property).await?;
             if let Some(value) = prop_value {
                 props.push(FetchedProperty {
@@ -318,18 +312,39 @@ impl<I: ItemKind> Storage<I> for VdirStorage<I> {
     }
 }
 
-impl<I: ItemKind> VdirStorage<I> {
+impl VdirStorage {
     /// Create a new storage instance.
     #[must_use]
-    pub fn new(path: Utf8PathBuf, extension: String) -> Self {
+    pub fn new(path: Utf8PathBuf, extension: String, kind: ItemKind) -> Self {
         Self {
             path,
             extension,
-            i: PhantomData,
+            kind,
             file_locks: FileLocker::default(),
         }
     }
+
+    fn property_filename(&self, property: Property) -> Result<&str> {
+        match (property, &self.kind) {
+            (Property::AddressBook(p), ItemKind::AddressBook) => Ok(p.filename()),
+            (Property::AddressBook(_), ItemKind::Calendar) => {
+                Err(ErrorKind::InvalidInput.error(InvalidPropertyForCalendar))
+            }
+            (Property::Calendar(_), ItemKind::AddressBook) => {
+                Err(ErrorKind::InvalidInput.error(InvalidPropertyForAddressBook))
+            }
+            (Property::Calendar(p), ItemKind::Calendar) => Ok(p.filename()),
+        }
+    }
 }
+
+#[derive(thiserror::Error, Debug)]
+#[error("Invalid property for address book vdir")]
+pub struct InvalidPropertyForAddressBook;
+
+#[derive(thiserror::Error, Debug)]
+#[error("Invalid property for calendar vdir")]
+pub struct InvalidPropertyForCalendar;
 
 /// Joins an href to the storage's path.
 ///
@@ -466,8 +481,8 @@ mod tests {
 
     use crate::{
         base::{Item, Storage},
-        calendar::{CalendarProperty, IcsItem},
-        vdir::{build_collection_path, build_item_path, VdirStorage},
+        calendar::CalendarProperty,
+        vdir::{build_collection_path, build_item_path, ItemKind, VdirStorage},
         CollectionId, ErrorKind,
     };
     use tempfile::tempdir;
@@ -476,13 +491,14 @@ mod tests {
     async fn test_missing_displayname() {
         let dir = tempdir().unwrap();
 
-        let storage = VdirStorage::<IcsItem>::new(
+        let storage = VdirStorage::new(
             dir.path().to_path_buf().try_into().unwrap(),
             "ics".to_string(),
+            ItemKind::Calendar,
         );
         let collection = storage.create_collection("test").await.unwrap();
         let displayname = storage
-            .get_property(collection.href(), CalendarProperty::DisplayName)
+            .get_property(collection.href(), CalendarProperty::DisplayName.into())
             .await
             .unwrap();
 
@@ -492,9 +508,10 @@ mod tests {
     #[tokio::test]
     async fn test_path_handling() {
         let dir = tempdir().unwrap();
-        let storage = VdirStorage::<IcsItem>::new(
+        let storage = VdirStorage::new(
             dir.path().to_path_buf().try_into().unwrap(),
             "ics".to_string(),
+            ItemKind::Calendar,
         );
 
         let collection_name = "one";
@@ -542,9 +559,10 @@ mod tests {
     #[tokio::test]
     async fn test_missing_paths() {
         let dir = tempdir().unwrap();
-        let storage = VdirStorage::<IcsItem>::new(
+        let storage = VdirStorage::new(
             dir.path().to_path_buf().try_into().unwrap(),
             "ics".to_string(),
+            ItemKind::Calendar,
         );
 
         let missing_collection = "two";
@@ -560,21 +578,22 @@ mod tests {
     #[tokio::test]
     async fn test_write_read_colour() {
         let dir = tempdir().unwrap();
-        let storage = VdirStorage::<IcsItem>::new(
+        let storage = VdirStorage::new(
             dir.path().to_path_buf().try_into().unwrap(),
             "ics".to_string(),
+            ItemKind::Calendar,
         );
 
         let collection_name = "one";
         storage.create_collection(collection_name).await.unwrap();
 
         storage
-            .set_property(collection_name, CalendarProperty::Colour, "#000000")
+            .set_property(collection_name, CalendarProperty::Colour.into(), "#000000")
             .await
             .unwrap();
 
         let colour = storage
-            .get_property(collection_name, CalendarProperty::Colour)
+            .get_property(collection_name, CalendarProperty::Colour.into())
             .await
             .unwrap();
 
@@ -584,16 +603,17 @@ mod tests {
     #[tokio::test]
     async fn test_read_missing_description() {
         let dir = tempdir().unwrap();
-        let storage = VdirStorage::<IcsItem>::new(
+        let storage = VdirStorage::new(
             dir.path().to_path_buf().try_into().unwrap(),
             "ics".to_string(),
+            ItemKind::Calendar,
         );
 
         let collection_name = "one";
         storage.create_collection(collection_name).await.unwrap();
 
         let description = storage
-            .get_property(collection_name, CalendarProperty::Description)
+            .get_property(collection_name, CalendarProperty::Description.into())
             .await
             .unwrap();
 
@@ -606,9 +626,10 @@ mod tests {
     #[tokio::test]
     async fn test_href_for_collection_id() {
         let dir = tempdir().unwrap();
-        let storage = VdirStorage::<IcsItem>::new(
+        let storage = VdirStorage::new(
             dir.path().to_path_buf().try_into().unwrap(),
             "ics".to_string(),
+            ItemKind::Calendar,
         );
 
         let collection_id = CollectionId::from_str("one").unwrap();
@@ -660,9 +681,10 @@ mod tests {
     #[tokio::test]
     async fn only_safe_chars_in_filenames() {
         let dir = tempdir().unwrap();
-        let storage = VdirStorage::<IcsItem>::new(
+        let storage = VdirStorage::new(
             dir.path().to_path_buf().try_into().unwrap(),
             "ics".to_string(),
+            ItemKind::Calendar,
         );
 
         let valid = [
@@ -688,9 +710,10 @@ mod tests {
     #[tokio::test]
     async fn only_unsafe_chars_in_filenames() {
         let dir = tempdir().unwrap();
-        let storage = VdirStorage::<IcsItem>::new(
+        let storage = VdirStorage::new(
             dir.path().to_path_buf().try_into().unwrap(),
             "ics".to_string(),
+            ItemKind::Calendar,
         );
 
         let valid = [

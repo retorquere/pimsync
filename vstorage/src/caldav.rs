@@ -11,10 +11,8 @@ use libdav::dav::mime_types;
 use libdav::CalDavClient;
 use tower::Service;
 
-use crate::base::{
-    Collection, FetchedItem, FetchedProperty, Item, ItemVersion, Property as _, Storage,
-};
-use crate::calendar::{CalendarProperty, IcsItem};
+use crate::base::{Collection, FetchedItem, FetchedProperty, Item, ItemVersion, Property, Storage};
+use crate::calendar::CalendarProperty;
 use crate::dav::{
     collection_href_for_item, collection_id_for_href, join_hrefs, parse_list_items,
     path_for_collection_in_home_set,
@@ -65,7 +63,7 @@ where
 }
 
 #[async_trait]
-impl<C> Storage<IcsItem> for CalDavStorage<C>
+impl<C> Storage for CalDavStorage<C>
 where
     C: Service<Request<String>, Response = Response<Incoming>> + Send + Sync + 'static,
     C::Error: std::error::Error + Send + Sync,
@@ -271,7 +269,7 @@ where
     /// # Errors
     ///
     /// Only `DisplayName` and `Colour` are implemented.
-    async fn set_property(&self, href: &str, prop: CalendarProperty, value: &str) -> Result<()> {
+    async fn set_property(&self, href: &str, prop: Property, value: &str) -> Result<()> {
         self.client
             .set_property(href, prop.dav_propname(), Some(value))
             .await
@@ -282,7 +280,7 @@ where
     /// # Errors
     ///
     /// Only `DisplayName` and `Colour` are implemented.
-    async fn unset_property(&self, href: &str, prop: CalendarProperty) -> Result<()> {
+    async fn unset_property(&self, href: &str, prop: Property) -> Result<()> {
         self.client
             .set_property(href, prop.dav_propname(), None)
             .await
@@ -300,7 +298,7 @@ where
     /// If the underlying HTTP connection fails or if the server returns invalid data.
     ///
     /// Only `DisplayName` and `Colour` are implemented.
-    async fn get_property(&self, href: &str, prop: CalendarProperty) -> Result<Option<String>> {
+    async fn get_property(&self, href: &str, prop: Property) -> Result<Option<String>> {
         self.client
             .get_property(href, prop.dav_propname())
             .await
@@ -329,10 +327,7 @@ where
         }
     }
 
-    async fn list_properties(
-        &self,
-        collection_href: &str,
-    ) -> Result<Vec<FetchedProperty<CalendarProperty>>> {
+    async fn list_properties(&self, collection_href: &str) -> Result<Vec<FetchedProperty>> {
         let prop_names = CalendarProperty::known_properties()
             .iter()
             .map(|p| p.dav_propname())

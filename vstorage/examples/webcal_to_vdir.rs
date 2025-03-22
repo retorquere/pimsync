@@ -19,10 +19,10 @@ use hyper_rustls::HttpsConnectorBuilder;
 use hyper_util::{client::legacy::Client as HyperClient, rt::TokioExecutor};
 use std::sync::Arc;
 use vstorage::base::FetchedItem;
-use vstorage::base::ItemKind;
 use vstorage::base::Storage;
 use vstorage::vdir::VdirStorage;
 use vstorage::webcal::WebCalStorage;
+use vstorage::ItemKind;
 
 #[tokio::main]
 async fn main() {
@@ -46,7 +46,11 @@ async fn main() {
     let webcal = WebCalStorage::new(http_client, url, "holidays_nl".parse().unwrap())
         .expect("can create webcal storage");
     let webcal = Arc::from(webcal);
-    let fs = Arc::new(VdirStorage::new(path, String::from("ics")));
+    let fs = Arc::new(VdirStorage::new(
+        path,
+        String::from("ics"),
+        ItemKind::Calendar,
+    ));
 
     let webcal_collection = "holidays_nl";
     let fs_collection = fs
@@ -60,10 +64,10 @@ async fn main() {
 }
 
 /// Copies from `source` to `target` and returns the amount of items copied.
-async fn copy_collection<I: ItemKind>(
-    source_storage: Arc<dyn Storage<I>>,
+async fn copy_collection(
+    source_storage: Arc<dyn Storage>,
     source_collection_id: &str,
-    target_storage: Arc<dyn Storage<I>>,
+    target_storage: Arc<dyn Storage>,
     target_collection_href: &str,
 ) -> usize {
     let mut count = 0;

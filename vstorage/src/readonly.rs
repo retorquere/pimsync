@@ -9,7 +9,6 @@
 //!
 //! [`ReadOnly`]: ErrorKind::ReadOnly
 
-use std::marker::PhantomData;
 use std::time::Duration;
 
 use async_trait::async_trait;
@@ -18,8 +17,8 @@ use crate::base::Collection;
 use crate::base::FetchedItem;
 use crate::base::FetchedProperty;
 use crate::base::Item;
-use crate::base::ItemKind;
 use crate::base::ItemVersion;
+use crate::base::Property;
 use crate::base::Storage;
 use crate::disco::Discovery;
 use crate::watch::StorageMonitor;
@@ -32,30 +31,29 @@ use crate::{ErrorKind, Etag, Result};
 /// # Example
 ///
 /// ```
-/// # use vstorage::vdir::VdirStorage;
-/// # use crate::vstorage::calendar::IcsItem;
-/// # use camino::Utf8PathBuf;
-/// # use vstorage::readonly::ReadOnlyStorage;
-/// let orig = VdirStorage::<IcsItem>::new(
+/// use vstorage::vdir::VdirStorage;
+/// use camino::Utf8PathBuf;
+/// use vstorage::readonly::ReadOnlyStorage;
+/// use vstorage::ItemKind;
+///
+/// let orig = VdirStorage::new(
 ///     Utf8PathBuf::from("/path/to/storage/"),
 ///     String::from("ics"),
+///     ItemKind::Calendar,
 /// );
 ///
 /// let read_only = ReadOnlyStorage::from(orig);
 /// ```
-pub struct ReadOnlyStorage<S: Storage<I>, I: ItemKind> {
-    inner: S,
-    phantom: PhantomData<I>,
-}
+pub struct ReadOnlyStorage<S: Storage>(S);
 
 #[async_trait]
-impl<S: Storage<I>, I: ItemKind> Storage<I> for ReadOnlyStorage<S, I> {
+impl<S: Storage> Storage for ReadOnlyStorage<S> {
     async fn check(&self) -> Result<()> {
-        self.inner.check().await
+        self.0.check().await
     }
 
     async fn discover_collections(&self) -> Result<Discovery> {
-        self.inner.discover_collections().await
+        self.0.discover_collections().await
     }
 
     async fn create_collection(&self, _href: &str) -> Result<Collection> {
@@ -67,19 +65,19 @@ impl<S: Storage<I>, I: ItemKind> Storage<I> for ReadOnlyStorage<S, I> {
     }
 
     async fn list_items(&self, collection_href: &str) -> Result<Vec<ItemVersion>> {
-        self.inner.list_items(collection_href).await
+        self.0.list_items(collection_href).await
     }
 
     async fn get_item(&self, href: &str) -> Result<(Item, Etag)> {
-        self.inner.get_item(href).await
+        self.0.get_item(href).await
     }
 
     async fn get_many_items(&self, hrefs: &[&str]) -> Result<Vec<FetchedItem>> {
-        self.inner.get_many_items(hrefs).await
+        self.0.get_many_items(hrefs).await
     }
 
     async fn get_all_items(&self, collection_href: &str) -> Result<Vec<FetchedItem>> {
-        self.inner.get_all_items(collection_href).await
+        self.0.get_all_items(collection_href).await
     }
 
     async fn add_item(&self, _: &str, _: &Item) -> Result<ItemVersion> {
@@ -90,16 +88,16 @@ impl<S: Storage<I>, I: ItemKind> Storage<I> for ReadOnlyStorage<S, I> {
         Err(ErrorKind::ReadOnly.into())
     }
 
-    async fn set_property(&self, _: &str, _: I::Property, _: &str) -> Result<()> {
+    async fn set_property(&self, _: &str, _: Property, _: &str) -> Result<()> {
         Err(ErrorKind::ReadOnly.into())
     }
 
-    async fn unset_property(&self, _: &str, _: I::Property) -> Result<()> {
+    async fn unset_property(&self, _: &str, _: Property) -> Result<()> {
         Err(ErrorKind::ReadOnly.into())
     }
 
-    async fn get_property(&self, href: &str, meta: I::Property) -> Result<Option<String>> {
-        self.inner.get_property(href, meta).await
+    async fn get_property(&self, href: &str, meta: Property) -> Result<Option<String>> {
+        self.0.get_property(href, meta).await
     }
 
     async fn delete_item(&self, _: &str, _: &Etag) -> Result<()> {
@@ -107,26 +105,20 @@ impl<S: Storage<I>, I: ItemKind> Storage<I> for ReadOnlyStorage<S, I> {
     }
 
     fn href_for_collection_id(&self, id: &CollectionId) -> Result<Href> {
-        self.inner.href_for_collection_id(id)
+        self.0.href_for_collection_id(id)
     }
 
-    async fn list_properties(
-        &self,
-        collection_href: &str,
-    ) -> Result<Vec<FetchedProperty<I::Property>>> {
-        self.inner.list_properties(collection_href).await
+    async fn list_properties(&self, collection_href: &str) -> Result<Vec<FetchedProperty>> {
+        self.0.list_properties(collection_href).await
     }
 
     async fn monitor(&self, interval: Duration) -> Result<Box<dyn StorageMonitor>> {
-        self.inner.monitor(interval).await
+        self.0.monitor(interval).await
     }
 }
 
-impl<S: Storage<I>, I: ItemKind> From<S> for ReadOnlyStorage<S, I> {
+impl<S: Storage> From<S> for ReadOnlyStorage<S> {
     fn from(value: S) -> Self {
-        Self {
-            inner: value,
-            phantom: PhantomData,
-        }
+        Self(value)
     }
 }

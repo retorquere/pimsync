@@ -10,7 +10,7 @@ use rustix::fs::sync;
 use tempfile::NamedTempFile;
 use tokio::try_join;
 use vstorage::{
-    base::{Item, ItemKind, ItemVersion, Storage},
+    base::{Item, ItemVersion, Storage},
     sync::{plan::ItemAction, status::ItemState},
 };
 
@@ -19,7 +19,7 @@ use crate::{ConflictResolution, NamedPair, RawCommand};
 /// Performs conflict resolution for this storage pair.
 ///
 /// Hint: use the `testing/conflicts.sh` script to interactively test this.
-pub async fn interactive_resolution<I: ItemKind>(pair: NamedPair<I>) -> anyhow::Result<()> {
+pub async fn interactive_resolution(pair: NamedPair) -> anyhow::Result<()> {
     let raw_cmd = match pair.conflict_resolution {
         Some(ConflictResolution::Cmd(ref rc)) => rc,
         Some(_) => {
@@ -113,8 +113,8 @@ fn continue_skip_or_quit() -> anyhow::Result<YesNoQuit> {
 }
 
 /// Returns (file, item, etag).
-async fn fetch_item<I: ItemKind>(
-    storage: &dyn Storage<I>,
+async fn fetch_item(
+    storage: &dyn Storage,
     item: ItemState,
 ) -> anyhow::Result<(NamedTempFile, Item, ItemVersion)> {
     let mut temp = NamedTempFile::new().context("Creating temporary file.")?;
@@ -175,8 +175,8 @@ fn resolve_individual_conflict(
     Ok(new_a)
 }
 
-async fn upload_resolved<I: ItemKind>(
-    pair: &NamedPair<I>,
+async fn upload_resolved(
+    pair: &NamedPair,
     ref_a: &ItemVersion,
     ref_b: &ItemVersion,
     orig_a: Item,

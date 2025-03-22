@@ -29,15 +29,13 @@ use tokio::{
     task::JoinSet,
 };
 use vstorage::{
-    addressbook::VcardItem,
-    base::{ItemKind, Storage},
+    base::Storage,
     caldav::CalDavStorage,
-    calendar::IcsItem,
     carddav::CardDavStorage,
     sync::declare::{CollectionDescription, DeclaredMapping, OnDelete, OnEmpty, StoragePair},
     vdir::VdirStorage,
     webcal::WebCalStorage,
-    CollectionId,
+    CollectionId, ItemKind,
 };
 
 use crate::{
@@ -281,8 +279,8 @@ async fn init_storage(mut config: Scfg, name: &str) -> anyhow::Result<(EitherSto
     let type_ = take_single_param_from_directive(&mut config, "type")?;
     let interval = parse_interval(&mut config)?;
     let storage = match type_.as_ref() {
-        "vdir/icalendar" => EitherStorage::Calendar(parse_vdir(config)?),
-        "vdir/vcard" => EitherStorage::AddressBook(parse_vdir(config)?),
+        "vdir/icalendar" => EitherStorage::Calendar(parse_vdir(config, ItemKind::Calendar)?),
+        "vdir/vcard" => EitherStorage::AddressBook(parse_vdir(config, ItemKind::AddressBook)?),
         "carddav" => EitherStorage::AddressBook(parse_carddav(config).await?),
         "caldav" => EitherStorage::Calendar(parse_caldav(config).await?),
         "webcal" => EitherStorage::Calendar(parse_webcal(config)?),
@@ -310,13 +308,13 @@ fn expand_tilde(orig: Utf8PathBuf) -> Result<Utf8PathBuf, camino::FromPathBufErr
     Ok(orig)
 }
 
-fn init_pair<I: ItemKind>(
+fn init_pair(
     collections: Vec<Collections>,
-    storages: (Arc<dyn Storage<I>>, Arc<dyn Storage<I>>),
+    storages: (Arc<dyn Storage>, Arc<dyn Storage>),
     on_empty: OnEmpty,
     on_delete: OnDelete,
     // TODO: partial_sync
-) -> StoragePair<I> {
+) -> StoragePair {
     let mut pair = StoragePair::new(storages.0, storages.1);
 
     for collection in collections {
@@ -441,16 +439,16 @@ enum Collections {
 
 #[derive(Clone)] // Cheap clone; enum + Arc.
 pub(crate) enum EitherStorage {
-    Calendar(Arc<dyn Storage<IcsItem>>),
-    AddressBook(Arc<dyn Storage<VcardItem>>),
+    Calendar(Arc<dyn Storage>),
+    AddressBook(Arc<dyn Storage>),
 }
 
 pub(crate) enum EitherPair {
-    Calendar(NamedPair<IcsItem>),
-    AddressBook(NamedPair<VcardItem>),
+    Calendar(NamedPair),
+    AddressBook(NamedPair),
 }
 
-fn parse_vdir<I: ItemKind + 'static>(mut config: Scfg) -> anyhow::Result<Arc<dyn Storage<I>>> {
+fn parse_vdir(mut config: Scfg, item_kind: ItemKind) -> anyhow::Result<Arc<dyn Storage>> {
     let path = take_single_param_from_directive(&mut config, "path")?.into();
     let path = expand_tilde(path).context("Expanding tilde for storage")?;
 
@@ -466,7 +464,7 @@ fn parse_vdir<I: ItemKind + 'static>(mut config: Scfg) -> anyhow::Result<Arc<dyn
         bail!("'encoding' is not implemented for vdir storages.");
     }
 
-    Ok(Arc::new(VdirStorage::new(path, fileext)))
+    Ok(Arc::new(VdirStorage::new(path, fileext, item_kind)))
 }
 
 type NetworkWebDav =
@@ -475,7 +473,7 @@ type NetworkWebDav =
 type UnixSocketWebDav =
     WebDavClient<UserAgent<AddAuthorization<HyperClient<hyperlocal::UnixConnector, String>>>>;
 
-async fn parse_carddav(mut config: Scfg) -> anyhow::Result<Arc<dyn Storage<VcardItem>>> {
+async fn parse_carddav(mut config: Scfg) -> anyhow::Result<Arc<dyn Storage>> {
     let url = take_single_param_from_directive(&mut config, "url")?;
 
     if let Some(socket) = url.strip_prefix("unix://") {
@@ -490,7 +488,7 @@ async fn parse_carddav(mut config: Scfg) -> anyhow::Result<Arc<dyn Storage<Vcard
     }
 }
 
-async fn parse_caldav(mut config: Scfg) -> anyhow::Result<Arc<dyn Storage<IcsItem>>> {
+async fn parse_caldav(mut config: Scfg) -> anyhow::Result<Arc<dyn Storage>> {
     let url = take_single_param_from_directive(&mut config, "url")?;
 
     if let Some(socket) = url.strip_prefix("unix://") {
@@ -556,7 +554,7 @@ fn default_user_agent() -> HeaderValue {
         .expect("default UA is a valid header value")
 }
 
-fn parse_webcal(mut config: Scfg) -> anyhow::Result<Arc<dyn Storage<IcsItem>>> {
+fn parse_webcal(mut config: Scfg) -> anyhow::Result<Arc<dyn Storage>> {
     let url = take_single_param_from_directive(&mut config, "url")
         .context("Webcal storage must define a url")?
         .parse()?;

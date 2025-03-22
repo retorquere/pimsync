@@ -7,12 +7,12 @@ use rand::{distributions::Alphanumeric, thread_rng, Rng};
 use std::fmt::Write;
 use std::sync::Arc;
 use vstorage::base::Storage;
-use vstorage::calendar::IcsItem;
 use vstorage::sync::declare::{DeclaredMapping, OnDelete, OnEmpty, StoragePair};
 use vstorage::sync::execute::Executor;
 use vstorage::sync::plan::{CollectionAction, ItemAction, Plan};
 use vstorage::sync::status::{Side, StatusDatabase};
 use vstorage::vdir::VdirStorage;
+use vstorage::ItemKind;
 
 fn random_string(len: usize) -> String {
     thread_rng()
@@ -41,9 +41,9 @@ fn minimal_icalendar(summary: &str) -> anyhow::Result<String> {
 }
 
 /// Create a storage with three calendars each one with a single event.
-async fn create_populated_storage(path: Utf8PathBuf) -> Arc<dyn Storage<IcsItem>> {
+async fn create_populated_storage(path: Utf8PathBuf) -> Arc<dyn Storage> {
     std::fs::create_dir(&path).unwrap();
-    let storage = VdirStorage::<IcsItem>::new(path, "ics".into());
+    let storage = VdirStorage::new(path, "ics".into(), ItemKind::Calendar);
 
     let first = storage.create_collection("first-calendar").await.unwrap();
     let item = &minimal_icalendar("First calendar event one")
@@ -79,9 +79,9 @@ async fn create_populated_storage(path: Utf8PathBuf) -> Arc<dyn Storage<IcsItem>
     Arc::new(storage)
 }
 
-async fn create_empty_storage(path: Utf8PathBuf) -> Arc<dyn Storage<IcsItem>> {
+async fn create_empty_storage(path: Utf8PathBuf) -> Arc<dyn Storage> {
     std::fs::create_dir(&path).unwrap();
-    let storage = VdirStorage::<IcsItem>::new(path, "ics".into());
+    let storage = VdirStorage::new(path, "ics".into(), ItemKind::Calendar);
     Arc::new(storage)
 }
 
@@ -106,7 +106,7 @@ async fn test_sync_only_declared_mappings() {
     let second_mapping = DeclaredMapping::direct("second-calendar".parse().unwrap());
     // third-calendar is not synced.
 
-    let pair = StoragePair::<IcsItem>::new(populated, empty)
+    let pair = StoragePair::new(populated, empty)
         .with_mapping(first_mapping)
         .with_mapping(second_mapping);
     let plan = Plan::new(&pair, None).await.unwrap();
@@ -157,7 +157,7 @@ async fn test_sync_from_a() {
     let populated = create_populated_storage(populated_path.clone()).await;
     let empty = create_empty_storage(empty_path.clone()).await;
 
-    let pair = StoragePair::<IcsItem>::new(populated, empty).with_all_from_a();
+    let pair = StoragePair::new(populated, empty).with_all_from_a();
     let plan = Plan::new(&pair, None).await.unwrap();
     // TODO: inspect plan
     let status = StatusDatabase::open_or_create(":memory:").unwrap();
@@ -218,7 +218,7 @@ async fn test_sync_from_b() {
     let populated = create_populated_storage(populated_path.clone()).await;
     let empty = create_empty_storage(empty_path.clone()).await;
 
-    let pair = StoragePair::<IcsItem>::new(populated, empty).with_all_from_b();
+    let pair = StoragePair::new(populated, empty).with_all_from_b();
     let plan = Plan::new(&pair, None).await.unwrap();
     // TODO: inspect plan
     let status = StatusDatabase::open_or_create(":memory:").unwrap();
@@ -247,7 +247,7 @@ async fn test_sync_none() {
     let populated = create_populated_storage(populated_path.clone()).await;
     let empty = create_empty_storage(empty_path.clone()).await;
 
-    let pair = StoragePair::<IcsItem>::new(populated, empty);
+    let pair = StoragePair::new(populated, empty);
     let plan = Plan::new(&pair, None).await.unwrap();
     // TODO: inspect plan
     let status = StatusDatabase::open_or_create(":memory:").unwrap();
@@ -281,8 +281,8 @@ async fn test_empty_on_empty_skip() {
     };
     std::fs::create_dir(&path_a).unwrap();
     std::fs::create_dir(&path_b).unwrap();
-    let storage_a = Arc::new(VdirStorage::<IcsItem>::new(path_a, "ics".into()));
-    let storage_b = Arc::new(VdirStorage::<IcsItem>::new(path_b, "ics".into()));
+    let storage_a = Arc::new(VdirStorage::new(path_a, "ics".into(), ItemKind::Calendar));
+    let storage_b = Arc::new(VdirStorage::new(path_b, "ics".into(), ItemKind::Calendar));
 
     let first = storage_a.create_collection("first-calendar").await.unwrap();
     let item = &minimal_icalendar("First calendar event one")
@@ -290,7 +290,7 @@ async fn test_empty_on_empty_skip() {
         .into();
     let item_ver = storage_a.add_item(first.href(), item).await.unwrap();
 
-    let pair = StoragePair::<IcsItem>::new(storage_a.clone(), storage_b.clone())
+    let pair = StoragePair::new(storage_a.clone(), storage_b.clone())
         .with_all_from_a()
         .on_empty(OnEmpty::Skip);
     let status = StatusDatabase::open_or_create(":memory:").unwrap();
@@ -322,8 +322,8 @@ async fn test_empty_on_empty_sync() {
     };
     std::fs::create_dir(&path_a).unwrap();
     std::fs::create_dir(&path_b).unwrap();
-    let storage_a = Arc::new(VdirStorage::<IcsItem>::new(path_a, "ics".into()));
-    let storage_b = Arc::new(VdirStorage::<IcsItem>::new(path_b, "ics".into()));
+    let storage_a = Arc::new(VdirStorage::new(path_a, "ics".into(), ItemKind::Calendar));
+    let storage_b = Arc::new(VdirStorage::new(path_b, "ics".into(), ItemKind::Calendar));
 
     let first = storage_a.create_collection("first-calendar").await.unwrap();
     let item = &minimal_icalendar("First calendar event one")
@@ -331,7 +331,7 @@ async fn test_empty_on_empty_sync() {
         .into();
     let item_ver = storage_a.add_item(first.href(), item).await.unwrap();
 
-    let pair = StoragePair::<IcsItem>::new(storage_a.clone(), storage_b.clone())
+    let pair = StoragePair::new(storage_a.clone(), storage_b.clone())
         .with_all_from_a()
         .on_empty(OnEmpty::Sync);
     let status = StatusDatabase::open_or_create(":memory:").unwrap();
@@ -372,12 +372,12 @@ async fn test_empty_on_delete_skip() {
     };
     std::fs::create_dir(&path_a).unwrap();
     std::fs::create_dir(&path_b).unwrap();
-    let storage_a = Arc::new(VdirStorage::<IcsItem>::new(path_a, "ics".into()));
-    let storage_b = Arc::new(VdirStorage::<IcsItem>::new(path_b, "ics".into()));
+    let storage_a = Arc::new(VdirStorage::new(path_a, "ics".into(), ItemKind::Calendar));
+    let storage_b = Arc::new(VdirStorage::new(path_b, "ics".into(), ItemKind::Calendar));
 
     let first = storage_a.create_collection("first-calendar").await.unwrap();
 
-    let pair = StoragePair::<IcsItem>::new(storage_a.clone(), storage_b.clone())
+    let pair = StoragePair::new(storage_a.clone(), storage_b.clone())
         .with_all_from_a()
         .with_all_from_b()
         .on_delete(OnDelete::Skip);
@@ -407,12 +407,12 @@ async fn test_empty_on_delete_sync() {
     };
     std::fs::create_dir(&path_a).unwrap();
     std::fs::create_dir(&path_b).unwrap();
-    let storage_a = Arc::new(VdirStorage::<IcsItem>::new(path_a, "ics".into()));
-    let storage_b = Arc::new(VdirStorage::<IcsItem>::new(path_b, "ics".into()));
+    let storage_a = Arc::new(VdirStorage::new(path_a, "ics".into(), ItemKind::Calendar));
+    let storage_b = Arc::new(VdirStorage::new(path_b, "ics".into(), ItemKind::Calendar));
 
     let first = storage_a.create_collection("first-calendar").await.unwrap();
 
-    let pair = StoragePair::<IcsItem>::new(storage_a.clone(), storage_b.clone())
+    let pair = StoragePair::new(storage_a.clone(), storage_b.clone())
         .with_all_from_a()
         .with_all_from_b()
         .on_delete(OnDelete::Sync);

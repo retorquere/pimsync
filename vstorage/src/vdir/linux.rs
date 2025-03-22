@@ -13,7 +13,6 @@ use std::{pin::pin, time::Duration};
 use tokio::time::Interval;
 
 use crate::{
-    base::ItemKind,
     watch::{Event, EventKind, SpecificEvent, StorageMonitor},
     Error, ErrorKind, Result,
 };
@@ -42,7 +41,7 @@ impl VdirMonitor {
     /// # Errors
     ///
     /// If an error occurs setting up the underlying filesystem watcher.
-    pub fn new<I: ItemKind>(storage: &VdirStorage<I>, interval: Duration) -> Result<VdirMonitor> {
+    pub fn new(storage: &VdirStorage, interval: Duration) -> Result<VdirMonitor> {
         // TODO: errors don't help understand the root cause.
         let events = init_inotify(&storage.path)?;
 
@@ -168,7 +167,11 @@ mod test {
     use camino::Utf8PathBuf;
     use rand::{distributions::Alphanumeric, thread_rng, Rng as _};
 
-    use crate::{base::Storage, calendar::IcsItem, vdir::VdirStorage, watch::Event};
+    use crate::{
+        base::Storage,
+        vdir::{ItemKind, VdirStorage},
+        watch::Event,
+    };
 
     fn temp_path() -> Utf8PathBuf {
         let name = thread_rng()
@@ -186,8 +189,8 @@ mod test {
 
         std::fs::create_dir(&path_a).unwrap();
         std::fs::create_dir(path_a.join("one")).unwrap();
-        let storage_a = VdirStorage::<IcsItem>::new(path_a.clone(), "ics".into());
-        let storage_a: Arc<dyn Storage<IcsItem>> = Arc::new(storage_a);
+        let storage_a = VdirStorage::new(path_a.clone(), "ics".into(), ItemKind::Calendar);
+        let storage_a: Arc<dyn Storage> = Arc::new(storage_a);
 
         // Interval is high enough that we shouldn't reach it
         let mut monitor = storage_a.monitor(Duration::from_secs(5)).await.unwrap();

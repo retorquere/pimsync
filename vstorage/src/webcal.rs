@@ -15,8 +15,7 @@ use hyper::body::Incoming;
 use tower::Service;
 
 use crate::{
-    base::{Collection, FetchedItem, FetchedProperty, Item, ItemVersion, Storage},
-    calendar::{CalendarProperty, IcsItem},
+    base::{Collection, FetchedItem, FetchedProperty, Item, ItemVersion, Property, Storage},
     disco::{DiscoveredCollection, Discovery},
     simple_component::Component,
     CollectionId, Error, ErrorKind, Etag, Href, Result,
@@ -119,7 +118,7 @@ where
 }
 
 #[async_trait]
-impl<C> Storage<IcsItem> for WebCalStorage<C>
+impl<C> Storage for WebCalStorage<C>
 where
     C: Service<Request<String>, Response = Response<Incoming>> + Send + Sync + Clone + 'static,
     C::Error: std::error::Error + Send + Sync,
@@ -293,7 +292,7 @@ where
     }
 
     /// Unsupported for this storage type.
-    async fn set_property(&self, _: &str, _: CalendarProperty, _: &str) -> Result<()> {
+    async fn set_property(&self, _: &str, _: Property, _: &str) -> Result<()> {
         Err(Error::new(
             ErrorKind::Unsupported,
             "setting metadata via webcal is not supported",
@@ -301,7 +300,7 @@ where
     }
 
     /// Unsupported for this storage type.
-    async fn unset_property(&self, _: &str, _: CalendarProperty) -> Result<()> {
+    async fn unset_property(&self, _: &str, _: Property) -> Result<()> {
         Err(Error::new(
             ErrorKind::Unsupported,
             "unsetting metadata via webcal is not supported",
@@ -309,7 +308,7 @@ where
     }
 
     /// Unsupported for this storage type.
-    async fn get_property(&self, _: &str, _: CalendarProperty) -> Result<Option<String>> {
+    async fn get_property(&self, _: &str, _: Property) -> Result<Option<String>> {
         // TODO: return None?
         Err(Error::new(
             ErrorKind::Unsupported,
@@ -335,7 +334,7 @@ where
         }
     }
 
-    async fn list_properties(&self, _: &str) -> Result<Vec<FetchedProperty<CalendarProperty>>> {
+    async fn list_properties(&self, _: &str) -> Result<Vec<FetchedProperty>> {
         Err(Error::new(
             ErrorKind::Unsupported,
             "webcal does not support properties",

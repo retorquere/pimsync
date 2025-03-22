@@ -40,9 +40,8 @@
 //! The `Storage` type and the logic for synchronisation of storages is agnostic to the content
 //! type inside collections, and can synchronise collections with any type of content. When
 //! synchronising two storages, items with the same UID on both sides are synchronised with each
-//! other. Interpreting content of items in order to extract these UIDs is done via the generic `I`
-//! parameter, which implements the necessary operations for a specific content type of a given
-//! storage instance.
+//! other. Interpreting content of items in order to extract these UIDs is done via a minimal and
+//! permissive parser.
 //!
 //! [`Storage`]: crate::base::Storage
 //! [`CalDavStorage`]: crate::caldav::CalDavStorage
@@ -385,4 +384,11 @@ impl FromStr for CollectionId {
             s => Ok(CollectionId(Arc::from(s))),
         }
     }
+}
+
+/// Kind of items allowed inside this vdir.
+#[derive(Clone, Copy)]
+pub enum ItemKind {
+    AddressBook,
+    Calendar,
 }

@@ -5,10 +5,7 @@
 //! Types for specifying rules for a synchronisation.
 use std::sync::Arc;
 
-use crate::{
-    base::{ItemKind, Storage},
-    CollectionId, Href,
-};
+use crate::{base::Storage, CollectionId, Href};
 
 /// Collection declared either via its `href` or `collection_id`.
 ///
@@ -86,9 +83,9 @@ impl DeclaredMapping {
 /// New pairs can be created via [`StoragePair::new`].
 ///
 /// [`Plan`]: crate::sync::plan::Plan
-pub struct StoragePair<I: ItemKind> {
-    pub(super) storage_a: Arc<dyn Storage<I>>,
-    pub(super) storage_b: Arc<dyn Storage<I>>,
+pub struct StoragePair {
+    pub(super) storage_a: Arc<dyn Storage>,
+    pub(super) storage_b: Arc<dyn Storage>,
     pub(super) mappings: Vec<DeclaredMapping>,
     pub(super) all_from_a: bool,
     pub(super) all_from_b: bool,
@@ -96,13 +93,13 @@ pub struct StoragePair<I: ItemKind> {
     pub(super) on_delete: OnDelete,
 }
 
-impl<I: ItemKind> StoragePair<I> {
+impl StoragePair {
     /// Create a new instance.
     ///
     /// By default, no collections are to be synchronised. See other associated functions for
     /// details con configuring additional collections.
     #[must_use]
-    pub fn new(storage_a: Arc<dyn Storage<I>>, storage_b: Arc<dyn Storage<I>>) -> StoragePair<I> {
+    pub fn new(storage_a: Arc<dyn Storage>, storage_b: Arc<dyn Storage>) -> StoragePair {
         StoragePair {
             storage_a,
             storage_b,
@@ -141,13 +138,13 @@ impl<I: ItemKind> StoragePair<I> {
 
     /// Returns a reference to storage a.
     #[must_use]
-    pub fn storage_a(&self) -> &dyn Storage<I> {
+    pub fn storage_a(&self) -> &dyn Storage {
         self.storage_a.as_ref()
     }
 
     /// Returns a reference to storage a.
     #[must_use]
-    pub fn storage_b(&self) -> &dyn Storage<I> {
+    pub fn storage_b(&self) -> &dyn Storage {
         self.storage_b.as_ref()
     }
 

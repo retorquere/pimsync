@@ -18,17 +18,12 @@ use conflict::interactive_resolution;
 use futures_util::future::{select, Either};
 use log::{debug, error, info, trace, warn};
 use tokio::task::JoinSet;
-use vstorage::{
-    addressbook::VcardItem,
-    base::ItemKind,
-    calendar::IcsItem,
-    sync::{
-        declare::StoragePair,
-        execute::Executor,
-        plan::Plan,
-        status::{StatusDatabase, StatusError},
-        SyncError,
-    },
+use vstorage::sync::{
+    declare::StoragePair,
+    execute::Executor,
+    plan::Plan,
+    status::{StatusDatabase, StatusError},
+    SyncError,
 };
 
 use crate::cli::{Cli, Command};
@@ -52,9 +47,9 @@ pub(crate) enum ConflictResolution {
 }
 
 /// Pair with a name, as defined in the configuration file.
-pub(crate) struct NamedPair<I: ItemKind> {
+pub(crate) struct NamedPair {
     name: String,
-    pub(crate) inner: StoragePair<I>,
+    pub(crate) inner: StoragePair,
     status_path: Utf8PathBuf,
     conflict_resolution: Option<ConflictResolution>,
     names: (String, String),
@@ -106,7 +101,7 @@ enum DaemonError {
     Monitor(vstorage::Error),
 }
 
-impl<I: ItemKind> NamedPair<I> {
+impl NamedPair {
     /// Sync this pair indefinitely
     ///
     /// Returns an error if an only if a fatal synchronisation error occurred.
@@ -186,7 +181,7 @@ impl<I: ItemKind> NamedPair<I> {
         Ok(())
     }
 
-    async fn create_plan(&self) -> anyhow::Result<Plan<I>> {
+    async fn create_plan(&self) -> anyhow::Result<Plan> {
         debug!("Creating plan for storage pair '{}'.", self.name);
         let status = StatusDatabase::open(&self.status_path)
             .with_context(|| format!("openstatus db for {}", self.name))?;
@@ -214,7 +209,7 @@ impl<I: ItemKind> NamedPair<I> {
         Ok(())
     }
 
-    fn print_plan(&self, plan: &Plan<I>) {
+    fn print_plan(&self, plan: &Plan) {
         // TODO: need to lock stdout/stderr for concurrent runs.
         info!(">>> Plan for storage pair '{}'", self.name);
         for cp in &plan.collection_plans {
@@ -241,8 +236,8 @@ impl<I: ItemKind> NamedPair<I> {
 }
 
 pub(crate) struct App {
-    calendar_pairs: Vec<NamedPair<IcsItem>>,
-    contact_pairs: Vec<NamedPair<VcardItem>>,
+    calendar_pairs: Vec<NamedPair>,
+    contact_pairs: Vec<NamedPair>,
 }
 
 impl App {

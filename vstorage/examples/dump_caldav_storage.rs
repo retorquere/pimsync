@@ -11,11 +11,11 @@ use tower_http::auth::AddAuthorization;
 use vstorage::{
     base::{FetchedItem, Storage},
     caldav::CalDavStorage,
-    calendar::IcsItem,
     vdir::VdirStorage,
+    ItemKind,
 };
 
-async fn create_caldav_from_env() -> Arc<dyn Storage<IcsItem>> {
+async fn create_caldav_from_env() -> Arc<dyn Storage> {
     let server = std::env::var("CALDAV_SERVER").unwrap();
     let username = std::env::var("CALDAV_USERNAME").unwrap();
     let password = std::env::var("CALDAV_PASSWORD").unwrap();
@@ -36,9 +36,9 @@ async fn create_caldav_from_env() -> Arc<dyn Storage<IcsItem>> {
     Arc::from(storage)
 }
 
-async fn create_vdir_from_env() -> Arc<dyn Storage<IcsItem>> {
+async fn create_vdir_from_env() -> Arc<dyn Storage> {
     let path = std::env::var("VDIR_PATH").unwrap();
-    let storage = VdirStorage::new(path.into(), "ics".to_string());
+    let storage = VdirStorage::new(path.into(), "ics".to_string(), ItemKind::Calendar);
     Arc::new(storage)
 }
 #[tokio::main]
@@ -71,9 +71,9 @@ async fn main() {
 
 /// Copies from `source` to `target` and returns the amount of items copied.
 async fn copy_collection(
-    source_storage: &dyn Storage<IcsItem>,
+    source_storage: &dyn Storage,
     source_collection_href: &str,
-    target_storage: &dyn Storage<IcsItem>,
+    target_storage: &dyn Storage,
     target_collection_href: &str,
 ) -> usize {
     let mut count = 0;

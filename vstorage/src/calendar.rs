@@ -1,20 +1,7 @@
 //! Types and functions specific to calendars and events.
 use libdav::{names, PropertyName};
 
-use crate::base::{ItemKind, Property};
-
-/// Immutable wrapper around a `VCALENDAR` or `VCARD`.
-///
-/// Note that this is not a proper validating parser for icalendar or vcard; it's a very simple one
-/// with the sole purpose of extracting a UID. Proper parsing of components is out of scope, since
-/// supporting potentially invalid items is required.
-#[derive(Debug, Clone)]
-pub struct IcsItem;
-
-impl ItemKind for IcsItem {
-    /// Calendar properties defined by `CalDav`.
-    type Property = CalendarProperty;
-}
+use crate::base::Property;
 
 /// Properties supported for calendars.
 ///
@@ -37,7 +24,7 @@ pub enum CalendarProperty {
 }
 
 impl CalendarProperty {
-    /// Returns the name of the corresponding DAV property.
+    /// Returns the name of the corresponding CalDAV property.
     #[must_use]
     pub fn dav_propname(&self) -> &PropertyName<'_, '_> {
         match self {
@@ -47,10 +34,9 @@ impl CalendarProperty {
             CalendarProperty::Order => &names::CALENDAR_ORDER,
         }
     }
-}
 
-impl Property for CalendarProperty {
-    fn name(&self) -> &str {
+    #[must_use]
+    pub fn name(&self) -> &str {
         match self {
             CalendarProperty::DisplayName => "displayname",
             CalendarProperty::Colour => "color",
@@ -59,32 +45,40 @@ impl Property for CalendarProperty {
         }
     }
 
-    fn known_properties() -> &'static [Self] {
+    #[must_use]
+    pub fn known_properties() -> &'static [Property] {
         &[
-            CalendarProperty::DisplayName,
-            CalendarProperty::Colour,
-            CalendarProperty::Description,
-            CalendarProperty::Order,
+            Property::Calendar(CalendarProperty::DisplayName),
+            Property::Calendar(CalendarProperty::Colour),
+            Property::Calendar(CalendarProperty::Description),
+            Property::Calendar(CalendarProperty::Order),
         ]
     }
 
-    fn filename(&self) -> &'static str {
+    #[must_use]
+    pub fn filename(&self) -> &'static str {
         match self {
             CalendarProperty::DisplayName => "displayname",
             CalendarProperty::Colour => "color",
             CalendarProperty::Description => "description",
             CalendarProperty::Order => "order",
         }
+    }
+}
+
+impl From<CalendarProperty> for Property {
+    fn from(value: CalendarProperty) -> Self {
+        Property::Calendar(value)
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::{base::Storage, calendar::IcsItem};
+    use crate::base::Storage;
 
     #[test]
     fn test_storage_is_object_safe() {
         #[allow(dead_code)]
-        fn dummy(_: Box<dyn Storage<IcsItem>>) {}
+        fn dummy(_: Box<dyn Storage>) {}
     }
 }

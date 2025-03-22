@@ -12,13 +12,16 @@
 use std::{collections::VecDeque, str::FromStr, sync::Arc, time::Duration};
 
 use async_trait::async_trait;
+use libdav::PropertyName;
 use sha2::{Digest as _, Sha256};
 use vparser::Parser;
 
 use crate::{
+    addressbook::AddressBookProperty,
+    calendar::CalendarProperty,
     disco::Discovery,
     watch::{IntervalMonitor, StorageMonitor},
-    CollectionId, Etag, Href, Result,
+    CollectionId, Etag, Href, ItemKind, Result,
 };
 // TODO: See (in vdirsyncer) IGNORE_PROPS for more props that might make sense to ignore.
 pub const ICS_FIELDS_TO_IGNORE: &[&str] = &[
@@ -38,18 +41,13 @@ pub const ICS_FIELDS_TO_IGNORE: &[&str] = &[
 ///
 /// Each storage may contain one or more **collections** (e.g.: calendars or address books).
 ///
-/// The specific type of item that a storage can hold is defined by the `I` generic parameter.
-/// E.g.: a CalDav storage can hold icalendar items. Only items with the same kind of item can be
-/// synchronised with each other (e.g.: it it nos possible to synchronise `Storage<VcardItem>` with
-/// `Storage<IcsItem>`
-///
 /// # Note for implementors
 ///
 /// The auto-generated documentation for this trait is rather hard to read due to the usage of
 /// [`#[async_trait]`](mod@async_trait) macro. You might want to consider clicking on the
 /// `source` link and reading the documentation from the raw code for this trait.
 #[async_trait]
-pub trait Storage<I: ItemKind>: Sync + Send {
+pub trait Storage: Sync + Send {
     // TODO: Some calendar instances only allow a single item type (e.g.: events but not todos).
 
     /// Checks that the storage works. This includes validating credentials, and reachability.
@@ -71,19 +69,16 @@ pub trait Storage<I: ItemKind>: Sync + Send {
     async fn destroy_collection(&self, href: &str) -> Result<()>;
 
     /// List all properties of a collection.
-    async fn list_properties(
-        &self,
-        collection_href: &str,
-    ) -> Result<Vec<FetchedProperty<I::Property>>>;
+    async fn list_properties(&self, collection_href: &str) -> Result<Vec<FetchedProperty>>;
 
     /// Returns the value of a property for a given collection.
-    async fn get_property(&self, href: &str, property: I::Property) -> Result<Option<String>>;
+    async fn get_property(&self, href: &str, property: Property) -> Result<Option<String>>;
 
     /// Sets the value of a property for a given collection.
-    async fn set_property(&self, href: &str, property: I::Property, value: &str) -> Result<()>;
+    async fn set_property(&self, href: &str, property: Property, value: &str) -> Result<()>;
 
     /// Unsets a property for a given collection.
-    async fn unset_property(&self, href: &str, property: I::Property) -> Result<()>;
+    async fn unset_property(&self, href: &str, property: Property) -> Result<()>;
 
     /// Enumerates items in a given collection.
     async fn list_items(&self, collection_href: &str) -> Result<Vec<ItemVersion>>;
@@ -225,42 +220,60 @@ impl ItemVersion {
     }
 }
 
-/// Properties for storage collections.
+/// Property which can be read, written or unset for collections.
 ///
-/// See [`ItemKind::Property`].
-pub trait Property:
-    Sync + Send + Clone + Copy + std::fmt::Debug + std::hash::Hash + PartialEq + Eq + 'static
-{
+/// These were known as "metadata" in the original vdirsyncer implementation.
+///
+/// See also [`Storage::get_property`] and [`Storage::set_property`].
+#[derive(Clone, Copy, std::fmt::Debug, std::hash::Hash, PartialEq, Eq)]
+pub enum Property {
+    AddressBook(AddressBookProperty),
+    Calendar(CalendarProperty),
+}
+
+impl Property {
     /// Return a friendly name for this property.
-    fn name(&self) -> &str;
+    #[must_use]
+    pub fn name(&self) -> &str {
+        match self {
+            Property::AddressBook(p) => p.name(),
+            Property::Calendar(p) => p.name(),
+        }
+    }
 
-    /// Return all known properties.
-    fn known_properties() -> &'static [Self]
+    /// Return all known properties of a given kind.
+    #[must_use]
+    pub fn known_properties(item_kind: ItemKind) -> &'static [Self]
     where
-        Self: Sized;
+        Self: Sized,
+    {
+        match item_kind {
+            ItemKind::AddressBook => AddressBookProperty::known_properties(),
+            ItemKind::Calendar => CalendarProperty::known_properties(),
+        }
+    }
 
-    /// Return the filename suitable for storing this property's data.
-    ///
-    /// This is used by the [`crate::vdir::VdirStorage`], and may be used by other future storages
-    /// where the same semantics are appropriate.
-    fn filename(&self) -> &str;
+    /// Returns the name of the corresponding DAV property.
+    #[must_use]
+    pub fn dav_propname(&self) -> &PropertyName<'_, '_> {
+        match self {
+            Property::AddressBook(p) => p.dav_propname(),
+            Property::Calendar(p) => p.dav_propname(),
+        }
+    }
 }
 
-pub trait ItemKind: Sync + Send + std::fmt::Debug + Clone {
-    /// Property types supported by storages.
-    ///
-    /// These were known as "metadata" in the original vdirsyncer implementation.
-    ///
-    /// See also [`Storage::get_property`] and [`Storage::set_property`].
-    type Property: Property;
-}
-
-/// A type of item that is contained in a [`Storage`].
+/// Immutable item which may be stored in a [`Storage`].
 ///
-/// A `Storage` can contain items of a concrete type described by implementations of this trait.
-/// This trait defines how to extract the basic information that is required to synchronise
-/// storages. Additional parsing is out of scope here and should be done by inspecting the raw data
-/// inside an item via [`Item::as_str`].
+/// The inner data is either a `VCALENDAR` or `VCARD`.
+///
+/// This type defines how to extract the basic information that is required to synchronise
+/// storages. It is not a fully validating parser for icalendar or vcard; it is a permissive
+/// implementation with the sole purpose of extracting a UID.
+///
+/// Proper parsing of components is out of scope, since supporting potentially invalid items is
+/// required. Additional parsing should be done by inspecting the raw data inside an item via
+/// [`Item::as_str`].
 #[derive(Debug, Clone, PartialEq)]
 pub struct Item {
     raw: String,
@@ -463,9 +476,9 @@ pub struct FetchedItem {
 }
 
 /// Property and its value fetched from a storage.
-pub struct FetchedProperty<P: Property> {
+pub struct FetchedProperty {
     /// The kind of property.
-    pub property: P,
+    pub property: Property,
     /// The value of the property.
     pub value: String,
 }
