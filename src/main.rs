@@ -41,8 +41,11 @@ pub const VERSION: &str = env!("PIMSYNC_VERSION");
 /// Per-storage conflict resolution mechanism.
 #[derive(PartialEq, Debug)]
 pub(crate) enum ConflictResolution {
+    /// In case of conflict, keep the contents of storage a.
     KeepA,
+    /// In case of conflict, keep the contents of storage b.
     KeepB,
+    /// In case of conflict, fix it running a command.
     Cmd(RawCommand),
 }
 
