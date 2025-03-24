@@ -236,72 +236,6 @@ impl NamedPair {
     }
 }
 
-pub(crate) struct App {
-    pairs: Vec<NamedPair>,
-}
-
-impl App {
-    async fn discover(&self) -> anyhow::Result<()> {
-        // FIXME: if multiple pairs share a storage, only print that storage once.
-        for pair in &self.pairs {
-            pair.discover().await?;
-        }
-        Ok(())
-    }
-
-    /// Returns only if all daemon tasks fail.
-    async fn daemon(self) -> anyhow::Error {
-        warn!("Partial sync is not implemented; will perform full sync");
-
-        let mut set = JoinSet::new();
-        for pair in self.pairs {
-            set.spawn(pair.daemon());
-        }
-
-        while let Some(res) = set.join_next().await {
-            match res {
-                Ok(err) => error!("Error in daemon task: {:?}.", err),
-                Err(joinerr) => error!("Daemon task aborted: {:?}.", joinerr),
-            }
-        }
-
-        anyhow::anyhow!("All sync tasks exited.")
-    }
-
-    async fn sync(self, dry_run: bool) -> anyhow::Result<()> {
-        let mut set = JoinSet::new();
-        for pair in self.pairs {
-            set.spawn(async move { pair.sync_once(dry_run).await });
-        }
-
-        while let Some(res) = set.join_next().await {
-            match res {
-                Ok(Ok(())) => {}
-                Ok(Err(err)) => error!("Error in sync task: {:?}.", err),
-                Err(joinerr) => error!("Sync task aborted: {:?}.", joinerr),
-            }
-        }
-        Ok(())
-    }
-
-    /// Interactively resolve conflicts.
-    ///
-    /// Storages are resolved sequentially, since each item will require user intervention.
-    async fn resolve_conflicts(self, dry_run: bool) -> anyhow::Result<()> {
-        if dry_run {
-            bail!("dry_run is not implemented for resolve-conflicts");
-        }
-
-        for pair in self.pairs {
-            if let Err(err) = interactive_resolution(pair).await {
-                error!("Error resolving conflicts: {:?}.", err);
-            }
-        }
-
-        Ok(())
-    }
-}
-
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse(std::env::args()).unwrap_or_else(|err| {
@@ -349,14 +283,10 @@ async fn main() -> anyhow::Result<()> {
     })?;
     trace!("Parsed configuration: {:?}", &config);
 
-    let app = config
-        .into_app()
-        .await
-        .context("initialising application")?;
-    debug!("Initialised application");
+    let pairs = config.into_named_pairs().await?;
 
     match cli.command {
-        Command::Check => Ok(()),
+        Command::Check => Ok(()), // Implicitly checked pairs above.
         Command::Daemon { ready_fd } => {
             // Everything is ready; indicate this before actual daemon work.
             if let Some(mut f) = ready_fd {
@@ -364,11 +294,71 @@ async fn main() -> anyhow::Result<()> {
                     .context("writing to readiness fd")?;
                 // File is closed implicitly here.
             };
-            Err(app.daemon().await)
+            Err(daemon(pairs).await)
         }
-        Command::Sync { dry_run } => app.sync(dry_run).await,
-        Command::ResolveConflicts { dry_run } => app.resolve_conflicts(dry_run).await,
-        Command::Discover => app.discover().await,
+        Command::Sync { dry_run } => sync(pairs, dry_run).await,
+        Command::ResolveConflicts { dry_run } => resolve_conflicts(pairs, dry_run).await,
+        Command::Discover => discover(pairs).await,
         Command::Version => unreachable!(),
     }
+}
+
+async fn discover(pairs: Vec<NamedPair>) -> anyhow::Result<()> {
+    // FIXME: if multiple pairs share a storage, only print that storage once.
+    for pair in pairs {
+        pair.discover().await?;
+    }
+    Ok(())
+}
+
+/// Returns only if all daemon tasks fail.
+async fn daemon(pairs: Vec<NamedPair>) -> anyhow::Error {
+    warn!("Partial sync is not implemented; will perform full sync");
+
+    let mut set = JoinSet::new();
+    for pair in pairs {
+        set.spawn(pair.daemon());
+    }
+
+    while let Some(res) = set.join_next().await {
+        match res {
+            Ok(err) => error!("Error in daemon task: {:?}.", err),
+            Err(joinerr) => error!("Daemon task aborted: {:?}.", joinerr),
+        }
+    }
+
+    anyhow::anyhow!("All sync tasks exited.")
+}
+
+async fn sync(pairs: Vec<NamedPair>, dry_run: bool) -> anyhow::Result<()> {
+    let mut set = JoinSet::new();
+    for pair in pairs {
+        set.spawn(async move { pair.sync_once(dry_run).await });
+    }
+
+    while let Some(res) = set.join_next().await {
+        match res {
+            Ok(Ok(())) => {}
+            Ok(Err(err)) => error!("Error in sync task: {:?}.", err),
+            Err(joinerr) => error!("Sync task aborted: {:?}.", joinerr),
+        }
+    }
+    Ok(())
+}
+
+/// Interactively resolve conflicts.
+///
+/// Storages are resolved sequentially, since each item will require user intervention.
+async fn resolve_conflicts(pairs: Vec<NamedPair>, dry_run: bool) -> anyhow::Result<()> {
+    if dry_run {
+        bail!("dry_run is not implemented for resolve-conflicts");
+    }
+
+    for pair in pairs {
+        if let Err(err) = interactive_resolution(pair).await {
+            error!("Error resolving conflicts: {:?}.", err);
+        }
+    }
+
+    Ok(())
 }

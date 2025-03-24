@@ -45,7 +45,7 @@ use crate::{
         FingerprintAndWebPkiVerifier, FingerprintVerifier,
     },
     ua::UserAgent,
-    App, ConflictResolution, NamedPair, RawCommand, VERSION,
+    ConflictResolution, NamedPair, RawCommand, VERSION,
 };
 
 /// A deserialised configuration file.
@@ -65,7 +65,7 @@ impl Config {
     ///
     /// This consumes the configuration to avoid copying any data needlessly and freeing up any
     /// unnecessary data.
-    pub(crate) async fn into_app(self) -> anyhow::Result<App> {
+    pub(crate) async fn into_named_pairs(self) -> anyhow::Result<Vec<NamedPair>> {
         let status_dir =
             expand_tilde(self.status_path).context("Expanding tilde for status_dir")?;
         let status_dir = Arc::new(status_dir); // TODO: could be Arc<str>
@@ -145,8 +145,9 @@ impl Config {
                 Err(joinerr) => bail!(joinerr),
             }
         }
+        debug!("Initialised pairs.");
 
-        Ok(App { pairs })
+        Ok(pairs)
     }
 }
 
