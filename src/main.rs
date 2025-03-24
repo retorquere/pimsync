@@ -240,14 +240,14 @@ impl NamedPair {
 async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse(std::env::args()).unwrap_or_else(|err| {
         eprintln!("Bad usage: {err}\n");
-        eprintln!("Usage: pimsync [-c CONFIGFILE ] [-v LOGLEVEL] COMMAND [PAIR...]");
+        eprintln!("Usage: pimsync [-c CONFIGFILE ] [-v LOGLEVEL] COMMAND");
         eprintln!("Commands:");
-        eprintln!("\tcheck\t\t\tcheck configuration and exit");
-        eprintln!("\tdaemon -[r READY_FD]\tkeep storages in sync");
-        eprintln!("\tsync [-n]\t\tsync storages once");
-        eprintln!("\tresolve-conflicts [-n]\tmanually resolve conflicts");
-        eprintln!("\tdiscover\t\tprint discovered collections");
-        eprintln!("\tversion\t\t\tprint version");
+        eprintln!("\tcheck [PAIR…]\t\t\tcheck configuration and exit");
+        eprintln!("\tdaemon -[r READY_FD] [PAIR…]\tkeep storages in sync");
+        eprintln!("\tsync [-n] [PAIR…]\t\tsync storages once");
+        eprintln!("\tresolve-conflicts [-n] [PAIR…]\tmanually resolve conflicts");
+        eprintln!("\tdiscover [PAIR…]\t\tprint discovered collections");
+        eprintln!("\tversion\t\t\t\tprint version");
         eprintln!("See 'man pimsync' for details");
         std::process::exit(100);
     });

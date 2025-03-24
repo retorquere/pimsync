@@ -6,7 +6,7 @@ pimsync - synchronise caldav, carddav, webcal and local directories
 
 # SYNOPSIS
 
-*pimsync* [*-c* _configfile_] [*-v* _loglevel_] _command_ [_pair..._]
+*pimsync* [*-c* _configfile_] [*-v* _loglevel_] _command_
 
 # DESCRIPTION
 
@@ -52,12 +52,12 @@ The following glossary provides a brief overview of relevant terminology:
 
 # COMMANDS
 
-*check*
+*check* [_pair…_]
 	Check configuration and exit. Validates the configuration itself and
 	ensures that the storage is valid. E.g.: a *vdir* must be an existing
 	directory, and *caldav* server must report CalDAV capabilities, etc.
 
-*daemon*
+*daemon* [_pair…_]
 	Continuously keep storages in sync. The *-r* _READY_FD_ argument may be
 	used to provide a readiness notification file descriptor.
 
@@ -67,11 +67,11 @@ The following glossary provides a brief overview of relevant terminology:
 
 	Individual items that fail to sync will be skipped.
 
-*discover*
+*discover* [_pair…_]
 	Discover and print collections. This command merely provides
 	information, and does in any way alter pimsync's internal state.
 
-*resolve-conflicts*
+*resolve-conflicts* [_pair…_]
 	Manually resolve conflicts between storages.
 
 	Execute an external program, specified in the configuration file, which
@@ -80,14 +80,14 @@ The following glossary provides a brief overview of relevant terminology:
 	Appending *-n* performs a dry run and won't perform any write
 	operations.
 
-*sync*
+*sync* [_pair…_]
 	Synchronise storages once and exit. Appending *-n* performs a dry run
 	and won't perform any write operations.
 
 *version*
 	Print version information and exit.
 
-If a *pair* is specified, only operate on pair(s) with the given name(s).
+If a _pair_ is specified, only operate on pair(s) with the given name(s).
 
 # FILES
 
