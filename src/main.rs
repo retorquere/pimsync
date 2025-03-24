@@ -371,6 +371,4 @@ async fn main() -> anyhow::Result<()> {
         Command::Discover => app.discover().await,
         Command::Version => unreachable!(),
     }
-
-    // TODO: create per-pair tasks and sync pairs in parallel.
 }
