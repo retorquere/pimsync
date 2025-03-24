@@ -23,6 +23,7 @@ use crate::{
     watch::{IntervalMonitor, StorageMonitor},
     CollectionId, Etag, Href, ItemKind, Result,
 };
+
 // TODO: See (in vdirsyncer) IGNORE_PROPS for more props that might make sense to ignore.
 pub const ICS_FIELDS_TO_IGNORE: &[&str] = &[
     // Servers often mutate this; resulting in noise when comparing.
