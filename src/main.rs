@@ -5,7 +5,6 @@
 #![deny(clippy::unwrap_used)]
 
 use std::{
-    collections::HashSet,
     fs::File,
     io::{read_to_string, Write},
     path::PathBuf,
@@ -280,15 +279,12 @@ async fn main() -> anyhow::Result<()> {
     let config_data = read_to_string(config_file)?;
 
     if let Command::Repair = cli.command {
-        let names = cli
-            .names
-            .map(|names| names.into_iter().collect::<HashSet<_>>());
-        let storages = parse_storages(&config_data, names).await?;
+        let storages = parse_storages(&config_data, cli.names).await?;
         info!("Parsed storages from config.");
         return repair_storages(storages).await;
     };
 
-    let config = parse_config(&config_data, cli.names.as_deref()).with_context(|| {
+    let config = parse_config(&config_data, cli.names).with_context(|| {
         format!(
             "Could not parse configuration file at {}",
             config_path.display()

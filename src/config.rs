@@ -40,6 +40,7 @@ use vstorage::{
 
 use crate::{
     auth::AddAuthorization,
+    cli::FilterNames,
     repair::NamedStorage,
     tls::{
         cert_and_key_from_pemfile, certs_from_pemfile, key_from_pemfile,
@@ -731,7 +732,7 @@ enum ClientCert {
 /// If `enabled_pairs` is not `None`, only pairs with a matching name will be loaded.
 pub(crate) fn parse_config(
     raw_config: &str,
-    enabled_pairs: Option<&[String]>,
+    mut enabled_pairs: FilterNames,
 ) -> anyhow::Result<Config> {
     // TODO: The Scfg crate crates multiple copies of each string in the entire configuration file.
     //       I want a high-level API like the Scfg crate, but the zero-copy approach from scfg-scanner.
@@ -746,7 +747,6 @@ pub(crate) fn parse_config(
     resolve_cmd_inplace(&mut parser, "status_path").context("resolving status path")?;
     let status_path = take_single_param_from_directive(&mut parser, "status_path")?;
 
-    let mut enabled_pairs = enabled_pairs.map(|vec| vec.iter().collect::<HashSet<_>>());
     let mut enabled_storages = HashSet::new();
 
     if let Some(directives) = parser.remove("pair") {
@@ -758,10 +758,8 @@ pub(crate) fn parse_config(
             }
 
             // Skip disabled pairs.
-            if let Some(ref mut enabled) = enabled_pairs {
-                if !enabled.remove(&name) {
-                    continue; // Skip if not in enabled list.
-                }
+            if !enabled_pairs.wants(&name) {
+                continue; // Skip if not in enabled list.
             }
 
             info!("Enabled pair {name}");
@@ -790,7 +788,7 @@ pub(crate) fn parse_config(
         }
     }
 
-    if let Some(missing) = enabled_pairs.and_then(|e| e.into_iter().next()) {
+    if let Some(missing) = enabled_pairs.next_missing() {
         bail!("Requested pair missing from configuration: {missing}");
     }
 
@@ -822,7 +820,7 @@ pub(crate) fn parse_config(
 /// Parse named storages from a configuration file, ignoring all else.
 pub(crate) async fn parse_storages(
     raw_config: &str,
-    mut enabled_storages: Option<HashSet<String>>,
+    mut enabled_storages: FilterNames,
 ) -> anyhow::Result<Vec<NamedStorage>> {
     let mut parser = raw_config
         .parse::<Scfg>()
@@ -833,11 +831,9 @@ pub(crate) async fn parse_storages(
     if let Some(directives) = parser.remove("storage") {
         for mut directive in directives {
             let name = take_single_param(&mut directive).context("Parsing storage directive")?;
-            if let Some(ref mut enabled_storages) = enabled_storages {
-                if enabled_storages.take(&name).is_none() {
-                    debug!("Skipping storage {name}; not enabled.");
-                    continue;
-                };
+            if !enabled_storages.wants(&name) {
+                debug!("Skipping storage {name}; not enabled.");
+                continue;
             };
 
             let mut child = directive
@@ -856,10 +852,8 @@ pub(crate) async fn parse_storages(
         }
     }
 
-    if let Some(enabled_storages) = enabled_storages {
-        if let Some(missing) = enabled_storages.into_iter().next() {
-            bail!("Missing storage definition for: {}", missing);
-        }
+    if let Some(missing) = enabled_storages.next_missing() {
+        bail!("Missing storage definition for: {}", missing);
     }
 
     let mut storages = Vec::new();

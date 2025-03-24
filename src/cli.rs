@@ -1,6 +1,7 @@
 use lexopt::{Arg, ValueExt as _};
+use log::warn;
 use rustix::fd::FromRawFd as _;
-use std::fs::File;
+use std::{collections::HashSet, fs::File};
 
 pub(crate) enum Command {
     Check,
@@ -16,7 +17,40 @@ pub(crate) struct Cli {
     pub command: Command,
     pub log_level: log::LevelFilter,
     pub config_file: Option<String>,
-    pub names: Option<Vec<String>>,
+    pub names: FilterNames,
+}
+
+/// Names by which to filter pairs or storages.
+///
+/// Call `wants` to confirm if a name is wanted. Names are wanted only once.
+pub struct FilterNames(Option<HashSet<String>>);
+
+impl FilterNames {
+    fn new() -> FilterNames {
+        FilterNames(None)
+    }
+
+    fn push(&mut self, new: String) {
+        if !self.0.get_or_insert_default().insert(new) {
+            warn!("Duplicate name specified.");
+        }
+    }
+
+    /// Returns `true` if the provided name is a wanted one.
+    ///
+    /// Removes `name` from list of wanted items.
+    pub fn wants(&mut self, name: &str) -> bool {
+        if let Some(ref mut set) = &mut self.0 {
+            set.remove(name)
+        } else {
+            false
+        }
+    }
+
+    /// Return the name of the next missing wanted name, if any.
+    pub fn next_missing(self) -> Option<String> {
+        self.0.and_then(|names| names.into_iter().next())
+    }
 }
 
 impl Cli {
@@ -24,7 +58,7 @@ impl Cli {
         let mut command = None;
         let mut log_level = log::LevelFilter::Warn;
         let mut config_file: Option<String> = None;
-        let mut names = Vec::new();
+        let mut names = FilterNames::new();
 
         args.next(); // Skip arg0
         let mut parser = lexopt::Parser::from_args(args);
@@ -116,7 +150,7 @@ impl Cli {
             command: command.ok_or(lexopt::Error::from("No command specified"))?,
             log_level,
             config_file,
-            names: if names.is_empty() { None } else { Some(names) },
+            names,
         })
     }
 }
