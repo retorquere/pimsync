@@ -40,6 +40,7 @@ use vstorage::{
 
 use crate::{
     auth::AddAuthorization,
+    repair::NamedStorage,
     tls::{
         cert_and_key_from_pemfile, certs_from_pemfile, key_from_pemfile,
         FingerprintAndWebPkiVerifier, FingerprintVerifier,
@@ -428,6 +429,14 @@ pub(crate) enum EitherStorage {
     AddressBook(Arc<dyn Storage>),
 }
 
+impl EitherStorage {
+    pub(crate) fn into_storage(self) -> Arc<dyn Storage> {
+        match self {
+            EitherStorage::Calendar(storage) | EitherStorage::AddressBook(storage) => storage,
+        }
+    }
+}
+
 fn parse_vdir(mut config: Scfg, item_kind: ItemKind) -> anyhow::Result<Arc<dyn Storage>> {
     let path = take_single_param_from_directive(&mut config, "path")?.into();
     let path = expand_tilde(path).context("Expanding tilde for storage")?;
@@ -808,6 +817,60 @@ pub(crate) fn parse_config(
         pairs,
         storages,
     })
+}
+
+/// Parse named storages from a configuration file, ignoring all else.
+pub(crate) async fn parse_storages(
+    raw_config: &str,
+    mut enabled_storages: Option<HashSet<String>>,
+) -> anyhow::Result<Vec<NamedStorage>> {
+    let mut parser = raw_config
+        .parse::<Scfg>()
+        .context("Parsing configuration file")?;
+    let mut tasks = JoinSet::new();
+
+    // First read all configs, running all cmd directives before doing IO.
+    if let Some(directives) = parser.remove("storage") {
+        for mut directive in directives {
+            let name = take_single_param(&mut directive).context("Parsing storage directive")?;
+            if let Some(ref mut enabled_storages) = enabled_storages {
+                if enabled_storages.take(&name).is_none() {
+                    debug!("Skipping storage {name}; not enabled.");
+                    continue;
+                };
+            };
+
+            let mut child = directive
+                .take_child()
+                .context("storage must define a block")?;
+            resolve_storage_cmds(&mut child)?;
+            tasks.spawn(async move {
+                init_storage(child, &name)
+                    .await
+                    .with_context(|| format!("initialising storage {name}"))
+                    .map(|(either_storage, _)| {
+                        let storage = either_storage.into_storage();
+                        NamedStorage { name, storage }
+                    })
+            });
+        }
+    }
+
+    if let Some(enabled_storages) = enabled_storages {
+        if let Some(missing) = enabled_storages.into_iter().next() {
+            bail!("Missing storage definition for: {}", missing);
+        }
+    }
+
+    let mut storages = Vec::new();
+    while let Some(res) = tasks.join_next().await {
+        match res {
+            Ok(Ok(ns)) => storages.push(ns),
+            Ok(Err(err)) => bail!(err),
+            Err(joinerr) => bail!(joinerr),
+        }
+    }
+    Ok(storages)
 }
 
 fn parse_interval(parser: &mut Scfg) -> anyhow::Result<Duration> {

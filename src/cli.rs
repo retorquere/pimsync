@@ -8,6 +8,7 @@ pub(crate) enum Command {
     Sync { dry_run: bool },
     ResolveConflicts { dry_run: bool },
     Discover,
+    Repair,
     Version,
 }
 
@@ -15,7 +16,7 @@ pub(crate) struct Cli {
     pub command: Command,
     pub log_level: log::LevelFilter,
     pub config_file: Option<String>,
-    pub pairs: Option<Vec<String>>,
+    pub names: Option<Vec<String>>,
 }
 
 impl Cli {
@@ -23,7 +24,7 @@ impl Cli {
         let mut command = None;
         let mut log_level = log::LevelFilter::Warn;
         let mut config_file: Option<String> = None;
-        let mut pairs = Vec::new();
+        let mut names = Vec::new();
 
         args.next(); // Skip arg0
         let mut parser = lexopt::Parser::from_args(args);
@@ -36,7 +37,7 @@ impl Cli {
                         "check" => {
                             while let Some(arg) = parser.next()? {
                                 match arg {
-                                    Arg::Value(pair_name) => pairs.push(pair_name.string()?),
+                                    Arg::Value(pair_name) => names.push(pair_name.string()?),
                                     _ => return Err(arg.unexpected()),
                                 };
                             }
@@ -56,7 +57,7 @@ impl Cli {
                                         // supplied a valid open file.
                                         ready_fd = Some(unsafe { File::from_raw_fd(raw_fd) });
                                     }
-                                    Arg::Value(pair_name) => pairs.push(pair_name.string()?),
+                                    Arg::Value(pair_name) => names.push(pair_name.string()?),
                                     _ => return Err(arg.unexpected()),
                                 };
                             }
@@ -67,7 +68,7 @@ impl Cli {
                             while let Some(arg) = parser.next()? {
                                 match arg {
                                     Arg::Short('n') => dry_run = true,
-                                    Arg::Value(pair_name) => pairs.push(pair_name.string()?),
+                                    Arg::Value(pair_name) => names.push(pair_name.string()?),
                                     _ => return Err(arg.unexpected()),
                                 };
                             }
@@ -78,7 +79,7 @@ impl Cli {
                             while let Some(arg) = parser.next()? {
                                 match arg {
                                     Arg::Short('n') => dry_run = true,
-                                    Arg::Value(pair_name) => pairs.push(pair_name.string()?),
+                                    Arg::Value(pair_name) => names.push(pair_name.string()?),
                                     _ => return Err(arg.unexpected()),
                                 };
                             }
@@ -87,11 +88,20 @@ impl Cli {
                         "discover" => {
                             while let Some(arg) = parser.next()? {
                                 match arg {
-                                    Arg::Value(pair_name) => pairs.push(pair_name.string()?),
+                                    Arg::Value(pair_name) => names.push(pair_name.string()?),
                                     _ => return Err(arg.unexpected()),
                                 };
                             }
                             Some(Command::Discover)
+                        }
+                        "repair" => {
+                            while let Some(arg) = parser.next()? {
+                                match arg {
+                                    Arg::Value(name) => names.push(name.string()?),
+                                    _ => return Err(arg.unexpected()),
+                                };
+                            }
+                            Some(Command::Repair)
                         }
                         "version" => Some(Command::Version),
                         cmd => return Err(format!("Unknown command: {cmd}").into()),
@@ -106,7 +116,7 @@ impl Cli {
             command: command.ok_or(lexopt::Error::from("No command specified"))?,
             log_level,
             config_file,
-            pairs: if pairs.is_empty() { None } else { Some(pairs) },
+            names: if names.is_empty() { None } else { Some(names) },
         })
     }
 }

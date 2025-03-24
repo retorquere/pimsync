@@ -84,6 +84,12 @@ The following glossary provides a brief overview of relevant terminology:
 	Synchronise storages once and exit. Appending *-n* performs a dry run
 	and won't perform any write operations.
 
+*repair* [_storage…_]
+	Repair invalid items. Currently, this adds missing _UID_ fields, but
+	other fixes are likely to be included in future. Repairing both
+	collections from a pair is highly discouraged; repair on storage and
+	then synchronise the pair instead.
+
 *version*
 	Print version information and exit.
 
@@ -142,8 +148,8 @@ items to extract their UID. Items must be syntactically valid components, even
 if semantically invalid.
 
 In order to interact with CalDAV/CardDAV resources where a UID cannot be
-extracted, consider using davcli(1). In future, a *repair* command shall be
-included to address this scenario.
+extracted, use the *repair* command to fix invalid entries, or consider using
+davcli(1).
 
 # SECURITY CONSIDERATIONS
 

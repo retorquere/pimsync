@@ -5,6 +5,7 @@
 #![deny(clippy::unwrap_used)]
 
 use std::{
+    collections::HashSet,
     fs::File,
     io::{read_to_string, Write},
     path::PathBuf,
@@ -13,10 +14,11 @@ use std::{
 
 use anyhow::{bail, Context};
 use camino::Utf8PathBuf;
-use config::{open_default_path, parse_config};
+use config::{open_default_path, parse_config, parse_storages};
 use conflict::interactive_resolution;
 use futures_util::future::{select, Either};
 use log::{debug, error, info, trace, warn};
+use repair::repair_storages;
 use tokio::task::JoinSet;
 use vstorage::sync::{
     declare::StoragePair,
@@ -32,6 +34,7 @@ mod auth;
 mod cli;
 mod config;
 mod conflict;
+mod repair;
 mod tls;
 mod ua;
 
@@ -247,6 +250,7 @@ async fn main() -> anyhow::Result<()> {
         eprintln!("\tsync [-n] [PAIR…]\t\tsync storages once");
         eprintln!("\tresolve-conflicts [-n] [PAIR…]\tmanually resolve conflicts");
         eprintln!("\tdiscover [PAIR…]\t\tprint discovered collections");
+        eprintln!("\trepair [PAIR/STORAGE…]\t\trepair invalid items in collections");
         eprintln!("\tversion\t\t\t\tprint version");
         eprintln!("See 'man pimsync' for details");
         std::process::exit(100);
@@ -273,16 +277,24 @@ async fn main() -> anyhow::Result<()> {
         }
         None => open_default_path()?,
     };
-
     let config_data = read_to_string(config_file)?;
-    let config = parse_config(&config_data, cli.pairs.as_deref()).with_context(|| {
+
+    if let Command::Repair = cli.command {
+        let names = cli
+            .names
+            .map(|names| names.into_iter().collect::<HashSet<_>>());
+        let storages = parse_storages(&config_data, names).await?;
+        info!("Parsed storages from config.");
+        return repair_storages(storages).await;
+    };
+
+    let config = parse_config(&config_data, cli.names.as_deref()).with_context(|| {
         format!(
             "Could not parse configuration file at {}",
             config_path.display()
         )
     })?;
     trace!("Parsed configuration: {:?}", &config);
-
     let pairs = config.into_named_pairs().await?;
 
     match cli.command {
@@ -299,7 +311,7 @@ async fn main() -> anyhow::Result<()> {
         Command::Sync { dry_run } => sync(pairs, dry_run).await,
         Command::ResolveConflicts { dry_run } => resolve_conflicts(pairs, dry_run).await,
         Command::Discover => discover(pairs).await,
-        Command::Version => unreachable!(),
+        Command::Repair | Command::Version => unreachable!("Handled above"),
     }
 }
 
