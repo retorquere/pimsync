@@ -63,6 +63,8 @@ configuration, and it's easy for other misbehaving software to accidentally
 leak it. Instead, we store credentials in a *secret storage* service, and use
 some helper to retrieve credentials.
 
+.. _secret-storage:
+
 Usage with a secret storage service
 -----------------------------------
 
@@ -138,6 +140,51 @@ An service unit for systemd should looks something like::
 
     [Install]
     WantedBy=sync.target
+
+Fetching a calendar via Webcal
+------------------------------
+
+Webcal refers to events published in a single iCalendar file via HTTP(s).
+Pimsync can fetch events (and other iCalendar components) and synchronise them
+to a CalDAV or vdir storage. Webcal storages are read-only, since they're no
+more than a regular resource exposed via HTTP(s).
+
+A typical configuration looks something like::
+
+   pair holidays {
+     storage_a calendars_local
+     storage_b holidays_remote
+     collection holidays
+   }
+
+   storage holidays_remote {
+     type webcal
+     collection_id holidays
+     url https://www.thunderbird.net/media/caldata/autogen/DutchHolidays.ics
+   }
+
+   # storage calendars_local omitted for brevity; same as above.
+
+The ``holidays_remote`` storage has a ``collection_id`` parameter. This storage
+exposes a single calendar collection, and that calendar shall be given this
+name.
+
+Webcal with secret URLs
+.......................
+
+Some Webcal URLs contain secret tokens in the URL, or other sensitive material
+which should not be stored in a configuration file. The ``url`` directive's
+parameter can be stored in an external secret storage, and retried via the same
+mechanism as used in the :ref:`usage with a secret storage service
+<secret-storage>` section above::
+
+   storage calendars_italki {
+     type webcal
+     collection_id italki
+     url {
+       cmd hiq -dFurl proto=webcal alias=italki
+     }
+   }
 
 Further topics
 --------------
