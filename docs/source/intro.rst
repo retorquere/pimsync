@@ -35,10 +35,10 @@ synchronised continuously (via the ``pimsync daemon`` command).
 Philosophy
 ----------
 
-User own their data
-   Pimsync enables users allows to synchronise data from other servers onto any
-   chosen destination, including the local filesystem, where other tools can
-   intercut with this data.
+Everyone owns their data
+   Pimsync enables anyone to synchronise data from other servers onto any
+   chosen destination, including the local filesystem. They may then operate on
+   this data freely.
 
 Synchronise items regardless of whether they are valid or not
    If another program created a "technically invalid" calendar event, the data
@@ -48,11 +48,15 @@ Synchronise items regardless of whether they are valid or not
    quirks properly. See also `the robustness principle
    <https://en.wikipedia.org/wiki/Robustness_principle>`_
 
+   Conversely, if pimsync refused to operate on an invalid event on your
+   server, you wouldn't have a way of fetching this event in order to review it
+   or fix it.
+
 Use standards protocols, formats and conventions whenever possible.
    Calendar components are stored using `the iCalendar format`_. Contacts are
    stored using `the vCard format`_. CalDAV and CardDAV are well established
-   protocols which many implementations (including ones which anyone can
-   self-host) and service providers.
+   protocols with many implementations available (including ones which anyone
+   can self-host) and service providers.
 
 .. _the iCalendar format: https://www.rfc-editor.org/rfc/rfc5545
 .. _the vCard format: https://www.rfc-editor.org/rfc/rfc6350
