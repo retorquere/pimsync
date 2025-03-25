@@ -16,17 +16,21 @@ storages are:
   directories using standardised and well-documented formats.
 - **WebCal**: Convention for exposing a calendar or event read-only using HTTP.
 
-Typical usages include:
+Common use cases include:
 
 - Synchronising a CalDAV or CardDAV server with a local directory. Local data
-  can then be accessed by a variety of programs, none of which have to know or
-  worry about synchronisation, network connectivity, or remote servers.
-
+  can then be accessed and manipulated by a variety of programs, none of which
+  have to know or worry about synchronisation, network connectivity, or remote
+  servers. The changes are then synced back to the server periodically.
+- Synchronising from server to a local directory with the intent of keeping
+  back-ups using a tool that backs up local directory trees.
 - Synchronising data between two different CalDAV or CardDAV servers.
 
 pimsync is configured via a configuration file. It can then be used to
 synchronise data once (via the ``pimsync sync`` command) or to keep data
 synchronised continuously (via the ``pimsync daemon`` command).
+
+.. TODO: need a section on "running as a daemon"
 
 Philosophy
 ----------
