@@ -165,9 +165,11 @@ A typical configuration looks something like::
 
    # storage calendars_local omitted for brevity; same as above.
 
-The ``holidays_remote`` storage has a ``collection_id`` parameter. This storage
-exposes a single calendar collection, and that calendar shall be given this
-name.
+Normally, storages have multiple calendar collections. Webcal is exception is
+that it only contains a single collection. The name given to this collection is
+controlled via the ``collection_id`` parameter, as shown above. In the above
+example, the calendar exposed via Webcal shall be synchronised with a calendar
+named ``holidays`` in the ``calendars_local`` storage.
 
 Webcal with secret URLs
 .......................
