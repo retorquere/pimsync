@@ -42,7 +42,8 @@ directly, or copied into your ``$PATH``.
 Installation
 ............
 
-After compiling from source, use ``make install`` to install to ``/usr/local/``.
+After compiling from source, use ``make install`` to install to the binary and
+man pages to ``/usr/local/``.
 
 Packaging
 ---------
