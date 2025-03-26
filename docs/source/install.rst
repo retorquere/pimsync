@@ -1,11 +1,6 @@
 Installation
 ============
 
-At this time, the `project README`_ contains documentation on compiling and
-installing from source.
-
-.. _project README: https://git.sr.ht/~whynothugo/pimsync#pimsync
-
 Whenever possible, installation via distribution packages is recommended.
 Distributions packages are available on:
 
@@ -13,8 +8,41 @@ Distributions packages are available on:
 - ArchLinux, in the ``extra`` repository.
 - Nix, via nixpkgs unstable.
 
-pimsync itself is a single binary, but the installation process above (and
-distributing package) also include :doc:`man pages <man>`.
+pimsync itself is a single binary, but the installation process (and
+distribution packages) also include :doc:`man pages <man>` as reference
+documentation.
+
+Building from source
+--------------------
+
+Requirements
+............
+
+Compiling pimsync requires:
+
+- make
+- Rust and Cargo
+- libsqlite3 (development package)
+- scdoc (for compiling manual pages)
+
+Running pimsync requires:
+
+- libc
+- libsqlite3 (runtime package)
+
+Compilation
+...........
+
+Use ``make build`` to compile pimsync. The build process uses Cargo to produce a
+binary and scdoc to compile documentation.
+
+The compiled binary is placed in ``./target/release/pimsync``. It can be executed
+directly, or copied into your ``$PATH``.
+
+Installation
+............
+
+After compiling from source, use ``make install`` to install to ``/usr/local/``.
 
 Packaging
 ---------

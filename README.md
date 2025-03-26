@@ -10,48 +10,25 @@ This is the repository for `pimsync`, the rewrite and successor of [vdirsyncer].
 
 [vdirsyncer]: https://github.com/pimutils/vdirsyncer
 
-## Requirements
+For documentation (including usage, compilation, installation and packaging),
+see [the online documentation website][docs]. This website also includes an
+HTML version of the manual pages.
 
-Compiling pimsync requires:
+[docs]: https://pimsync.whynothugo.nl/
 
-- make
-- Rust and Cargo
-- libsqlite3 (development package)
-- scdoc (for compiling manual pages)
+## Building the documentation website
 
-Running pimsync requires:
+You can build the documentation website locally with `make site`. This
+requires the following extra dependencies:
 
-- libc
-- libsqlite3 (runtime package)
+- mandoc
+- py3-sphinx
+- scdoc
 
-## Compilation
+Open the file `docs/build/html/index.html` to view the site locally.
 
-Use `make build` to compile pimsync. The build process uses Cargo to produce a
-binary and scdoc to compile documentation.
-
-The compiled binary is placed in `./target/release/pimsync`. It can be executed
-directly, or copied into your `$PATH`.
-
-## Installation
-
-After compiling, use `make install` to install to `/usr/local/`.
-
-## Usage
-
-End user documentation is provided as man pages. Please see `man pimsync` and
-`man pimsync.conf` as starting points.
-
-Manual pages are built when running `make build`. They can also be built
-independently using `make man`. These same man pages can be rendered as HTML
-pages by using `make html`.
-
-The HTML version of the manual pages is also available online at
-<https://pimsync.whynothugo.nl/>.
-
-## Packaging
-
-See the [packaging](https://pimsync.whynothugo.nl/install.html#packaging)
-section of the documentation.
+The raw pages are also readable from the `docs/` directory inside this
+repository.
 
 ## Developer documentation
 
