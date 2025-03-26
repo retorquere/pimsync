@@ -44,10 +44,10 @@ target/%: %.scd
 
 .PHONY: install
 install: build
-	@install -Dm755 target/release/pimsync 		${DESTDIR}${PREFIX}/bin/pimsync
-	@install -Dm644 target/pimsync.1		${DESTDIR}${PREFIX}/share/man/man1/pimsync.1
-	@install -Dm644 target/pimsync.conf.5		${DESTDIR}${PREFIX}/share/man/man5/pimsync.conf.5
-	@install -Dm644 target/pimsync-migration.7	${DESTDIR}${PREFIX}/share/man/man7/pimsync-migration.7
+	@install -Dm755 target/release/pimsync 		-t ${DESTDIR}${PREFIX}/bin/
+	@install -Dm644 target/pimsync.1		-t ${DESTDIR}${PREFIX}/share/man/man1/
+	@install -Dm644 target/pimsync.conf.5		-t ${DESTDIR}${PREFIX}/share/man/man5/
+	@install -Dm644 target/pimsync-migration.7	-t ${DESTDIR}${PREFIX}/share/man/man7/
 
 clean:
 	cargo clean
