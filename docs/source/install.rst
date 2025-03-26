@@ -73,7 +73,9 @@ Man pages
 .........
 
 Please include man pages in distribution packages. Producing them only depends
-on the ``scdoc`` command, and can be done by executing ``make man``.
+on the ``scdoc`` command. Running ``make build`` produces the manual pages
+alongside the main binary. They can be built independently by running ``make
+man``.
 
 New releases
 ------------
