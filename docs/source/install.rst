@@ -48,7 +48,7 @@ Packaging
 ---------
 
 The build and installation process is designed to ease downstream packaging and
-redistribution. Efforts in packaging pimsync downstream is highly appreciated.
+redistribution. Efforts in packaging pimsync downstream are highly appreciated.
 
 Version
 .......
