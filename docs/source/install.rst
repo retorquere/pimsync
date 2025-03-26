@@ -9,8 +9,8 @@ installing from source.
 Whenever possible, installation via distribution packages is recommended.
 Distributions packages are available on:
 
-- Alpine Linux Edge, in the testing repositories.
-- ArchLinux, via the Arch User Repositories.
+- Alpine Linux Edge, in the ``testing`` repository.
+- ArchLinux, in the ``extra`` repository.
 - Nix, via nixpkgs unstable.
 
 pimsync itself is a single binary, but the installation process above (and
