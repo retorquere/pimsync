@@ -74,6 +74,8 @@ Tags are signed with the following GPG key, which is renewed yearly::
    =BNyi
    -----END PGP PUBLIC KEY BLOCK-----
 
+The key fingerprint is ``1204CA9FC2FFADEEDC2961367880733B9D062837``.
+
 Reproducible tarballs
 ---------------------
 
