@@ -4,6 +4,8 @@
 
 //! A [`CardDavStorage`] is a single carddav repository, as specified in rfc6352.
 
+use std::path::Path;
+
 use async_trait::async_trait;
 use http::{Request, Response, StatusCode, Uri};
 use hyper::body::Incoming;
@@ -227,8 +229,14 @@ where
     }
 
     async fn create_item(&self, collection_href: &str, item: &Item) -> Result<ItemVersion> {
-        let href = join_hrefs(collection_href, &item.ident());
+        let mut href = join_hrefs(collection_href, &item.ident());
         // TODO: ident: .chars().filter(char::is_ascii_alphanumeric)
+        if !Path::new(&href)
+            .extension()
+            .is_some_and(|ext| ext.eq_ignore_ascii_case("ics"))
+        {
+            href.push_str(".vcf");
+        }
 
         let response = self
             .client
