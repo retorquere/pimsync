@@ -118,7 +118,7 @@ where
     /// If the server is not compliant and does not support Etags, possible race conditions could
     /// occur and if contacts components are added to the collection concurrently, they may be
     /// deleted.
-    async fn destroy_collection(&self, href: &str) -> Result<()> {
+    async fn delete_collection(&self, href: &str) -> Result<()> {
         let mut results = self
             .client
             .get_address_book_resources(href, &[href])
@@ -226,7 +226,7 @@ where
         self.get_many_items(&hrefs).await
     }
 
-    async fn add_item(&self, collection_href: &str, item: &Item) -> Result<ItemVersion> {
+    async fn create_item(&self, collection_href: &str, item: &Item) -> Result<ItemVersion> {
         let href = join_hrefs(collection_href, &item.ident());
         // TODO: ident: .chars().filter(char::is_ascii_alphanumeric)
 

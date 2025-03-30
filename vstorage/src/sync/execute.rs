@@ -311,7 +311,7 @@ async fn create_item(
     };
 
     let uid = item_data.ident();
-    let new_item = match dst_storage.add_item(target_collection, &item_data).await {
+    let new_item = match dst_storage.create_item(target_collection, &item_data).await {
         Ok(i) => i,
         Err(err) => return Ok(Err(ExecutionError::Storage(err))),
     };
@@ -391,7 +391,7 @@ async fn delete_collection(
     storage: &dyn Storage,
     mapping_uid: MappingUid,
 ) -> Result<Result<(), ExecutionError>, StatusError> {
-    match storage.destroy_collection(href).await {
+    match storage.delete_collection(href).await {
         Ok(()) => Ok(Ok(status.remove_collection(mapping_uid)?)),
         Err(err) => Ok(Err(ExecutionError::Storage(err))),
     }

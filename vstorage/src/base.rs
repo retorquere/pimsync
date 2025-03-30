@@ -67,7 +67,7 @@ pub trait Storage: Sync + Send {
     /// Deletes an existing collection.
     ///
     /// A collection must be empty for deletion to succeed.
-    async fn destroy_collection(&self, href: &str) -> Result<()>;
+    async fn delete_collection(&self, href: &str) -> Result<()>;
 
     /// List all properties of a collection.
     async fn list_properties(&self, collection_href: &str) -> Result<Vec<FetchedProperty>>;
@@ -135,7 +135,7 @@ pub trait Storage: Sync + Send {
     }
 
     /// Saves a new item into a given collection
-    async fn add_item(&self, collection: &str, item: &Item) -> Result<ItemVersion>;
+    async fn create_item(&self, collection: &str, item: &Item) -> Result<ItemVersion>;
 
     /// Updates the contents of an existing item.
     async fn update_item(&self, href: &str, etag: &Etag, item: &Item) -> Result<Etag>;

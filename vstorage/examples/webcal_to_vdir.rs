@@ -78,7 +78,7 @@ async fn copy_collection(
     {
         count += 1;
         target_storage
-            .add_item(target_collection_href, &item)
+            .create_item(target_collection_href, &item)
             .await
             .expect("write to local filesystem collection");
     }

@@ -49,31 +49,31 @@ async fn create_populated_storage(path: Utf8PathBuf) -> Arc<dyn Storage> {
     let item = &minimal_icalendar("First calendar event one")
         .unwrap()
         .into();
-    storage.add_item(first.href(), item).await.unwrap();
+    storage.create_item(first.href(), item).await.unwrap();
 
     let item = &minimal_icalendar("First calendar event two")
         .unwrap()
         .into();
-    storage.add_item(first.href(), item).await.unwrap();
+    storage.create_item(first.href(), item).await.unwrap();
     drop(first);
 
     let second = storage.create_collection("second-calendar").await.unwrap();
     let item = &minimal_icalendar("Second calendar event one")
         .unwrap()
         .into();
-    storage.add_item(second.href(), item).await.unwrap();
+    storage.create_item(second.href(), item).await.unwrap();
 
     let item = &minimal_icalendar("Second calendar event two")
         .unwrap()
         .into();
-    storage.add_item(second.href(), item).await.unwrap();
+    storage.create_item(second.href(), item).await.unwrap();
     drop(second);
 
     let third = storage.create_collection("third-calendar").await.unwrap();
     let item = &minimal_icalendar("Third calendar event one")
         .unwrap()
         .into();
-    storage.add_item(third.href(), item).await.unwrap();
+    storage.create_item(third.href(), item).await.unwrap();
     drop(third);
 
     Arc::new(storage)
@@ -288,7 +288,7 @@ async fn test_empty_on_empty_skip() {
     let item = &minimal_icalendar("First calendar event one")
         .unwrap()
         .into();
-    let item_ver = storage_a.add_item(first.href(), item).await.unwrap();
+    let item_ver = storage_a.create_item(first.href(), item).await.unwrap();
 
     let pair = StoragePair::new(storage_a.clone(), storage_b.clone())
         .with_all_from_a()
@@ -329,7 +329,7 @@ async fn test_empty_on_empty_sync() {
     let item = &minimal_icalendar("First calendar event one")
         .unwrap()
         .into();
-    let item_ver = storage_a.add_item(first.href(), item).await.unwrap();
+    let item_ver = storage_a.create_item(first.href(), item).await.unwrap();
 
     let pair = StoragePair::new(storage_a.clone(), storage_b.clone())
         .with_all_from_a()
@@ -387,7 +387,7 @@ async fn test_empty_on_delete_skip() {
 
     // At this point both storages and the status DB are all in sync.
 
-    storage_a.destroy_collection(first.href()).await.unwrap();
+    storage_a.delete_collection(first.href()).await.unwrap();
 
     let plan = Plan::new(&pair, Some(&status)).await.unwrap();
     assert!(plan.collection_plans.is_empty());
@@ -422,7 +422,7 @@ async fn test_empty_on_delete_sync() {
 
     // At this point both storages and the status DB are all in sync.
 
-    storage_a.destroy_collection(first.href()).await.unwrap();
+    storage_a.delete_collection(first.href()).await.unwrap();
 
     let plan = Plan::new(&pair, Some(&status)).await.unwrap();
     assert_eq!(plan.collection_plans.len(), 1);

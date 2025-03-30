@@ -60,7 +60,7 @@ impl<S: Storage> Storage for ReadOnlyStorage<S> {
         Err(ErrorKind::ReadOnly.into())
     }
 
-    async fn destroy_collection(&self, _href: &str) -> Result<()> {
+    async fn delete_collection(&self, _href: &str) -> Result<()> {
         Err(ErrorKind::ReadOnly.into())
     }
 
@@ -80,7 +80,7 @@ impl<S: Storage> Storage for ReadOnlyStorage<S> {
         self.0.get_all_items(collection_href).await
     }
 
-    async fn add_item(&self, _: &str, _: &Item) -> Result<ItemVersion> {
+    async fn create_item(&self, _: &str, _: &Item) -> Result<ItemVersion> {
         Err(ErrorKind::ReadOnly.into())
     }
 

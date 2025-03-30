@@ -109,7 +109,7 @@ impl Storage for VdirStorage {
         Ok(Collection::new(href.to_string()))
     }
 
-    async fn destroy_collection(&self, href: &str) -> Result<()> {
+    async fn delete_collection(&self, href: &str) -> Result<()> {
         let path = build_collection_path(&self.path, href)?;
         remove_dir(path).await.map_err(Error::from)
     }
@@ -219,7 +219,7 @@ impl Storage for VdirStorage {
         }
     }
 
-    async fn add_item(&self, collection_href: &str, item: &Item) -> Result<ItemVersion> {
+    async fn create_item(&self, collection_href: &str, item: &Item) -> Result<ItemVersion> {
         // No lock is used for creating a new file; races are only possible when it already exists.
         let basename = item
             .ident()
@@ -550,7 +550,7 @@ mod tests {
         storage.delete_item("one/item.ics", &etag).await.unwrap();
 
         let item = Item::from(without_prodid);
-        storage.add_item("one", &item).await.unwrap();
+        storage.create_item("one", &item).await.unwrap();
 
         let all_items = storage.get_all_items(collection_name).await.unwrap();
         assert_eq!(all_items.len(), 1);
@@ -700,7 +700,7 @@ mod tests {
         .join("\r\n");
         let item = Item::from(valid);
         storage.create_collection("one").await.unwrap();
-        let item_ver = storage.add_item("one", &item).await.unwrap();
+        let item_ver = storage.create_item("one", &item).await.unwrap();
         assert_eq!(
             item_ver.href,
             "one/11bb6bed-c29b-4999-a627-12dee35f8395.ics"
@@ -729,7 +729,7 @@ mod tests {
         .join("\r\n");
         let item = Item::from(valid);
         storage.create_collection("one").await.unwrap();
-        let item_ver = storage.add_item("one", &item).await.unwrap();
+        let item_ver = storage.create_item("one", &item).await.unwrap();
         assert_eq!(item_ver.href, "one/theseslashesarenotokay.ics");
     }
 }

@@ -158,7 +158,7 @@ where
     }
 
     /// Unsupported for this storage type.
-    async fn destroy_collection(&self, _: &str) -> Result<()> {
+    async fn delete_collection(&self, _: &str) -> Result<()> {
         Err(Error::new(
             ErrorKind::Unsupported,
             "destroying collections via webcal is not supported",
@@ -276,7 +276,7 @@ where
     }
 
     /// Unsupported for this storage type.
-    async fn add_item(&self, _collection: &str, _: &Item) -> Result<ItemVersion> {
+    async fn create_item(&self, _collection: &str, _: &Item) -> Result<ItemVersion> {
         Err(Error::new(
             ErrorKind::Unsupported,
             "adding items via webcal is not supported",
