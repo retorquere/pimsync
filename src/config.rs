@@ -449,7 +449,7 @@ fn parse_vdir(mut config: Scfg, item_kind: ItemKind) -> anyhow::Result<Arc<dyn S
     if config.remove("encoding").is_some() {
         // I don't want to implement a feature that is potentially unused.
         // If someone really needs this, it's doable.
-        error!("Vdir storage does no implement 'encoding' in v2.0.0.");
+        error!("Pimsync does not implement 'encoding' for vdir storages.");
         error!("If you need to define a specific encoding, please open an issue.");
         bail!("'encoding' is not implemented for vdir storages.");
     }
