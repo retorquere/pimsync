@@ -111,6 +111,13 @@ impl Storage for VdirStorage {
 
     async fn delete_collection(&self, href: &str) -> Result<()> {
         let path = build_collection_path(&self.path, href)?;
+        for prop in Property::known_properties(self.kind) {
+            if let Err(err) = self.unset_property(href, *prop).await {
+                if err.kind != ErrorKind::DoesNotExist {
+                    return Err(err);
+                }
+            };
+        }
         remove_dir(path).await.map_err(Error::from)
     }
 
