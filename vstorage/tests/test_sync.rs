@@ -248,12 +248,174 @@ async fn test_sync_none() {
     std::fs::remove_dir_all(populated_path).unwrap();
     std::fs::remove_dir_all(empty_path).unwrap();
 }
-// TODO: create in both sides, sync once, then:
-// - delete in a, check deletion after syn
-// - delete in b, check deletion after syn
-// - update in a, check deletion after syn
-// - update in b, check deletion after syn
-// - create new in a...
+
+#[tokio::test]
+async fn sync_deletion_from_a() {
+    let path_a = temporary_path();
+    let path_b = temporary_path();
+    create_dir(&path_a).unwrap();
+    create_dir(&path_b).unwrap();
+    let storage_a = Arc::new(VdirStorage::new(path_a, "ics".into(), ItemKind::Calendar));
+    let storage_b = Arc::new(VdirStorage::new(path_b, "ics".into(), ItemKind::Calendar));
+
+    storage_a.create_collection("my-calendar").await.unwrap();
+    storage_b.create_collection("my-calendar").await.unwrap();
+    let item = &minimal_icalendar("First calendar event one")
+        .unwrap()
+        .into();
+    let opts = CreateItemOptions {
+        href: Some("hello.ics".to_string()),
+    };
+    let item_a = storage_a
+        .create_item("my-calendar", item, opts.clone())
+        .await
+        .unwrap();
+    storage_b
+        .create_item("my-calendar", item, opts)
+        .await
+        .unwrap();
+
+    let pair = StoragePair::new(storage_a.clone(), storage_b.clone())
+        .with_all_from_b()
+        .on_empty(OnEmpty::Sync);
+    let status = StatusDatabase::open_or_create(":memory:").unwrap();
+    let plan = Plan::new(&pair, Some(&status)).await.unwrap();
+    Executor::new(drop).plan(plan, &status).await.unwrap();
+
+    // Both storages in sync with an updated status database.
+
+    storage_a
+        .delete_item(&item_a.href, &item_a.etag)
+        .await
+        .unwrap();
+    let plan = Plan::new(&pair, Some(&status)).await.unwrap();
+
+    assert!(matches!(
+        plan.collection_plans[0].items[0],
+        ItemAction::Delete { side: Side::B, .. }
+    ));
+    Executor::new(drop).plan(plan, &status).await.unwrap();
+
+    let count = storage_b.get_all_items("my-calendar").await.unwrap().len();
+    assert_eq!(count, 0);
+}
+
+#[tokio::test]
+async fn sync_deletion_from_b() {
+    let path_a = temporary_path();
+    let path_b = temporary_path();
+    create_dir(&path_a).unwrap();
+    create_dir(&path_b).unwrap();
+    let storage_a = Arc::new(VdirStorage::new(path_a, "ics".into(), ItemKind::Calendar));
+    let storage_b = Arc::new(VdirStorage::new(path_b, "ics".into(), ItemKind::Calendar));
+
+    storage_a.create_collection("my-calendar").await.unwrap();
+    storage_b.create_collection("my-calendar").await.unwrap();
+    let item = &minimal_icalendar("First calendar event one")
+        .unwrap()
+        .into();
+    let opts = CreateItemOptions {
+        href: Some("hello.ics".to_string()),
+    };
+    storage_a
+        .create_item("my-calendar", item, opts.clone())
+        .await
+        .unwrap();
+    let item_b = storage_b
+        .create_item("my-calendar", item, opts)
+        .await
+        .unwrap();
+
+    let pair = StoragePair::new(storage_a.clone(), storage_b.clone())
+        .with_all_from_b()
+        .on_empty(OnEmpty::Sync);
+    let status = StatusDatabase::open_or_create(":memory:").unwrap();
+    let plan = Plan::new(&pair, Some(&status)).await.unwrap();
+    Executor::new(drop).plan(plan, &status).await.unwrap();
+
+    // Both storages in sync with an updated status database.
+
+    storage_b
+        .delete_item(&item_b.href, &item_b.etag)
+        .await
+        .unwrap();
+    let plan = Plan::new(&pair, Some(&status)).await.unwrap();
+
+    assert!(matches!(
+        plan.collection_plans[0].items[0],
+        ItemAction::Delete { side: Side::A, .. }
+    ));
+    Executor::new(drop).plan(plan, &status).await.unwrap();
+
+    let count = storage_a.get_all_items("my-calendar").await.unwrap().len();
+    assert_eq!(count, 0);
+}
+
+#[tokio::test]
+async fn sync_creation_from_a() {
+    let path_a = temporary_path();
+    let path_b = temporary_path();
+    create_dir(&path_a).unwrap();
+    create_dir(&path_b).unwrap();
+    let storage_a = Arc::new(VdirStorage::new(path_a, "ics".into(), ItemKind::Calendar));
+    let storage_b = Arc::new(VdirStorage::new(path_b, "ics".into(), ItemKind::Calendar));
+
+    storage_a.create_collection("my-calendar").await.unwrap();
+    let item = &minimal_icalendar("First calendar event one")
+        .unwrap()
+        .into();
+    storage_a
+        .create_item("my-calendar", item, CreateItemOptions::default())
+        .await
+        .unwrap();
+
+    let pair = StoragePair::new(storage_a.clone(), storage_b.clone()).with_all_from_a();
+    let status = StatusDatabase::open_or_create(":memory:").unwrap();
+    let plan = Plan::new(&pair, Some(&status)).await.unwrap();
+
+    assert!(matches!(
+        plan.collection_plans[0].items[0],
+        ItemAction::Create { side: Side::B, .. }
+    ));
+
+    Executor::new(drop).plan(plan, &status).await.unwrap();
+
+    let fetched = &storage_b.get_all_items("my-calendar").await.unwrap()[0];
+    assert_eq!(fetched.item.as_str(), item.as_str());
+}
+
+#[tokio::test]
+async fn sync_creation_from_b() {
+    let path_a = temporary_path();
+    let path_b = temporary_path();
+    create_dir(&path_a).unwrap();
+    create_dir(&path_b).unwrap();
+    let storage_a = Arc::new(VdirStorage::new(path_a, "ics".into(), ItemKind::Calendar));
+    let storage_b = Arc::new(VdirStorage::new(path_b, "ics".into(), ItemKind::Calendar));
+
+    storage_b.create_collection("my-calendar").await.unwrap();
+    let item = &minimal_icalendar("First calendar event one")
+        .unwrap()
+        .into();
+    storage_b
+        .create_item("my-calendar", item, CreateItemOptions::default())
+        .await
+        .unwrap();
+
+    let pair = StoragePair::new(storage_a.clone(), storage_b.clone()).with_all_from_b();
+    let status = StatusDatabase::open_or_create(":memory:").unwrap();
+    let plan = Plan::new(&pair, Some(&status)).await.unwrap();
+
+    assert!(matches!(
+        plan.collection_plans[0].items[0],
+        ItemAction::Create { side: Side::A, .. }
+    ));
+
+    Executor::new(drop).plan(plan, &status).await.unwrap();
+
+    let fetched = &storage_a.get_all_items("my-calendar").await.unwrap()[0];
+    assert_eq!(fetched.item.as_str(), item.as_str());
+}
 
 #[tokio::test]
 async fn test_empty_on_empty_skip() {
