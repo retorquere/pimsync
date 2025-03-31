@@ -518,7 +518,7 @@ mod tests {
     use tokio::fs::read_to_string;
 
     #[tokio::test]
-    async fn test_missing_displayname() {
+    async fn missing_displayname() {
         let dir = tempdir().unwrap();
 
         let storage = VdirStorage::new(
@@ -536,7 +536,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_path_handling() {
+    async fn path_concatenation() {
         let dir = tempdir().unwrap();
         let storage = VdirStorage::new(
             dir.path().to_path_buf().try_into().unwrap(),
@@ -588,7 +588,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_missing_paths() {
+    async fn missing_paths() {
         let dir = tempdir().unwrap();
         let storage = VdirStorage::new(
             dir.path().to_path_buf().try_into().unwrap(),
@@ -605,7 +605,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_write_read_colour() {
+    async fn write_read_colour() {
         let dir = tempdir().unwrap();
         let storage = VdirStorage::new(
             dir.path().to_path_buf().try_into().unwrap(),
@@ -630,7 +630,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_read_missing_description() {
+    async fn read_missing_description() {
         let dir = tempdir().unwrap();
         let storage = VdirStorage::new(
             dir.path().to_path_buf().try_into().unwrap(),
@@ -684,7 +684,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_href_for_collection_id() {
+    async fn href_for_collection_id() {
         let dir = tempdir().unwrap();
         let storage = VdirStorage::new(
             dir.path().to_path_buf().try_into().unwrap(),
@@ -698,7 +698,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_build_collection_path_is_safe() {
+    async fn build_collection_path_is_safe() {
         let dir = tempdir().unwrap();
         let root = dir.path().try_into().unwrap();
 
@@ -715,7 +715,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_build_item_path_is_safe() {
+    async fn build_item_path_is_safe() {
         let dir = tempdir().unwrap();
         let root = dir.path().try_into().unwrap();
         let extension = "ics";
