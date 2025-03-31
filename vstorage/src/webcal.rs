@@ -15,7 +15,10 @@ use hyper::body::Incoming;
 use tower::Service;
 
 use crate::{
-    base::{Collection, FetchedItem, FetchedProperty, Item, ItemVersion, Property, Storage},
+    base::{
+        Collection, CreateItemOptions, FetchedItem, FetchedProperty, Item, ItemVersion, Property,
+        Storage,
+    },
     disco::{DiscoveredCollection, Discovery},
     simple_component::Component,
     CollectionId, Error, ErrorKind, Etag, Href, Result,
@@ -276,7 +279,12 @@ where
     }
 
     /// Unsupported for this storage type.
-    async fn create_item(&self, _collection: &str, _: &Item) -> Result<ItemVersion> {
+    async fn create_item(
+        &self,
+        _collection: &str,
+        _: &Item,
+        _: CreateItemOptions,
+    ) -> Result<ItemVersion> {
         Err(Error::new(
             ErrorKind::Unsupported,
             "adding items via webcal is not supported",

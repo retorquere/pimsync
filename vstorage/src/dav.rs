@@ -11,7 +11,10 @@ use libdav::{
 };
 use log::warn;
 
-use crate::{base::ItemVersion, CollectionId, CollectionIdError, Error, ErrorKind, Result};
+use crate::{
+    base::{CreateItemOptions, Item, ItemVersion},
+    CollectionId, CollectionIdError, Error, ErrorKind, Result,
+};
 
 /// Generate a path for a collection expected to have id `id`.
 pub(crate) fn path_for_collection_in_home_set(home_set: &Uri, id: &str) -> String {
@@ -108,4 +111,71 @@ pub(crate) fn join_hrefs(collection_href: &str, item_href: &str) -> String {
     href.push('/');
     href.push_str(item_href);
     href
+}
+
+/// Returns false if a resource name has any reserved characters.
+///
+/// ```txt
+/// reserved    = gen-delims / sub-delims
+/// gen-delims  = ":" / "/" / "?" / "#" / "[" / "]" / "@"
+/// sub-delims  = "!" / "$" / "&" / "'" / "(" / ")"
+/// ```
+fn is_valid_resource_name(name: &str) -> bool {
+    static INVALID_CHARS: &str = ":/?#[]@!$&'()";
+    if name
+        .chars()
+        .any(|c| INVALID_CHARS.contains(c) || c.is_control())
+    {
+        return false;
+    }
+    if name == ".." || name.is_empty() {
+        return false;
+    }
+    true
+}
+
+pub(crate) fn name_for_creation(collection: &str, item: &Item, opts: CreateItemOptions) -> String {
+    if let Some(name) = opts.href {
+        if is_valid_resource_name(&name) {
+            return join_hrefs(collection, &name);
+        }
+    }
+    if let Some(name) = item.uid() {
+        if is_valid_resource_name(&name) {
+            return join_hrefs(collection, &name);
+        }
+    }
+    join_hrefs(collection, &item.hash().to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_valid_names() {
+        assert!(is_valid_resource_name("example"));
+        assert!(is_valid_resource_name("example.ics"));
+        assert!(is_valid_resource_name("resource-1"));
+        assert!(is_valid_resource_name("resource_1"));
+        assert!(is_valid_resource_name("contact.vcf"));
+        assert!(is_valid_resource_name("doc.pdf"));
+        assert!(is_valid_resource_name(".hidden"));
+        assert!(is_valid_resource_name("-party.ics"));
+        assert!(is_valid_resource_name("my event.ics"));
+        assert!(is_valid_resource_name("file\\name")); // TODO: review
+        assert!(is_valid_resource_name("file*")); // TODO: review
+    }
+
+    #[test]
+    fn test_invalid_names() {
+        assert!(!is_valid_resource_name(""));
+        assert!(!is_valid_resource_name("folder/file.txt"));
+        assert!(!is_valid_resource_name("path/../file"));
+        assert!(!is_valid_resource_name("path//file"));
+        assert!(!is_valid_resource_name("file\tname"));
+        assert!(!is_valid_resource_name("file\nname"));
+        assert!(!is_valid_resource_name("file?query"));
+        assert!(!is_valid_resource_name("file#fragment"));
+    }
 }

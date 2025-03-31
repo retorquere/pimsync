@@ -14,9 +14,12 @@ use libdav::CardDavClient;
 use tower::Service;
 
 use crate::addressbook::AddressBookProperty;
-use crate::base::{Collection, FetchedItem, FetchedProperty, Item, ItemVersion, Property, Storage};
+use crate::base::{
+    Collection, CreateItemOptions, FetchedItem, FetchedProperty, Item, ItemVersion, Property,
+    Storage,
+};
 use crate::dav::{
-    collection_href_for_item, collection_id_for_href, join_hrefs, parse_list_items,
+    collection_href_for_item, collection_id_for_href, name_for_creation, parse_list_items,
     path_for_collection_in_home_set,
 };
 use crate::disco::{DiscoveredCollection, Discovery};
@@ -228,9 +231,13 @@ where
         self.get_many_items(&hrefs).await
     }
 
-    async fn create_item(&self, collection_href: &str, item: &Item) -> Result<ItemVersion> {
-        let mut href = join_hrefs(collection_href, &item.ident());
-        // TODO: ident: .chars().filter(char::is_ascii_alphanumeric)
+    async fn create_item(
+        &self,
+        collection_href: &str,
+        item: &Item,
+        opts: CreateItemOptions,
+    ) -> Result<ItemVersion> {
+        let mut href = name_for_creation(collection_href, item, opts);
         if !Path::new(&href)
             .extension()
             .is_some_and(|ext| ext.eq_ignore_ascii_case("ics"))

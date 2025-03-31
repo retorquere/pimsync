@@ -14,6 +14,7 @@ use std::time::Duration;
 use async_trait::async_trait;
 
 use crate::base::Collection;
+use crate::base::CreateItemOptions;
 use crate::base::FetchedItem;
 use crate::base::FetchedProperty;
 use crate::base::Item;
@@ -80,7 +81,7 @@ impl<S: Storage> Storage for ReadOnlyStorage<S> {
         self.0.get_all_items(collection_href).await
     }
 
-    async fn create_item(&self, _: &str, _: &Item) -> Result<ItemVersion> {
+    async fn create_item(&self, _: &str, _: &Item, _: CreateItemOptions) -> Result<ItemVersion> {
         Err(ErrorKind::ReadOnly.into())
     }
 

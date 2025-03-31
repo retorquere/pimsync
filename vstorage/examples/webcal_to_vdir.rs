@@ -18,6 +18,7 @@ use http::Uri;
 use hyper_rustls::HttpsConnectorBuilder;
 use hyper_util::{client::legacy::Client as HyperClient, rt::TokioExecutor};
 use std::sync::Arc;
+use vstorage::base::CreateItemOptions;
 use vstorage::base::FetchedItem;
 use vstorage::base::Storage;
 use vstorage::vdir::VdirStorage;
@@ -76,9 +77,10 @@ async fn copy_collection(
         .await
         .expect("webcal remote has items")
     {
+        let opts = CreateItemOptions::default();
         count += 1;
         target_storage
-            .create_item(target_collection_href, &item)
+            .create_item(target_collection_href, &item, opts)
             .await
             .expect("write to local filesystem collection");
     }

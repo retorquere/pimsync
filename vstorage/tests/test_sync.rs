@@ -6,7 +6,7 @@ use camino::Utf8PathBuf;
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
 use std::fmt::Write;
 use std::sync::Arc;
-use vstorage::base::Storage;
+use vstorage::base::{CreateItemOptions, Storage};
 use vstorage::sync::declare::{OnDelete, OnEmpty, StoragePair, SyncedCollection};
 use vstorage::sync::execute::Executor;
 use vstorage::sync::plan::{CollectionAction, ItemAction, Plan};
@@ -49,31 +49,44 @@ async fn create_populated_storage(path: Utf8PathBuf) -> Arc<dyn Storage> {
     let item = &minimal_icalendar("First calendar event one")
         .unwrap()
         .into();
-    storage.create_item(first.href(), item).await.unwrap();
+    let opts = CreateItemOptions::default();
+    storage
+        .create_item(first.href(), item, opts.clone())
+        .await
+        .unwrap();
 
     let item = &minimal_icalendar("First calendar event two")
         .unwrap()
         .into();
-    storage.create_item(first.href(), item).await.unwrap();
+    storage
+        .create_item(first.href(), item, opts.clone())
+        .await
+        .unwrap();
     drop(first);
 
     let second = storage.create_collection("second-calendar").await.unwrap();
     let item = &minimal_icalendar("Second calendar event one")
         .unwrap()
         .into();
-    storage.create_item(second.href(), item).await.unwrap();
+    storage
+        .create_item(second.href(), item, opts.clone())
+        .await
+        .unwrap();
 
     let item = &minimal_icalendar("Second calendar event two")
         .unwrap()
         .into();
-    storage.create_item(second.href(), item).await.unwrap();
+    storage
+        .create_item(second.href(), item, opts.clone())
+        .await
+        .unwrap();
     drop(second);
 
     let third = storage.create_collection("third-calendar").await.unwrap();
     let item = &minimal_icalendar("Third calendar event one")
         .unwrap()
         .into();
-    storage.create_item(third.href(), item).await.unwrap();
+    storage.create_item(third.href(), item, opts).await.unwrap();
     drop(third);
 
     Arc::new(storage)
@@ -288,7 +301,11 @@ async fn test_empty_on_empty_skip() {
     let item = &minimal_icalendar("First calendar event one")
         .unwrap()
         .into();
-    let item_ver = storage_a.create_item(first.href(), item).await.unwrap();
+    let opts = CreateItemOptions::default();
+    let item_ver = storage_a
+        .create_item(first.href(), item, opts)
+        .await
+        .unwrap();
 
     let pair = StoragePair::new(storage_a.clone(), storage_b.clone())
         .with_all_from_a()
@@ -329,7 +346,11 @@ async fn test_empty_on_empty_sync() {
     let item = &minimal_icalendar("First calendar event one")
         .unwrap()
         .into();
-    let item_ver = storage_a.create_item(first.href(), item).await.unwrap();
+    let opts = CreateItemOptions::default();
+    let item_ver = storage_a
+        .create_item(first.href(), item, opts)
+        .await
+        .unwrap();
 
     let pair = StoragePair::new(storage_a.clone(), storage_b.clone())
         .with_all_from_a()

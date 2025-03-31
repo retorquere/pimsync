@@ -24,7 +24,10 @@ use tokio::sync::oneshot::{self, Sender};
 use tokio::sync::RwLock;
 
 use crate::atomic::AtomicFile;
-use crate::base::{Collection, FetchedItem, FetchedProperty, Item, ItemVersion, Property, Storage};
+use crate::base::{
+    Collection, CreateItemOptions, FetchedItem, FetchedProperty, Item, ItemVersion, Property,
+    Storage,
+};
 use crate::disco::{DiscoveredCollection, Discovery};
 use crate::watch::StorageMonitor;
 use crate::{CollectionId, Error, ErrorKind, Etag, Href, ItemKind, Result};
@@ -226,14 +229,14 @@ impl Storage for VdirStorage {
         }
     }
 
-    async fn create_item(&self, collection_href: &str, item: &Item) -> Result<ItemVersion> {
+    async fn create_item(
+        &self,
+        collection_href: &str,
+        item: &Item,
+        opts: CreateItemOptions,
+    ) -> Result<ItemVersion> {
         // No lock is used for creating a new file; races are only possible when it already exists.
-        let basename = item
-            .ident()
-            .chars()
-            // TODO: We only need to remove a few "illegal" characters, so this is a bit too strict.
-            .filter(|c| SAFE_FILENAME_CHARS.contains(*c))
-            .collect::<String>();
+        let basename = valid_creation_filename(item, opts);
 
         let filename = format!("{}.{}", basename, self.extension);
         let relpath = Utf8PathBuf::from(collection_href).join(filename);
@@ -342,6 +345,25 @@ impl VdirStorage {
             }
             (Property::Calendar(p), ItemKind::Calendar) => Ok(p.filename()),
         }
+    }
+}
+
+fn valid_creation_filename(item: &Item, opts: CreateItemOptions) -> String {
+    if let Some(name) = opts.href {
+        if name != "." && name != ".." && !name.is_empty() {
+            return name;
+        }
+    }
+    let name = item
+        .ident()
+        .chars()
+        // TODO: This is too strict; we only need to remove a few "illegal" characters.
+        .filter(|c| SAFE_FILENAME_CHARS.contains(*c))
+        .collect::<String>();
+    if name.is_empty() {
+        item.hash().to_string()
+    } else {
+        name
     }
 }
 
@@ -487,7 +509,7 @@ mod tests {
     };
 
     use crate::{
-        base::{Item, Storage},
+        base::{CreateItemOptions, Item, Storage},
         calendar::CalendarProperty,
         vdir::{build_collection_path, build_item_path, ItemKind, VdirStorage},
         CollectionId, ErrorKind,
@@ -557,7 +579,8 @@ mod tests {
         storage.delete_item("one/item.ics", &etag).await.unwrap();
 
         let item = Item::from(without_prodid);
-        storage.create_item("one", &item).await.unwrap();
+        let opts = CreateItemOptions::default();
+        storage.create_item("one", &item, opts).await.unwrap();
 
         let all_items = storage.get_all_items(collection_name).await.unwrap();
         assert_eq!(all_items.len(), 1);
@@ -707,7 +730,8 @@ mod tests {
         .join("\r\n");
         let item = Item::from(valid);
         storage.create_collection("one").await.unwrap();
-        let item_ver = storage.create_item("one", &item).await.unwrap();
+        let opts = CreateItemOptions::default();
+        let item_ver = storage.create_item("one", &item, opts).await.unwrap();
         assert_eq!(
             item_ver.href,
             "one/11bb6bed-c29b-4999-a627-12dee35f8395.ics"
@@ -736,7 +760,8 @@ mod tests {
         .join("\r\n");
         let item = Item::from(valid);
         storage.create_collection("one").await.unwrap();
-        let item_ver = storage.create_item("one", &item).await.unwrap();
+        let opts = CreateItemOptions::default();
+        let item_ver = storage.create_item("one", &item, opts).await.unwrap();
         assert_eq!(item_ver.href, "one/theseslashesarenotokay.ics");
     }
 }

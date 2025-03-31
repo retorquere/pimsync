@@ -135,7 +135,12 @@ pub trait Storage: Sync + Send {
     }
 
     /// Saves a new item into a given collection
-    async fn create_item(&self, collection: &str, item: &Item) -> Result<ItemVersion>;
+    async fn create_item(
+        &self,
+        collection: &str,
+        item: &Item,
+        opts: CreateItemOptions,
+    ) -> Result<ItemVersion>;
 
     /// Updates the contents of an existing item.
     async fn update_item(&self, href: &str, etag: &Etag, item: &Item) -> Result<Etag>;
@@ -166,6 +171,15 @@ pub trait Storage: Sync + Send {
     async fn monitor(&self, interval: Duration) -> Result<Box<dyn StorageMonitor>> {
         Ok(Box::new(IntervalMonitor::new(interval)) as Box<dyn StorageMonitor>)
     }
+}
+
+/// Options for [`Storage::create_item`].
+#[derive(Default, Clone)]
+pub struct CreateItemOptions {
+    /// Create the new item with resource name.
+    ///
+    /// Use this name as the last component in the item's path, if possible.
+    pub href: Option<String>,
 }
 
 /// Path to a collection (an address book or a calendar) inside a storage.

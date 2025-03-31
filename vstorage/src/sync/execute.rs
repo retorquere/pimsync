@@ -7,7 +7,7 @@
 use log::{debug, error, info, warn};
 
 use crate::{
-    base::{ItemVersion, Storage},
+    base::{CreateItemOptions, ItemVersion, Storage},
     disco::DiscoveredCollection,
     CollectionId, Href,
 };
@@ -311,7 +311,11 @@ async fn create_item(
     };
 
     let uid = item_data.ident();
-    let new_item = match dst_storage.create_item(target_collection, &item_data).await {
+    let opts = CreateItemOptions::default();
+    let new_item = match dst_storage
+        .create_item(target_collection, &item_data, opts)
+        .await
+    {
         Ok(i) => i,
         Err(err) => return Ok(Err(ExecutionError::Storage(err))),
     };

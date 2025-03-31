@@ -9,7 +9,7 @@ use hyper_util::{client::legacy::Client as HyperClient, rt::TokioExecutor};
 use libdav::{dav::WebDavClient, CalDavClient};
 use tower_http::auth::AddAuthorization;
 use vstorage::{
-    base::{FetchedItem, Storage},
+    base::{CreateItemOptions, FetchedItem, Storage},
     caldav::CalDavStorage,
     vdir::VdirStorage,
     ItemKind,
@@ -82,9 +82,10 @@ async fn copy_collection(
         .await
         .expect("webcal remote has items")
     {
+        let opts = CreateItemOptions::default();
         count += 1;
         target_storage
-            .create_item(target_collection_href, &item)
+            .create_item(target_collection_href, &item, opts)
             .await
             .expect("write to local filesystem collection");
     }
