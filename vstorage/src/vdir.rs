@@ -515,6 +515,7 @@ mod tests {
         CollectionId, ErrorKind,
     };
     use tempfile::tempdir;
+    use tokio::fs::read_to_string;
 
     #[tokio::test]
     async fn test_missing_displayname() {
@@ -596,13 +597,11 @@ mod tests {
         );
 
         let missing_collection = "two";
-        let err = match storage.list_items(missing_collection).await {
-            Ok(items) => panic!("expected error, got {} result.", items.len()),
-            Err(e) => e,
-        };
+        let err = storage.list_items(missing_collection).await.unwrap_err();
         assert_eq!(err.kind, ErrorKind::DoesNotExist);
 
-        // TODO: more tests on the missing collection
+        let err = storage.get_all_items(missing_collection).await.unwrap_err();
+        assert_eq!(err.kind, ErrorKind::DoesNotExist);
     }
 
     #[tokio::test]
@@ -650,9 +649,40 @@ mod tests {
         assert_eq!(description, None);
     }
 
-    // TODO: test writing and then checking the file
-    // TODO: test writing a file and then getting
-    //
+    #[tokio::test]
+    async fn write_and_read_description() {
+        let dir = tempdir().unwrap();
+        let storage = VdirStorage::new(
+            dir.path().to_path_buf().try_into().unwrap(),
+            "ics".to_string(),
+            ItemKind::Calendar,
+        );
+
+        let collection_name = "one";
+        storage.create_collection(collection_name).await.unwrap();
+
+        storage
+            .set_property(
+                collection_name,
+                CalendarProperty::Description.into(),
+                "Just a test",
+            )
+            .await
+            .unwrap();
+
+        // Getting should return the same value.
+        let description = storage
+            .get_property(collection_name, CalendarProperty::Description.into())
+            .await
+            .unwrap();
+        assert_eq!(description, Some("Just a test".into()));
+
+        // The right file contains the written value.
+        let expected_path = dir.path().join("one").join("description");
+        let value = read_to_string(expected_path).await.unwrap();
+        assert_eq!(value, "Just a test");
+    }
+
     #[tokio::test]
     async fn test_href_for_collection_id() {
         let dir = tempdir().unwrap();

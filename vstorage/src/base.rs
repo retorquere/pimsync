@@ -481,6 +481,7 @@ impl From<String> for Item {
 }
 
 /// Item fetched from a storage plus its metadata.
+#[derive(Debug)]
 pub struct FetchedItem {
     /// See [`Href`]
     pub href: Href,
