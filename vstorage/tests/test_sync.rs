@@ -14,6 +14,12 @@ use vstorage::sync::status::{Side, StatusDatabase};
 use vstorage::vdir::VdirStorage;
 use vstorage::ItemKind;
 
+fn temporary_path() -> Utf8PathBuf {
+    let mut p = std::env::temp_dir();
+    p.push(random_string(12));
+    Utf8PathBuf::try_from(p).unwrap()
+}
+
 fn random_string(len: usize) -> String {
     thread_rng()
         .sample_iter(Alphanumeric)
@@ -102,16 +108,8 @@ async fn create_empty_storage(path: Utf8PathBuf) -> Arc<dyn Storage> {
 
 #[tokio::test]
 async fn test_sync_only_declared_mappings() {
-    let populated_path = {
-        let mut p = std::env::temp_dir();
-        p.push(random_string(12));
-        Utf8PathBuf::try_from(p).unwrap()
-    };
-    let empty_path = {
-        let mut p = std::env::temp_dir();
-        p.push(random_string(12));
-        Utf8PathBuf::try_from(p).unwrap()
-    };
+    let populated_path = temporary_path();
+    let empty_path = temporary_path();
     let populated = create_populated_storage(populated_path.clone()).await;
     let empty = create_empty_storage(empty_path.clone()).await;
 
@@ -157,16 +155,8 @@ async fn test_sync_only_declared_mappings() {
 
 #[tokio::test]
 async fn test_sync_from_a() {
-    let populated_path = {
-        let mut p = std::env::temp_dir();
-        p.push(random_string(12));
-        Utf8PathBuf::try_from(p).unwrap()
-    };
-    let empty_path = {
-        let mut p = std::env::temp_dir();
-        p.push(random_string(12));
-        Utf8PathBuf::try_from(p).unwrap()
-    };
+    let populated_path = temporary_path();
+    let empty_path = temporary_path();
     let populated = create_populated_storage(populated_path.clone()).await;
     let empty = create_empty_storage(empty_path.clone()).await;
 
@@ -218,16 +208,8 @@ async fn test_sync_from_a() {
 
 #[tokio::test]
 async fn test_sync_from_b() {
-    let populated_path = {
-        let mut p = std::env::temp_dir();
-        p.push(random_string(12));
-        Utf8PathBuf::try_from(p).unwrap()
-    };
-    let empty_path = {
-        let mut p = std::env::temp_dir();
-        p.push(random_string(12));
-        Utf8PathBuf::try_from(p).unwrap()
-    };
+    let populated_path = temporary_path();
+    let empty_path = temporary_path();
     let populated = create_populated_storage(populated_path.clone()).await;
     let empty = create_empty_storage(empty_path.clone()).await;
 
@@ -247,16 +229,8 @@ async fn test_sync_from_b() {
 
 #[tokio::test]
 async fn test_sync_none() {
-    let populated_path = {
-        let mut p = std::env::temp_dir();
-        p.push(random_string(12));
-        Utf8PathBuf::try_from(p).unwrap()
-    };
-    let empty_path = {
-        let mut p = std::env::temp_dir();
-        p.push(random_string(12));
-        Utf8PathBuf::try_from(p).unwrap()
-    };
+    let populated_path = temporary_path();
+    let empty_path = temporary_path();
     let populated = create_populated_storage(populated_path.clone()).await;
     let empty = create_empty_storage(empty_path.clone()).await;
 
@@ -282,16 +256,8 @@ async fn test_sync_none() {
 
 #[tokio::test]
 async fn test_empty_on_empty_skip() {
-    let path_a = {
-        let mut p = std::env::temp_dir();
-        p.push(random_string(12));
-        Utf8PathBuf::try_from(p).unwrap()
-    };
-    let path_b = {
-        let mut p = std::env::temp_dir();
-        p.push(random_string(12));
-        Utf8PathBuf::try_from(p).unwrap()
-    };
+    let path_a = temporary_path();
+    let path_b = temporary_path();
     std::fs::create_dir(&path_a).unwrap();
     std::fs::create_dir(&path_b).unwrap();
     let storage_a = Arc::new(VdirStorage::new(path_a, "ics".into(), ItemKind::Calendar));
@@ -327,16 +293,8 @@ async fn test_empty_on_empty_skip() {
 
 #[tokio::test]
 async fn test_empty_on_empty_sync() {
-    let path_a = {
-        let mut p = std::env::temp_dir();
-        p.push(random_string(12));
-        Utf8PathBuf::try_from(p).unwrap()
-    };
-    let path_b = {
-        let mut p = std::env::temp_dir();
-        p.push(random_string(12));
-        Utf8PathBuf::try_from(p).unwrap()
-    };
+    let path_a = temporary_path();
+    let path_b = temporary_path();
     std::fs::create_dir(&path_a).unwrap();
     std::fs::create_dir(&path_b).unwrap();
     let storage_a = Arc::new(VdirStorage::new(path_a, "ics".into(), ItemKind::Calendar));
@@ -381,16 +339,8 @@ async fn test_empty_on_empty_sync() {
 
 #[tokio::test]
 async fn test_empty_on_delete_skip() {
-    let path_a = {
-        let mut p = std::env::temp_dir();
-        p.push(random_string(12));
-        Utf8PathBuf::try_from(p).unwrap()
-    };
-    let path_b = {
-        let mut p = std::env::temp_dir();
-        p.push(random_string(12));
-        Utf8PathBuf::try_from(p).unwrap()
-    };
+    let path_a = temporary_path();
+    let path_b = temporary_path();
     std::fs::create_dir(&path_a).unwrap();
     std::fs::create_dir(&path_b).unwrap();
     let storage_a = Arc::new(VdirStorage::new(path_a, "ics".into(), ItemKind::Calendar));
@@ -416,16 +366,8 @@ async fn test_empty_on_delete_skip() {
 
 #[tokio::test]
 async fn test_empty_on_delete_sync() {
-    let path_a = {
-        let mut p = std::env::temp_dir();
-        p.push(random_string(12));
-        Utf8PathBuf::try_from(p).unwrap()
-    };
-    let path_b = {
-        let mut p = std::env::temp_dir();
-        p.push(random_string(12));
-        Utf8PathBuf::try_from(p).unwrap()
-    };
+    let path_a = temporary_path();
+    let path_b = temporary_path();
     std::fs::create_dir(&path_a).unwrap();
     std::fs::create_dir(&path_b).unwrap();
     let storage_a = Arc::new(VdirStorage::new(path_a, "ics".into(), ItemKind::Calendar));
