@@ -5,6 +5,7 @@
 use camino::Utf8PathBuf;
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
 use std::fmt::Write;
+use std::fs::create_dir;
 use std::sync::Arc;
 use vstorage::base::{CreateItemOptions, Storage};
 use vstorage::sync::declare::{OnDelete, OnEmpty, StoragePair, SyncedCollection};
@@ -48,7 +49,7 @@ fn minimal_icalendar(summary: &str) -> anyhow::Result<String> {
 
 /// Create a storage with three calendars each one with a single event.
 async fn create_populated_storage(path: Utf8PathBuf) -> Arc<dyn Storage> {
-    std::fs::create_dir(&path).unwrap();
+    create_dir(&path).unwrap();
     let storage = VdirStorage::new(path, "ics".into(), ItemKind::Calendar);
 
     let first = storage.create_collection("first-calendar").await.unwrap();
@@ -99,7 +100,7 @@ async fn create_populated_storage(path: Utf8PathBuf) -> Arc<dyn Storage> {
 }
 
 async fn create_empty_storage(path: Utf8PathBuf) -> Arc<dyn Storage> {
-    std::fs::create_dir(&path).unwrap();
+    create_dir(&path).unwrap();
     let storage = VdirStorage::new(path, "ics".into(), ItemKind::Calendar);
     Arc::new(storage)
 }
@@ -258,8 +259,8 @@ async fn test_sync_none() {
 async fn test_empty_on_empty_skip() {
     let path_a = temporary_path();
     let path_b = temporary_path();
-    std::fs::create_dir(&path_a).unwrap();
-    std::fs::create_dir(&path_b).unwrap();
+    create_dir(&path_a).unwrap();
+    create_dir(&path_b).unwrap();
     let storage_a = Arc::new(VdirStorage::new(path_a, "ics".into(), ItemKind::Calendar));
     let storage_b = Arc::new(VdirStorage::new(path_b, "ics".into(), ItemKind::Calendar));
 
@@ -295,8 +296,8 @@ async fn test_empty_on_empty_skip() {
 async fn test_empty_on_empty_sync() {
     let path_a = temporary_path();
     let path_b = temporary_path();
-    std::fs::create_dir(&path_a).unwrap();
-    std::fs::create_dir(&path_b).unwrap();
+    create_dir(&path_a).unwrap();
+    create_dir(&path_b).unwrap();
     let storage_a = Arc::new(VdirStorage::new(path_a, "ics".into(), ItemKind::Calendar));
     let storage_b = Arc::new(VdirStorage::new(path_b, "ics".into(), ItemKind::Calendar));
 
@@ -341,8 +342,8 @@ async fn test_empty_on_empty_sync() {
 async fn test_empty_on_delete_skip() {
     let path_a = temporary_path();
     let path_b = temporary_path();
-    std::fs::create_dir(&path_a).unwrap();
-    std::fs::create_dir(&path_b).unwrap();
+    create_dir(&path_a).unwrap();
+    create_dir(&path_b).unwrap();
     let storage_a = Arc::new(VdirStorage::new(path_a, "ics".into(), ItemKind::Calendar));
     let storage_b = Arc::new(VdirStorage::new(path_b, "ics".into(), ItemKind::Calendar));
 
@@ -368,8 +369,8 @@ async fn test_empty_on_delete_skip() {
 async fn test_empty_on_delete_sync() {
     let path_a = temporary_path();
     let path_b = temporary_path();
-    std::fs::create_dir(&path_a).unwrap();
-    std::fs::create_dir(&path_b).unwrap();
+    create_dir(&path_a).unwrap();
+    create_dir(&path_b).unwrap();
     let storage_a = Arc::new(VdirStorage::new(path_a, "ics".into(), ItemKind::Calendar));
     let storage_b = Arc::new(VdirStorage::new(path_b, "ics".into(), ItemKind::Calendar));
 
