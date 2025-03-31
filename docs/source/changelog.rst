@@ -6,6 +6,9 @@ public API is still subject to change. This includes commands, arguments and
 configuration directives. Upon the release of v1.0.0, backwards incompatible
 changes will be avoided unless absolutely necessary.
 
+See the dedicated page for details on :ref:`monitoring for new releases
+<new-releases>`.
+
 v0.4.1
 ------
 

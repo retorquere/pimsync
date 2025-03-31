@@ -78,6 +78,8 @@ on the ``scdoc`` command. Running ``make build`` produces the manual pages
 alongside the main binary. They can be built independently by running ``make
 man``.
 
+.. _new-releases:
+
 New releases
 ------------
 
