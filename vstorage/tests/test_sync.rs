@@ -108,7 +108,7 @@ async fn create_empty_storage(path: Utf8PathBuf) -> Arc<dyn Storage> {
 // TODO: maybe "second calendar" should exist in side B for these to make more sense.
 
 #[tokio::test]
-async fn test_sync_only_declared_mappings() {
+async fn sync_only_declared_mappings() {
     let populated_path = temporary_path();
     let empty_path = temporary_path();
     let populated = create_populated_storage(populated_path.clone()).await;
@@ -155,7 +155,7 @@ async fn test_sync_only_declared_mappings() {
 }
 
 #[tokio::test]
-async fn test_sync_from_a() {
+async fn sync_from_a() {
     let populated_path = temporary_path();
     let empty_path = temporary_path();
     let populated = create_populated_storage(populated_path.clone()).await;
@@ -208,7 +208,7 @@ async fn test_sync_from_a() {
 }
 
 #[tokio::test]
-async fn test_sync_from_b() {
+async fn sync_from_b() {
     let populated_path = temporary_path();
     let empty_path = temporary_path();
     let populated = create_populated_storage(populated_path.clone()).await;
@@ -229,7 +229,7 @@ async fn test_sync_from_b() {
 }
 
 #[tokio::test]
-async fn test_sync_none() {
+async fn sync_none() {
     let populated_path = temporary_path();
     let empty_path = temporary_path();
     let populated = create_populated_storage(populated_path.clone()).await;
@@ -418,7 +418,7 @@ async fn sync_creation_from_b() {
 }
 
 #[tokio::test]
-async fn test_empty_on_empty_skip() {
+async fn empty_on_empty_skip() {
     let path_a = temporary_path();
     let path_b = temporary_path();
     create_dir(&path_a).unwrap();
@@ -455,7 +455,7 @@ async fn test_empty_on_empty_skip() {
 }
 
 #[tokio::test]
-async fn test_empty_on_empty_sync() {
+async fn empty_on_empty_sync() {
     let path_a = temporary_path();
     let path_b = temporary_path();
     create_dir(&path_a).unwrap();
@@ -501,7 +501,7 @@ async fn test_empty_on_empty_sync() {
 }
 
 #[tokio::test]
-async fn test_empty_on_delete_skip() {
+async fn empty_on_delete_skip() {
     let path_a = temporary_path();
     let path_b = temporary_path();
     create_dir(&path_a).unwrap();
@@ -528,7 +528,7 @@ async fn test_empty_on_delete_skip() {
 }
 
 #[tokio::test]
-async fn test_empty_on_delete_sync() {
+async fn empty_on_delete_sync() {
     let path_a = temporary_path();
     let path_b = temporary_path();
     create_dir(&path_a).unwrap();
