@@ -188,6 +188,55 @@ mechanism as used in the :ref:`usage with a secret storage service
      }
    }
 
+Protections against deletion
+----------------------------
+
+Pimsync features two configurable mechanisms to protect from accidental deletion of data.
+
+Emptied collection
+..................
+
+The ``on_empty`` configuration directive controls which action to take when one
+collection has been completely emptied. The default value is ``skip``, which means
+that an emptied collection is skipped instead of synchronised. The other
+possible value is ``sync``.
+
+Let's assume a typical setup: a local vdir is being synchronised with a remote
+CalDAV server. If we delete all items inside a local collection, then…
+
+- ``on_empty skip`` will prevent deletion of items in the remote collection.
+  Instead, a pimsync shall display a warning message. This prevents
+  accidentally deleting all remote data when deleting all local data.
+- ``on_empty sync`` will perform a "normal" synchronisation, which in this case
+  would completely empty the remote collection.
+
+Deleted collection
+..................
+
+The ``on_delete`` configuration directive controls what happens when a
+collection itself is deleted. Only empty collections are deleted, so the value
+of the ``on_empty`` setting has an indirect impact on this scenario as well.
+
+- ``on_delete sync`` will synchronise deletion of collections. Only empty
+  collecitons are ever deleted, so this setting only deletes collections if
+  they were manually emptied on both sides, or when using ``on_empty sync``.
+- ``on_delete skip`` will skip deletion of collections.
+
+Wiping and starting over
+------------------------
+
+Because pimsync keeps an internal status database, simply deleting all data
+from one storage won't restore all of it from the other one. Usually the
+deletion protection mentioned above would kick in.
+
+In a scenario where you want to delete all local data and have it recreated
+from the remote server, the following steps should be taken:
+
+1. Ensure that ``pimsync daemon`` is not running, and that no automated
+   mechanism would trigger a synchronisation.
+2. Delete all data for the local storage.
+3. Delete the status database for the corresponding pair.
+
 Further topics
 --------------
 
