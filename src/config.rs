@@ -21,7 +21,7 @@ use hyper_util::{
     rt::TokioExecutor,
 };
 use libdav::{dav::WebDavClient, CalDavClient, CardDavClient};
-use log::{debug, error, info};
+use log::{debug, error, info, warn};
 use rustls::{client::danger::DangerousClientConfigBuilder, ClientConfig, RootCertStore};
 use scfg::{Directive, Scfg};
 use tokio::{
@@ -32,6 +32,7 @@ use vstorage::{
     base::Storage,
     caldav::CalDavStorage,
     carddav::CardDavStorage,
+    readonly::ReadOnlyStorage,
     sync::declare::{CollectionDescription, OnDelete, OnEmpty, StoragePair, SyncedCollection},
     vdir::VdirStorage,
     webcal::WebCalStorage,
@@ -265,12 +266,20 @@ fn parse_collections_directive(params: &str) -> anyhow::Result<Collections> {
 async fn init_storage(mut config: Scfg, name: &str) -> anyhow::Result<(EitherStorage, Duration)> {
     let type_ = take_single_param_from_directive(&mut config, "type")?;
     let interval = parse_interval(&mut config)?;
+    let ro = if let Some(mut ro) = take_single_directive(&mut config, "read-only")? {
+        if ro.take_params().into_iter().next().is_some() {
+            bail!("the read-only directive takes no parameters")
+        }
+        true
+    } else {
+        false
+    };
     let storage = match type_.as_ref() {
-        "vdir/icalendar" => EitherStorage::Calendar(parse_vdir(config, ItemKind::Calendar)?),
-        "vdir/vcard" => EitherStorage::AddressBook(parse_vdir(config, ItemKind::AddressBook)?),
-        "carddav" => EitherStorage::AddressBook(parse_carddav(config).await?),
-        "caldav" => EitherStorage::Calendar(parse_caldav(config).await?),
-        "webcal" => EitherStorage::Calendar(parse_webcal(config)?),
+        "vdir/icalendar" => EitherStorage::Calendar(parse_vdir(config, ItemKind::Calendar, ro)?),
+        "vdir/vcard" => EitherStorage::AddressBook(parse_vdir(config, ItemKind::AddressBook, ro)?),
+        "carddav" => EitherStorage::AddressBook(parse_carddav(config, ro).await?),
+        "caldav" => EitherStorage::Calendar(parse_caldav(config, ro).await?),
+        "webcal" => EitherStorage::Calendar(parse_webcal(config, ro)?),
         _ => bail!("Unknown storage type: {type_}"),
     };
 
@@ -438,7 +447,7 @@ impl EitherStorage {
     }
 }
 
-fn parse_vdir(mut config: Scfg, item_kind: ItemKind) -> anyhow::Result<Arc<dyn Storage>> {
+fn parse_vdir(mut config: Scfg, item_kind: ItemKind, ro: bool) -> anyhow::Result<Arc<dyn Storage>> {
     let path = take_single_param_from_directive(&mut config, "path")?.into();
     let path = expand_tilde(path).context("Expanding tilde for storage")?;
 
@@ -454,7 +463,7 @@ fn parse_vdir(mut config: Scfg, item_kind: ItemKind) -> anyhow::Result<Arc<dyn S
         bail!("'encoding' is not implemented for vdir storages.");
     }
 
-    Ok(Arc::new(VdirStorage::new(path, fileext, item_kind)))
+    Ok(into_arc(VdirStorage::new(path, fileext, item_kind), ro))
 }
 
 type NetworkWebDav =
@@ -463,33 +472,33 @@ type NetworkWebDav =
 type UnixSocketWebDav =
     WebDavClient<UserAgent<AddAuthorization<HyperClient<hyperlocal::UnixConnector, String>>>>;
 
-async fn parse_carddav(mut config: Scfg) -> anyhow::Result<Arc<dyn Storage>> {
+async fn parse_carddav(mut config: Scfg, ro: bool) -> anyhow::Result<Arc<dyn Storage>> {
     let url = take_single_param_from_directive(&mut config, "url")?;
 
     if let Some(socket) = url.strip_prefix("unix://") {
         let webdav = parse_socket_webdav_client(config, socket)?;
         let client = CardDavClient::new(webdav);
-        Ok(Arc::new(CardDavStorage::new(client).await?))
+        Ok(into_arc(CardDavStorage::new(client).await?, ro))
     } else {
         let url = url.parse().context("Parsing carddav url")?;
         let webdav = parse_webdav_client(config, url)?;
         let client = CardDavClient::bootstrap_via_service_discovery(webdav).await?;
-        Ok(Arc::new(CardDavStorage::new(client).await?))
+        Ok(into_arc(CardDavStorage::new(client).await?, ro))
     }
 }
 
-async fn parse_caldav(mut config: Scfg) -> anyhow::Result<Arc<dyn Storage>> {
+async fn parse_caldav(mut config: Scfg, ro: bool) -> anyhow::Result<Arc<dyn Storage>> {
     let url = take_single_param_from_directive(&mut config, "url")?;
 
     if let Some(socket) = url.strip_prefix("unix://") {
         let webdav = parse_socket_webdav_client(config, socket)?;
         let client = CalDavClient::new(webdav);
-        Ok(Arc::new(CalDavStorage::new(client).await?))
+        Ok(into_arc(CalDavStorage::new(client).await?, ro))
     } else {
         let url = url.parse().context("Parsing caldav url")?;
         let webdav = parse_webdav_client(config, url)?;
         let client = CalDavClient::bootstrap_via_service_discovery(webdav).await?;
-        Ok(Arc::new(CalDavStorage::new(client).await?))
+        Ok(into_arc(CalDavStorage::new(client).await?, ro))
     }
 }
 
@@ -544,7 +553,11 @@ fn default_user_agent() -> HeaderValue {
         .expect("default UA is a valid header value")
 }
 
-fn parse_webcal(mut config: Scfg) -> anyhow::Result<Arc<dyn Storage>> {
+fn parse_webcal(mut config: Scfg, ro: bool) -> anyhow::Result<Arc<dyn Storage>> {
+    if ro {
+        warn!("The read-only flag has no effect for Webcal; it is always read only.");
+    }
+
     let url = take_single_param_from_directive(&mut config, "url")
         .context("Webcal storage must define a url")?
         .parse()?;
@@ -973,6 +986,14 @@ pub(crate) fn open_default_path() -> anyhow::Result<(PathBuf, File)> {
         File::open(&path).with_context(|| format!("Could not open {}.", path.to_string_lossy()))?;
     debug!("Opened config file {}", path.to_string_lossy());
     Ok((path, file))
+}
+
+fn into_arc<S: Storage + 'static>(storage: S, read_only: bool) -> Arc<dyn Storage> {
+    if read_only {
+        Arc::new(ReadOnlyStorage::from(storage))
+    } else {
+        Arc::new(storage)
+    }
 }
 
 #[cfg(test)]
