@@ -194,7 +194,7 @@ pub struct CreateItemOptions {
     /// Create the new item with resource name.
     ///
     /// Use this name as the last component in the item's path, if possible.
-    pub href: Option<String>,
+    pub href: Option<Href>,
 }
 
 /// Path to a collection (an address book or a calendar) inside a storage.
