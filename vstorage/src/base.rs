@@ -74,6 +74,7 @@ pub trait Storage: Sync + Send {
 
     /// List all properties of a collection.
     async fn list_properties(&self, collection_href: &str) -> Result<Vec<FetchedProperty>> {
+        // TODO: should run concurrency (requires storage implementations to handle throughput).
         let properties = Property::known_properties(self.item_kind());
         let mut result = Vec::with_capacity(properties.len());
         for &property in properties {
@@ -114,6 +115,7 @@ pub trait Storage: Sync + Send {
     /// The default implementation is usually not optimal, and implementations of this trait should
     /// override it.
     async fn get_many_items(&self, hrefs: &[&str]) -> Result<Vec<FetchedItem>> {
+        // TODO: should run concurrency (requires storage implementations to handle throughput).
         let mut items = Vec::with_capacity(hrefs.len());
         for href in hrefs {
             let item = self.get_item(href).await?;
@@ -133,6 +135,7 @@ pub trait Storage: Sync + Send {
     /// The default implementation is usually not optimal, and implementations of this trait should
     /// override it.
     async fn get_all_items(&self, collection: &str) -> Result<Vec<FetchedItem>> {
+        // TODO: should run concurrency (requires storage implementations to handle throughput).
         let item_vers = self.list_items(collection).await?;
         let mut items = Vec::with_capacity(item_vers.len());
         for item_ver in item_vers {
