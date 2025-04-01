@@ -73,7 +73,16 @@ pub trait Storage: Sync + Send {
     async fn delete_collection(&self, href: &str) -> Result<()>;
 
     /// List all properties of a collection.
-    async fn list_properties(&self, collection_href: &str) -> Result<Vec<FetchedProperty>>;
+    async fn list_properties(&self, collection_href: &str) -> Result<Vec<FetchedProperty>> {
+        let properties = Property::known_properties(self.item_kind());
+        let mut result = Vec::with_capacity(properties.len());
+        for &property in properties {
+            if let Some(value) = self.get_property(collection_href, property).await? {
+                result.push(FetchedProperty { property, value });
+            }
+        }
+        Ok(result)
+    }
 
     /// Returns the value of a property for a given collection.
     async fn get_property(&self, href: &str, property: Property) -> Result<Option<String>>;
