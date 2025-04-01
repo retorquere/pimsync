@@ -64,6 +64,10 @@ const SAFE_FILENAME_CHARS: &str =
 
 #[async_trait]
 impl Storage for VdirStorage {
+    fn item_kind(&self) -> ItemKind {
+        self.kind
+    }
+
     async fn check(&self) -> Result<()> {
         let meta = metadata(&self.path)
             .await

@@ -51,6 +51,9 @@ pub const ICS_FIELDS_TO_IGNORE: &[&str] = &[
 pub trait Storage: Sync + Send {
     // TODO: Some calendar instances only allow a single item type (e.g.: events but not todos).
 
+    /// Return the kind of item this storage can handle.
+    fn item_kind(&self) -> ItemKind;
+
     /// Checks that the storage works. This includes validating credentials, and reachability.
     ///
     /// # Errors

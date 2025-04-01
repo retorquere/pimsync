@@ -23,7 +23,7 @@ use crate::dav::{
     path_for_collection_in_home_set,
 };
 use crate::disco::{DiscoveredCollection, Discovery};
-use crate::{CollectionId, Error, ErrorKind, Etag, Href, Result};
+use crate::{CollectionId, Error, ErrorKind, Etag, Href, ItemKind, Result};
 
 impl<C> CalDavStorage<C>
 where
@@ -74,6 +74,10 @@ where
     C::Error: std::error::Error + Send + Sync,
     C::Future: Send + Sync,
 {
+    fn item_kind(&self) -> ItemKind {
+        ItemKind::Calendar
+    }
+
     async fn check(&self) -> Result<()> {
         self.client
             .check_support(&self.client.base_url)

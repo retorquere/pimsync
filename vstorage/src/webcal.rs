@@ -21,7 +21,7 @@ use crate::{
     },
     disco::{DiscoveredCollection, Discovery},
     simple_component::Component,
-    CollectionId, Error, ErrorKind, Etag, Href, Result,
+    CollectionId, Error, ErrorKind, Etag, Href, ItemKind, Result,
 };
 
 /// A storage which exposes items in remote icalendar resource.
@@ -127,6 +127,10 @@ where
     C::Error: std::error::Error + Send + Sync,
     C::Future: Send + Sync,
 {
+    fn item_kind(&self) -> ItemKind {
+        ItemKind::Calendar
+    }
+
     /// Checks that the remove resource exists and whether it looks like an icalendar resource.
     async fn check(&self) -> Result<()> {
         // TODO: Should map status codes to io::Error. if 404 -> NotFound, etc.

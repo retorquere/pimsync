@@ -25,6 +25,7 @@ use crate::disco::Discovery;
 use crate::watch::StorageMonitor;
 use crate::CollectionId;
 use crate::Href;
+use crate::ItemKind;
 use crate::{ErrorKind, Etag, Result};
 
 /// A wrapper around a [`Storage`] that disallows any write operations.
@@ -49,6 +50,10 @@ pub struct ReadOnlyStorage<S: Storage>(S);
 
 #[async_trait]
 impl<S: Storage> Storage for ReadOnlyStorage<S> {
+    fn item_kind(&self) -> ItemKind {
+        self.0.item_kind()
+    }
+
     async fn check(&self) -> Result<()> {
         self.0.check().await
     }
