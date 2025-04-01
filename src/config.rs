@@ -120,17 +120,17 @@ impl Config {
                 // TODO: metadata
 
                 let status_path = status_dir.join(format!("{name}.status"));
-                match (storage_a, storage_b) {
-                    (EitherStorage::Calendar(_), EitherStorage::AddressBook(_)) => {
+                match (storage_a.item_kind(), storage_b.item_kind()) {
+                    (ItemKind::Calendar, ItemKind::AddressBook) => {
                         bail!("pair {} mixes calendar storage with contacts storage", name)
                     }
-                    (EitherStorage::AddressBook(_), EitherStorage::Calendar(_)) => {
+                    (ItemKind::AddressBook, ItemKind::Calendar) => {
                         bail!("pair {} mixes contacts storage with calendar storage", name)
                     }
-                    (EitherStorage::AddressBook(a), EitherStorage::AddressBook(b))
-                    | (EitherStorage::Calendar(a), EitherStorage::Calendar(b)) => Ok(NamedPair {
+                    (ItemKind::AddressBook, ItemKind::AddressBook)
+                    | (ItemKind::Calendar, ItemKind::Calendar) => Ok(NamedPair {
                         name,
-                        inner: init_pair(collections, (a, b), on_empty, on_delete),
+                        inner: init_pair(collections, (storage_a, storage_b), on_empty, on_delete),
                         status_path,
                         conflict_resolution,
                         names: (name_a, name_b),
@@ -161,7 +161,7 @@ enum LazyStorage {
     /// Notifier to await while the storage is initialised concurrently.
     Initialising(Arc<Notify>),
     /// Storage that has been initialised, plus the duration for its `monitor` interval.
-    Ready(EitherStorage, Duration),
+    Ready(Arc<dyn Storage>, Duration),
 }
 
 /// Build storages using configuration as input.
@@ -189,7 +189,10 @@ impl StorageBuilder {
     ///
     /// Only returns an error if the call to `init_storage` fails. Errors include the name of the
     /// failing storage, so can be bubbled up verbatim.
-    async fn get_storage(&self, storage_name: &str) -> anyhow::Result<(EitherStorage, Duration)> {
+    async fn get_storage(
+        &self,
+        storage_name: &str,
+    ) -> anyhow::Result<(Arc<dyn Storage>, Duration)> {
         let Some(value) = self.raw.get(storage_name) else {
             bail!("Storage {storage_name} is not defined.")
         };
@@ -263,7 +266,10 @@ fn parse_collections_directive(params: &str) -> anyhow::Result<Collections> {
 // TODO: changelog MUST mention the change in default behaviour here.
 
 /// Initialise a storage based on the given configuration.
-async fn init_storage(mut config: Scfg, name: &str) -> anyhow::Result<(EitherStorage, Duration)> {
+async fn init_storage(
+    mut config: Scfg,
+    name: &str,
+) -> anyhow::Result<(Arc<dyn Storage>, Duration)> {
     let type_ = take_single_param_from_directive(&mut config, "type")?;
     let interval = parse_interval(&mut config)?;
     let ro = if let Some(mut ro) = take_single_directive(&mut config, "read-only")? {
@@ -275,11 +281,11 @@ async fn init_storage(mut config: Scfg, name: &str) -> anyhow::Result<(EitherSto
         false
     };
     let storage = match type_.as_ref() {
-        "vdir/icalendar" => EitherStorage::Calendar(parse_vdir(config, ItemKind::Calendar, ro)?),
-        "vdir/vcard" => EitherStorage::AddressBook(parse_vdir(config, ItemKind::AddressBook, ro)?),
-        "carddav" => EitherStorage::AddressBook(parse_carddav(config, ro).await?),
-        "caldav" => EitherStorage::Calendar(parse_caldav(config, ro).await?),
-        "webcal" => EitherStorage::Calendar(parse_webcal(config, ro)?),
+        "vdir/icalendar" => parse_vdir(config, ItemKind::Calendar, ro)?,
+        "vdir/vcard" => parse_vdir(config, ItemKind::AddressBook, ro)?,
+        "carddav" => parse_carddav(config, ro).await?,
+        "caldav" => parse_caldav(config, ro).await?,
+        "webcal" => parse_webcal(config, ro)?,
         _ => bail!("Unknown storage type: {type_}"),
     };
 
@@ -431,20 +437,6 @@ enum Collections {
     FromB,
     Named(CollectionId),
     Mapped(String, CollectionDescription, CollectionDescription),
-}
-
-#[derive(Clone)] // Cheap clone; enum + Arc.
-pub(crate) enum EitherStorage {
-    Calendar(Arc<dyn Storage>),
-    AddressBook(Arc<dyn Storage>),
-}
-
-impl EitherStorage {
-    pub(crate) fn into_storage(self) -> Arc<dyn Storage> {
-        match self {
-            EitherStorage::Calendar(storage) | EitherStorage::AddressBook(storage) => storage,
-        }
-    }
 }
 
 fn parse_vdir(mut config: Scfg, item_kind: ItemKind, ro: bool) -> anyhow::Result<Arc<dyn Storage>> {
@@ -857,10 +849,7 @@ pub(crate) async fn parse_storages(
                 init_storage(child, &name)
                     .await
                     .with_context(|| format!("initialising storage {name}"))
-                    .map(|(either_storage, _)| {
-                        let storage = either_storage.into_storage();
-                        NamedStorage { name, storage }
-                    })
+                    .map(|(storage, _)| NamedStorage { name, storage })
             });
         }
     }
