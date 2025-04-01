@@ -22,7 +22,7 @@ pub(crate) struct Cli {
 
 /// Names by which to filter pairs or storages.
 ///
-/// Call `wants` to confirm if a name is wanted. Names are wanted only once.
+/// If no names are specified as filters, then all names are treated as wanted.
 pub struct FilterNames(Option<HashSet<String>>);
 
 impl FilterNames {
@@ -38,12 +38,12 @@ impl FilterNames {
 
     /// Returns `true` if the provided name is a wanted one.
     ///
-    /// Removes `name` from list of wanted items.
+    /// Removes `name` from list of wanted items; calling this a second time always returns `false`.
     pub fn wants(&mut self, name: &str) -> bool {
         if let Some(ref mut set) = &mut self.0 {
             set.remove(name)
         } else {
-            false
+            true
         }
     }
 
