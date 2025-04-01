@@ -9,6 +9,15 @@ changes will be avoided unless absolutely necessary.
 See the dedicated page for details on :ref:`monitoring for new releases
 <new-releases>`.
 
+v0.4.2
+------
+
+- Allow using the ``cmd`` syntax for vdir ``path`` directive.
+- Allow using the ``cmd`` syntax for CalDAV/CardDAV ``url`` directive.
+- Implement the ``repair`` command.
+- Fix deletion of vdir collections.
+- Ensure that new WebDAV resources has a proper extension.
+
 v0.4.1
 ------
 
