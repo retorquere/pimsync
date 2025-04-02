@@ -34,7 +34,6 @@ currently not available in pimsync:
   trivial.
 - All metadata is synchronised. Selecting individual fields is not currently
   possible.
-- The *readonly* configuration directive is not yet implemented.
 
 # CONFIGURATION FILE FORMAT
 
@@ -260,6 +259,11 @@ storage calendars_lessons {
 	}
 }
 ```
+
+# READ ONLY
+
+The *read_only* takes no values. Its presence makes a storage read only. To make
+a storage read-write, remove the directive.
 
 # STATUS
 

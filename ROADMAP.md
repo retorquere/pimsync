@@ -8,7 +8,6 @@ This document only lists pending tasks.
 - Ample test coverage for the synchronisation algorithm
 - Advanced storage settings
   - `partial_sync`
-  - `read_only` storages
   - `start_date` and `end_date`
   - `item_types`
   - `post_hook`
