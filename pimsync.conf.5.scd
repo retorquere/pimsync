@@ -71,7 +71,7 @@ The following directives apply to all storage types:
 	When monitoring a storage is no possible, check for changes every
 	the specified amount of seconds. The default is 300 seconds.
 
-*read-only*
+*read_only*
 	Do not perform any write operations on this storage.
 
 Storages of type *vdir* take the following directives:

@@ -272,9 +272,9 @@ async fn init_storage(
 ) -> anyhow::Result<(Arc<dyn Storage>, Duration)> {
     let type_ = take_single_param_from_directive(&mut config, "type")?;
     let interval = parse_interval(&mut config)?;
-    let ro = if let Some(mut ro) = take_single_directive(&mut config, "read-only")? {
+    let ro = if let Some(mut ro) = take_single_directive(&mut config, "read_only")? {
         if ro.take_params().into_iter().next().is_some() {
-            bail!("the read-only directive takes no parameters")
+            bail!("the read_only directive takes no parameters")
         }
         true
     } else {
@@ -547,7 +547,7 @@ fn default_user_agent() -> HeaderValue {
 
 fn parse_webcal(mut config: Scfg, ro: bool) -> anyhow::Result<Arc<dyn Storage>> {
     if ro {
-        warn!("The read-only flag has no effect for Webcal; it is always read only.");
+        warn!("The read_only flag has no effect for Webcal; it is always read only.");
     }
 
     let url = take_single_param_from_directive(&mut config, "url")

@@ -17,7 +17,7 @@ v0.4.2
 - Implement the ``repair`` command.
 - Fix deletion of vdir collections.
 - Ensure that new WebDAV resources has a proper extension.
-- Implement a ``read-only`` directive for storages.
+- Implement a ``read_only`` directive for storages.
 
 v0.4.1
 ------
