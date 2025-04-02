@@ -30,6 +30,7 @@ European Commission.
    advanced
    security
    man
+   contributing
    links
    changelog
    history
