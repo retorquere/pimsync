@@ -1,19 +1,5 @@
 This document only lists pending tasks.
 
-# Features missing for parity with 0.1.x
-
-- Conflict resolution UI improvements
-- Protect collections from deletion
-- Singlefile storage
-- Ample test coverage for the synchronisation algorithm
-- Advanced storage settings
-  - `partial_sync`
-  - `start_date` and `end_date`
-  - `item_types`
-  - `post_hook`
-  - `fileignoreext`
-- Google-specific storage extensions
-
 # Features for stable release
 
 - Security audit
