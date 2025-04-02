@@ -21,19 +21,21 @@ currently not available in pimsync:
   same way. A *mirror* is the most likely successor. With this directive set,
   pimsync(1) would make B a mirror of A. In this mode, exactly one storage MUST be
   defined a read_only.
-- Encodings other than UTF-8. There are no concrete plans for any specific
-  encoding at this time.
 - *post_hook* configuration parameter. Future versions might stream events, so
   external handlers can react to them instead.
-- *fileignoreext* configuration parameter. There are no plans to implement this
-  feature at this time.
 - *start_date*, *end_date* and *item_types* configuration parameters for CalDav
   storages. These are planned, but no specific time frame.
+
+The following features are not present and unlikely to be implemented without a
+compelling use case. Please reach out if your require some of these:
+
+- Encodings other than UTF-8.
 - The *singlefile* storage. There are no concrete plans at this time. The logic
   for extracting WebCal should make implementing this (in read-only mode)
   trivial.
 - All metadata is synchronised. Selecting individual fields is not currently
   possible.
+- *fileignoreext* configuration parameter.
 
 # CONFIGURATION FILE FORMAT
 
