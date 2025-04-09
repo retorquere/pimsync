@@ -25,14 +25,12 @@ currently not available in pimsync:
   external handlers can react to them instead.
 - *start_date*, *end_date* and *item_types* configuration parameters for CalDav
   storages. These are planned, but no specific time frame.
+- The *singlefile* storage.
 
 The following features are not present and unlikely to be implemented without a
 compelling use case. Please reach out if your require some of these:
 
 - Encodings other than UTF-8.
-- The *singlefile* storage. There are no concrete plans at this time. The logic
-  for extracting WebCal should make implementing this (in read-only mode)
-  trivial.
 - All metadata is synchronised. Selecting individual fields is not currently
   possible.
 - *fileignoreext* configuration parameter.
