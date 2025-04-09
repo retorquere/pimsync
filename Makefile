@@ -34,7 +34,6 @@ target/%.html: target/%
 	mandoc -T html -O style=man-style.css < '$<' | \
 	sed -E \
 		-e '1,20b' \
-		-e 's,(https://[^[:space:]]+),<a href="\1">\1</a>,g' \
 		-e 's,(pimsync[a-z\.\-]*)\(([0-9])\),<a href="\1.\2.html">\1(\2)</a>,g' \
 	> '$@'
 
