@@ -99,7 +99,7 @@ async fn create_populated_storage(path: Utf8PathBuf) -> Arc<dyn Storage> {
     Arc::new(storage)
 }
 
-async fn create_empty_storage(path: Utf8PathBuf) -> Arc<dyn Storage> {
+fn create_empty_storage(path: Utf8PathBuf) -> Arc<dyn Storage> {
     create_dir(&path).unwrap();
     let storage = VdirStorage::new(path, "ics".into(), ItemKind::Calendar);
     Arc::new(storage)
@@ -112,7 +112,7 @@ async fn sync_only_declared_mappings() {
     let populated_path = temporary_path();
     let empty_path = temporary_path();
     let populated = create_populated_storage(populated_path.clone()).await;
-    let empty = create_empty_storage(empty_path.clone()).await;
+    let empty = create_empty_storage(empty_path.clone());
 
     let first_mapping = SyncedCollection::direct("first-calendar".parse().unwrap());
     let second_mapping = SyncedCollection::direct("second-calendar".parse().unwrap());
@@ -159,7 +159,7 @@ async fn sync_from_a() {
     let populated_path = temporary_path();
     let empty_path = temporary_path();
     let populated = create_populated_storage(populated_path.clone()).await;
-    let empty = create_empty_storage(empty_path.clone()).await;
+    let empty = create_empty_storage(empty_path.clone());
 
     let pair = StoragePair::new(populated, empty).with_all_from_a();
     let plan = Plan::new(&pair, None).await.unwrap();
@@ -212,7 +212,7 @@ async fn sync_from_b() {
     let populated_path = temporary_path();
     let empty_path = temporary_path();
     let populated = create_populated_storage(populated_path.clone()).await;
-    let empty = create_empty_storage(empty_path.clone()).await;
+    let empty = create_empty_storage(empty_path.clone());
 
     let pair = StoragePair::new(populated, empty).with_all_from_b();
     let plan = Plan::new(&pair, None).await.unwrap();
@@ -233,7 +233,7 @@ async fn sync_none() {
     let populated_path = temporary_path();
     let empty_path = temporary_path();
     let populated = create_populated_storage(populated_path.clone()).await;
-    let empty = create_empty_storage(empty_path.clone()).await;
+    let empty = create_empty_storage(empty_path.clone());
 
     let pair = StoragePair::new(populated, empty);
     let plan = Plan::new(&pair, None).await.unwrap();

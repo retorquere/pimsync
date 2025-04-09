@@ -36,15 +36,16 @@ async fn create_caldav_from_env() -> Arc<dyn Storage> {
     Arc::from(storage)
 }
 
-async fn create_vdir_from_env() -> Arc<dyn Storage> {
+fn create_vdir_from_env() -> Arc<dyn Storage> {
     let path = std::env::var("VDIR_PATH").unwrap();
     let storage = VdirStorage::new(path.into(), "ics".to_string(), ItemKind::Calendar);
     Arc::new(storage)
 }
+
 #[tokio::main]
 async fn main() {
     let caldav_storage = create_caldav_from_env().await;
-    let vdir_storage = create_vdir_from_env().await;
+    let vdir_storage = create_vdir_from_env();
 
     let discovery = caldav_storage.discover_collections().await.unwrap();
 
