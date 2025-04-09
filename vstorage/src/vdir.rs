@@ -309,7 +309,7 @@ impl Storage for VdirStorage {
                     property: *property,
                     value,
                 });
-            };
+            }
         }
         Ok(props)
     }
@@ -396,13 +396,13 @@ fn build_collection_path(root: &Utf8Path, collection_href: &str) -> Result<Utf8P
             ErrorKind::InvalidInput,
             "collection href must be a valid directory name",
         ));
-    };
+    }
     if components.next().is_some() {
         return Err(Error::new(
             ErrorKind::InvalidInput,
             "collection href must contain exactly one component",
         ));
-    };
+    }
 
     Ok(root.join(href))
 }
@@ -419,7 +419,7 @@ fn build_item_path(root: &Utf8Path, extension: &str, href: &str) -> Result<Utf8P
             ErrorKind::InvalidInput,
             "first component of item href must be a regular filename",
         ));
-    };
+    }
     if let Some(Utf8Component::Normal(name)) = components.next() {
         let name = Utf8Path::new(name);
         if name.extension() != Some(extension) {
@@ -439,7 +439,7 @@ fn build_item_path(root: &Utf8Path, extension: &str, href: &str) -> Result<Utf8P
             ErrorKind::InvalidInput,
             "item href cannot contain more than two components",
         ));
-    };
+    }
 
     Ok(root.join(href))
 }

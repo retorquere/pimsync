@@ -59,7 +59,7 @@ pub async fn interactive_resolution(pair: NamedPair) -> anyhow::Result<()> {
                 println!("Skipping all remaining items for pair \"{}\".", pair.name);
                 return Ok(());
             }
-        };
+        }
         // TODO: should use pre-fetched data, if available.
         // TODO: improve logging here.
         info!("Running conflict resolution for item {}", a.uid);
@@ -108,7 +108,7 @@ fn continue_skip_or_quit() -> anyhow::Result<YesNoQuit> {
             "n" => return Ok(YesNoQuit::No),
             "q" => return Ok(YesNoQuit::Quit),
             _ => {}
-        };
+        }
     }
 }
 
@@ -224,6 +224,6 @@ async fn upload_resolved(
             try_join!(a, b)?;
             debug!("Uploaded resolved items.");
         }
-    };
+    }
     Ok(())
 }

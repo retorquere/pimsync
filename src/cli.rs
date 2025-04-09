@@ -73,7 +73,7 @@ impl Cli {
                                 match arg {
                                     Arg::Value(pair_name) => names.push(pair_name.string()?),
                                     _ => return Err(arg.unexpected()),
-                                };
+                                }
                             }
                             Some(Command::Check)
                         }
@@ -93,7 +93,7 @@ impl Cli {
                                     }
                                     Arg::Value(pair_name) => names.push(pair_name.string()?),
                                     _ => return Err(arg.unexpected()),
-                                };
+                                }
                             }
                             Some(Command::Daemon { ready_fd })
                         }
@@ -104,7 +104,7 @@ impl Cli {
                                     Arg::Short('n') => dry_run = true,
                                     Arg::Value(pair_name) => names.push(pair_name.string()?),
                                     _ => return Err(arg.unexpected()),
-                                };
+                                }
                             }
                             Some(Command::Sync { dry_run })
                         }
@@ -115,7 +115,7 @@ impl Cli {
                                     Arg::Short('n') => dry_run = true,
                                     Arg::Value(pair_name) => names.push(pair_name.string()?),
                                     _ => return Err(arg.unexpected()),
-                                };
+                                }
                             }
                             Some(Command::ResolveConflicts { dry_run })
                         }
@@ -124,7 +124,7 @@ impl Cli {
                                 match arg {
                                     Arg::Value(pair_name) => names.push(pair_name.string()?),
                                     _ => return Err(arg.unexpected()),
-                                };
+                                }
                             }
                             Some(Command::Discover)
                         }
@@ -133,7 +133,7 @@ impl Cli {
                                 match arg {
                                     Arg::Value(name) => names.push(name.string()?),
                                     _ => return Err(arg.unexpected()),
-                                };
+                                }
                             }
                             Some(Command::Repair)
                         }
@@ -143,7 +143,7 @@ impl Cli {
                     break;
                 }
                 _ => return Err(arg.unexpected()),
-            };
+            }
         }
 
         Ok(Cli {

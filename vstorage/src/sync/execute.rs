@@ -103,7 +103,7 @@ impl Executor {
                     let action = CollectionAction::Delete(mapping_uid, side);
                     (self.on_error)(SyncError::collection(action, mapping, err));
                 };
-            };
+            }
         }
 
         Ok(())
@@ -426,7 +426,7 @@ async fn create_collection(
 
     if let Err(err) = check_id_matches_expected(target.id(), storage, new.href(), side).await {
         return Ok(Err(err));
-    };
+    }
     let mapping_uid = match side {
         Side::A => status.add_collection(new.href(), existing.href()),
         Side::B => status.add_collection(existing.href(), new.href()),
@@ -451,14 +451,14 @@ async fn create_both_collections(
     };
     if let Err(err) = check_id_matches_expected(id_a, storage_a, new_a.href(), Side::A).await {
         return Ok(Err(err));
-    };
+    }
     let new_b = match storage_b.create_collection(href_b).await {
         Ok(c) => c,
         Err(err) => return Ok(Err(ExecutionError::Storage(err))),
     };
     if let Err(err) = check_id_matches_expected(id_b, storage_b, new_b.href(), Side::B).await {
         return Ok(Err(err));
-    };
+    }
 
     Ok(Ok(status.get_or_add_collection(href_a, href_b)?))
 }

@@ -839,7 +839,7 @@ pub(crate) async fn parse_storages(
             if !enabled_storages.wants(&name) {
                 debug!("Skipping storage {name}; not enabled.");
                 continue;
-            };
+            }
 
             let mut child = directive
                 .take_child()

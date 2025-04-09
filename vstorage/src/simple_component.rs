@@ -88,7 +88,7 @@ impl<'a> Component<'a> {
                 current.lines.push(line);
             } else {
                 return Err(ComponentError::DataOutsideBeginEnd);
-            };
+            }
         }
 
         Err(ComponentError::UnexpectedEof)

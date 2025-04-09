@@ -97,7 +97,7 @@ impl StorageMonitor for VdirMonitor {
                             error!("Could not re-initialise inotify: {err}");
                             self.events = None;
                         }
-                    };
+                    }
                     return Event::General;
                 };
 
@@ -150,7 +150,7 @@ impl StorageMonitor for VdirMonitor {
                                 error!("Could not re-initialise inotify: {err}");
                                 self.events = None;
                             }
-                        };
+                        }
                         return Event::General;
                     }
                     Either::Right(..) => return Event::General,

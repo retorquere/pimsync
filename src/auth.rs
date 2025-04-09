@@ -61,7 +61,7 @@ where
     fn call(&mut self, mut req: Request<Tx>) -> Self::Future {
         if let Some(value) = &self.value {
             req.headers_mut().insert(AUTHORIZATION, value.clone());
-        };
+        }
         self.inner.call(req)
     }
 }

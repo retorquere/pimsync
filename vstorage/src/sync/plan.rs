@@ -212,7 +212,7 @@ fn check_for_duplicate_mappings(mappings: &[ResolvedMapping]) -> Result<(), Plan
             }
         }) {
             return Err(conflict);
-        };
+        }
         seen.push((&mapping.a.href, &mapping.b.href));
     }
 
@@ -490,8 +490,8 @@ impl CollectionPlan {
         if let CollectionAction::Delete(uid, _) = collection_action {
             if pair.on_delete == OnDelete::Skip {
                 collection_action = CollectionAction::NoAction(uid);
-            };
-        };
+            }
+        }
 
         let property_actions = if let CollectionAction::Delete(_, _) = collection_action {
             Vec::new()

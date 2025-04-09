@@ -408,7 +408,7 @@ impl StatusDatabase {
         // If a uid was returned (just inserted) return that.
         if statement.next()? == State::Row {
             return Ok(MappingUid(statement.read::<i64, _>("uid")?));
-        };
+        }
 
         let query = "SELECT uid FROM collections WHERE href_a = ? AND href_b = ?";
         let mut statement = self.conn.prepare(query)?;

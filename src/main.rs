@@ -140,7 +140,7 @@ impl NamedPair {
                     debug!("Monitor for B yielded event {:?}", event);
                     // TODO: Build set of Changes based on received events.
                 }
-            };
+            }
             // TODO: Drain any remaining events in a non-blocking way (or with <100ms timeout).
             //       Handle batches of events together.
 
@@ -258,7 +258,7 @@ async fn main() -> anyhow::Result<()> {
     if let Command::Version = cli.command {
         println!("pimsync {VERSION}");
         return Ok(());
-    };
+    }
 
     simple_logger::SimpleLogger::new()
         .with_level(cli.log_level)
@@ -282,7 +282,7 @@ async fn main() -> anyhow::Result<()> {
         let storages = parse_storages(&config_data, cli.names).await?;
         info!("Parsed storages from config.");
         return repair_storages(storages).await;
-    };
+    }
 
     let config = parse_config(&config_data, cli.names).with_context(|| {
         format!(
@@ -301,7 +301,7 @@ async fn main() -> anyhow::Result<()> {
                 f.write_all(b"READY=1\n")
                     .context("writing to readiness fd")?;
                 // File is closed implicitly here.
-            };
+            }
             Err(daemon(pairs).await)
         }
         Command::Sync { dry_run } => sync(pairs, dry_run).await,

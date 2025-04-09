@@ -100,7 +100,7 @@ async fn repair_collection(storage: &dyn Storage, collection: &str, failed: Arc<
                 error!("Failed to update {}: {}.", fetched.href, err);
                 failed.fetch_add(1, Ordering::Relaxed);
                 continue;
-            };
+            }
             info!("Updated UID for {}.", fetched.href);
         }
     }
