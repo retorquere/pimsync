@@ -59,7 +59,7 @@ subdirectories contains individual vcard files, each representing one contact.
 A CalDAV server, containing calendars with events, todos and/or journal entries.
 .It Ic carddav
 A CardDAV server containing address books with contacts.
-.It Ic webcal.
+.It Ic webcal .
 An HTTP or HTTPS URL exposing a single iCalendar file which may contain zero or
 more events, todos or journal entries. This storage is read-only.
 .El
@@ -100,7 +100,7 @@ to find the exact location of the server and the home set collection.
 .Pp
 URLs must specify scheme
 .Cm http ,
-.Cm https.
+.Cm https .
 or
 .Cm unix .
 URLs starting in
@@ -134,7 +134,7 @@ URL of an icalendar file. This file may contain multiple calendar items. Scheme
 must be
 .Cm http
 or
-.Cm https.
+.Cm https .
 .Pp
 Supports
 .Sx DYNAMIC PARAMETERS
@@ -298,10 +298,10 @@ must be included:
 .Bl -tag -width xxxx
 .It Ic id_a Ar id
 Use collection with the id
-.Ar id.
+.Ar id .
 .It Ic href_a Ar href
 Use collection with the path
-.Ar href.
+.Ar href .
 .El
 .Pp
 Exactly one reference to a collection in
@@ -310,10 +310,10 @@ must be included:
 .Bl -tag -width xxxx
 .It Ic id_b Ar id
 Use collection with the id
-.Ar id.
+.Ar id .
 .It Ic href_b Ar href
 Use collection with the path
-.Ar href.
+.Ar href .
 .El
 .Pp
 For example, to synchronise a collection with id
@@ -354,7 +354,7 @@ configuration directive.
 .Pp
 Unless configured otherwise, collections with the same id on both storages are
 synchronised with each other.
-.Sh EXAMPLE
+.Sh EXAMPLES
 This example synchronises two storages with address books. The first is a local
 set of directories which contain vCard files, the second is a remote CardDAV
 servers. Credentials are supplied via the
@@ -431,7 +431,6 @@ The exact URL to the iCalendar file exposed via http is fetched via the
 tool, used to query the
 .Xr himitsu 7
 secret store.
-
 .Bd -literal -offset indent
 status_path "~/.local/share/pimsync/status/"
 
@@ -457,9 +456,9 @@ storage calendars_italki {
 }
 .Ed
 .Pp
-This example synchronises two storages with calendar data. The first is a CardDAV
-server, reached via a Unix domain socket. The second is storage uses a local
-filesystem with vCard files.
+This example synchronises two storages with calendar data. The first is a
+CardDAV server, reached via a Unix domain socket. The second is storage uses a
+local filesystem with vCard files.
 .Bd -literal -offset indent
 status_path "~/.local/share/pimsync/status/"
 
