@@ -37,6 +37,10 @@ target/%.html: target/%
 		-e 's,(pimsync[a-z\.\-]*)\(([0-9])\),<a href="\1.\2.html">\1(\2)</a>,g' \
 	> '$@'
 
+# FIXME: hack until all man pages are written as mdoc(7)
+target/pimsync.1: pimsync.1
+	cp pimsync.1 target/pimsync.1
+
 target/%: %.scd
 	mkdir -p target
 	scdoc < '$<' > '$@'
@@ -59,6 +63,7 @@ check:
 	cargo clippy --all-targets
 	cargo test --workspace  # includes examples and doctests
 	cargo doc  # fails on broken links
+	mandoc -W error < pimsync.1 > /dev/null
 
 # Rebuild docs as changes occur.
 watch-docs: html
