@@ -40,6 +40,8 @@ target/%.html: target/%
 # FIXME: hack until all man pages are written as mdoc(7)
 target/pimsync.1: pimsync.1
 	cp pimsync.1 target/pimsync.1
+target/pimsync.conf.5: pimsync.conf.5
+	cp pimsync.conf.5 target/pimsync.conf.5
 
 target/%: %.scd
 	mkdir -p target
@@ -64,6 +66,7 @@ check:
 	cargo test --workspace  # includes examples and doctests
 	cargo doc  # fails on broken links
 	mandoc -W error < pimsync.1 > /dev/null
+	mandoc -W error < pimsync.conf.5 > /dev/null
 
 # Rebuild docs as changes occur.
 watch-docs: html

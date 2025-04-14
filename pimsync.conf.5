@@ -1,0 +1,488 @@
+.Dd 2025-04-14
+.Dt PIMSYNC.CONF 5
+.\" TODO: replace the following line with the version at build time.
+.Os PIMSYNC
+.Sh NAME
+.Nm pimsync.conf
+.Nd configuration file for
+.Xr pimsync 1
+.Sh DESCRIPTION
+.Nm
+is divided into three main types of sections:
+.Bl -tag -width xxxx
+.It Sx GLOBAL CONFIGURATION
+Global settings for pimsync.
+.It Sx STORAGE SECTIONS
+Configuration for individual storages.
+.It Sx PAIR SECTIONS
+Rules for synchronising pairs of storages.
+.El
+.Pp
+See
+.Xr pimsync 1
+for details on the default path for the configuration file, and how to specify
+an alternative path.
+.Sh GLOBAL CONFIGURATION
+The following settings can be set globally:
+.Bl -tag -width xxxx
+.It Ic status_path Pa path
+Path to a directory which will contain the status database internally used by
+pimsync.
+.El
+.\" Defaults to *XDG_DATA_HOME/pimsync/status/*.
+.Sh STORAGE SECTIONS
+A storage describes a location where calendars or contacts are stored. Each
+storage is declared in its own section, and each storage section starts with a
+declaration of the storage name.
+.Bl -tag -width xxxx
+.It Ic storage Ar name Brq …
+Declare a storage with name
+.Ar name .
+.El
+.Pp
+Directives are declared inside the curly braces for each section, one per line.
+The following directives apply to all storage types:
+.Bl -tag -width xxxx
+.It Ic type Ar type
+Where
+.Ar type
+can be one of the following:
+.Bl -tag -width xxxx
+.It Ic vdir/icalendar
+A directory where each subdirectory represents a calendar. Each of these
+subdirectories contains individual icalendar files, each representing one event
+(or one series of recurring events), todo or journal entry.
+.It Ic vdir/vcard
+A directory where each subdirectory represents an address book. Each of these
+subdirectories contains individual vcard files, each representing one contact.
+.It Ic caldav
+A CalDAV server, containing calendars with events, todos and/or journal entries.
+.It Ic carddav
+A CardDAV server containing address books with contacts.
+.It Ic webcal.
+An HTTP or HTTPS URL exposing a single iCalendar file which may contain zero or
+more events, todos or journal entries. This storage is read-only.
+.El
+.It Ic interval Ar seconds
+When monitoring a storage is no possible, check for changes every the specified
+amount of seconds. The default is 300 seconds.
+.It Ic readonly
+Do not perform any write operations on this storage. This directive takes no
+parameters.
+.El
+.Pp
+Storages of type
+.Ic vdir
+take the following directives:
+.\" TODO: should point to docs for *vdir*.
+.Bl -tag -width xxxx
+.It Ic path Ar path
+Path to a directory storing a vdir. A leading tilde will be expanded to match
+the current user's home directory.
+.Pp
+Supports
+.Sx DYNAMIC PARAMETERS
+(see below).
+.It Ic fileext Ar extension
+File extension for items saved into this vdir.
+.El
+.Pp
+Storages of type
+.Ic caldav
+or
+.Ic carddav
+accept the following directives:
+.Bl -tag -width xxxx
+.It Ic url Ar url
+URL of the Dav server. If this URL does not report the appropriate DAV
+capabilities, service discovery will be performed for this URL and its domain
+to find the exact location of the server and the home set collection.
+.Pp
+URLs must specify scheme
+.Cm http ,
+.Cm https.
+or
+.Cm unix .
+URLs starting in
+.Ar unix://
+shall be treated as a path to a unix domain socket.
+.Pp
+Supports
+.Sx DYNAMIC PARAMETERS
+(see below).
+.It Ic username Ar username
+Optional. Username to use for HTTP Basic Auth.
+.Pp
+Supports
+.Sx DYNAMIC PARAMETERS
+(see below).
+.It Ic password Ar password
+Optional. Password to use for HTTP Basic Auth.
+.Pp
+Supports
+.Sx DYNAMIC PARAMETERS
+(see below).
+.\" TODO: directive to service discovery
+.El
+.Pp
+Storages of type
+.Ic webcal
+take the following directives:
+.Bl -tag -width xxxx
+.It Ic url Ar url
+URL of an icalendar file. This file may contain multiple calendar items. Scheme
+must be
+.Cm http
+or
+.Cm https.
+.Pp
+Supports
+.Sx DYNAMIC PARAMETERS
+(see below).
+.It Ic collection_id Ar name
+Name to be used when mapping this collection to another on the other storage.
+.\" TODO: auth for webcal?
+.El
+.Pp
+Storages of type
+.Cm caldav ,
+.Cm carddav ,
+.Cm webcal
+also accept the following directive:
+.Bl -tag -width xxxx
+.It Ic user_agent Ar user_agent
+Optional. Set the User-Agent header to
+.Ar user_agent
+for outgoing HTTP requests. The default uses
+.Dq pimsync/
+followed by the current version number. E.g.:
+.Ar pimsync/1.0.0 .
+.El
+.Sh DYNAMIC PARAMETERS
+The
+.Ic url ,
+.Ic username ,
+.Ic password ,
+and
+.Ic path
+fields may be defined in the configuration file, or may specify a block with a
+command to retrieve this value from an external system. When specifying an
+external command, instead of defining a value for the directive, specify a new
+block with a single
+.Ic cmd
+directive.
+.Pp
+For example, to read a password via the external command
+.Ar secret-store --get-caldav-password ,
+use the following syntax:
+.Bd -literal -offset indent
+password {
+	cmd secret-store --get-caldav-password
+}
+.Ed
+.Pp
+It is also possible to specify a shell script, which is executed via
+.Ql sh -c .
+For example:
+.Bd -literal -offset indent
+password {
+	shell pass show communication/migadu.com | head -1
+}
+.Ed
+.Pp
+It is recommended to store credentials and other sensitive values in a secret
+storage service.
+.Sh PAIR SECTIONS
+A pair declares how two storages shall be synchronised to each other. Each pair
+section starts with a declaration of the pair name:
+.Bl -tag -width xxxx
+.It Ic pair Ar name Brq …
+Declare a pair with name
+.Ar name .
+.El
+.Pp
+Each pair is defined by a block of directives, one per line, enclosed in curly
+braces:
+.Bl -tag -width xxxx
+.It Ic storage_a Ar name
+The 
+.Ar name
+of the first storage to be synchronised with another.
+.It Ic storage_b Ar name
+The
+.Ar name
+of the second storage to be synchronised with the other.
+.It Ic collection Cm all
+Synchronise all collections found in both storages. Collections will be
+synchronised to others with a matching id on the other side. The is the
+recommended value if you simply want to synchronise all collections from both
+storages.
+.It Ic collection Cm from a
+Synchronise all collections found in 
+.Ar storage_a .
+Each collection shall
+be synchronised with the collection which has the same collection id on
+.Ar storage_b .
+.It Ic collection Cm from b
+Synchronise all collections found in 
+.Ar storage_b .
+Each collection shall
+be synchronised with the collection which has the same collection id on
+.Ar storage_a .
+.It Ic collection Ar id
+Synchronise collection with id 
+.Ar id .
+May be specified more than once.
+.It Ic collection Ar Brq …
+Synchronise collection defined by the given rules. See
+.Sx COLLECTION SECTIONS
+below. May be specified more than once.
+.It Ic on_empty Cm skip
+When a collection is completely emptied on one side, skip it. This is the
+default.
+.It Ic on_empty Cm sync
+When a collection is completely emptied on one side, empty its counterpart on
+the other side. Take care when using this option. If you completely delete a
+collection on one side,
+.Nm
+won't restore it. Instead, it will delete the same collection (and all of its
+items) on the other side.
+.It Ic on_delete Cm sync
+When a collection itself is deleted on one side, delete it on the other side.
+This only applies if the collection is already empty. This is the default. This
+is generally safe, especially when combined with
+.Cm on_empty skip .
+.It Ic on_delete Cm skip
+When a collection itself is deleted on one side, skip it.
+.El
+.Pp
+The
+.Ic conflict_resolution
+directive specifies which action should be taken if an item was modified on
+both sides:
+.Bl -tag -width xxxx
+.It Ic conflict_resolution Cm cmd Ar command Op Ar args
+Execute
+.Ar command
+to resolve conflicts between both sides. 
+.Ar args
+will be passed as arguments, followed by the path to two files; one containing
+the data on storage a, and the other containing the data on storage b. The
+conflict will be considered resolved if and only if both files are the same
+when the command exits and the command exits with exit code zero.
+.It Ic conflict_resolution Cm keep a
+In case of conflict, keep the version for storage a.
+.It Ic conflict_resolution Cm keep b
+In case of conflict, keep the version for storage a.
+.El
+.Sh COLLECTION SECTIONS
+A collections block defines a mapping between two collections that are to be
+synchronised; one of them in
+.Ar storage_a
+and the other in
+.Ar storage_b .
+.Pp
+These sections are only used in advanced configurations which need to map
+existing collections to each other without changing their location on either
+side.
+.Pp
+Each block must include an alias:
+.Bl -tag -width xxxx
+.It Ic alias Ar name
+An alias for this pair of collections that will be used for any output.
+.El
+.Pp
+Exactly one reference to a collection in
+.Ar storage_a
+must be included:
+.Bl -tag -width xxxx
+.It Ic id_a Ar id
+Use collection with the id
+.Ar id.
+.It Ic href_a Ar href
+Use collection with the path
+.Ar href.
+.El
+.Pp
+Exactly one reference to a collection in
+.Ar storage_b
+must be included:
+.Bl -tag -width xxxx
+.It Ic id_b Ar id
+Use collection with the id
+.Ar id.
+.It Ic href_b Ar href
+Use collection with the path
+.Ar href.
+.El
+.Pp
+For example, to synchronise a collection with id
+.Ar work
+with another at path
+.Ar /calendars/mine/work/ ,
+use:
+.Bd -literal -offset indent
+collection {
+	alias work
+	id_a work
+	href_b /calendars/mine/work/
+}
+.Ed
+Specifying an id and an href for the same storage is not allowed.
+.Sh COLLECTION ID
+The id of a collection is a concept specific to
+.Xr pimsync 1
+and
+.Xr vdirsyncer 1 .
+.Pp
+For
+.Ic vdir
+storages, the id of a collection is the name of the directory that corresponds
+to it.
+.Pp
+For
+.Ic caldav
+or
+.Ic carddav
+storages, the id of a collection is the last component of its URL.
+.Pp
+For
+.Ic webcal
+storages, the id must be specified explicitly via the
+.Ic collection_id
+configuration directive.
+.Pp
+Unless configured otherwise, collections with the same id on both storages are
+synchronised with each other.
+.Sh EXAMPLE
+This example synchronises two storages with address books. The first is a local
+set of directories which contain vCard files, the second is a remote CardDAV
+servers. Credentials are supplied via the
+.Xr hiq 1
+command line tool.
+.\" TODO: link vdir man page above
+.Bd -literal -offset indent
+status_path "~/.local/share/pimsync/status/"
+
+pair contacts {
+	storage_a contacts_local
+	storage_b contacts_remote
+	collections all
+	conflict_resolution cmd nvim -d
+}
+
+storage contacts_local {
+	type vdir/vcard
+	path ~/.local/share/contacts/cards/
+	fileext vcf
+	interval 30
+}
+
+storage contacts_remote {
+	type carddav
+	url https://carddav.example.com/
+	username hugo@example.com
+	password {
+		cmd hiq -dFpassword proto=carddavs username=hugo@example.com
+	}
+	interval 30
+}
+.Ed
+.Pp
+The following example synchronises two storages with calendar data. The first is
+local directories with iCalendar files, the second is a remote CalDAV servers.
+.Bd -literal -offset indent
+status_path "~/.local/share/pimsync/status/"
+
+pair calendars {
+	storage_a calendars_local
+	storage_b calendars_remote
+	collections from b
+	conflict_resolution cmd nvim -d
+}
+
+storage calendars_local {
+	type vdir/icalendar
+	path ~/.local/share/calendars/
+	fileext ics
+	interval 30
+}
+
+storage calendars_remote {
+	type caldav
+	url https://caldav.example.com/
+	username hugo@example.com
+	password {
+	 cmd hiq -dFpassword proto=caldavs username=hugo@example.com
+	}
+	interval 30
+}
+.Ed
+.Pp
+The following example synchronises two storages with calendar data. The first is
+a local directory named "italki" with o calendar files, the second is an http
+server publishing an iCalendar file.
+.Pp
+Note that the first storage is the same as the one above, and should be
+specified only once if both configurations were specified in the same file.
+.Pp
+The exact URL to the iCalendar file exposed via http is fetched via the
+.Xr hiq 1
+tool, used to query the
+.Xr himitsu 7
+secret store.
+
+.Bd -literal -offset indent
+status_path "~/.local/share/pimsync/status/"
+
+pair study_calendars {
+	storage_a calendars_local
+	storage_b calendars_italki
+	collection italki
+}
+
+storage calendars_local {
+	type vdir/icalendar
+	path ~/.local/share/calendars/
+	fileext ics
+	interval 30
+}
+
+storage calendars_italki {
+	type webcal
+	collection_id italki
+	url {
+		cmd hiq -dFurl proto=webcal alias=italki-mine
+	}
+}
+.Ed
+.Pp
+This example synchronises two storages with calendar data. The first is a CardDAV
+server, reached via a Unix domain socket. The second is storage uses a local
+filesystem with vCard files.
+.Bd -literal -offset indent
+status_path "~/.local/share/pimsync/status/"
+
+pair unixtest {
+	storage_a unix_a
+	storage_b unix_b
+	collections all
+}
+
+storage unix_a {
+	type carddav
+	url unix:///tmp/xandikos.sock
+}
+
+storage unix_b {
+	type vdir/vcard
+	path /tmp/test_storage/
+	fileext vcf
+}
+.Ed
+.Sh SEE ALSO
+.Xr pimsync 1 ,
+.Xr pimsync-migration 7
+.Pp
+The configuration file follows the scfg syntax. See:
+https://git.sr.ht/~emersion/scfg
