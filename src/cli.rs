@@ -137,7 +137,12 @@ impl Cli {
                             }
                             Some(Command::Repair)
                         }
-                        "version" => Some(Command::Version),
+                        "version" => {
+                            if let Some(arg) = parser.next()? {
+                                return Err(arg.unexpected());
+                            };
+                            Some(Command::Version)
+                        }
                         cmd => return Err(format!("Unknown command: {cmd}").into()),
                     };
                     break;
