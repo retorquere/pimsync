@@ -280,7 +280,7 @@ run.
 
 Please report issues at:
 
-	https://todo.sr.ht/~whynothugo/vdirsyncer-rs
+	https://todo.sr.ht/~whynothugo/pimsync
 
 If you have a working vdirsyncer configuration, and this page is missing details
 necessary when upgrading, please reach out so this documentation can be

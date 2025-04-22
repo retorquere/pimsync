@@ -9,7 +9,7 @@ authors = ["Hugo Osvaldo Barrera <hugo@whynothugo.nl>"]
 edition = "2021"
 description = "A common API for various icalendar/vcard storages."
 readme = "README.md"
-homepage = "https://sr.ht/~whynothugo/vdirsyncer-rs/"
+homepage = "https://sr.ht/~whynothugo/pimsync/"
 keywords = ["vdir", "filesystem", "icalendar", "caldav"]
 license = "EUPL-1.2"
 
