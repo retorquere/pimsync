@@ -5,12 +5,12 @@
 DESTDIR?=/
 PREFIX?=/usr/local
 
-build: target/release/pimsync man
+build: target/release/pimsync
 
 target/release/pimsync:
 	cargo build -p pimsync --release
 
-docs: man html site
+docs: html site
 
 .PHONY: site
 site: html
@@ -20,32 +20,17 @@ site: html
 open-site: site
 	xdg-open docs/build/html/index.html
 
-man: \
-	target/pimsync.1 \
-	target/pimsync.conf.5 \
-	target/pimsync-migration.7
-
 html: \
 	target/pimsync.1.html \
 	target/pimsync.conf.5.html \
 	target/pimsync-migration.7.html
 
-target/%.html: target/%
+target/%.html: %
 	mandoc -T html -O style=man-style.css < '$<' | \
 	sed -E \
 		-e '1,20b' \
 		-e 's,(pimsync[a-z\.\-]*)\(([0-9])\),<a href="\1.\2.html">\1(\2)</a>,g' \
 	> '$@'
-
-# FIXME: hack until all man pages are written as mdoc(7)
-target/pimsync.1: pimsync.1
-	cp pimsync.1 target/pimsync.1
-target/pimsync.conf.5: pimsync.conf.5
-	cp pimsync.conf.5 target/pimsync.conf.5
-
-target/%: %.scd
-	mkdir -p target
-	scdoc < '$<' > '$@'
 
 .PHONY: install
 install: build

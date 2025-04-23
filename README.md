@@ -23,7 +23,6 @@ requires the following extra dependencies:
 
 - mandoc
 - py3-sphinx
-- scdoc
 
 Open the file `docs/build/html/index.html` to view the site locally.
 

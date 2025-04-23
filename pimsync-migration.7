@@ -1,0 +1,307 @@
+.Dd 2025-04-14
+.Dt PIMSYNC-MIGRATION 7
+.\" TODO: replace the following line with the version at build time.
+.Os PIMSYNC
+.Sh NAME
+.Nm pimsync-migration
+.Nd migration guide from vdirsyncer to pimsync
+.Sh DESCRIPTION
+This migration guide covers changes to be kept in mind when migrating from
+vdirsyncer to pimsync. It is geared towards users with a working configuration
+of the previous implementation.
+.Sh MISSING FEATURES
+The following features are implemented by vdirsyncer 0.19.3, but are not
+currently not available in pimsync:
+.Bl -bullet -compact
+.It
+.Ic auth digest
+This needs to be implemented as a
+.Ql tower-service
+middleware. Should not be too complicated.
+.It
+.Ic partial_sync
+This configuration parameter probably won't come back in the same way. A
+.Qq mirror
+is the most likely successor. With this directive set,
+.Xr pimsync 1
+would make B a mirror of A. In this mode, exactly one storage MUST be
+defined a read_only.
+.It
+.Ic post_hook
+configuration parameter. Future versions might stream events, so external
+handlers can react to them instead.
+.It
+.Ic start_date ,
+.Ic end_date ,
+and
+.Ic item_types
+configuration parameters for CalDav storages. These are planned, but no
+specific time frame.
+.It
+The
+.Ic singlefile
+storage, which saves all events in a calendar into a single file.
+.El
+.Pp
+The following features are not present and unlikely to be implemented without a
+compelling use case. Please reach out if your require some of these:
+.Bl -bullet -compact
+.It
+Encodings other than UTF-8
+.It
+All metadata is synchronised. Selecting individual fields is not currently
+possible.
+.It
+The Ic fileignoreext
+configuration parameter.
+.El
+.Sh CONFIGURATION FILE FORMAT
+The configuration format has changed. The general approach is the same but the
+syntax has been greatly simplified for humans to write. Technically, the format
+is the *scfg* format. It is documented in detail in
+.Xr pimsync.conf 5 .
+.Pp
+The following:
+.Bd -literal -offset indent
+[pair.contacts]
+a = "contacts_local"
+b = "contacts_fastmail"
+collections = "all"
+conflict_resolution = ["nvim", "-d"]
+.Ed
+.Pp
+Becomes:
+.Bd -literal -offset indent
+pair contacts {
+	storage_a contacts_local
+	storage_b contacts_fastmail
+	collections all
+	conflict_resolution nvim -d
+}
+.Ed
+.Pp
+And the following:
+.Bd -literal -offset indent
+[storage.contacts_local]
+type = "filesystem"
+path = "~/.local/share/contacts/"
+fileext = "vcf"
+.Ed
+.Pp
+Becomes this:
+.Bd -literal -offset indent
+storage contacts_local {
+	type vdir/vcard
+	path ~/.local/share/contacts/
+	fileext vcf
+}
+.Ed
+.Sh FETCH MECHANISMS
+The
+.Ic prompt
+mechanism for fetching passwords has been dropped.
+.Pp
+A
+.Ic fetch
+definition with a
+.Ic command
+would previously look like this:
+.Bd -literal -offset indent
+password.fetch = ["command", "hiq", "-dFpassword", "proto=carddavs", "username=…"]
+.Ed
+.Pp
+Now a block is provided to
+.Ic password
+with a single
+.Ic cmd
+directive
+specifying the command and its arguments.
+.Bd -literal -offset indent
+password {
+	cmd hiq -dFpassword proto=carddavs username=…
+}
+.Ed
+.Pp
+A
+.Ic fetch
+definition with a
+.Ic shell
+now uses a similar syntax:
+.Bd -literal -offset indent
+password {
+	shell pass show communication/migadu.com | head -1
+}
+.Ed
+.Ss MIGRATING FETCH / PROMPT
+Use an external prompter instead. For a GUI prompter, consider using:
+.Bd -literal -offset indent
+password {
+	cmd zenity --password
+}
+.Ed
+.Pp
+.Xr pimsync 1
+will request passwords in sequence, so no special considerations are required
+to prevent concurrent prompts.
+.Sh MANUAL DISCOVERY IS NO LONGER REQUIRED
+Discovering collections ahead of time is no longer required. Collections are
+discovered automatically if necessary.
+The
+.Ic discover
+command merely prints discovered collections as a convenience for
+manually configuring collections. It does not affect pimsync's internal state.
+See
+.Xr pimsync 1
+for details.
+.Sh AUTOMATIC CREATION OF COLLECTIONS
+If a pair is configured to synchronise all collections
+.Ic from a
+and a new collection is found on storage A, then the collection will
+automatically be created on storage B.
+For scenarios where automatic creation of collections is undesirable,
+individual collection should be explicitly specified instead.
+.Sh DRY RUNS ARE NOW POSSIBLE
+It is now possible to execute a dry run, which only prints the tentative plan
+without executing it. The output is somewhat terse at this stage and not in
+its final form.
+This can be used to audit new configurations and ensure that the planned
+actions make sense.
+.Sh FILESYSTEM STORAGES HAVE BEEN RENAMED TO VDIR
+Filesystem collections have been renamed to
+.Ic vdir .
+They must now specify what type of items they contains.
+.Pp
+A directory with icalendar files should specify:
+.Bd -literal -offset indent
+type = "vdir/icalendar"
+.Ed
+.Pp
+A directory with vcard files should specify:
+.Bd -literal -offset indent
+type vdir/vcard
+.Ed
+.Sh CUSTOM ENCODINGS FOR VDIR STORAGE
+The vdir storage saves files as UTF-8. If another encoding is required for some
+scenario, please open an issue at: https://todo.sr.ht/~whynothugo/pimsync
+.Sh FILESYSTEM FILEEXT FIELD
+The
+.Ic fileext
+field for filesystem storages required a leading dot. This is no longer the
+case; the dot is not considered part of the extensions and should be omitted.
+Omit the leading dot when porting configurations.
+.Sh COLLECTIONS ARE DECLARED IN A DIFFERENT FORMAT
+To synchronise all collections from both sides, use:
+.Bd -literal -offset indent
+collections all
+.Ed
+.Pp
+To synchronise all collections present on a specific storage, use:
+.Bd -literal -offset indent
+collections from b
+.Ed
+.Ss SPECIFYING INDIVIDUAL COLLECTIONS
+Individual collections can be specified by
+.Ar id
+or by
+.Ar href:
+.Bl -tag -width xxxx
+.Ar Ic id
+is the name from the discovery process.
+.Ar Ic href
+is the full path inside the storage.
+.El
+.Pp
+Generally, using an
+.Ar id
+is recommended. Using
+.Ar href
+is intended for situations where discovery is not possible or where multiple
+collections have the same
+.Ar id .
+To specify a single collection by id, use:
+.Bd -literal -offset indent
+collection c037725e-e4fd-4b3e-b73d-d5e27d5a90a9
+.Ed
+.Pp
+The above will find synchronise collections with the given id between both
+storages.
+.Pp
+Two different collections can mapped on each side:
+.Bd -literal -offset indent
+pair my_pair {
+	# other fields here
+
+	# first collection
+	collection {
+			alias personal
+			href_a /calendars/hugo/c037725e-e4fd-4b3e-b73d-d5e27d5a90a9/
+			href_b /personal/
+	}
+
+	# another collection
+	collection {
+			alias work
+			id_a work
+			href_b /calendars/work/
+	}
+}
+.Ed
+.Pp
+Specifying collection
+.Ar null
+is no longer allowed; configuration should point to an explicitly collection
+instead.
+.Sh HTTP STORAGE IS NOW CALLED WEBCAL
+The type of the
+.Ic http
+storage is now
+.Ic webcal ,
+to better reflect its nature; other storages also use HTTP internally.
+.Sh WEBCAL COLLECTION ID
+Due to its nature, the WebCal storage has a single collection. However, this
+collection has no id. A collection id must be provided for it explicitly. This
+simplifies configurations where it must be synchronised to another calendar with
+the same collection id.
+.Bd -literal -offset indent
+storage calendars_lessons {
+	type http
+	collection_id lessons
+	url {
+		cmd hiq -dFurl proto=webcal alias=lessons
+	}
+}
+.Ed
+.Sh READ ONLY
+The
+.Ic read_only
+takes no values. Its presence makes a storage read only. To make a storage
+read-write, remove the directive.
+.Sh STATUS
+Vdirsyncer keeps a status database in order to distinguish whether an item has
+changed on one side or both. Pimsync does not import this status database in any
+way. If you are migrating and have existing remote and local storages, makes
+sure that they are in sync before switching over. After the first run, pimsync
+will build its own status database.
+.Pp
+Migrating with out-of-sync storages will result in conflicts during the first
+run.
+.Sh ISSUES
+Please report issues at: https://todo.sr.ht/~whynothugo/vdirsyncer-rs
+.Pp
+If you have a working vdirsyncer configuration, and this page is missing details
+necessary when upgrading, please reach out so this documentation can be
+improved.
+.Sh SEE ALSO
+.Bl -bullet -compact
+.It
+.Xr pimsync 1
+.It
+.Xr pimsync.conf(5)
+.It
+.Ql scfg , simple configuration format, https://git.sr.ht/~emersion/scfg
+.It
+.Xr hiq 1 ,
+used to query a
+.Xr himitsu 7
+secret store.
+.El

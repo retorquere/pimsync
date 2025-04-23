@@ -23,7 +23,6 @@ Compiling pimsync requires:
 - make
 - Rust and Cargo
 - libsqlite3 (development package)
-- scdoc (for compiling manual pages)
 
 Running pimsync requires:
 
@@ -33,8 +32,8 @@ Running pimsync requires:
 Compilation
 ...........
 
-Use ``make build`` to compile pimsync. The build process uses Cargo to produce a
-binary and scdoc to compile documentation.
+Use ``make build`` to compile pimsync. The build process uses Cargo to compile
+pimsync.
 
 The compiled binary is placed in ``./target/release/pimsync``. It can be executed
 directly, or copied into your ``$PATH``.
@@ -73,10 +72,8 @@ the bug report originates from a patches version of this project.
 Man pages
 .........
 
-Please include man pages in distribution packages. Producing them only depends
-on the ``scdoc`` command. Running ``make build`` produces the manual pages
-alongside the main binary. They can be built independently by running ``make
-man``.
+Please include man pages in distribution packages. They are included in this
+repository in mdoc(7) format.
 
 .. _new-releases:
 
