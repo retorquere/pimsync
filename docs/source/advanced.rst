@@ -48,3 +48,13 @@ into a separate the stderr of separate processes.
 
 This is considered an advanced usage because it requires that you configure
 your service manager to run multiple instances of the pimsync service.
+
+Logging
+-------
+
+All logging is done to `stderr`. By default, `pimsync` logs warnings and
+errors. This can be controlled with the `-v` parameter, which takes a log
+level. E.g.: `-v debug`.
+
+Take care when using `-v trace`: it is likely to output sensitive data. Do not
+share with others the output produced with trace logging.
