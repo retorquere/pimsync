@@ -52,6 +52,7 @@ check:
 	cargo doc  # fails on broken links
 	mandoc -W error < pimsync.1 > /dev/null
 	mandoc -W error < pimsync.conf.5 > /dev/null
+	mandoc -W error < pimsync-migration.7 > /dev/null
 
 # Rebuild docs as changes occur.
 watch-docs: html
