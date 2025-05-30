@@ -187,7 +187,7 @@ async fn create_mappings_for_pair(pair: &StoragePair) -> Result<Vec<ResolvedMapp
                 },
             };
             // A mapping might already be present if we used `from_a`.
-            if mappings.iter().any(|m| *m == mapping) {
+            if mappings.contains(&mapping) {
                 debug!("Skipping mapping; already present.");
             } else {
                 mappings.push(mapping);
