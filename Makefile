@@ -34,11 +34,11 @@ target/%.html: %
 
 .PHONY: install
 install: build
-	@install -Dm755 target/release/pimsync 		-t ${DESTDIR}${PREFIX}/bin/
-	@install -Dm644 target/pimsync.1		-t ${DESTDIR}${PREFIX}/share/man/man1/
-	@install -Dm644 target/pimsync.conf.5		-t ${DESTDIR}${PREFIX}/share/man/man5/
-	@install -Dm644 target/pimsync-migration.7	-t ${DESTDIR}${PREFIX}/share/man/man7/
-	@install -Dm644 LICENCE				-t ${DESTDIR}${PREFIX}/share/licenses/pimsync/
+	@install -Dm755 target/release/pimsync 	-t ${DESTDIR}${PREFIX}/bin/
+	@install -Dm644 pimsync.1		-t ${DESTDIR}${PREFIX}/share/man/man1/
+	@install -Dm644 pimsync.conf.5		-t ${DESTDIR}${PREFIX}/share/man/man5/
+	@install -Dm644 pimsync-migration.7	-t ${DESTDIR}${PREFIX}/share/man/man7/
+	@install -Dm644 LICENCE			-t ${DESTDIR}${PREFIX}/share/licenses/pimsync/
 
 clean:
 	cargo clean
