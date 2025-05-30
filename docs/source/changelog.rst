@@ -18,6 +18,9 @@ v0.4.2
 - Fix deletion of vdir collections.
 - Ensure that new WebDAV resources has a proper extension.
 - Implement a ``read_only`` directive for storages.
+- Initialise pairs concurrently, improving start-up time.
+- man pages are now in ``mdoc(7)`` format, which allows cross-links and also
+  produces better HTML renders. ``scdoc(1)`` is no longer required.
 
 v0.4.1
 ------
