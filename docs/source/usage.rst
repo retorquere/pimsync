@@ -42,14 +42,14 @@ The corresponding configuration file for this example would looks something like
     }
 
     storage calendars_local {
-      type vdir/vcard
-      path ~/.local/share/contacts/cards/
+      type vdir/icalendar
+      path ~/calendars/
       fileext vcf
     }
 
     pair calendars {
-      storage_a contacts_local
-      storage_b contacts_fastmail
+      storage_a calendars_local
+      storage_b calendars_fastmail
       collections all
     }
 
