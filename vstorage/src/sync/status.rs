@@ -75,7 +75,7 @@ impl std::fmt::Display for Side {
 }
 
 /// State for an item at some point in time.
-#[derive(PartialEq, Clone, Debug)]
+#[derive(PartialEq, Clone)]
 pub struct ItemState {
     /// Path to the item.
     pub href: Href,
@@ -89,6 +89,19 @@ pub struct ItemState {
     ///
     /// If this is `None`, it indicates that the data was no available; items always contain data.
     pub data: Option<Item>,
+}
+
+impl std::fmt::Debug for ItemState {
+    #[inline]
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let mut builder = f.debug_struct("ItemState");
+        builder.field("href", &self.href);
+        builder.field("uid", &self.uid);
+        builder.field("etag", &self.etag);
+        builder.field("hash", &self.hash);
+        builder.field("data_present", &self.data.is_some());
+        builder.finish()
+    }
 }
 
 impl PartialEq<ItemVersion> for ItemState {
