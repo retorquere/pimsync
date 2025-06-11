@@ -165,11 +165,13 @@ A typical configuration looks something like::
 
    # storage calendars_local omitted for brevity; same as above.
 
-Normally, storages have multiple calendar collections. Webcal is exception is
-that it only contains a single collection. The name given to this collection is
-controlled via the ``collection_id`` parameter, as shown above. In the above
-example, the calendar exposed via Webcal shall be synchronised with a calendar
-named ``holidays`` in the ``calendars_local`` storage.
+Typically, storages contain multiple calendar collections. However, Webcal is
+an exception as it includes only a single collection. The configuration
+variable ``collection_id`` allows us to specify a name for the collection in
+the storage. In the example above, the ``holidays_remote`` storage has a single
+collection named ``holidays``. The data from the remote iCalendar file will be
+synchronized with a collection also named ``holidays`` in the
+``calendars_local`` storage.
 
 Webcal with secret URLs
 .......................
