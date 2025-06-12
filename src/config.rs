@@ -808,7 +808,8 @@ pub(crate) fn parse_config(
             let mut child = directive
                 .take_child()
                 .context("storage must define a block")?;
-            resolve_storage_cmds(&mut child)?;
+            resolve_storage_cmds(&mut child)
+                .with_context(|| format!("resolving commands for storage {name}"))?;
             storages.insert(name, child);
         }
     }
