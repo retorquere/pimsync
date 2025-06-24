@@ -164,7 +164,7 @@ impl NamedPair {
 
     /// Common code between `daemon` and `sync` commands.
     async fn sync_once(&self, dry_run: bool) -> anyhow::Result<()> {
-        let plan = self.create_plan().await.context("creating plan")?;
+        let plan = self.create_plan().await.context("Creating plan")?;
 
         if let Some(ConflictResolution::KeepA | ConflictResolution::KeepB) =
             self.conflict_resolution
@@ -341,7 +341,11 @@ async fn daemon(pairs: Vec<NamedPair>) -> anyhow::Error {
 async fn sync(pairs: Vec<NamedPair>, dry_run: bool) -> anyhow::Result<()> {
     let mut set = JoinSet::new();
     for pair in pairs {
-        set.spawn(async move { pair.sync_once(dry_run).await });
+        set.spawn(async move {
+            pair.sync_once(dry_run)
+                .await
+                .with_context(|| format!("Synchronising pair {}", pair.name))
+        });
     }
 
     while let Some(res) = set.join_next().await {
