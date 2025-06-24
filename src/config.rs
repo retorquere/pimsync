@@ -588,11 +588,11 @@ fn parse_tls_config(config: &mut Scfg) -> anyhow::Result<HttpsConnector<HttpConn
     let mut fp_verifier = None;
     let mut client_auth = None;
 
-    if let Some(mut verify) = take_single_directive(config, "verify")? {
-        let path: PathBuf = take_single_param(&mut verify)
-            .context("Parsing verify directive")?
+    if let Some(mut tls_root) = take_single_directive(config, "tls_root")? {
+        let path: PathBuf = take_single_param(&mut tls_root)
+            .context("Parsing tls_root directive")?
             .parse()
-            .context("verify must specify a valid path")?;
+            .context("tls_root must specify a valid path")?;
 
         let mut store = RootCertStore::empty();
         for cert in certs_from_pemfile(&path)? {
@@ -601,9 +601,9 @@ fn parse_tls_config(config: &mut Scfg) -> anyhow::Result<HttpsConnector<HttpConn
         root_store = Some(store);
     }
 
-    if let Some(mut fp) = take_single_directive(config, "verify_fingerprint")? {
+    if let Some(mut fp) = take_single_directive(config, "tls_fingerprint")? {
         let fingerprint =
-            take_single_param(&mut fp).context("Parsing verify_fingerprint directive")?;
+            take_single_param(&mut fp).context("Parsing tls_fingerprint directive")?;
         fp_verifier = Some(FingerprintVerifier::new(&fingerprint)?);
     }
 

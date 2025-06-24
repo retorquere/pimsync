@@ -157,20 +157,20 @@ for outgoing HTTP requests. The default uses
 .Dq pimsync/
 followed by the current version number. E.g.:
 .Ar pimsync/1.0.0 .
-.It Ic verify Ar path
-Optional. Use the certificate root at
+.It Ic tls_root Ar path
+Optional. Use the certificate root store at
 .Ar path
 when checking the server's TLS certificate. Disables checking the certificate
 against the system certificate authorities. See
-.Ic verify_fingerprint
+.Ic tls_fingerprint
 below.
-.It Ic verify_fingerprint Ar fingerprint
+.It Ic tls_fingerprint Ar fingerprint
 Optional. Accept the certificate if its fingerprint matches
 .Ar fingerprint .
 If specified together with the
-.Ic verify 
+.Ic tls_root 
 directive, the certificate is verified with the specified root. If
-.Ic verify
+.Ic tls_root
 is not specified, the server's certificate is not validated against any root
 and only a fingerprint verification is performed.
 .It Ic auth_cert Ar certificate Ar key

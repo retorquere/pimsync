@@ -14,6 +14,8 @@ v0.4.3
 
 - Don't log item data in errors when sync fails. This could leak user data into
   logs.
+- Introduce the ``tls_root``, ``tls_fingerprint`` and ``auth_cert``
+  configuration parameters used for custom TLS configurations.
 
 v0.4.2
 ------
