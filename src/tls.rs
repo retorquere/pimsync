@@ -1,4 +1,4 @@
-// Copyright 2023-2024 Hugo Osvaldo Barrera
+// Copyright 2023-2025 Hugo Osvaldo Barrera
 //
 // SPDX-License-Identifier: EUPL-1.2
 
@@ -106,11 +106,11 @@ pub(crate) struct FingerprintAndWebPkiVerifier(FingerprintVerifier, Arc<WebPkiSe
 
 impl FingerprintAndWebPkiVerifier {
     pub(crate) fn new(
-        hex_fingerprint: &str,
+        fingerprint_verifier: FingerprintVerifier,
         roots: impl Into<Arc<RootCertStore>>,
     ) -> anyhow::Result<Self> {
         Ok(Self(
-            FingerprintVerifier::new(hex_fingerprint)?,
+            fingerprint_verifier,
             WebPkiServerVerifier::builder(roots.into()).build()?,
         ))
     }

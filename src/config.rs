@@ -497,10 +497,9 @@ async fn parse_caldav(mut config: Scfg, ro: bool) -> anyhow::Result<Arc<dyn Stor
 /// Parse options common to CalDAV and CardDAV and build the inner `WebDavClient`.
 fn parse_webdav_client(mut config: Scfg, url: Uri) -> anyhow::Result<NetworkWebDav> {
     let auth = parse_auth(&mut config).context("Parsing carddav storage auth")?;
-    let network_opts = parse_tls_config(&mut config)?;
+    let connector = parse_tls_config(&mut config)?;
     let user_agent = parse_user_agent(&mut config)?;
 
-    let connector = network_opts.into_connector()?;
     let raw_client = HyperClient::builder(TokioExecutor::new()).build(connector);
     let auth_client = AddAuthorization::auto(raw_client, auth);
     let ua_client = UserAgent::new(auth_client, user_agent);
@@ -553,7 +552,7 @@ fn parse_webcal(mut config: Scfg, ro: bool) -> anyhow::Result<Arc<dyn Storage>> 
     let url = take_single_param_from_directive(&mut config, "url")
         .context("Webcal storage must define a url")?
         .parse()?;
-    let network_opts = parse_tls_config(&mut config)?;
+    let connector = parse_tls_config(&mut config)?;
     let user_agent = parse_user_agent(&mut config)?;
 
     let collection_id = take_single_param_from_directive(&mut config, "collection_id")?
@@ -562,7 +561,6 @@ fn parse_webcal(mut config: Scfg, ro: bool) -> anyhow::Result<Arc<dyn Storage>> 
 
     // TODO: authentication fields
 
-    let connector = network_opts.into_connector()?;
     let raw_client = HyperClient::builder(TokioExecutor::new()).build(connector);
     let ua_client = UserAgent::new(raw_client, user_agent);
     Ok(Arc::new(WebCalStorage::new(ua_client, url, collection_id)?))
@@ -584,29 +582,29 @@ fn parse_auth(directive: &mut Scfg) -> anyhow::Result<Option<(String, String)>> 
     Ok(Some((username, password)))
 }
 
-#[derive(Debug, Default)]
-struct HttpsConfig {
-    verify: Option<PathBuf>,
-    verify_fingerprint: Option<String>,
-    auth_cert: Option<ClientCert>,
-}
-
 /// Parse TLS configuration directives, if any, or return the default.
-fn parse_tls_config(config: &mut Scfg) -> anyhow::Result<HttpsConfig> {
-    let mut tls = HttpsConfig::default();
+fn parse_tls_config(config: &mut Scfg) -> anyhow::Result<HttpsConnector<HttpConnector>> {
+    let mut root_store = None;
+    let mut fp_verifier = None;
+    let mut client_auth = None;
 
     if let Some(mut verify) = take_single_directive(config, "verify")? {
-        let path = take_single_param(&mut verify)
+        let path: PathBuf = take_single_param(&mut verify)
             .context("Parsing verify directive")?
             .parse()
             .context("verify must specify a valid path")?;
-        tls.verify = Some(path);
+
+        let mut store = RootCertStore::empty();
+        for cert in certs_from_pemfile(&path)? {
+            store.add(cert)?;
+        }
+        root_store = Some(store);
     }
 
     if let Some(mut fp) = take_single_directive(config, "verify_fingerprint")? {
         let fingerprint =
             take_single_param(&mut fp).context("Parsing verify_fingerprint directive")?;
-        tls.verify_fingerprint = Some(fingerprint);
+        fp_verifier = Some(FingerprintVerifier::new(&fingerprint)?);
     }
 
     if let Some(mut auth_cert) = take_single_directive(config, "auth_cert")? {
@@ -617,15 +615,41 @@ fn parse_tls_config(config: &mut Scfg) -> anyhow::Result<HttpsConfig> {
             .next()
             .context("auth_cert must specify at least one parameter")?;
         let cert = if let Some(second) = params.next() {
-            ClientCert::SeparateKeyAndCert(first.parse()?, second.parse()?)
+            let (crt_path, key_path): (PathBuf, PathBuf) = (first.parse()?, second.parse()?);
+            (certs_from_pemfile(&crt_path)?, key_from_pemfile(&key_path)?)
         } else {
-            ClientCert::SingleFile(first.parse()?)
+            let combined_path: PathBuf = first.parse()?;
+            cert_and_key_from_pemfile(&combined_path)?
         };
 
-        tls.auth_cert = Some(cert);
+        client_auth = Some(cert);
     }
 
-    Ok(tls)
+    let tls_config = ClientConfig::builder();
+    // FIXME: loads and parses certs again for each client.
+    let tls_config = match (root_store, fp_verifier) {
+        (None, None) => tls_config.with_native_roots()?,
+        (None, Some(verifier)) => DangerousClientConfigBuilder { cfg: tls_config }
+            .with_custom_certificate_verifier(Arc::from(verifier)),
+        (Some(root_store), None) => tls_config.with_root_certificates(root_store),
+        (Some(root_store), Some(fp_verifier)) => {
+            let verifier = FingerprintAndWebPkiVerifier::new(fp_verifier, root_store)?;
+            DangerousClientConfigBuilder { cfg: tls_config }
+                .with_custom_certificate_verifier(Arc::from(verifier))
+        }
+    };
+
+    let tls_config = match client_auth {
+        None => tls_config.with_no_client_auth(),
+        Some((certs, key)) => tls_config.with_client_auth_cert(certs, key)?,
+    };
+
+    let connector = HttpsConnectorBuilder::new()
+        .with_tls_config(tls_config)
+        .https_or_http()
+        .enable_http1()
+        .build();
+    Ok(connector)
 }
 
 /// Take a directive expecting it at most once.
@@ -669,67 +693,6 @@ fn take_single_param(directive: &mut Directive) -> anyhow::Result<String> {
         bail!("no more than one parameter must be specified");
     }
     Ok(param)
-}
-
-impl HttpsConfig {
-    // TODO: keep a global cache using the hash of these.
-    //       this would allow re-using the same TLS store for all clients.
-    fn into_connector(self) -> anyhow::Result<HttpsConnector<HttpConnector>> {
-        let tls_config = ClientConfig::builder();
-        let tls_config = match (self.verify, self.verify_fingerprint) {
-            // FIXME: loads and parses certs again for each client.
-            (None, None) => tls_config.with_native_roots()?,
-            (None, Some(fingerprint)) => {
-                let verifier = Arc::from(FingerprintVerifier::new(&fingerprint)?);
-                DangerousClientConfigBuilder { cfg: tls_config }
-                    .with_custom_certificate_verifier(verifier)
-            }
-            (Some(path), None) => {
-                let mut root_store = RootCertStore::empty();
-                for cert in certs_from_pemfile(&path)? {
-                    root_store.add(cert)?;
-                }
-                tls_config.with_root_certificates(root_store)
-            }
-            (Some(path), Some(fingerprint)) => {
-                let mut root_store = RootCertStore::empty();
-                for cert in certs_from_pemfile(&path)? {
-                    root_store.add(cert)?;
-                }
-                let verifier =
-                    Arc::from(FingerprintAndWebPkiVerifier::new(&fingerprint, root_store)?);
-                DangerousClientConfigBuilder { cfg: tls_config }
-                    .with_custom_certificate_verifier(verifier)
-            }
-        };
-
-        let tls_config = match self.auth_cert {
-            None => tls_config.with_no_client_auth(),
-            Some(cc) => {
-                let (certs, key) = match cc {
-                    ClientCert::SingleFile(combined_path) => {
-                        cert_and_key_from_pemfile(&combined_path)?
-                    }
-                    ClientCert::SeparateKeyAndCert(crt_path, key_path) => {
-                        (certs_from_pemfile(&crt_path)?, key_from_pemfile(&key_path)?)
-                    }
-                };
-                tls_config.with_client_auth_cert(certs, key)?
-            }
-        };
-
-        Ok(HttpsConnectorBuilder::new()
-            .with_tls_config(tls_config)
-            .https_or_http()
-            .enable_http1()
-            .build())
-    }
-}
-
-#[derive(Debug)]
-enum ClientCert {
-    SingleFile(PathBuf),
-    SeparateKeyAndCert(PathBuf, PathBuf),
 }
 
 /// Parse a given file as a configuration file.
