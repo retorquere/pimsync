@@ -148,7 +148,7 @@ Storages of type
 .Cm caldav ,
 .Cm carddav ,
 .Cm webcal
-also accept the following directive:
+also accept the following directives:
 .Bl -tag -width xxxx
 .It Ic user_agent Ar user_agent
 Optional. Set the User-Agent header to
@@ -157,6 +157,31 @@ for outgoing HTTP requests. The default uses
 .Dq pimsync/
 followed by the current version number. E.g.:
 .Ar pimsync/1.0.0 .
+.It Ic verify Ar path
+Optional. Use the certificate root at
+.Ar path
+when checking the server's TLS certificate. Disables checking the certificate
+against the system certificate authorities. See
+.Ic verify_fingerprint
+below.
+.It Ic verify_fingerprint Ar fingerprint
+Optional. Accept the certificate if its fingerprint matches
+.Ar fingerprint .
+If specified together with the
+.Ic verify 
+directive, the certificate is verified with the specified root. If
+.Ic verify
+is not specified, the server's certificate is not validated against any root
+and only a fingerprint verification is performed.
+.It Ic auth_cert Ar certificate Ar key
+Optional. Use the provided
+.Ar certificate
+and
+.Ar key
+for TLS client authentication.
+.It Ic auth_cert Ar pem_bundle
+Optional. Use the certificate and key from the specified bundle for TLS client
+authentication.
 .El
 .Sh DYNAMIC PARAMETERS
 The
