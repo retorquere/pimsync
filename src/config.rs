@@ -458,8 +458,9 @@ fn parse_vdir(mut config: Scfg, item_kind: ItemKind, ro: bool) -> anyhow::Result
     Ok(into_arc(VdirStorage::new(path, fileext, item_kind), ro))
 }
 
-type NetworkWebDav =
-    WebDavClient<UserAgent<AddAuthorization<HyperClient<HttpsConnector<HttpConnector>, String>>>>;
+type HttpClient = UserAgent<AddAuthorization<HyperClient<HttpsConnector<HttpConnector>, String>>>;
+
+type NetworkWebDav = WebDavClient<HttpClient>;
 
 type UnixSocketWebDav =
     WebDavClient<UserAgent<AddAuthorization<HyperClient<hyperlocal::UnixConnector, String>>>>;
@@ -495,7 +496,13 @@ async fn parse_caldav(mut config: Scfg, ro: bool) -> anyhow::Result<Arc<dyn Stor
 }
 
 /// Parse options common to CalDAV and CardDAV and build the inner `WebDavClient`.
-fn parse_webdav_client(mut config: Scfg, url: Uri) -> anyhow::Result<NetworkWebDav> {
+fn parse_webdav_client(config: Scfg, url: Uri) -> anyhow::Result<NetworkWebDav> {
+    let http_client = parse_http_client(config)?;
+    Ok(WebDavClient::new(url, http_client))
+}
+
+/// Parse options common to all HTTP clients.
+fn parse_http_client(mut config: Scfg) -> anyhow::Result<HttpClient> {
     let auth = parse_auth(&mut config).context("Parsing carddav storage auth")?;
     let connector = parse_tls_config(&mut config)?;
     let user_agent = parse_user_agent(&mut config)?;
@@ -503,7 +510,7 @@ fn parse_webdav_client(mut config: Scfg, url: Uri) -> anyhow::Result<NetworkWebD
     let raw_client = HyperClient::builder(TokioExecutor::new()).build(connector);
     let auth_client = AddAuthorization::auto(raw_client, auth);
     let ua_client = UserAgent::new(auth_client, user_agent);
-    Ok(WebDavClient::new(url, ua_client))
+    Ok(ua_client)
 }
 
 fn parse_socket_webdav_client(mut config: Scfg, socket: &str) -> anyhow::Result<UnixSocketWebDav> {
