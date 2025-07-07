@@ -36,12 +36,4 @@ tempfile = "3.3.0"
 thiserror = "1.0.37"
 tokio = { version = "1.33.0", features = ["rt-multi-thread", "macros", "rt"] }
 tower = "0.5.1"
-vstorage = { version = "0.1.0", path = "./vstorage" }
-
-[workspace]
-members = [
-    ".",
-    "vstorage",
-]
-
-resolver = "2"
+vstorage = { version = "0.1.0" }

@@ -31,11 +31,12 @@ repository.
 
 ## Developer documentation
 
-The underlying synchronisation implementation is implemented in the `vstorage`
-library, which is part of this repository. If you want to make a different user
-interface based on pimsync, then you'll want to use this library. Pimsync itself
-merely parses a configuration file and executes the algorithms implemented in
-`vstorage`.
+The underlying synchronisation implementation is implemented in the
+[`vstorage`] library. If you want to make a different user interface based on
+pimsync, then you'll want to use this library. Pimsync itself merely parses a
+configuration file and executes the algorithms implemented in `vstorage`.
+
+[`vstorage`]: https://git.sr.ht/~whynothugo/vstorage/
 
 The following libraries were also developed as part of this project:
 
@@ -50,15 +51,6 @@ The following libraries were also developed as part of this project:
 [davcli-repo]: https://git.sr.ht/~whynothugo/davcli
 [vparser-repo]: https://git.sr.ht/~whynothugo/vparser
 [vparser-docs]: https://docs.rs/vparser/
-
-Documentation for the `vstorage` library can be built locally with `cargo doc`.
-The documentation also reflects the design and further technical details on
-pimsync's algorithm.
-
-The documentation for the latest commits made to this repository are published
-at:
-
-- <https://mirror.whynothugo.nl/pimsync/main/lib/vstorage/>
 
 ## Contributing
 
