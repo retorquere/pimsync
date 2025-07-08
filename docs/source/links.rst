@@ -6,9 +6,11 @@ Useful link
 - `Mailing list for disussion and patches <https://lists.sr.ht/~whynothugo/vdirsyncer-devel>`_
 - pimsync is part of the `pimutils collection <https://pimutils.org>`_
 
-Related tools
--------------
+Related libraries and tools
+---------------------------
 
+- `vstorage <https://docs.rs/vstorage/>`_ implements the storage abstractions
+  used by pimsync, along with the synchronisation logic.
 - `libdav <https://docs.rs/libdav/latest/libdav/>`_, underlying Rust library for
   interacting with WebDAV, CalDAV and CardDAV servers.
 - `davcli <https://git.sr.ht/~whynothugo/davcli>`_, command line tool for
