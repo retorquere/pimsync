@@ -9,6 +9,12 @@ changes will be avoided unless absolutely necessary.
 See the dedicated page for details on :ref:`monitoring for new releases
 <new-releases>`.
 
+v0.4.4
+------
+
+- Fix handling of empty responses when finding current user principal. This bug
+  mostly affected discovery with DavMail.
+
 v0.4.3
 ------
 
