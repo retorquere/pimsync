@@ -6,6 +6,7 @@ image: alpine/edge
 packages:
   - cargo
   - cargo-audit
+  - cargo-deny
   - mandoc
   - py3-sphinx
   - rsync

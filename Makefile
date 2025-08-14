@@ -50,6 +50,7 @@ check:
 	cargo clippy --all-targets
 	cargo test  # includes examples and doctests
 	cargo doc  # fails on broken links
+	cargo-deny check
 	mandoc -W error < pimsync.1 > /dev/null
 	mandoc -W error < pimsync.conf.5 > /dev/null
 	mandoc -W error < pimsync-migration.7 > /dev/null
