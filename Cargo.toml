@@ -15,7 +15,7 @@ lto = true
 
 [dependencies]
 anyhow = "1.0.75"
-base64 = "0.22.1"
+base64 = "0.21.1"
 camino = { version = "1.1.6" }
 futures-util = "0.3.31"
 hex = "0.4.3"
