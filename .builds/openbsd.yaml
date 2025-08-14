@@ -21,7 +21,7 @@ tasks:
       cargo fetch --locked  # make sure lockfile is up to date
   - no-cargo-deny: |
       # cargo-deny is not packaged on OpenBSD
-      sed -i /cargo-deny/d Makefile
+      sed -i /cargo-deny/d pimsync/Makefile
   - check: |
       cd pimsync
       make check
