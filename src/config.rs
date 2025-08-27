@@ -1010,9 +1010,7 @@ mod test {
 
     #[test]
     fn test_inplace_resolution_plain() {
-        let mut parser = concat!("username alice@example.com",)
-            .parse::<Scfg>()
-            .unwrap();
+        let mut parser = "username alice@example.com".parse::<Scfg>().unwrap();
         resolve_cmd_inplace(&mut parser, "username").unwrap();
         let got = take_single_param_from_directive(&mut parser, "username").unwrap();
         assert_eq!(got, "alice@example.com",);
@@ -1020,7 +1018,7 @@ mod test {
 
     #[test]
     fn test_inplace_resolution_cmd() {
-        let mut parser = concat!("username {\n cmd echo alice@example.com\n}",)
+        let mut parser = "username {\n cmd echo alice@example.com\n}"
             .parse::<Scfg>()
             .unwrap();
         resolve_cmd_inplace(&mut parser, "username").unwrap();
@@ -1030,10 +1028,9 @@ mod test {
 
     #[test]
     fn test_inplace_resolution_shell() {
-        let mut parser =
-            concat!("username {\n shell echo john@example.com | sed s/john/alice/\n}",)
-                .parse::<Scfg>()
-                .unwrap();
+        let mut parser = "username {\n shell echo john@example.com | sed s/john/alice/\n}"
+            .parse::<Scfg>()
+            .unwrap();
         resolve_cmd_inplace(&mut parser, "username").unwrap();
         let got = take_single_param_from_directive(&mut parser, "username").unwrap();
         assert_eq!(got, "alice@example.com",);
