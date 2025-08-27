@@ -87,8 +87,7 @@ Focuses on good error management and recovery
    focus on error handling.
 
 The ``daemon`` subcommand
-   Runs continuously in the keeping collections in sync. Ideal for usage as a
-   service.
+   Runs continuously keeping collections in sync. Ideal for usage as a service.
 
 Synchronise collections
    Automatically create (and, optionally, delete) collections which are created
