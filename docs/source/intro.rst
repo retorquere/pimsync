@@ -83,7 +83,7 @@ Focuses on good error management and recovery
    the overall operation continues, and other items in the same collection are
    synchronised properly.
 
-   This is made possible in great deal due to using Rust and it's stricter
+   This is made possible in great deal due to using Rust and it's stronger
    focus on error handling.
 
 The ``daemon`` subcommand
@@ -94,9 +94,8 @@ Synchronise collections
    (and deleted) on one storage into the other.
 
 Simplified setup
-   Being built in Rust, **pimsync** can be compiled into a single binary. This
-   substantially simplifies the installation process, and also provide improved
-   performance.
+   **pimsync** can be compiled into a single binary. This substantially
+   simplifies the installation process, and also provides improved performance.
 
 A few features present in **vdirsyncer** are still missing from pimsync. For
 details on these and changes required when migrating, see :doc:`the migration
