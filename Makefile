@@ -13,8 +13,11 @@ target/release/pimsync:
 docs: html site
 
 .PHONY: site
-site: html
+site: html docs/build/html/man-style.css
 	make -C docs html
+
+docs/build/html/man-style.css:
+	install -D man-style.css -t docs/build/html/
 
 .PHONY: open-site
 open-site: site
