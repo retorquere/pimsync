@@ -7,6 +7,7 @@ name = "pimsync"
 edition = "2021"
 description = "Synchronize calendars and contacts"
 homepage = "https://pimsync.whynothugo.nl/"
+repository = "https://git.sr.ht/~whynothugo/pimsync"
 license = "EUPL-1.2"
 build = "build.rs"
 
