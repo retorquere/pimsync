@@ -15,6 +15,7 @@ packages:
   - rustfmt
   - scdoc
 environment:
+  ANCHOR_PUB_KEY: AAAAC3NzaC1lZDI1NTE5AAAAIE2WacYpYEP5vvevx4NXQn3Ktd53pBkZR/bpPoS3Wkyg
   CARGO_TERM_COLOR: always
 sources:
   - https://git.sr.ht/~whynothugo/pimsync
@@ -42,7 +43,7 @@ tasks:
       git diff --no-patch --exit-code origin/main || git describe --tag --exact-match || complete-build
   - publish-doc: |
       cd pimsync
-      echo "anchor.whynothugo.nl ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE2WacYpYEP5vvevx4NXQn3Ktd53pBkZR/bpPoS3Wkyg" > $HOME/.ssh/known_hosts
+      echo "anchor.whynothugo.nl ssh-ed25519 $ANCHOR_PUB_KEY" > $HOME/.ssh/known_hosts
       if git diff --no-patch --exit-code origin/main; then
         DIR=.
       else
