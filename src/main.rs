@@ -100,9 +100,9 @@ pub fn log_error(error: SyncError) {
 
 #[derive(Debug, thiserror::Error)]
 enum DaemonError {
-    #[error("error interacting with status database: {0}")]
+    #[error("interacting with status database: {0}")]
     Status(StatusError),
-    #[error("error initialising storage monitor: {0}")]
+    #[error("initialising storage monitor: {0}")]
     Monitor(vstorage::Error),
 }
 
