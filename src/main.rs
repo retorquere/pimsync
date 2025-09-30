@@ -133,11 +133,11 @@ impl NamedPair {
 
             match select(mon_a.next_event(), mon_b.next_event()).await {
                 Either::Left((event, _)) => {
-                    debug!("Monitor for A yielded event {:?}", event);
+                    debug!("Monitor for A yielded event {event:?}");
                     // TODO: Build set of Changes based on received events.
                 }
                 Either::Right((event, _)) => {
-                    debug!("Monitor for B yielded event {:?}", event);
+                    debug!("Monitor for B yielded event {event:?}");
                     // TODO: Build set of Changes based on received events.
                 }
             }
@@ -225,11 +225,11 @@ impl NamedPair {
             );
 
             for item in &cp.items {
-                info!("item: {}", item);
+                info!("item: {item}");
                 debug!("{item:?}");
             }
             for prop in &cp.properties {
-                info!("property: {:?}", prop);
+                info!("property: {prop:?}");
             }
         }
         if !plan.stale_collections.is_empty() {
@@ -330,8 +330,8 @@ async fn daemon(pairs: Vec<NamedPair>) -> anyhow::Error {
 
     while let Some(res) = set.join_next().await {
         match res {
-            Ok(err) => error!("Error in daemon task: {:?}.", err),
-            Err(joinerr) => error!("Daemon task aborted: {:?}.", joinerr),
+            Ok(err) => error!("Error in daemon task: {err:?}."),
+            Err(joinerr) => error!("Daemon task aborted: {joinerr:?}."),
         }
     }
 
@@ -351,8 +351,8 @@ async fn sync(pairs: Vec<NamedPair>, dry_run: bool) -> anyhow::Result<()> {
     while let Some(res) = set.join_next().await {
         match res {
             Ok(Ok(())) => {}
-            Ok(Err(err)) => error!("Error in sync task: {:?}.", err),
-            Err(joinerr) => error!("Sync task aborted: {:?}.", joinerr),
+            Ok(Err(err)) => error!("Error in sync task: {err:?}."),
+            Err(joinerr) => error!("Sync task aborted: {joinerr:?}."),
         }
     }
     Ok(())
@@ -368,7 +368,7 @@ async fn resolve_conflicts(pairs: Vec<NamedPair>, dry_run: bool) -> anyhow::Resu
 
     for pair in pairs {
         if let Err(err) = interactive_resolution(pair).await {
-            error!("Error resolving conflicts: {:?}.", err);
+            error!("Error resolving conflicts: {err:?}.");
         }
     }
 

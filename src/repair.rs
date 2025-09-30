@@ -64,7 +64,7 @@ async fn repair_collection(storage: &dyn Storage, collection: &str, failed: Arc<
     let all_fetched = match storage.get_all_items(collection).await {
         Ok(ok) => ok,
         Err(err) => {
-            error!("Could not fetch all items for {}: {}.", collection, err);
+            error!("Could not fetch all items for {collection}: {err}.");
             failed.fetch_add(1, Ordering::Relaxed);
             return;
         }
