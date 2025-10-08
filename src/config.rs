@@ -30,7 +30,7 @@ use tokio::{
 };
 use vstorage::{
     base::Storage,
-    caldav::CalDavStorage,
+    caldav::{CalDavStorage, CollectionIdSegment},
     carddav::CardDavStorage,
     readonly::ReadOnlyStorage,
     sync::declare::{CollectionDescription, OnDelete, OnEmpty, StoragePair, SyncedCollection},
@@ -471,12 +471,18 @@ async fn parse_carddav(mut config: Scfg, ro: bool) -> anyhow::Result<Arc<dyn Sto
     if let Some(socket) = url.strip_prefix("unix://") {
         let webdav = parse_socket_webdav_client(config, socket)?;
         let client = CardDavClient::new(webdav);
-        Ok(into_arc(CardDavStorage::new(client).await?, ro))
+        Ok(into_arc(
+            CardDavStorage::new(client, CollectionIdSegment::default()).await?,
+            ro,
+        ))
     } else {
         let url = url.parse().context("Parsing carddav url")?;
         let webdav = parse_webdav_client(config, url)?;
         let client = CardDavClient::bootstrap_via_service_discovery(webdav).await?;
-        Ok(into_arc(CardDavStorage::new(client).await?, ro))
+        Ok(into_arc(
+            CardDavStorage::new(client, CollectionIdSegment::default()).await?,
+            ro,
+        ))
     }
 }
 
@@ -486,12 +492,18 @@ async fn parse_caldav(mut config: Scfg, ro: bool) -> anyhow::Result<Arc<dyn Stor
     if let Some(socket) = url.strip_prefix("unix://") {
         let webdav = parse_socket_webdav_client(config, socket)?;
         let client = CalDavClient::new(webdav);
-        Ok(into_arc(CalDavStorage::new(client).await?, ro))
+        Ok(into_arc(
+            CalDavStorage::new(client, CollectionIdSegment::default()).await?,
+            ro,
+        ))
     } else {
         let url = url.parse().context("Parsing caldav url")?;
         let webdav = parse_webdav_client(config, url)?;
         let client = CalDavClient::bootstrap_via_service_discovery(webdav).await?;
-        Ok(into_arc(CalDavStorage::new(client).await?, ro))
+        Ok(into_arc(
+            CalDavStorage::new(client, CollectionIdSegment::default()).await?,
+            ro,
+        ))
     }
 }
 

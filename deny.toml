@@ -13,10 +13,11 @@ unused-allowed-license = "allow"
 [bans]
 multiple-versions = "deny"
 
-# # Allow everything else
-# skip = [
-#     { name = "any", version = "*" }
-# ]
+# Allow multiple versions of getrandom due to dependency compatibility issues
+# Some dependencies use older versions that have no newer releases
+skip-tree = [
+    { name = "getrandom" }
+]
 
 [graph]
 # Transitive dependencies have additional dependencies on windows.
