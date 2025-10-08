@@ -21,6 +21,8 @@ use hyper_util::{
     rt::TokioExecutor,
 };
 use libdav::{dav::WebDavClient, CalDavClient, CardDavClient};
+#[cfg(feature = "jmap")]
+use libjmap::{discover_session_resource, JmapClient};
 use log::{debug, error, info, warn};
 use rustls::{client::danger::DangerousClientConfigBuilder, ClientConfig, RootCertStore};
 use scfg::{Directive, Scfg};
@@ -28,6 +30,8 @@ use tokio::{
     sync::{Mutex, Notify},
     task::JoinSet,
 };
+#[cfg(feature = "jmap")]
+use vstorage::jmap::JmapStorage;
 use vstorage::{
     base::Storage,
     caldav::{CalDavStorage, CollectionIdSegment},
@@ -286,6 +290,10 @@ async fn init_storage(
         "carddav" => parse_carddav(config, ro).await?,
         "caldav" => parse_caldav(config, ro).await?,
         "webcal" => parse_webcal(config, ro)?,
+        #[cfg(feature = "jmap")]
+        "jmap/icalendar" => parse_jmap(config, ItemKind::Calendar, ro).await?,
+        #[cfg(feature = "jmap")]
+        "jmap/vcard" => parse_jmap(config, ItemKind::AddressBook, ro).await?,
         _ => bail!("Unknown storage type: {type_}"),
     };
 
@@ -671,6 +679,26 @@ fn parse_tls_config(config: &mut Scfg) -> anyhow::Result<HttpsConnector<HttpConn
     Ok(connector)
 }
 
+#[cfg(feature = "jmap")]
+async fn parse_jmap(
+    mut config: Scfg,
+    item_kind: ItemKind,
+    ro: bool,
+) -> anyhow::Result<Arc<dyn Storage>> {
+    let url = take_single_param_from_directive(&mut config, "url")?;
+    let mut http_client = parse_http_client(config)?;
+
+    let url = url.parse().context("Parsing JMAP url")?;
+    let (session_url, session_resource) = discover_session_resource(&mut http_client, &url).await?;
+    let api_url = session_resource
+        .api_url()
+        .context("JMAP server returned no api_url")?
+        .parse()
+        .context("JMAP server returned an invalid api_url")?;
+    let client = JmapClient::new(http_client, session_url, api_url);
+    Ok(into_arc(JmapStorage::new(client, item_kind), ro))
+}
+
 /// Take a directive expecting it at most once.
 ///
 /// # Errors
@@ -880,7 +908,7 @@ fn resolve_storage_cmds(storage: &mut Scfg) -> anyhow::Result<()> {
         "vdir/icalendar" | "vdir/vcard" => {
             resolve_cmd_inplace(storage, "path").context("resolving path for storage")
         }
-        "carddav" | "caldav" => {
+        "carddav" | "caldav" | "jmap/icalendar" | "jmap/vcard" => {
             resolve_cmd_inplace(storage, "url").context("resolving url for storage")?;
             resolve_cmd_inplace(storage, "username").context("resolving username for storage")?;
             resolve_cmd_inplace(storage, "password").context("resolving password for storage")

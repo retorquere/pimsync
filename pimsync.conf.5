@@ -62,6 +62,12 @@ A CardDAV server containing address books with contacts.
 .It Ic webcal
 An HTTP or HTTPS resource exposing a single iCalendar file which may contain
 zero or more events, todos or journal entries. This storage is read-only.
+.It Ic jmap/icalendar
+A JMAP server with Calendar support. This storage is experimental and disabled
+by default.
+.It Ic jmap/vcard
+A JMAP server with Calendar support. This storage is experimental and disabled
+by default.
 .El
 .It Ic interval Ar seconds
 When monitoring a storage is no possible, check for changes every the specified
@@ -141,13 +147,38 @@ Supports
 (see below).
 .It Ic collection_id Ar name
 Name to be used when mapping this collection to another on the other storage.
-.\" TODO: auth for webcal?
+.El
+.Pp
+Storages of type
+.Ic jmap
+take the following directives:
+.Bl -tag -width xxxx
+.It Ic url Ar url
+Base URL of the JMAP server.
+.Pp
+Supports
+.Sx DYNAMIC PARAMETERS
+(see below).
+.It Ic username Ar username
+Optional. Username to use for HTTP Basic Auth.
+.Pp
+Supports
+.Sx DYNAMIC PARAMETERS
+(see below).
+.It Ic password Ar password
+Optional. Password to use for HTTP Basic Auth.
+.Pp
+Supports
+.Sx DYNAMIC PARAMETERS
+(see below).
 .El
 .Pp
 Storages of type
 .Cm caldav ,
 .Cm carddav ,
 .Cm webcal
+and
+.Cm jmap
 also accept the following directives:
 .Bl -tag -width xxxx
 .It Ic user_agent Ar user_agent

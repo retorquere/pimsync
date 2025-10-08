@@ -58,6 +58,12 @@ check:
 	mandoc -W error < pimsync.conf.5 > /dev/null
 	mandoc -W error < pimsync-migration.7 > /dev/null
 
+	# test with optional JMAP feature
+	cargo check --features jmap
+	cargo clippy --all-targets --features jmap
+	cargo test --workspace --features jmap
+	cargo doc --features jmap
+
 # Rebuild docs as changes occur.
 watch-docs: html
 	sphinx-autobuild docs/source docs/build/html
