@@ -9,6 +9,13 @@ changes will be avoided unless absolutely necessary.
 See the dedicated page for details on :ref:`monitoring for new releases
 <new-releases>`.
 
+v0.5.0
+------
+
+- Various documentation improvements.
+- Update to vstorage 0.2.0 and libdav 0.9.5.
+- Experimental JMAP support (disabled by default).
+
 v0.4.4
 ------
 

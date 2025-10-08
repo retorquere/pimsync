@@ -52,6 +52,14 @@ The following libraries were also developed as part of this project:
 [vparser-repo]: https://git.sr.ht/~whynothugo/vparser
 [vparser-docs]: https://docs.rs/vparser/
 
+# JMAP support
+
+JMAP support is currently experimental and must be enabled at build time via:
+
+```sh
+cargo build --features jmap
+```
+
 ## Contributing
 
 See [HACKING.md].

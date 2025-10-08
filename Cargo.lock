@@ -716,7 +716,7 @@ checksum = "8e9489c2807c139ffd9c1794f4af0ebe86a828db53ecdc7fea2111d0fed085d1"
 
 [[package]]
 name = "libdav"
-version = "0.9.4"
+version = "0.9.5"
 dependencies = [
  "domain",
  "http",
@@ -1609,7 +1609,7 @@ checksum = "f9d339a897ca0e42126ae5cccc53acc1bdc55e9888938e4beb7ca58f63ff5a7a"
 
 [[package]]
 name = "vstorage"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "async-trait",
  "calcard",
