@@ -9,6 +9,11 @@ changes will be avoided unless absolutely necessary.
 See the dedicated page for details on :ref:`monitoring for new releases
 <new-releases>`.
 
+v0.5.1
+------
+
+- Fix wrong `Content-Type` header when updating contacts via CardDAV.
+
 v0.5.0
 ------
 
