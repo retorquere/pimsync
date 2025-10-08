@@ -21,6 +21,7 @@ sources:
   - https://git.sr.ht/~whynothugo/pimsync
   - https://git.sr.ht/~whynothugo/vstorage
   - https://git.sr.ht/~whynothugo/libdav
+  - https://git.sr.ht/~whynothugo/libjmap
 triggers:
   - action: email
     condition: failure
