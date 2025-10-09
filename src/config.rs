@@ -702,6 +702,9 @@ async fn parse_jmap(
     item_kind: ItemKind,
     ro: bool,
 ) -> anyhow::Result<Arc<dyn Storage>> {
+    warn!(
+        "THE JMAP IMPLEMENTATION IS EXPERIMENTAL ANY MAY HAVE BUGS WHICH COULD LEAD TO DATA LOSS!",
+    );
     let url = take_single_param_from_directive(&mut config, "url")?;
     let mut http_client = parse_http_client(config)?;
 
