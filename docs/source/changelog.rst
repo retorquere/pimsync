@@ -18,6 +18,11 @@ v0.5.4
   like ``/dav/user@host.tld/collection/``.
 - The ``fileext`` parameter for ``vdir`` storages is now optional. If none is
   specified, ``ics`` is used for calendars and ``vcf`` for address books.
+- Enable JMAP support by default. This storage remains experimental and the
+  usual warnings still apply.
+- Fix caching bug in JMAP which could lead to ignoring state transitions.
+- Use re-exported libdav and libjmap from vstorage. This simplifies builds,
+  especially for development set-ups.
 
 v0.5.3
 ------

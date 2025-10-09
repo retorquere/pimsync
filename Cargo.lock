@@ -1622,7 +1622,7 @@ checksum = "f915d8bc667c4be975163b1df13df548e047c2384d67abf96862855776e018d1"
 
 [[package]]
 name = "vstorage"
-version = "0.2.2"
+version = "0.3.0"
 dependencies = [
  "async-trait",
  "calcard",

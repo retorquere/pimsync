@@ -41,4 +41,4 @@ tempfile = "3.3.0"
 thiserror = "2"
 tokio = { version = "1.33.0", features = ["rt-multi-thread", "macros", "rt"] }
 tower = "0.5"
-vstorage = { version = "0.2.1", default-features = false }
+vstorage = { version = "0.3.0", default-features = false }
