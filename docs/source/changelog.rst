@@ -9,6 +9,11 @@ changes will be avoided unless absolutely necessary.
 See the dedicated page for details on :ref:`monitoring for new releases
 <new-releases>`.
 
+v0.5.2
+------
+
+- Fix release tarballs attempting to build dependencies from relative paths.
+
 v0.5.1
 ------
 

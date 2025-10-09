@@ -29,8 +29,8 @@ hyper-rustls = { version = "0.27.0", default-features = false, features = ["ring
 hyper-util = { version = "0.1.1", features = ["client", "client-legacy", "http1"] }
 hyperlocal = "0.9.1"
 lexopt = "0.3.0"
-libdav = { version = "0.9.5", path = "../libdav" }
-libjmap = { version = "0.1.0", path = "../libjmap", optional = true }
+libdav = { version = "0.9.5" }
+libjmap = { version = "0.1.0", optional = true }
 log = "0.4.20"
 rustix = { version = "0.38.10", features = ["fs"] }
 rustls = { version = "0.23.4", default-features = false, features = ["logging", "ring", "tls12"]}
@@ -42,4 +42,4 @@ tempfile = "3.3.0"
 thiserror = "1.0.37"
 tokio = { version = "1.33.0", features = ["rt-multi-thread", "macros", "rt"] }
 tower = "0.4.13"
-vstorage = { version = "0.2.1", path = "../vstorage", default-features = false }
+vstorage = { version = "0.2.1", default-features = false }

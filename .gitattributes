@@ -1,1 +1,2 @@
 /vdirsyncer/build.rs export-subst
+/.cargo/config.toml export-ignore
