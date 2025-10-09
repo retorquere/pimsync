@@ -12,19 +12,19 @@ use std::{
     time::Duration,
 };
 
-use anyhow::{bail, ensure, Context};
+use anyhow::{Context, bail, ensure};
 use camino::Utf8PathBuf;
-use hyper::{header::HeaderValue, Uri};
+use hyper::{Uri, header::HeaderValue};
 use hyper_rustls::{ConfigBuilderExt, HttpsConnector, HttpsConnectorBuilder};
 use hyper_util::{
-    client::legacy::{connect::HttpConnector, Client as HyperClient},
+    client::legacy::{Client as HyperClient, connect::HttpConnector},
     rt::TokioExecutor,
 };
-use libdav::{dav::WebDavClient, CalDavClient, CardDavClient};
+use libdav::{CalDavClient, CardDavClient, dav::WebDavClient};
 #[cfg(feature = "jmap")]
-use libjmap::{discover_session_resource, JmapClient};
+use libjmap::{JmapClient, discover_session_resource};
 use log::{debug, error, info, warn};
-use rustls::{client::danger::DangerousClientConfigBuilder, ClientConfig, RootCertStore};
+use rustls::{ClientConfig, RootCertStore, client::danger::DangerousClientConfigBuilder};
 use scfg::{Directive, Scfg};
 use tokio::{
     sync::{Mutex, Notify},
@@ -33,6 +33,7 @@ use tokio::{
 #[cfg(feature = "jmap")]
 use vstorage::jmap::JmapStorage;
 use vstorage::{
+    CollectionId, ItemKind,
     base::Storage,
     caldav::{CalDavStorage, CollectionIdSegment},
     carddav::CardDavStorage,
@@ -40,19 +41,18 @@ use vstorage::{
     sync::declare::{CollectionDescription, OnDelete, OnEmpty, StoragePair, SyncedCollection},
     vdir::VdirStorage,
     webcal::WebCalStorage,
-    CollectionId, ItemKind,
 };
 
 use crate::{
+    ConflictResolution, NamedPair, RawCommand, VERSION,
     auth::AddAuthorization,
     cli::FilterNames,
     repair::NamedStorage,
     tls::{
-        cert_and_key_from_pemfile, certs_from_pemfile, key_from_pemfile,
-        FingerprintAndWebPkiVerifier, FingerprintVerifier,
+        FingerprintAndWebPkiVerifier, FingerprintVerifier, cert_and_key_from_pemfile,
+        certs_from_pemfile, key_from_pemfile,
     },
     ua::UserAgent,
-    ConflictResolution, NamedPair, RawCommand, VERSION,
 };
 
 /// A deserialised configuration file.
@@ -372,11 +372,7 @@ fn parse_collection_directive(mut directive: Directive) -> anyhow::Result<Collec
 
 /// Flatten a `Vec` which is expected to have a single item.
 fn flatten_single_vec<T>(mut vec: Vec<T>) -> Option<T> {
-    if vec.len() == 1 {
-        vec.pop()
-    } else {
-        None
-    }
+    if vec.len() == 1 { vec.pop() } else { None }
 }
 
 fn parse_individual_collection(
@@ -1000,7 +996,7 @@ fn into_arc<S: Storage + 'static>(storage: S, read_only: bool) -> Arc<dyn Storag
 mod test {
     use scfg::Scfg;
 
-    use crate::{config::take_single_param_from_directive, ConflictResolution, RawCommand};
+    use crate::{ConflictResolution, RawCommand, config::take_single_param_from_directive};
 
     use super::{
         default_user_agent, parse_conflict_resolution, resolve_cmd_inplace, take_single_directive,

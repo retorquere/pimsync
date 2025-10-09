@@ -6,25 +6,25 @@
 
 use std::{
     fs::File,
-    io::{read_to_string, Write},
+    io::{Write, read_to_string},
     path::PathBuf,
     time::Duration,
 };
 
-use anyhow::{bail, Context};
+use anyhow::{Context, bail};
 use camino::Utf8PathBuf;
 use config::{open_default_path, parse_config, parse_storages};
 use conflict::interactive_resolution;
-use futures_util::future::{select, Either};
+use futures_util::future::{Either, select};
 use log::{debug, error, info, trace, warn};
 use repair::repair_storages;
 use tokio::task::JoinSet;
 use vstorage::sync::{
+    SyncError,
     declare::StoragePair,
     execute::Executor,
     plan::Plan,
     status::{StatusDatabase, StatusError},
-    SyncError,
 };
 
 use crate::cli::{Cli, Command};
@@ -155,10 +155,10 @@ impl NamedPair {
                     self.print_plan(&plan);
                     if let Err(err) = Executor::new(log_error).plan(plan, &status).await {
                         return DaemonError::Status(err);
-                    };
+                    }
                 }
                 Err(err) => error!("Error synchronising {}: {:?}", self.name, err),
-            };
+            }
         }
     }
 

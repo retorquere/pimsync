@@ -40,7 +40,7 @@ impl FilterNames {
     ///
     /// Removes `name` from list of wanted items; calling this a second time always returns `false`.
     pub fn wants(&mut self, name: &str) -> bool {
-        if let Some(ref mut set) = &mut self.0 {
+        if let Some(set) = &mut self.0 {
             set.remove(name)
         } else {
             true

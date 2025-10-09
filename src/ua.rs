@@ -5,8 +5,8 @@
 use std::task::{Context, Poll};
 
 use hyper::{
-    header::{HeaderValue, USER_AGENT},
     Request, Response,
+    header::{HeaderValue, USER_AGENT},
 };
 use tower::Service;
 

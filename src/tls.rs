@@ -5,14 +5,14 @@
 //! Helpers used for advanced TLS configuration.
 use std::{fs::File, io::BufReader, num::ParseIntError, path::Path, sync::Arc};
 
-use anyhow::{bail, Context};
+use anyhow::{Context, bail};
 use rustls::{
+    CertificateError, OtherError, RootCertStore,
     client::{
-        danger::{ServerCertVerified, ServerCertVerifier},
         WebPkiServerVerifier,
+        danger::{ServerCertVerified, ServerCertVerifier},
     },
     pki_types::{CertificateDer, PrivateKeyDer, ServerName, UnixTime},
-    CertificateError, OtherError, RootCertStore,
 };
 use sha2::{Digest, Sha256};
 

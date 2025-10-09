@@ -4,12 +4,13 @@
 
 [package]
 name = "pimsync"
-edition = "2021"
+edition = "2024"
 description = "Synchronize calendars and contacts"
 homepage = "https://pimsync.whynothugo.nl/"
 repository = "https://git.sr.ht/~whynothugo/pimsync"
 license = "EUPL-1.2"
 build = "build.rs"
+rust-version = "1.86.0"
 
 [profile.release]
 lto = true

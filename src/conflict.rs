@@ -2,9 +2,9 @@
 //
 // SPDX-License-Identifier: EUPL-1.2
 
-use std::io::{read_to_string, stdin, stdout, Seek as _, Write as _};
+use std::io::{Seek as _, Write as _, read_to_string, stdin, stdout};
 
-use anyhow::{bail, Context as _};
+use anyhow::{Context as _, bail};
 use log::{debug, error, info, warn};
 use rustix::fs::sync;
 use tempfile::NamedTempFile;
