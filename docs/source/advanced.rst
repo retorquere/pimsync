@@ -59,8 +59,8 @@ level. E.g.: `-v debug`.
 Take care when using `-v trace`: it is likely to output sensitive data. Do not
 share with others the output produced with trace logging.
 
-Customizing CalDAV and CardDAV collection IDs
----------------------------------------------
+CalDAV and CardDAV collection IDs
+---------------------------------
 
 By default, pimsync uses the last segment of a collection's URL path as its
 collection ID. For example, for a collection at ``…/user/calendar/``, the
