@@ -434,6 +434,23 @@ fn parse_on_delete(mut directive: Directive) -> anyhow::Result<OnDelete> {
     }
 }
 
+fn parse_collection_id_segment(config: &mut Scfg) -> anyhow::Result<CollectionIdSegment> {
+    let directive = take_single_directive(config, "collection_id_segment")?;
+
+    if let Some(mut directive) = directive {
+        let val = take_single_param(&mut directive)
+            .context("Parsing parameter for collection_id_segment")?;
+
+        match val.as_ref() {
+            "last" => Ok(CollectionIdSegment::Last),
+            "second-last" => Ok(CollectionIdSegment::SecondLast),
+            _ => bail!("collection_id_segment must specify either 'last' or 'second-last'"),
+        }
+    } else {
+        Ok(CollectionIdSegment::default())
+    }
+}
+
 // Temporary field
 enum Collections {
     All,
@@ -471,12 +488,13 @@ type UnixSocketWebDav =
 
 async fn parse_carddav(mut config: Scfg, ro: bool) -> anyhow::Result<Arc<dyn Storage>> {
     let url = take_single_param_from_directive(&mut config, "url")?;
+    let collection_id_segment = parse_collection_id_segment(&mut config)?;
 
     if let Some(socket) = url.strip_prefix("unix://") {
         let webdav = parse_socket_webdav_client(config, socket)?;
         let client = CardDavClient::new(webdav);
         Ok(into_arc(
-            CardDavStorage::new(client, CollectionIdSegment::default()).await?,
+            CardDavStorage::new(client, collection_id_segment).await?,
             ro,
         ))
     } else {
@@ -484,7 +502,7 @@ async fn parse_carddav(mut config: Scfg, ro: bool) -> anyhow::Result<Arc<dyn Sto
         let webdav = parse_webdav_client(config, url)?;
         let client = CardDavClient::bootstrap_via_service_discovery(webdav).await?;
         Ok(into_arc(
-            CardDavStorage::new(client, CollectionIdSegment::default()).await?,
+            CardDavStorage::new(client, collection_id_segment).await?,
             ro,
         ))
     }
@@ -492,12 +510,13 @@ async fn parse_carddav(mut config: Scfg, ro: bool) -> anyhow::Result<Arc<dyn Sto
 
 async fn parse_caldav(mut config: Scfg, ro: bool) -> anyhow::Result<Arc<dyn Storage>> {
     let url = take_single_param_from_directive(&mut config, "url")?;
+    let collection_id_segment = parse_collection_id_segment(&mut config)?;
 
     if let Some(socket) = url.strip_prefix("unix://") {
         let webdav = parse_socket_webdav_client(config, socket)?;
         let client = CalDavClient::new(webdav);
         Ok(into_arc(
-            CalDavStorage::new(client, CollectionIdSegment::default()).await?,
+            CalDavStorage::new(client, collection_id_segment).await?,
             ro,
         ))
     } else {
@@ -505,7 +524,7 @@ async fn parse_caldav(mut config: Scfg, ro: bool) -> anyhow::Result<Arc<dyn Stor
         let webdav = parse_webdav_client(config, url)?;
         let client = CalDavClient::bootstrap_via_service_discovery(webdav).await?;
         Ok(into_arc(
-            CalDavStorage::new(client, CollectionIdSegment::default()).await?,
+            CalDavStorage::new(client, collection_id_segment).await?,
             ro,
         ))
     }

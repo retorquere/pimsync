@@ -128,6 +128,12 @@ Optional. Password to use for HTTP Basic Auth.
 Supports
 .Sx DYNAMIC PARAMETERS
 (see below).
+.It Ic collection_id_segment Cm last | second-last
+Optional. URL path segment to use as the collection id. Valid values are
+.Cm last
+(the default) or
+.Cm second-last .
+See the advanced usage documentation for details.
 .\" TODO: directive to service discovery
 .El
 .Pp
@@ -400,7 +406,10 @@ For
 .Ic caldav
 or
 .Ic carddav
-storages, the id of a collection is the last component of its URL.
+storages, the id of a collection is the last component of its URL by default.
+This can be changed to use the second-to-last component via the
+.Ic collection_id_segment
+configuration directive.
 .Pp
 For
 .Ic webcal
