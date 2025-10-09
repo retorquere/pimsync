@@ -20,7 +20,7 @@ jmap = ["dep:libjmap", "vstorage/jmap"]
 
 [dependencies]
 anyhow = "1.0.75"
-base64 = "0.21.1"
+base64 = "0.22"
 camino = { version = "1.1.6" }
 futures-util = "0.3.31"
 hex = "0.4.3"
@@ -32,14 +32,14 @@ lexopt = "0.3.0"
 libdav = { version = "0.9.5" }
 libjmap = { version = "0.1.0", optional = true }
 log = "0.4.20"
-rustix = { version = "0.38.10", features = ["fs"] }
+rustix = { version = "1", features = ["fs"] }
 rustls = { version = "0.23.4", default-features = false, features = ["logging", "ring", "tls12"]}
 rustls-pemfile = "2.0.0"
 scfg = "0.3.1"
 sha2 = "0.10.2"
-simple_logger = { version = "4.1.0", default-features = false, features = ["colors", "stderr"] }
+simple_logger = { version = "5", default-features = false, features = ["colors", "stderr"] }
 tempfile = "3.3.0"
-thiserror = "1.0.37"
+thiserror = "2"
 tokio = { version = "1.33.0", features = ["rt-multi-thread", "macros", "rt"] }
-tower = "0.4.13"
+tower = "0.5"
 vstorage = { version = "0.2.1", default-features = false }
