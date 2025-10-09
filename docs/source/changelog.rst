@@ -16,6 +16,8 @@ v0.5.4
   storages. This allows using the second-to-last URL segment as the collection
   id instead of the last segment, which is useful for servers with URL structures
   like ``/dav/user@host.tld/collection/``.
+- The ``fileext`` parameter for ``vdir`` storages is now optional. If none is
+  specified, ``ics`` is used for calendars and ``vcf`` for address books.
 
 v0.5.3
 ------

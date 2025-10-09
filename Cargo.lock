@@ -730,6 +730,21 @@ checksum = "58f929b4d672ea937a23a1ab494143d968337a5f47e56d0815df1e0890ddf174"
 [[package]]
 name = "libdav"
 version = "0.9.6"
+dependencies = [
+ "domain",
+ "http",
+ "http-body-util",
+ "hyper",
+ "log",
+ "roxmltree",
+ "thiserror",
+ "tokio",
+ "tower-service",
+]
+
+[[package]]
+name = "libdav"
+version = "0.9.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1ce4c102c0169dfebcb6e61c19d0e851c644402f11821d6f0831ce4b4472747a"
 dependencies = [
@@ -739,6 +754,21 @@ dependencies = [
  "hyper",
  "log",
  "roxmltree",
+ "thiserror",
+ "tokio",
+ "tower-service",
+]
+
+[[package]]
+name = "libjmap"
+version = "0.1.1"
+dependencies = [
+ "http",
+ "http-body-util",
+ "hyper",
+ "log",
+ "serde",
+ "serde_json",
  "thiserror",
  "tokio",
  "tower-service",
@@ -952,8 +982,8 @@ dependencies = [
  "hyper-util",
  "hyperlocal",
  "lexopt",
- "libdav",
- "libjmap",
+ "libdav 0.9.6 (registry+https://github.com/rust-lang/crates.io-index)",
+ "libjmap 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "log",
  "rustix",
  "rustls",
@@ -1629,8 +1659,6 @@ checksum = "f915d8bc667c4be975163b1df13df548e047c2384d67abf96862855776e018d1"
 [[package]]
 name = "vstorage"
 version = "0.2.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "76ca5616e1621cd0e02daf41ca4124e5c2aa4f40a8d710dd27fcbab0be162815"
 dependencies = [
  "async-trait",
  "calcard",
@@ -1642,8 +1670,8 @@ dependencies = [
  "hyper-rustls",
  "hyper-util",
  "inotify",
- "libdav",
- "libjmap",
+ "libdav 0.9.6",
+ "libjmap 0.1.1",
  "log",
  "rand 0.9.2",
  "rustix",

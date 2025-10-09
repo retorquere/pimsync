@@ -464,10 +464,6 @@ fn parse_vdir(mut config: Scfg, item_kind: ItemKind, ro: bool) -> anyhow::Result
     let path = take_single_param_from_directive(&mut config, "path")?.into();
     let path = expand_tilde(path).context("Expanding tilde for storage")?;
 
-    let fileext = take_single_param_from_directive(&mut config, "fileext")?;
-    // v0.X series expected the leading dot. This is not ideal and should be deprecated.
-    let fileext = fileext.strip_prefix('.').unwrap_or(&fileext).to_string();
-
     if config.remove("encoding").is_some() {
         // I don't want to implement a feature that is potentially unused.
         // If someone really needs this, it's doable.
@@ -476,7 +472,16 @@ fn parse_vdir(mut config: Scfg, item_kind: ItemKind, ro: bool) -> anyhow::Result
         bail!("'encoding' is not implemented for vdir storages.");
     }
 
-    Ok(into_arc(VdirStorage::new(path, fileext, item_kind), ro))
+    let mut builder = VdirStorage::builder(path, item_kind);
+
+    if let Some(mut fileext) = take_single_directive(&mut config, "fileext")? {
+        let fileext = take_single_param(&mut fileext)?;
+        // v0.X series expected the leading dot. This is not ideal and should be deprecated.
+        let fileext = fileext.strip_prefix('.').unwrap_or(&fileext).to_string();
+        builder = builder.with_extension(fileext);
+    }
+
+    Ok(into_arc(builder.build(), ro))
 }
 
 type HttpClient = UserAgent<AddAuthorization<HyperClient<HttpsConnector<HttpConnector>, String>>>;
@@ -493,18 +498,16 @@ async fn parse_carddav(mut config: Scfg, ro: bool) -> anyhow::Result<Arc<dyn Sto
     if let Some(socket) = url.strip_prefix("unix://") {
         let webdav = parse_socket_webdav_client(config, socket)?;
         let client = CardDavClient::new(webdav);
-        Ok(into_arc(
-            CardDavStorage::new(client, collection_id_segment).await?,
-            ro,
-        ))
+        let mut builder = CardDavStorage::builder(client);
+        builder = builder.with_collection_id_segment(collection_id_segment);
+        Ok(into_arc(builder.build().await?, ro))
     } else {
         let url = url.parse().context("Parsing carddav url")?;
         let webdav = parse_webdav_client(config, url)?;
         let client = CardDavClient::bootstrap_via_service_discovery(webdav).await?;
-        Ok(into_arc(
-            CardDavStorage::new(client, collection_id_segment).await?,
-            ro,
-        ))
+        let mut builder = CardDavStorage::builder(client);
+        builder = builder.with_collection_id_segment(collection_id_segment);
+        Ok(into_arc(builder.build().await?, ro))
     }
 }
 
@@ -515,18 +518,16 @@ async fn parse_caldav(mut config: Scfg, ro: bool) -> anyhow::Result<Arc<dyn Stor
     if let Some(socket) = url.strip_prefix("unix://") {
         let webdav = parse_socket_webdav_client(config, socket)?;
         let client = CalDavClient::new(webdav);
-        Ok(into_arc(
-            CalDavStorage::new(client, collection_id_segment).await?,
-            ro,
-        ))
+        let mut builder = CalDavStorage::builder(client);
+        builder = builder.with_collection_id_segment(collection_id_segment);
+        Ok(into_arc(builder.build().await?, ro))
     } else {
         let url = url.parse().context("Parsing caldav url")?;
         let webdav = parse_webdav_client(config, url)?;
         let client = CalDavClient::bootstrap_via_service_discovery(webdav).await?;
-        Ok(into_arc(
-            CalDavStorage::new(client, collection_id_segment).await?,
-            ro,
-        ))
+        let mut builder = CalDavStorage::builder(client);
+        builder = builder.with_collection_id_segment(collection_id_segment);
+        Ok(into_arc(builder.build().await?, ro))
     }
 }
 
@@ -605,7 +606,8 @@ fn parse_webcal(mut config: Scfg, ro: bool) -> anyhow::Result<Arc<dyn Storage>> 
 
     let raw_client = HyperClient::builder(TokioExecutor::new()).build(connector);
     let ua_client = UserAgent::new(raw_client, user_agent);
-    Ok(Arc::new(WebCalStorage::new(ua_client, url, collection_id)?))
+    let builder = WebCalStorage::builder(ua_client, url, collection_id);
+    Ok(Arc::new(builder.build()))
 }
 
 /// Returns a `username` and `password` tuple.
@@ -711,7 +713,8 @@ async fn parse_jmap(
         .parse()
         .context("JMAP server returned an invalid api_url")?;
     let client = JmapClient::new(http_client, session_url, api_url);
-    Ok(into_arc(JmapStorage::new(client, item_kind), ro))
+    let builder = JmapStorage::builder(client, item_kind);
+    Ok(into_arc(builder.build(), ro))
 }
 
 /// Take a directive expecting it at most once.
