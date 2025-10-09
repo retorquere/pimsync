@@ -29,6 +29,7 @@ html: \
 	target/pimsync-migration.7.html
 
 target/%.html: %
+	mkdir -p target
 	mandoc -T html -O style=man-style.css < '$<' | \
 	sed -E \
 		-e '1,20b' \
