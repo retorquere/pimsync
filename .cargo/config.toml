@@ -7,6 +7,4 @@ rustdocflags = ["--deny=warnings", "--allow=incomplete-features"]
 
 # Uncomment these when developing all crates locally.
 [patch.crates-io]
-libdav = { path = "../libdav" }
-libjmap = { path = "../libjmap" }
 vstorage = { path = "../vstorage" }

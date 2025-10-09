@@ -17,7 +17,7 @@ lto = true
 
 [features]
 default = ["jmap"]
-jmap = ["dep:libjmap", "vstorage/jmap"]
+jmap = ["vstorage/jmap"]
 
 [dependencies]
 anyhow = "1.0.75"
@@ -30,8 +30,6 @@ hyper-rustls = { version = "0.27.0", default-features = false, features = ["ring
 hyper-util = { version = "0.1.1", features = ["client", "client-legacy", "http1"] }
 hyperlocal = "0.9.1"
 lexopt = "0.3.0"
-libdav = { version = "0.9.5" }
-libjmap = { version = "0.1.0", optional = true }
 log = "0.4.20"
 rustix = { version = "1", features = ["fs"] }
 rustls = { version = "0.23.4", default-features = false, features = ["logging", "ring", "tls12"]}

@@ -948,8 +948,6 @@ dependencies = [
  "hyper-util",
  "hyperlocal",
  "lexopt",
- "libdav",
- "libjmap",
  "log",
  "rustix",
  "rustls",

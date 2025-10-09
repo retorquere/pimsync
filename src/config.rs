@@ -20,9 +20,6 @@ use hyper_util::{
     client::legacy::{Client as HyperClient, connect::HttpConnector},
     rt::TokioExecutor,
 };
-use libdav::{CalDavClient, CardDavClient, dav::WebDavClient};
-#[cfg(feature = "jmap")]
-use libjmap::{JmapClient, discover_session_resource};
 use log::{debug, error, info, warn};
 use rustls::{ClientConfig, RootCertStore, client::danger::DangerousClientConfigBuilder};
 use scfg::{Directive, Scfg};
@@ -32,6 +29,9 @@ use tokio::{
 };
 #[cfg(feature = "jmap")]
 use vstorage::jmap::JmapStorage;
+use vstorage::libdav::{CalDavClient, CardDavClient, dav::WebDavClient};
+#[cfg(feature = "jmap")]
+use vstorage::libjmap::{JmapClient, discover_session_resource};
 use vstorage::{
     CollectionId, ItemKind,
     base::Storage,
