@@ -126,10 +126,10 @@ impl Config {
                 let status_path = status_dir.join(format!("{name}.status"));
                 match (storage_a.item_kind(), storage_b.item_kind()) {
                     (ItemKind::Calendar, ItemKind::AddressBook) => {
-                        bail!("pair {} mixes calendar storage with contacts storage", name)
+                        bail!("pair {name} mixes calendar storage with contacts storage")
                     }
                     (ItemKind::AddressBook, ItemKind::Calendar) => {
-                        bail!("pair {} mixes contacts storage with calendar storage", name)
+                        bail!("pair {name} mixes contacts storage with calendar storage")
                     }
                     (ItemKind::AddressBook, ItemKind::AddressBook)
                     | (ItemKind::Calendar, ItemKind::Calendar) => Ok(NamedPair {
@@ -866,7 +866,7 @@ pub(crate) async fn parse_storages(
     }
 
     if let Some(missing) = enabled_storages.next_missing() {
-        bail!("Missing storage definition for: {}", missing);
+        bail!("Missing storage definition for: {missing}");
     }
 
     let mut storages = Vec::new();
@@ -959,7 +959,7 @@ fn resolve_cmd_inplace(storage: &mut Scfg, name: &str) -> anyhow::Result<()> {
             .with_context(|| format!("Error executing command for {name} directive"))?;
         match output.status.code() {
             Some(0) => std::str::from_utf8(&output.stdout)?.trim().to_owned(),
-            Some(code) => bail!("Command exited with status {}.", code),
+            Some(code) => bail!("Command exited with status {code}."),
             None => bail!("Command exited unexpectedly."),
         }
     };
