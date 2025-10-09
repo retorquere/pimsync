@@ -743,42 +743,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "libdav"
-version = "0.9.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1ce4c102c0169dfebcb6e61c19d0e851c644402f11821d6f0831ce4b4472747a"
-dependencies = [
- "domain",
- "http",
- "http-body-util",
- "hyper",
- "log",
- "roxmltree",
- "thiserror",
- "tokio",
- "tower-service",
-]
-
-[[package]]
 name = "libjmap"
 version = "0.1.1"
-dependencies = [
- "http",
- "http-body-util",
- "hyper",
- "log",
- "serde",
- "serde_json",
- "thiserror",
- "tokio",
- "tower-service",
-]
-
-[[package]]
-name = "libjmap"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c488355ef87bb6e5377bab0556af02ee6b5c9b3101ab2f0085802425844b1679"
 dependencies = [
  "http",
  "http-body-util",
@@ -982,8 +948,8 @@ dependencies = [
  "hyper-util",
  "hyperlocal",
  "lexopt",
- "libdav 0.9.6 (registry+https://github.com/rust-lang/crates.io-index)",
- "libjmap 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "libdav",
+ "libjmap",
  "log",
  "rustix",
  "rustls",
@@ -1670,8 +1636,8 @@ dependencies = [
  "hyper-rustls",
  "hyper-util",
  "inotify",
- "libdav 0.9.6",
- "libjmap 0.1.1",
+ "libdav",
+ "libjmap",
  "log",
  "rand 0.9.2",
  "rustix",
