@@ -9,6 +9,12 @@ changes will be avoided unless absolutely necessary.
 See the dedicated page for details on :ref:`monitoring for new releases
 <new-releases>`.
 
+v0.5.3
+------
+
+- Remove relative paths for dependencies. This allows building pristine release
+  tarballs without having to manually fetch dependant packages.
+
 v0.5.2
 ------
 

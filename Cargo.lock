@@ -729,7 +729,9 @@ checksum = "58f929b4d672ea937a23a1ab494143d968337a5f47e56d0815df1e0890ddf174"
 
 [[package]]
 name = "libdav"
-version = "0.9.5"
+version = "0.9.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1ce4c102c0169dfebcb6e61c19d0e851c644402f11821d6f0831ce4b4472747a"
 dependencies = [
  "domain",
  "http",
@@ -737,7 +739,7 @@ dependencies = [
  "hyper",
  "log",
  "roxmltree",
- "thiserror",
+ "thiserror 2.0.17",
  "tokio",
  "tower-service",
 ]
@@ -745,6 +747,8 @@ dependencies = [
 [[package]]
 name = "libjmap"
 version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6b0eefec6b8477337bd893046e6a6b5d05a320e7ad2884c903fa1b434a1f3398"
 dependencies = [
  "http",
  "http-body-util",
@@ -752,7 +756,7 @@ dependencies = [
  "log",
  "serde",
  "serde_json",
- "thiserror",
+ "thiserror 1.0.69",
  "tokio",
  "tower-service",
 ]
@@ -958,7 +962,7 @@ dependencies = [
  "sha2",
  "simple_logger",
  "tempfile",
- "thiserror",
+ "thiserror 2.0.17",
  "tokio",
  "tower",
  "vstorage",
@@ -1444,11 +1448,31 @@ dependencies = [
 
 [[package]]
 name = "thiserror"
+version = "1.0.69"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b6aaf5339b578ea85b50e080feb250a3e8ae8cfcdff9a461c9ec2904bc923f52"
+dependencies = [
+ "thiserror-impl 1.0.69",
+]
+
+[[package]]
+name = "thiserror"
 version = "2.0.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f63587ca0f12b72a0600bcba1d40081f830876000bb46dd2337a3051618f4fc8"
 dependencies = [
- "thiserror-impl",
+ "thiserror-impl 2.0.17",
+]
+
+[[package]]
+name = "thiserror-impl"
+version = "1.0.69"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4fee6c4efc90059e10f81e6d42c60a18f76588c3d74cb83a0b242a2b6c7504c1"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
@@ -1624,7 +1648,9 @@ checksum = "f915d8bc667c4be975163b1df13df548e047c2384d67abf96862855776e018d1"
 
 [[package]]
 name = "vstorage"
-version = "0.2.1"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "76ca5616e1621cd0e02daf41ca4124e5c2aa4f40a8d710dd27fcbab0be162815"
 dependencies = [
  "async-trait",
  "calcard",
@@ -1644,7 +1670,7 @@ dependencies = [
  "serde_json",
  "sha2",
  "sqlite",
- "thiserror",
+ "thiserror 2.0.17",
  "tokio",
  "tower",
  "vparser",
