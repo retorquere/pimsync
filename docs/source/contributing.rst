@@ -22,6 +22,10 @@ Source code is available at the `project repository`_.
 Unit tests and other basic checks can be run with `make check`. This will also
 ensure that documentation has no broken links, examples build, etc.
 
+When working on pimsync along with vstorage, libdav or libjmap from local
+checkout uncomment the relevant lines from `.cargo/config.toml` to use these
+local checkouts as dependencies.
+
 Sending patches
 ---------------
 
