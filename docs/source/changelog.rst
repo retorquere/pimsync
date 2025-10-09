@@ -23,7 +23,7 @@ v0.5.2
 v0.5.1
 ------
 
-- Fix wrong `Content-Type` header when updating contacts via CardDAV.
+- Fix wrong ``Content-Type`` header when updating contacts via CardDAV.
 
 v0.5.0
 ------
