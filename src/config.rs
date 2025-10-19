@@ -596,16 +596,16 @@ fn parse_webcal(mut config: Scfg, ro: bool) -> anyhow::Result<Arc<dyn Storage>> 
         .context("Webcal storage must define a url")?
         .parse()?;
     let connector = parse_tls_config(&mut config)?;
+    let auth = parse_auth(&mut config).context("Parsing carddav storage auth")?;
     let user_agent = parse_user_agent(&mut config)?;
 
     let collection_id = take_single_param_from_directive(&mut config, "collection_id")?
         .parse()
         .context("Parsing webcal url")?;
 
-    // TODO: authentication fields
-
     let raw_client = HyperClient::builder(TokioExecutor::new()).build(connector);
-    let ua_client = UserAgent::new(raw_client, user_agent);
+    let auth_client = AddAuthorization::auto(raw_client, auth);
+    let ua_client = UserAgent::new(auth_client, user_agent);
     let builder = WebCalStorage::builder(ua_client, url, collection_id);
     Ok(Arc::new(builder.build()))
 }

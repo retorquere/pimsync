@@ -9,6 +9,11 @@ changes will be avoided unless absolutely necessary.
 See the dedicated page for details on :ref:`monitoring for new releases
 <new-releases>`.
 
+v0.5.5
+------
+
+- Implement authentication support (username, password) for the WebCal storage.
+
 v0.5.4
 ------
 
