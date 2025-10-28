@@ -19,21 +19,24 @@ synchronizes calendars and contacts. For calendars, it supports operating on a
 local directories, CalDAV servers or Webcal URLs. For contacts, it supports
 operating on local directories or CardDav servers.
 .Pp
-The following glossary provides a brief overview of relevant terminology:
+Glossary of relevant terminology:
 .Bl -tag
 .It Sy item
 A single event, todo, journal entry or contact.
 .It Sy collection
-A grouping of multiple items. Can be one of (1) a single calendar which
-contains events, todos and/or journal entries, or (2) an address book which
-contains contacts.
+Grouping of multiple items. Can be one of (1) a single calendar which contains
+events, todos and/or journal entries, or (2) an address book which contains
+contacts.
 .It Sy storage
-A location which contains multiple collections. A single storage may be an
-account on a CalDAV server, or a local directory which contains multiple
-directories, each of these directories representing a single calendar.
+Location which contains multiple collections. For example: an account on a
+CalDAV server, or a local directory with child directories, each representing a
+calendar.
+See
+.Xr pimsync.conf 5
+for details on supported storage implementations and their configuration.
 .It Sy pair
-Two storages which are configured to synchronise with each other. Note that a
-single storage may form part of more than one pair.
+Two storages which are configured to synchronise with each other. A single
+storage may form part of more than one pair.
 .It Sy conflict
 When synchronising two storages, if a single item has been modified on both
 sides but has different content on both sides, that item is said to be in
