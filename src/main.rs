@@ -29,7 +29,6 @@ use vstorage::sync::{
 
 use crate::cli::{Cli, Command};
 
-mod auth;
 mod cli;
 mod config;
 mod conflict;

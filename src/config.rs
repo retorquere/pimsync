@@ -27,7 +27,8 @@ use tokio::{
     sync::{Mutex, Notify},
     task::JoinSet,
 };
-use tower::ServiceBuilder;
+use tower::{Layer, ServiceBuilder, util::Either};
+use tower_http::auth::{AddAuthorization, AddAuthorizationLayer};
 #[cfg(feature = "jmap")]
 use vstorage::jmap::JmapStorage;
 use vstorage::libdav::{CalDavClient, CardDavClient, dav::WebDavClient};
@@ -46,7 +47,6 @@ use vstorage::{
 
 use crate::{
     ConflictResolution, NamedPair, RawCommand, VERSION,
-    auth::{AddAuthorization, AddAuthorizationLayer},
     cli::FilterNames,
     repair::NamedStorage,
     tls::{
@@ -485,12 +485,15 @@ fn parse_vdir(mut config: Scfg, item_kind: ItemKind, ro: bool) -> anyhow::Result
     Ok(into_arc(builder.build(item_kind), ro))
 }
 
-type HttpClient = UserAgent<AddAuthorization<HyperClient<HttpsConnector<HttpConnector>, String>>>;
+type RawHttpsClient = HyperClient<HttpsConnector<HttpConnector>, String>;
+type RawUnixClient = HyperClient<hyperlocal::UnixConnector, String>;
+
+type HttpClient = UserAgent<Either<AddAuthorization<RawHttpsClient>, RawHttpsClient>>;
 
 type NetworkWebDav = WebDavClient<HttpClient>;
 
 type UnixSocketWebDav =
-    WebDavClient<UserAgent<AddAuthorization<HyperClient<hyperlocal::UnixConnector, String>>>>;
+    WebDavClient<UserAgent<Either<AddAuthorization<RawUnixClient>, RawUnixClient>>>;
 
 async fn parse_carddav(mut config: Scfg, ro: bool) -> anyhow::Result<Arc<dyn Storage>> {
     let url = take_single_param_from_directive(&mut config, "url")?;
@@ -545,10 +548,19 @@ fn parse_http_client(mut config: Scfg) -> anyhow::Result<HttpClient> {
     let user_agent = parse_user_agent(&mut config)?;
 
     let raw_client = HyperClient::builder(TokioExecutor::new()).build(connector);
+
+    let auth_client = match auth {
+        Some((username, password)) => {
+            let auth_layer = AddAuthorizationLayer::basic(&username, &password).as_sensitive(true);
+            Either::Left(auth_layer.layer(raw_client))
+        }
+        None => Either::Right(raw_client),
+    };
+
     let client = ServiceBuilder::new()
         .layer(UserAgentLayer::new(user_agent))
-        .layer(AddAuthorizationLayer::auto(auth))
-        .service(raw_client);
+        .service(auth_client);
+
     Ok(client)
 }
 
@@ -561,10 +573,19 @@ fn parse_socket_webdav_client(mut config: Scfg, socket: &str) -> anyhow::Result<
     let user_agent = parse_user_agent(&mut config)?;
 
     let raw_client = HyperClient::builder(TokioExecutor::new()).build(hyperlocal::UnixConnector);
+
+    let auth_client = match auth {
+        Some((username, password)) => {
+            let auth_layer = AddAuthorizationLayer::basic(&username, &password).as_sensitive(true);
+            Either::Left(auth_layer.layer(raw_client))
+        }
+        None => Either::Right(raw_client),
+    };
+
     let client = ServiceBuilder::new()
         .layer(UserAgentLayer::new(user_agent))
-        .layer(AddAuthorizationLayer::auto(auth))
-        .service(raw_client);
+        .service(auth_client);
+
     Ok(WebDavClient::new(url, client))
 }
 
@@ -609,10 +630,19 @@ fn parse_webcal(mut config: Scfg, ro: bool) -> anyhow::Result<Arc<dyn Storage>> 
         .context("Parsing webcal url")?;
 
     let raw_client = HyperClient::builder(TokioExecutor::new()).build(connector);
+
+    let auth_client = match auth {
+        Some((username, password)) => {
+            let auth_layer = AddAuthorizationLayer::basic(&username, &password).as_sensitive(true);
+            Either::Left(auth_layer.layer(raw_client))
+        }
+        None => Either::Right(raw_client),
+    };
+
     let client = ServiceBuilder::new()
         .layer(UserAgentLayer::new(user_agent))
-        .layer(AddAuthorizationLayer::auto(auth))
-        .service(raw_client);
+        .service(auth_client);
+
     let builder = WebCalStorage::builder(client, url, collection_id);
     Ok(Arc::new(builder.build()))
 }
