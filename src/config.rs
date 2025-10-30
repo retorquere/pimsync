@@ -27,6 +27,7 @@ use tokio::{
     sync::{Mutex, Notify},
     task::JoinSet,
 };
+use tower::ServiceBuilder;
 #[cfg(feature = "jmap")]
 use vstorage::jmap::JmapStorage;
 use vstorage::libdav::{CalDavClient, CardDavClient, dav::WebDavClient};
@@ -45,14 +46,14 @@ use vstorage::{
 
 use crate::{
     ConflictResolution, NamedPair, RawCommand, VERSION,
-    auth::AddAuthorization,
+    auth::{AddAuthorization, AddAuthorizationLayer},
     cli::FilterNames,
     repair::NamedStorage,
     tls::{
         FingerprintAndWebPkiVerifier, FingerprintVerifier, cert_and_key_from_pemfile,
         certs_from_pemfile, key_from_pemfile,
     },
-    ua::UserAgent,
+    ua::{UserAgent, UserAgentLayer},
 };
 
 /// A deserialised configuration file.
@@ -544,9 +545,11 @@ fn parse_http_client(mut config: Scfg) -> anyhow::Result<HttpClient> {
     let user_agent = parse_user_agent(&mut config)?;
 
     let raw_client = HyperClient::builder(TokioExecutor::new()).build(connector);
-    let auth_client = AddAuthorization::auto(raw_client, auth);
-    let ua_client = UserAgent::new(auth_client, user_agent);
-    Ok(ua_client)
+    let client = ServiceBuilder::new()
+        .layer(UserAgentLayer::new(user_agent))
+        .layer(AddAuthorizationLayer::auto(auth))
+        .service(raw_client);
+    Ok(client)
 }
 
 fn parse_socket_webdav_client(mut config: Scfg, socket: &str) -> anyhow::Result<UnixSocketWebDav> {
@@ -558,9 +561,11 @@ fn parse_socket_webdav_client(mut config: Scfg, socket: &str) -> anyhow::Result<
     let user_agent = parse_user_agent(&mut config)?;
 
     let raw_client = HyperClient::builder(TokioExecutor::new()).build(hyperlocal::UnixConnector);
-    let auth_client = AddAuthorization::auto(raw_client, auth);
-    let ua_client = UserAgent::new(auth_client, user_agent);
-    Ok(WebDavClient::new(url, ua_client))
+    let client = ServiceBuilder::new()
+        .layer(UserAgentLayer::new(user_agent))
+        .layer(AddAuthorizationLayer::auto(auth))
+        .service(raw_client);
+    Ok(WebDavClient::new(url, client))
 }
 
 /// Parses a `user_agent` config directive, or returns the default if absent.
@@ -604,9 +609,11 @@ fn parse_webcal(mut config: Scfg, ro: bool) -> anyhow::Result<Arc<dyn Storage>> 
         .context("Parsing webcal url")?;
 
     let raw_client = HyperClient::builder(TokioExecutor::new()).build(connector);
-    let auth_client = AddAuthorization::auto(raw_client, auth);
-    let ua_client = UserAgent::new(auth_client, user_agent);
-    let builder = WebCalStorage::builder(ua_client, url, collection_id);
+    let client = ServiceBuilder::new()
+        .layer(UserAgentLayer::new(user_agent))
+        .layer(AddAuthorizationLayer::auto(auth))
+        .service(raw_client);
+    let builder = WebCalStorage::builder(client, url, collection_id);
     Ok(Arc::new(builder.build()))
 }
 
