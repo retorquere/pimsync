@@ -33,6 +33,7 @@ mod cli;
 mod config;
 mod conflict;
 mod repair;
+mod scfg_util;
 mod tls;
 
 /// Current app version (determined at compile-time).
