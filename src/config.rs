@@ -14,7 +14,10 @@ use std::{
 
 use anyhow::{Context, bail, ensure};
 use camino::Utf8PathBuf;
-use hyper::{Uri, header::HeaderValue};
+use hyper::{
+    Uri,
+    header::{HeaderValue, USER_AGENT},
+};
 use hyper_rustls::{ConfigBuilderExt, HttpsConnector, HttpsConnectorBuilder};
 use hyper_util::{
     client::legacy::{Client as HyperClient, connect::HttpConnector},
@@ -28,7 +31,11 @@ use tokio::{
     task::JoinSet,
 };
 use tower::{Layer, ServiceBuilder, util::Either};
-use tower_http::auth::{AddAuthorization, AddAuthorizationLayer};
+use tower_http::set_header::SetRequestHeaderLayer;
+use tower_http::{
+    auth::{AddAuthorization, AddAuthorizationLayer},
+    set_header::SetRequestHeader,
+};
 #[cfg(feature = "jmap")]
 use vstorage::jmap::JmapStorage;
 use vstorage::libdav::{CalDavClient, CardDavClient, dav::WebDavClient};
@@ -53,7 +60,6 @@ use crate::{
         FingerprintAndWebPkiVerifier, FingerprintVerifier, cert_and_key_from_pemfile,
         certs_from_pemfile, key_from_pemfile,
     },
-    ua::{UserAgent, UserAgentLayer},
 };
 
 /// A deserialised configuration file.
@@ -488,12 +494,14 @@ fn parse_vdir(mut config: Scfg, item_kind: ItemKind, ro: bool) -> anyhow::Result
 type RawHttpsClient = HyperClient<HttpsConnector<HttpConnector>, String>;
 type RawUnixClient = HyperClient<hyperlocal::UnixConnector, String>;
 
-type HttpClient = UserAgent<Either<AddAuthorization<RawHttpsClient>, RawHttpsClient>>;
+type HttpClient =
+    SetRequestHeader<Either<AddAuthorization<RawHttpsClient>, RawHttpsClient>, HeaderValue>;
 
 type NetworkWebDav = WebDavClient<HttpClient>;
 
-type UnixSocketWebDav =
-    WebDavClient<UserAgent<Either<AddAuthorization<RawUnixClient>, RawUnixClient>>>;
+type UnixSocketWebDav = WebDavClient<
+    SetRequestHeader<Either<AddAuthorization<RawUnixClient>, RawUnixClient>, HeaderValue>,
+>;
 
 async fn parse_carddav(mut config: Scfg, ro: bool) -> anyhow::Result<Arc<dyn Storage>> {
     let url = take_single_param_from_directive(&mut config, "url")?;
@@ -558,7 +566,7 @@ fn parse_http_client(mut config: Scfg) -> anyhow::Result<HttpClient> {
     };
 
     let client = ServiceBuilder::new()
-        .layer(UserAgentLayer::new(user_agent))
+        .layer(SetRequestHeaderLayer::overriding(USER_AGENT, user_agent))
         .service(auth_client);
 
     Ok(client)
@@ -583,7 +591,7 @@ fn parse_socket_webdav_client(mut config: Scfg, socket: &str) -> anyhow::Result<
     };
 
     let client = ServiceBuilder::new()
-        .layer(UserAgentLayer::new(user_agent))
+        .layer(SetRequestHeaderLayer::overriding(USER_AGENT, user_agent))
         .service(auth_client);
 
     Ok(WebDavClient::new(url, client))
@@ -640,7 +648,7 @@ fn parse_webcal(mut config: Scfg, ro: bool) -> anyhow::Result<Arc<dyn Storage>> 
     };
 
     let client = ServiceBuilder::new()
-        .layer(UserAgentLayer::new(user_agent))
+        .layer(SetRequestHeaderLayer::overriding(USER_AGENT, user_agent))
         .service(auth_client);
 
     let builder = WebCalStorage::builder(client, url, collection_id);

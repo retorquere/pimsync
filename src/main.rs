@@ -34,7 +34,6 @@ mod config;
 mod conflict;
 mod repair;
 mod tls;
-mod ua;
 
 /// Current app version (determined at compile-time).
 pub const VERSION: &str = env!("PIMSYNC_VERSION");
