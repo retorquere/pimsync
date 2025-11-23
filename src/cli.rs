@@ -1,4 +1,4 @@
-use lexopt::{Arg, ValueExt as _};
+use lexopt::{Arg, Parser, ValueExt as _};
 use log::warn;
 use rustix::fd::FromRawFd as _;
 use std::{collections::HashSet, fs::File};
@@ -61,90 +61,22 @@ impl Cli {
         let mut names = FilterNames::new();
 
         args.next(); // Skip arg0
-        let mut parser = lexopt::Parser::from_args(args);
+        let mut parser = Parser::from_args(args);
         while let Some(arg) = parser.next()? {
             match arg {
                 Arg::Short('v') => log_level = parser.value()?.parse()?,
                 Arg::Short('c') => config_file = Some(parser.value()?.string()?),
                 Arg::Value(raw_cmd) => {
-                    command = match raw_cmd.string()?.as_str() {
-                        "check" => {
-                            while let Some(arg) = parser.next()? {
-                                match arg {
-                                    Arg::Value(pair_name) => names.push(pair_name.string()?),
-                                    _ => return Err(arg.unexpected()),
-                                }
-                            }
-                            Some(Command::Check)
-                        }
-                        "daemon" => {
-                            let mut ready_fd = None;
-                            while let Some(arg) = parser.next()? {
-                                match arg {
-                                    Arg::Short('r') => {
-                                        let raw_fd = parser.value()?.parse()?;
-                                        if raw_fd == 2 {
-                                            return Err("Cannot use stderr as readiness fd".into());
-                                        }
-                                        // SAFETY: this file descriptor is not accessed elsewhere.
-                                        // The user is responsible for ensuring that they have
-                                        // supplied a valid open file.
-                                        ready_fd = Some(unsafe { File::from_raw_fd(raw_fd) });
-                                    }
-                                    Arg::Value(pair_name) => names.push(pair_name.string()?),
-                                    _ => return Err(arg.unexpected()),
-                                }
-                            }
-                            Some(Command::Daemon { ready_fd })
-                        }
-                        "sync" => {
-                            let mut dry_run = false;
-                            while let Some(arg) = parser.next()? {
-                                match arg {
-                                    Arg::Short('n') => dry_run = true,
-                                    Arg::Value(pair_name) => names.push(pair_name.string()?),
-                                    _ => return Err(arg.unexpected()),
-                                }
-                            }
-                            Some(Command::Sync { dry_run })
-                        }
-                        "resolve-conflicts" => {
-                            let mut dry_run = false;
-                            while let Some(arg) = parser.next()? {
-                                match arg {
-                                    Arg::Short('n') => dry_run = true,
-                                    Arg::Value(pair_name) => names.push(pair_name.string()?),
-                                    _ => return Err(arg.unexpected()),
-                                }
-                            }
-                            Some(Command::ResolveConflicts { dry_run })
-                        }
-                        "discover" => {
-                            while let Some(arg) = parser.next()? {
-                                match arg {
-                                    Arg::Value(pair_name) => names.push(pair_name.string()?),
-                                    _ => return Err(arg.unexpected()),
-                                }
-                            }
-                            Some(Command::Discover)
-                        }
-                        "repair" => {
-                            while let Some(arg) = parser.next()? {
-                                match arg {
-                                    Arg::Value(name) => names.push(name.string()?),
-                                    _ => return Err(arg.unexpected()),
-                                }
-                            }
-                            Some(Command::Repair)
-                        }
-                        "version" => {
-                            if let Some(arg) = parser.next()? {
-                                return Err(arg.unexpected());
-                            }
-                            Some(Command::Version)
-                        }
+                    command = Some(match raw_cmd.string()?.as_str() {
+                        "check" => parse_check(&mut parser, &mut names)?,
+                        "daemon" => parse_daemon(&mut parser, &mut names)?,
+                        "sync" => parse_sync(&mut parser, &mut names)?,
+                        "resolve-conflicts" => parse_resolve_conflicts(&mut parser, &mut names)?,
+                        "discover" => parse_discover(&mut parser, &mut names)?,
+                        "repair" => parse_repair(&mut parser, &mut names)?,
+                        "version" => parse_version(&mut parser)?,
                         cmd => return Err(format!("Unknown command: {cmd}").into()),
-                    };
+                    });
                     break;
                 }
                 _ => return Err(arg.unexpected()),
@@ -158,4 +90,88 @@ impl Cli {
             names,
         })
     }
+}
+
+fn parse_check(parser: &mut Parser, names: &mut FilterNames) -> Result<Command, lexopt::Error> {
+    while let Some(arg) = parser.next()? {
+        match arg {
+            Arg::Value(pair_name) => names.push(pair_name.string()?),
+            _ => return Err(arg.unexpected()),
+        }
+    }
+    Ok(Command::Check)
+}
+
+fn parse_daemon(parser: &mut Parser, names: &mut FilterNames) -> Result<Command, lexopt::Error> {
+    let mut ready_fd = None;
+    while let Some(arg) = parser.next()? {
+        match arg {
+            Arg::Short('r') => {
+                let raw_fd = parser.value()?.parse()?;
+                if raw_fd == 2 {
+                    return Err("Cannot use stderr as readiness fd".into());
+                }
+                // SAFETY: file descriptor is not accessed elsewhere.
+                // User is responsible for supplying a valid open file descriptor.
+                ready_fd = Some(unsafe { File::from_raw_fd(raw_fd) });
+            }
+            Arg::Value(pair_name) => names.push(pair_name.string()?),
+            _ => return Err(arg.unexpected()),
+        }
+    }
+    Ok(Command::Daemon { ready_fd })
+}
+
+fn parse_sync(parser: &mut Parser, names: &mut FilterNames) -> Result<Command, lexopt::Error> {
+    let mut dry_run = false;
+    while let Some(arg) = parser.next()? {
+        match arg {
+            Arg::Short('n') => dry_run = true,
+            Arg::Value(pair_name) => names.push(pair_name.string()?),
+            _ => return Err(arg.unexpected()),
+        }
+    }
+    Ok(Command::Sync { dry_run })
+}
+
+fn parse_resolve_conflicts(
+    parser: &mut Parser,
+    names: &mut FilterNames,
+) -> Result<Command, lexopt::Error> {
+    let mut dry_run = false;
+    while let Some(arg) = parser.next()? {
+        match arg {
+            Arg::Short('n') => dry_run = true,
+            Arg::Value(pair_name) => names.push(pair_name.string()?),
+            _ => return Err(arg.unexpected()),
+        }
+    }
+    Ok(Command::ResolveConflicts { dry_run })
+}
+
+fn parse_discover(parser: &mut Parser, names: &mut FilterNames) -> Result<Command, lexopt::Error> {
+    while let Some(arg) = parser.next()? {
+        match arg {
+            Arg::Value(pair_name) => names.push(pair_name.string()?),
+            _ => return Err(arg.unexpected()),
+        }
+    }
+    Ok(Command::Discover)
+}
+
+fn parse_repair(parser: &mut Parser, names: &mut FilterNames) -> Result<Command, lexopt::Error> {
+    while let Some(arg) = parser.next()? {
+        match arg {
+            Arg::Value(name) => names.push(name.string()?),
+            _ => return Err(arg.unexpected()),
+        }
+    }
+    Ok(Command::Repair)
+}
+
+fn parse_version(parser: &mut Parser) -> Result<Command, lexopt::Error> {
+    if let Some(arg) = parser.next()? {
+        return Err(arg.unexpected());
+    }
+    Ok(Command::Version)
 }
