@@ -8,6 +8,7 @@ use std::{
     fs::File,
     io::{Write, read_to_string},
     path::PathBuf,
+    sync::Arc,
     time::Duration,
 };
 
@@ -123,7 +124,7 @@ impl NamedPair {
 
         // Open status DB once and keep that handle open.
         let status = match StatusDatabase::open_or_create(&self.status_path) {
-            Ok(status) => status,
+            Ok(status) => Arc::new(status),
             Err(err) => return DaemonError::Status(err),
         };
 
@@ -144,16 +145,27 @@ impl NamedPair {
             //       Handle batches of events together.
 
             debug!("Creating plan for storage pair '{}'.", self.name);
-            match Plan::new(&self.inner, Some(&status)).await {
+            match Plan::new(self.inner.clone(), Some(status.clone())).await {
                 Ok(plan) => {
                     if let Some(ConflictResolution::KeepA | ConflictResolution::KeepB) =
                         self.conflict_resolution
                     {
                         error!("Conflict auto-resolution is not implemented");
                     }
-                    self.print_plan(&plan);
-                    if let Err(err) = Executor::new(log_error).plan(plan, &status).await {
-                        return DaemonError::Status(err);
+                    // TODO: re-implement plan printing with stream-based API.
+                    let result = Executor::new(log_error)
+                        .execute_stream(
+                            Arc::clone(self.inner.storage_a()),
+                            Arc::clone(self.inner.storage_b()),
+                            plan,
+                            &status,
+                            8,
+                        )
+                        .await;
+                    match result {
+                        Ok(Ok(())) => {}
+                        Ok(Err(exec_err)) => error!("Execution error: {exec_err:?}"),
+                        Err(status_err) => return DaemonError::Status(status_err),
                     }
                 }
                 Err(err) => error!("Error synchronising {}: {:?}", self.name, err),
@@ -171,14 +183,21 @@ impl NamedPair {
             error!("Conflict auto-resolution is not implemented");
         }
 
-        self.print_plan(&plan);
+        // TODO: re-implement plan printing with stream-based API.
         if !dry_run {
             let status_rw = StatusDatabase::open_or_create(&self.status_path)
                 .with_context(|| format!("open_or_create status db for {}", self.name))?;
-            Executor::new(log_error)
-                .plan(plan, &status_rw)
+            let result = Executor::new(log_error)
+                .execute_stream(
+                    Arc::clone(self.inner.storage_a()),
+                    Arc::clone(self.inner.storage_b()),
+                    plan,
+                    &status_rw,
+                    8,
+                )
                 .await
                 .context("executing plan")?;
+            result.context("execution failed")?;
         }
         Ok(())
     }
@@ -188,7 +207,7 @@ impl NamedPair {
         let status = StatusDatabase::open(&self.status_path)
             .with_context(|| format!("openstatus db for {}", self.name))?;
 
-        let plan = Plan::new(&self.inner, status.as_ref()).await?;
+        let plan = Plan::new(self.inner.clone(), status.map(Arc::new)).await?;
         // TODO: apply keep_a or keep_b if required.
 
         Ok(plan)
@@ -209,31 +228,6 @@ impl NamedPair {
         }
 
         Ok(())
-    }
-
-    fn print_plan(&self, plan: &Plan) {
-        // TODO: need to lock stdout/stderr for concurrent runs.
-        info!(">>> Plan for storage pair '{}'", self.name);
-        for cp in &plan.collection_plans {
-            info!(
-                "collection: {}, action: {}. {} item actions. {} property actions.",
-                cp.alias(),
-                cp.action,
-                cp.items.len(),
-                cp.properties.len(),
-            );
-
-            for item in &cp.items {
-                info!("item: {item}");
-                debug!("{item:?}");
-            }
-            for prop in &cp.properties {
-                info!("property: {prop:?}");
-            }
-        }
-        if !plan.stale_collections.is_empty() {
-            info!("Stale mappings: {:?}", plan.stale_collections);
-        }
     }
 }
 

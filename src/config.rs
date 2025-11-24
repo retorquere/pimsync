@@ -477,7 +477,7 @@ fn parse_vdir(mut config: Scfg, item_kind: ItemKind, ro: bool) -> anyhow::Result
         bail!("'encoding' is not implemented for vdir storages.");
     }
 
-    let mut builder = VdirStorage::builder(path);
+    let mut builder = VdirStorage::builder(path)?;
 
     if let Some(mut fileext) = take_single_directive(&mut config, "fileext")? {
         let fileext = take_single_param(&mut fileext)?;

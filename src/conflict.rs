@@ -5,13 +5,17 @@
 use std::io::{Seek as _, Write as _, read_to_string, stdin, stdout};
 
 use anyhow::{Context as _, bail};
-use log::{debug, error, info, warn};
+use futures_util::StreamExt;
+use log::{debug, error, info};
 use rustix::fs::sync;
 use tempfile::NamedTempFile;
 use tokio::try_join;
 use vstorage::{
-    base::{Item, ItemVersion, Storage},
-    sync::{plan::ItemAction, status::ItemState},
+    base::{Item, ItemVersion},
+    sync::{
+        operation::{ItemOp, Operation},
+        plan::ItemWithData,
+    },
 };
 
 use crate::{ConflictResolution, NamedPair, RawCommand};
@@ -29,19 +33,21 @@ pub async fn interactive_resolution(pair: NamedPair) -> anyhow::Result<()> {
         _ => bail!("No conflict resolution command for {}.", pair.name),
     };
 
-    let plan = pair.create_plan().await?;
-    pair.print_plan(&plan);
+    let mut plan = pair.create_plan().await?;
 
-    let conflicts = plan
-        .collection_plans
-        .into_iter()
-        .flat_map(|cp| cp.items)
-        .filter_map(|action| match action {
-            ItemAction::Conflict { a, b, .. } => Some((a, b)),
-            _ => None,
-        })
-        // Collect in order to compute the total amount (for display purposes).
-        .collect::<Vec<_>>();
+    // Collect in order to compute the total amount (for display purposes).
+    let mut conflicts = Vec::new();
+    while let Some(result) = plan.next().await {
+        match result {
+            Ok(Operation::Item(ItemOp::Conflict { info, .. })) => {
+                conflicts.push(info);
+            }
+            Ok(_) => {} // Skip non-conflict operations
+            Err(err) => {
+                error!("Error in plan: {err:?}");
+            }
+        }
+    }
 
     let total = conflicts.len();
     if total == 0 {
@@ -50,8 +56,12 @@ pub async fn interactive_resolution(pair: NamedPair) -> anyhow::Result<()> {
     }
     println!("Resolving {} conflicts for pair \"{}\".", total, pair.name);
 
-    for (i, (a, b)) in conflicts.into_iter().enumerate() {
-        println!("Next is item {}/{total}, with uid \"{}\".", i + 1, a.uid);
+    for (i, info) in conflicts.into_iter().enumerate() {
+        println!(
+            "Next is item {}/{total}, with uid \"{}\".",
+            i + 1,
+            info.a.state.uid
+        );
         match continue_skip_or_quit()? {
             YesNoQuit::Yes => {}
             YesNoQuit::No => continue,
@@ -60,15 +70,10 @@ pub async fn interactive_resolution(pair: NamedPair) -> anyhow::Result<()> {
                 return Ok(());
             }
         }
-        // TODO: should use pre-fetched data, if available.
-        // TODO: improve logging here.
-        info!("Running conflict resolution for item {}", a.uid);
-        let (fetched_a, fetched_b) = tokio::join!(
-            fetch_item(pair.inner.storage_a(), a),
-            fetch_item(pair.inner.storage_b(), b),
-        );
-        let (temp_a, item_a, ref_a) = fetched_a.context("fetching conflicted item from A")?;
-        let (temp_b, item_b, ref_b) = fetched_b.context("fetching conflicted item from B")?;
+        info!("Running conflict resolution for item {}", info.a.state.uid);
+
+        let (temp_a, ref_a) = write_to_temp(&info.a).context("writing item A to temp file")?;
+        let (temp_b, ref_b) = write_to_temp(&info.b).context("writing item B to temp file")?;
 
         let new = match resolve_individual_conflict(raw_cmd, temp_a, temp_b) {
             Ok(data) => Item::from(data),
@@ -78,7 +83,7 @@ pub async fn interactive_resolution(pair: NamedPair) -> anyhow::Result<()> {
             }
         };
 
-        upload_resolved(&pair, &ref_a, &ref_b, item_a, item_b, &new).await?;
+        upload_resolved(&pair, &ref_a, &ref_b, &info.a.data, &info.b.data, &new).await?;
 
         info!("Resolved conflicts for '{}'.", new.ident());
     }
@@ -112,27 +117,14 @@ fn continue_skip_or_quit() -> anyhow::Result<YesNoQuit> {
     }
 }
 
-/// Returns (file, item, etag).
-async fn fetch_item(
-    storage: &dyn Storage,
-    item: ItemState,
-) -> anyhow::Result<(NamedTempFile, Item, ItemVersion)> {
+/// Write item data to a temporary file and return the file and version info.
+fn write_to_temp(item: &ItemWithData) -> anyhow::Result<(NamedTempFile, ItemVersion)> {
     let mut temp = NamedTempFile::new().context("Creating temporary file.")?;
-    debug!("Fetching {} for conflict resolution...", item.href);
-    let (data, etag) = if let Some(ref i) = item.data {
-        warn!("Conflicted item was not pre-fetched");
-        (i.clone(), item.etag.clone())
-    } else {
-        storage
-            .get_item(&item.href)
-            .await
-            .context("Fetching conflicting item from A.")?
-    };
-    temp.write_all(data.as_str().as_bytes())
+    temp.write_all(item.data.as_str().as_bytes())
         .context("writing item into temporary file")?;
 
-    let item_ver = ItemVersion::new(item.href, etag);
-    Ok((temp, data, item_ver))
+    let item_ver = ItemVersion::new(item.state.href.clone(), item.state.etag.clone());
+    Ok((temp, item_ver))
 }
 
 /// Returns `None` if resolution failed.
@@ -179,8 +171,8 @@ async fn upload_resolved(
     pair: &NamedPair,
     ref_a: &ItemVersion,
     ref_b: &ItemVersion,
-    orig_a: Item,
-    orig_b: Item,
+    orig_a: &Item,
+    orig_b: &Item,
     new: &Item,
 ) -> anyhow::Result<()> {
     let mut task_a = None;
