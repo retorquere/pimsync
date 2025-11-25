@@ -17,6 +17,7 @@ use camino::Utf8PathBuf;
 use config::{open_default_path, parse_config, parse_storages};
 use conflict::interactive_resolution;
 use futures_util::future::{Either, select};
+use futures_util::stream::{self, StreamExt};
 use log::{debug, error, info, trace, warn};
 use repair::repair_storages;
 use tokio::task::JoinSet;
@@ -24,7 +25,8 @@ use vstorage::sync::{
     SyncError,
     declare::StoragePair,
     execute::Executor,
-    plan::Plan,
+    operation::Operation,
+    plan::{Plan, PlanError},
     status::{StatusDatabase, StatusError},
 };
 
@@ -107,6 +109,56 @@ enum DaemonError {
 }
 
 impl NamedPair {
+    /// Collect plan operations, print summary, and return them.
+    async fn print_and_collect_plan(&self, mut plan: Plan) -> Vec<Result<Operation, PlanError>> {
+        let mut operations = Vec::new();
+        let mut collection_count = 0;
+        let mut item_count = 0;
+        let mut property_count = 0;
+        let mut conflict_count = 0;
+        let mut stale_count = 0;
+
+        while let Some(result) = plan.next().await {
+            match &result {
+                Ok(operation) => match operation {
+                    Operation::FlushStaleMappings { stale_uids } => {
+                        stale_count += stale_uids.len();
+                    }
+                    Operation::Collection(_) => {
+                        collection_count += 1;
+                    }
+                    Operation::Item(item_op) => {
+                        item_count += 1;
+                        if operation.is_conflict() {
+                            conflict_count += 1;
+                        }
+                        info!("item: {item_op:?}");
+                    }
+                    Operation::Property(prop_op) => {
+                        property_count += 1;
+                        if operation.is_conflict() {
+                            conflict_count += 1;
+                        }
+                        info!("property: {prop_op:?}");
+                    }
+                },
+                Err(err) => {
+                    error!("Error in plan: {err:?}");
+                }
+            }
+            operations.push(result);
+        }
+
+        println!(">>> Plan for storage pair '{}'", self.name);
+        println!(
+            "{collection_count} collection operations, {item_count} item operations, {property_count} property operations"
+        );
+        println!("{conflict_count} conflicts detected");
+        println!("{stale_count} stale mappings to flush");
+
+        operations
+    }
+
     /// Sync this pair indefinitely
     ///
     /// Returns an error if an only if a fatal synchronisation error occurred.
@@ -152,7 +204,7 @@ impl NamedPair {
                     {
                         error!("Conflict auto-resolution is not implemented");
                     }
-                    // TODO: re-implement plan printing with stream-based API.
+
                     let result = Executor::new(log_error)
                         .execute_stream(
                             Arc::clone(self.inner.storage_a()),
@@ -183,15 +235,16 @@ impl NamedPair {
             error!("Conflict auto-resolution is not implemented");
         }
 
-        // TODO: re-implement plan printing with stream-based API.
+        let operations = self.print_and_collect_plan(plan).await;
         if !dry_run {
             let status_rw = StatusDatabase::open_or_create(&self.status_path)
                 .with_context(|| format!("open_or_create status db for {}", self.name))?;
+            let operations_stream = stream::iter(operations);
             let result = Executor::new(log_error)
                 .execute_stream(
                     Arc::clone(self.inner.storage_a()),
                     Arc::clone(self.inner.storage_b()),
-                    plan,
+                    operations_stream,
                     &status_rw,
                     8,
                 )
@@ -331,6 +384,7 @@ async fn daemon(pairs: Vec<NamedPair>) -> anyhow::Error {
     anyhow::anyhow!("All sync tasks exited.")
 }
 
+/// Synchronise all pairs once.
 async fn sync(pairs: Vec<NamedPair>, dry_run: bool) -> anyhow::Result<()> {
     let mut set = JoinSet::new();
     for pair in pairs {
