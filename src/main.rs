@@ -8,6 +8,7 @@ use std::{
     fs::File,
     io::{Write, read_to_string},
     path::PathBuf,
+    pin::Pin,
     sync::Arc,
     time::Duration,
 };
@@ -17,12 +18,13 @@ use camino::Utf8PathBuf;
 use config::{open_default_path, parse_config, parse_storages};
 use conflict::interactive_resolution;
 use futures_util::future::{Either, select};
-use futures_util::stream::{self, StreamExt};
+use futures_util::stream::{self, Stream, StreamExt};
 use log::{debug, error, info, trace, warn};
 use repair::repair_storages;
 use tokio::task::JoinSet;
 use vstorage::sync::{
     SyncError,
+    conflict::{KeepAResolver, KeepBResolver, resolve_conflicts as apply_conflict_resolution},
     declare::StoragePair,
     execute::Executor,
     operation::Operation,
@@ -109,8 +111,30 @@ enum DaemonError {
 }
 
 impl NamedPair {
+    /// Apply conflict resolution to a plan stream if configured.
+    fn apply_conflict_resolution_to_plan(
+        &self,
+        plan: Plan,
+    ) -> Pin<Box<dyn Stream<Item = Result<Operation, PlanError>> + Send>> {
+        match self.conflict_resolution {
+            Some(ConflictResolution::KeepA) => {
+                info!("Auto-resolving conflicts by keeping version from storage A");
+                Box::pin(apply_conflict_resolution(plan, KeepAResolver))
+            }
+            Some(ConflictResolution::KeepB) => {
+                info!("Auto-resolving conflicts by keeping version from storage B");
+                Box::pin(apply_conflict_resolution(plan, KeepBResolver))
+            }
+            // TODO: RawCmd variant.
+            _ => Box::pin(plan),
+        }
+    }
+
     /// Collect plan operations, print summary, and return them.
-    async fn print_and_collect_plan(&self, mut plan: Plan) -> Vec<Result<Operation, PlanError>> {
+    async fn print_and_collect_plan(
+        &self,
+        mut plan: Pin<Box<dyn Stream<Item = Result<Operation, PlanError>> + Send>>,
+    ) -> Vec<Result<Operation, PlanError>> {
         let mut operations = Vec::new();
         let mut collection_count = 0;
         let mut item_count = 0;
@@ -199,19 +223,14 @@ impl NamedPair {
             debug!("Creating plan for storage pair '{}'.", self.name);
             match Plan::new(self.inner.clone(), Some(status.clone())).await {
                 Ok(plan) => {
-                    if let Some(ConflictResolution::KeepA | ConflictResolution::KeepB) =
-                        self.conflict_resolution
-                    {
-                        error!("Conflict auto-resolution is not implemented");
-                    }
+                    let plan_stream = self.apply_conflict_resolution_to_plan(plan);
 
                     let result = Executor::new(log_error)
                         .execute_stream(
                             Arc::clone(self.inner.storage_a()),
                             Arc::clone(self.inner.storage_b()),
-                            plan,
+                            plan_stream,
                             &status,
-                            8,
                         )
                         .await;
                     match result {
@@ -228,13 +247,7 @@ impl NamedPair {
     /// Common code between `daemon` and `sync` commands.
     async fn sync_once(&self, dry_run: bool) -> anyhow::Result<()> {
         let plan = self.create_plan().await.context("Creating plan")?;
-
-        if let Some(ConflictResolution::KeepA | ConflictResolution::KeepB) =
-            self.conflict_resolution
-        {
-            error!("Conflict auto-resolution is not implemented");
-        }
-
+        let plan = self.apply_conflict_resolution_to_plan(plan);
         let operations = self.print_and_collect_plan(plan).await;
         if !dry_run {
             let status_rw = StatusDatabase::open_or_create(&self.status_path)
@@ -246,7 +259,6 @@ impl NamedPair {
                     Arc::clone(self.inner.storage_b()),
                     operations_stream,
                     &status_rw,
-                    8,
                 )
                 .await
                 .context("executing plan")?;
