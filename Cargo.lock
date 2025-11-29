@@ -729,9 +729,9 @@ checksum = "58f929b4d672ea937a23a1ab494143d968337a5f47e56d0815df1e0890ddf174"
 
 [[package]]
 name = "libdav"
-version = "0.9.6"
+version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1ce4c102c0169dfebcb6e61c19d0e851c644402f11821d6f0831ce4b4472747a"
+checksum = "3f32d640f411a74bb004b81e3860ed058ff2ceb6b4dea1e8785601c9dbb2a0ff"
 dependencies = [
  "domain",
  "http",
@@ -1659,9 +1659,9 @@ checksum = "f915d8bc667c4be975163b1df13df548e047c2384d67abf96862855776e018d1"
 
 [[package]]
 name = "vstorage"
-version = "0.3.0"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "46291e724f7df25611720d3124c661592e1d2536192e332993513fa306a7f5a7"
+checksum = "691f027905c9b7ea3b2aa17895430294ba56e296f382ffe9b62e9205c87d4c74"
 dependencies = [
  "async-trait",
  "calcard",
