@@ -13,6 +13,8 @@ v0.5.5
 ------
 
 - Implement authentication support (username, password) for the WebCal storage.
+- Various documentation improvements.
+- Implement automatic `conflict_resolution` for `keep a` and `keep b`.
 
 v0.5.4
 ------
