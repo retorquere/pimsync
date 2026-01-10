@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: EUPL-1.2
 
 //! Helpers used for advanced TLS configuration.
-use std::{num::ParseIntError, path::Path, sync::Arc};
+use std::{path::Path, sync::Arc};
 
 use anyhow::{Context, bail};
 use pem::PemObject;
@@ -26,11 +26,7 @@ pub(crate) struct FingerprintVerifier {
 impl FingerprintVerifier {
     // Create a new verifier from a hexadecimal fingerprint representation.
     pub(crate) fn new(hex_fingerprint: &str) -> anyhow::Result<Self> {
-        let fingerprint = (0..hex_fingerprint.len())
-            .step_by(2)
-            .map(|i| u8::from_str_radix(&hex_fingerprint[i..=i + 1], 16))
-            .collect::<Result<Vec<u8>, ParseIntError>>()?;
-
+        let fingerprint = hex::decode(hex_fingerprint)?;
         Ok(FingerprintVerifier { fingerprint })
     }
 }
