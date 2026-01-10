@@ -320,12 +320,27 @@ is generally safe, especially when combined with
 .Cm on_empty skip .
 .It Ic on_delete Cm skip
 When a collection itself is deleted on one side, skip it.
+.It Ic one_way
+Synchronise items from
+.Ar storage_a
+to
+.Ar storage_b
+only. Changes in
+.Ar storage_b
+are overwritten with the data from
+.Ar storage_a .
+Items created in
+.Ar storage_b
+that do not exist in
+.Ar storage_a
+are deleted. This mode never produces conflicts. This directive takes no
+parameters.
 .El
 .Pp
 The
 .Ic conflict_resolution
 directive specifies which action should be taken if an item was modified on
-both sides:
+both sides. This directive has no effect when using synchronising one-way.
 .Bl -tag -width xxxx
 .It Ic conflict_resolution Cm cmd Ar command Op Ar args
 Execute

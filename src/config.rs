@@ -50,7 +50,10 @@ use vstorage::{
     caldav::{CalDavStorage, CollectionIdSegment},
     carddav::CardDavStorage,
     readonly::ReadOnlyStorage,
-    sync::declare::{CollectionDescription, OnDelete, OnEmpty, StoragePair, SyncedCollection},
+    sync::{
+        Mode, OneWaySync, TwoWaySync,
+        declare::{CollectionDescription, OnDelete, OnEmpty, StoragePair, SyncedCollection},
+    },
     vdir::VdirStorage,
     webcal::WebCalStorage,
 };
@@ -132,6 +135,16 @@ impl Config {
                         .map(parse_conflict_resolution)
                         .transpose()?;
 
+                let mode: Arc<dyn Mode> =
+                    if let Some(mut d) = take_single_directive(&mut config, "one_way")? {
+                        if d.take_params().into_iter().next().is_some() {
+                            bail!("the one_way directive takes no parameters")
+                        }
+                        Arc::new(OneWaySync)
+                    } else {
+                        Arc::new(TwoWaySync)
+                    };
+
                 // TODO: metadata
 
                 let status_path = status_dir.join(format!("{name}.status"));
@@ -145,7 +158,13 @@ impl Config {
                     (ItemKind::AddressBook, ItemKind::AddressBook)
                     | (ItemKind::Calendar, ItemKind::Calendar) => Ok(NamedPair {
                         name,
-                        inner: init_pair(collections, (storage_a, storage_b), on_empty, on_delete),
+                        inner: init_pair(
+                            collections,
+                            (storage_a, storage_b),
+                            on_empty,
+                            on_delete,
+                            mode,
+                        ),
                         status_path,
                         conflict_resolution,
                         names: (name_a, name_b),
@@ -334,7 +353,7 @@ fn init_pair(
     storages: (Arc<dyn Storage>, Arc<dyn Storage>),
     on_empty: OnEmpty,
     on_delete: OnDelete,
-    // TODO: partial_sync
+    mode: Arc<dyn Mode>,
 ) -> StoragePair {
     let mut pair = StoragePair::new(storages.0, storages.1);
 
@@ -350,7 +369,7 @@ fn init_pair(
         }
     }
 
-    pair.on_empty(on_empty).on_delete(on_delete)
+    pair.on_empty(on_empty).on_delete(on_delete).with_mode(mode)
 }
 
 fn parse_collection_directive(mut directive: Directive) -> anyhow::Result<Collections> {

@@ -9,6 +9,11 @@ changes will be avoided unless absolutely necessary.
 See the dedicated page for details on :ref:`monitoring for new releases
 <new-releases>`.
 
+v0.5.6
+------
+
+- Implement support for one-way sync (see ``one_way`` in :doc:`pimsync.conf.5`).
+
 v0.5.5
 ------
 
