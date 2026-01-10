@@ -123,7 +123,7 @@ fn write_to_temp(item: &ItemWithData) -> anyhow::Result<(NamedTempFile, ItemVers
     temp.write_all(item.data.as_str().as_bytes())
         .context("writing item into temporary file")?;
 
-    let item_ver = ItemVersion::new(item.state.href.clone(), item.state.etag.clone());
+    let item_ver = item.state.version.clone();
     Ok((temp, item_ver))
 }
 

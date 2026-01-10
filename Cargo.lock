@@ -1649,9 +1649,9 @@ checksum = "f915d8bc667c4be975163b1df13df548e047c2384d67abf96862855776e018d1"
 
 [[package]]
 name = "vstorage"
-version = "0.4.0"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "691f027905c9b7ea3b2aa17895430294ba56e296f382ffe9b62e9205c87d4c74"
+checksum = "cbdf5356d000bf582ee64a5ac10d6ea27ba26aa172f8a17ba3df21707438f2fb"
 dependencies = [
  "async-trait",
  "calcard",
