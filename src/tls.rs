@@ -3,16 +3,17 @@
 // SPDX-License-Identifier: EUPL-1.2
 
 //! Helpers used for advanced TLS configuration.
-use std::{fs::File, io::BufReader, num::ParseIntError, path::Path, sync::Arc};
+use std::{num::ParseIntError, path::Path, sync::Arc};
 
 use anyhow::{Context, bail};
+use pem::PemObject;
 use rustls::{
     CertificateError, OtherError, RootCertStore,
     client::{
         WebPkiServerVerifier,
         danger::{ServerCertVerified, ServerCertVerifier},
     },
-    pki_types::{CertificateDer, PrivateKeyDer, ServerName, UnixTime},
+    pki_types::{CertificateDer, PrivateKeyDer, ServerName, UnixTime, pem},
 };
 use sha2::{Digest, Sha256};
 
@@ -165,51 +166,34 @@ impl ServerCertVerifier for FingerprintAndWebPkiVerifier {
     }
 }
 
-/// Load certificates from a PEM-encoded file.
-pub(crate) fn certs_from_pemfile(path: &Path) -> anyhow::Result<Vec<CertificateDer<'static>>> {
-    let mut reader = BufReader::new(File::open(path)?);
-    Ok(rustls_pemfile::certs(&mut reader).collect::<Result<Vec<_>, _>>()?)
-}
-
-/// Load a keyfile from a PEM-encoded file.
-pub(crate) fn key_from_pemfile(path: &Path) -> anyhow::Result<PrivateKeyDer<'static>> {
-    let mut reader = BufReader::new(File::open(path)?);
-
-    match rustls_pemfile::private_key(&mut reader)? {
-        Some(private_key) => Ok(private_key),
-        None => bail!("no key file found in {}", path.to_string_lossy()),
-    }
-}
-
 /// Load certificates and a key file from a pem-encoded file.
 pub(crate) fn cert_and_key_from_pemfile(
     path: &Path,
 ) -> anyhow::Result<(Vec<CertificateDer<'static>>, PrivateKeyDer<'static>)> {
-    let mut reader = BufReader::new(File::open(path)?);
     let mut certs = Vec::new();
-    let mut raw_key = None;
+    let mut raw_key: Option<PrivateKeyDer<'static>> = None;
 
-    loop {
-        match rustls_pemfile::read_one(&mut reader)? {
-            Some(rustls_pemfile::Item::Pkcs1Key(k)) => {
-                if raw_key.replace(PrivateKeyDer::from(k)).is_some() {
+    for item in <(pem::SectionKind, Vec<u8>) as PemObject>::pem_file_iter(path)? {
+        let (kind, der) = item?;
+        match kind {
+            pem::SectionKind::Certificate => {
+                certs.push(CertificateDer::from(der));
+            }
+            pem::SectionKind::EcPrivateKey => {
+                if raw_key.replace(PrivateKeyDer::Sec1(der.into())).is_some() {
                     bail!("multiple keys found in {}", path.to_string_lossy());
                 }
             }
-            Some(rustls_pemfile::Item::Pkcs8Key(k)) => {
-                if raw_key.replace(PrivateKeyDer::from(k)).is_some() {
+            pem::SectionKind::PrivateKey => {
+                if raw_key.replace(PrivateKeyDer::Pkcs8(der.into())).is_some() {
                     bail!("multiple keys found in {}", path.to_string_lossy());
                 }
             }
-            Some(rustls_pemfile::Item::Sec1Key(k)) => {
-                if raw_key.replace(PrivateKeyDer::from(k)).is_some() {
+            pem::SectionKind::RsaPrivateKey => {
+                if raw_key.replace(PrivateKeyDer::Pkcs1(der.into())).is_some() {
                     bail!("multiple keys found in {}", path.to_string_lossy());
                 }
             }
-            Some(rustls_pemfile::Item::X509Certificate(cert)) => {
-                certs.push(cert);
-            }
-            None => break,
             _ => {}
         }
     }

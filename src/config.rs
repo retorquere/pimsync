@@ -23,7 +23,11 @@ use hyper_util::{
     rt::TokioExecutor,
 };
 use log::{debug, error, info, warn};
-use rustls::{ClientConfig, RootCertStore, client::danger::DangerousClientConfigBuilder};
+use rustls::{
+    ClientConfig, RootCertStore,
+    client::danger::DangerousClientConfigBuilder,
+    pki_types::{CertificateDer, PrivateKeyDer, pem::PemObject as _},
+};
 use scfg::{Directive, Scfg};
 use tokio::{
     sync::{Mutex, Notify},
@@ -59,10 +63,7 @@ use crate::{
         flatten_single_vec, resolve_cmd_inplace, take_single_directive, take_single_param,
         take_single_param_from_directive,
     },
-    tls::{
-        FingerprintAndWebPkiVerifier, FingerprintVerifier, cert_and_key_from_pemfile,
-        certs_from_pemfile, key_from_pemfile,
-    },
+    tls::{FingerprintAndWebPkiVerifier, FingerprintVerifier, cert_and_key_from_pemfile},
 };
 
 /// A deserialised configuration file.
@@ -682,7 +683,11 @@ fn parse_tls_config(config: &mut Scfg) -> anyhow::Result<HttpsConnector<HttpConn
             .context("tls_root must specify a valid path")?;
 
         let mut store = RootCertStore::empty();
-        for cert in certs_from_pemfile(&path)? {
+        let certs: Vec<_> = CertificateDer::pem_file_iter(&path)
+            .with_context(|| format!("opening {}", path.display()))?
+            .collect::<Result<_, _>>()
+            .with_context(|| format!("parsing {}", path.display()))?;
+        for cert in certs {
             store.add(cert)?;
         }
         root_store = Some(store);
@@ -703,7 +708,13 @@ fn parse_tls_config(config: &mut Scfg) -> anyhow::Result<HttpsConnector<HttpConn
             .context("auth_cert must specify at least one parameter")?;
         let cert = if let Some(second) = params.next() {
             let (crt_path, key_path): (PathBuf, PathBuf) = (first.parse()?, second.parse()?);
-            (certs_from_pemfile(&crt_path)?, key_from_pemfile(&key_path)?)
+            let crt = CertificateDer::pem_file_iter(&crt_path)
+                .with_context(|| format!("opening {}", crt_path.display()))?
+                .collect::<Result<Vec<_>, _>>()
+                .with_context(|| format!("parsing {}", crt_path.display()))?;
+            let key = PrivateKeyDer::from_pem_file(&key_path)
+                .with_context(|| format!("loading key from {}", key_path.display()))?;
+            (crt, key)
         } else {
             let combined_path: PathBuf = first.parse()?;
             cert_and_key_from_pemfile(&combined_path)?
