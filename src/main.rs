@@ -148,8 +148,9 @@ impl NamedPair {
                     Operation::FlushStaleMappings { stale_uids } => {
                         stale_count += stale_uids.len();
                     }
-                    Operation::Collection(_) => {
+                    Operation::Collection(collection_op) => {
                         collection_count += 1;
+                        info!("collection: {collection_op:?}");
                     }
                     Operation::Item(item_op) => {
                         item_count += 1;
