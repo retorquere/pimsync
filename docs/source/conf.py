@@ -9,7 +9,6 @@ author = "Hugo Osvaldo Barrera"
 templates_path = ["_templates"]
 
 html_theme = "alabaster"
-html_static_path = ["_static"]
 html_theme_options = {
     "font_family": "sans-serif",
 }
