@@ -26,6 +26,19 @@ When working on pimsync along with vstorage, libdav or libjmap from local
 checkout uncomment the relevant lines from `.cargo/config.toml` to use these
 local checkouts as dependencies.
 
+Testing zsh completion
+----------------------
+
+Load completion with::
+
+   fpath=($(pwd)/contrib $fpath)
+   autoload -Uz compinit && compinit
+
+If a compatible version of ``pimsync`` is not installed, add the local builds
+to ``$PATH``::
+
+   export PATH=$(pwd)/target/debug:$PATH
+
 Sending patches
 ---------------
 

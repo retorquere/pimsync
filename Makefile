@@ -43,6 +43,7 @@ install: build
 	@install -Dm644 pimsync.conf.5		-t ${DESTDIR}${PREFIX}/share/man/man5/
 	@install -Dm644 pimsync-migration.7	-t ${DESTDIR}${PREFIX}/share/man/man7/
 	@install -Dm644 LICENCE			-t ${DESTDIR}${PREFIX}/share/licenses/pimsync/
+	@install -Dm644 contrib/_pimsync	-t ${DESTDIR}${PREFIX}/share/zsh/site-functions/
 
 clean:
 	cargo clean

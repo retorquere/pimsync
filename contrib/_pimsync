@@ -1,0 +1,80 @@
+#compdef pimsync
+
+_pimsync_pairs() {
+    local -a pairs
+    pairs=(${(f)"$(pimsync list pairs 2>/dev/null)"})
+    _describe -t pairs 'pair' pairs
+}
+
+_pimsync_storages() {
+    local -a storages
+    storages=(${(f)"$(pimsync list storages 2>/dev/null)"})
+    _describe -t storages 'storage' storages
+}
+
+_pimsync() {
+    local -a commands=(
+        'check:check configuration and exit'
+        'daemon:keep storages in sync'
+        'sync:sync storages once'
+        'resolve-conflicts:manually resolve conflicts'
+        'discover:print discovered collections'
+        'list:list configured pairs or storages'
+        'repair:repair invalid items in collections'
+        'version:print version'
+    )
+
+    local -a log_levels=(
+        'error:only errors'
+        'warn:warnings and errors'
+        'info:informational messages'
+        'debug:debug messages'
+        # trace intentionally not included; logs sensitive data.
+    )
+
+    _arguments -C \
+        '-v[log level]:level:->loglevel' \
+        '-c[configuration file]:config file:_files' \
+        '1:command:->command' \
+        '*::arg:->args'
+
+    case "$state" in
+        loglevel)
+            _describe -t log-levels 'log level' log_levels
+            ;;
+        command)
+            _describe -t commands 'command' commands
+            ;;
+        args)
+            case "$words[1]" in
+                check|discover)
+                    _arguments '*:pair:_pimsync_pairs'
+                    ;;
+                daemon)
+                    _arguments \
+                        '-r[readiness file descriptor]:fd:' \
+                        '*:pair:_pimsync_pairs'
+                    ;;
+                sync|resolve-conflicts)
+                    _arguments \
+                        '-n[dry run]' \
+                        '*:pair:_pimsync_pairs'
+                    ;;
+                list)
+                    local -a targets=(
+                        'pairs:list configured pairs'
+                        'storages:list configured storages'
+                    )
+                    _describe -t targets 'target' targets
+                    ;;
+                repair)
+                    _arguments '*:storage:_pimsync_storages'
+                    ;;
+                version)
+                    ;;
+            esac
+            ;;
+    esac
+}
+
+_pimsync "$@"
