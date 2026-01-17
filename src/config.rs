@@ -931,6 +931,38 @@ pub(crate) async fn parse_storages(
     Ok(storages)
 }
 
+/// List all pair names defined in the configuration file.
+pub(crate) fn list_pair_names(raw_config: &str) -> anyhow::Result<Vec<String>> {
+    let mut parser = raw_config
+        .parse::<Scfg>()
+        .context("Parsing configuration file")?;
+
+    let mut names = Vec::new();
+    if let Some(directives) = parser.remove("pair") {
+        for mut directive in directives {
+            let name = take_single_param(&mut directive).context("Parsing pair directive")?;
+            names.push(name);
+        }
+    }
+    Ok(names)
+}
+
+/// List all storage names defined in the configuration file.
+pub(crate) fn list_storage_names(raw_config: &str) -> anyhow::Result<Vec<String>> {
+    let mut parser = raw_config
+        .parse::<Scfg>()
+        .context("Parsing configuration file")?;
+
+    let mut names = Vec::new();
+    if let Some(directives) = parser.remove("storage") {
+        for mut directive in directives {
+            let name = take_single_param(&mut directive).context("Parsing storage directive")?;
+            names.push(name);
+        }
+    }
+    Ok(names)
+}
+
 fn parse_interval(parser: &mut Scfg) -> anyhow::Result<Duration> {
     let seconds = if let Some(mut directive) = take_single_directive(parser, "interval")? {
         take_single_param(&mut directive)

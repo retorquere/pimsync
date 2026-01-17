@@ -15,7 +15,9 @@ use std::{
 
 use anyhow::{Context, bail};
 use camino::Utf8PathBuf;
-use config::{open_default_path, parse_config, parse_storages};
+use config::{
+    list_pair_names, list_storage_names, open_default_path, parse_config, parse_storages,
+};
 use conflict::interactive_resolution;
 use futures_util::future::{Either, select};
 use futures_util::stream::{self, Stream, StreamExt};
@@ -32,7 +34,7 @@ use vstorage::sync::{
     status::{StatusDatabase, StatusError},
 };
 
-use crate::cli::{Cli, Command};
+use crate::cli::{Cli, Command, ListTarget};
 
 mod cli;
 mod config;
@@ -308,6 +310,7 @@ async fn main() -> anyhow::Result<()> {
         eprintln!("\tsync [-n] [PAIR…]\t\tsync storages once");
         eprintln!("\tresolve-conflicts [-n] [PAIR…]\tmanually resolve conflicts");
         eprintln!("\tdiscover [PAIR…]\t\tprint discovered collections");
+        eprintln!("\tlist [pairs|storages]\t\tlist configured pairs or storages");
         eprintln!("\trepair [PAIR/STORAGE…]\t\trepair invalid items in collections");
         eprintln!("\tversion\t\t\t\tprint version");
         eprintln!("See 'man pimsync' for details");
@@ -343,6 +346,17 @@ async fn main() -> anyhow::Result<()> {
         return repair_storages(storages).await;
     }
 
+    if let Command::List { target } = cli.command {
+        let names = match target {
+            ListTarget::Pairs => list_pair_names(&config_data)?,
+            ListTarget::Storages => list_storage_names(&config_data)?,
+        };
+        for name in names {
+            println!("{name}");
+        }
+        return Ok(());
+    }
+
     let config = parse_config(&config_data, cli.names).with_context(|| {
         format!(
             "Could not parse configuration file at {}",
@@ -366,7 +380,7 @@ async fn main() -> anyhow::Result<()> {
         Command::Sync { dry_run } => sync(pairs, dry_run).await,
         Command::ResolveConflicts { dry_run } => resolve_conflicts(pairs, dry_run).await,
         Command::Discover => discover(pairs).await,
-        Command::Repair | Command::Version => unreachable!("Handled above"),
+        Command::List { .. } | Command::Repair | Command::Version => unreachable!("Handled above"),
     }
 }
 

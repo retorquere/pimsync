@@ -9,8 +9,14 @@ pub(crate) enum Command {
     Sync { dry_run: bool },
     ResolveConflicts { dry_run: bool },
     Discover,
+    List { target: ListTarget },
     Repair,
     Version,
+}
+
+pub(crate) enum ListTarget {
+    Pairs,
+    Storages,
 }
 
 pub(crate) struct Cli {
@@ -73,6 +79,7 @@ impl Cli {
                         "sync" => parse_sync(&mut parser, &mut names)?,
                         "resolve-conflicts" => parse_resolve_conflicts(&mut parser, &mut names)?,
                         "discover" => parse_discover(&mut parser, &mut names)?,
+                        "list" => parse_list(&mut parser)?,
                         "repair" => parse_repair(&mut parser, &mut names)?,
                         "version" => parse_version(&mut parser)?,
                         cmd => return Err(format!("Unknown command: {cmd}").into()),
@@ -167,6 +174,24 @@ fn parse_repair(parser: &mut Parser, names: &mut FilterNames) -> Result<Command,
         }
     }
     Ok(Command::Repair)
+}
+
+fn parse_list(parser: &mut Parser) -> Result<Command, lexopt::Error> {
+    let target = match parser.next()? {
+        Some(Arg::Value(val)) => match val.string()?.as_str() {
+            "pairs" => ListTarget::Pairs,
+            "storages" => ListTarget::Storages,
+            other => return Err(format!("Unknown list target: {other}").into()),
+        },
+        Some(arg) => return Err(arg.unexpected()),
+        None => return Err("list requires a target (pairs or storages)".into()),
+    };
+
+    if let Some(arg) = parser.next()? {
+        return Err(arg.unexpected());
+    }
+
+    Ok(Command::List { target })
 }
 
 fn parse_version(parser: &mut Parser) -> Result<Command, lexopt::Error> {
