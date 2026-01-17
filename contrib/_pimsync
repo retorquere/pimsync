@@ -5,7 +5,7 @@ _pimsync_pairs() {
     cfg=()
     [[ -n "$config_file" ]] && cfg=(-c "$config_file")
     pairs=(${(f)"$(pimsync ${cfg[@]} list pairs 2>/dev/null)"})
-    compadd -a pairs
+    compadd -F words -a pairs
 }
 
 _pimsync_storages() {
@@ -13,7 +13,7 @@ _pimsync_storages() {
     cfg=()
     [[ -n "$config_file" ]] && cfg=(-c "$config_file")
     storages=(${(f)"$(pimsync ${cfg[@]} list storages 2>/dev/null)"})
-    compadd -a storages
+    compadd -F words -a storages
 }
 
 _pimsync() {
