@@ -10,7 +10,7 @@ homepage = "https://pimsync.whynothugo.nl/"
 repository = "https://git.sr.ht/~whynothugo/pimsync"
 license = "EUPL-1.2"
 build = "build.rs"
-rust-version = "1.86.0"
+rust-version = "1.88.0"
 
 [profile.release]
 lto = true
