@@ -15,6 +15,7 @@ v0.5.6
 - Implement support for one-way sync (see ``one_way`` in :doc:`pimsync.conf.5`).
 - Implement conflict resolution for properties.
 - Implement zsh completion.
+- Fix error writing items to strict CalDAV/CardDAV servers.
 
 v0.5.5
 ------
