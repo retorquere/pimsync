@@ -336,14 +336,14 @@ async fn init_storage(
 /// If this path starts with tilde AND the home directory is non-UTF8.
 fn expand_tilde(orig: Utf8PathBuf) -> Result<Utf8PathBuf, camino::FromPathBufError> {
     let mut iter = orig.as_str().chars();
-    if let Some('~') = iter.next() {
-        if let Some('/') = iter.next() {
-            #[allow(deprecated)] // Only problematic on unsupported platforms.
-            let home = std::env::home_dir().expect("must resolve home path to expand tilde");
-            let home = Utf8PathBuf::try_from(home)?;
-            let rest = iter.collect::<String>();
-            return Ok(home.join(rest));
-        }
+    if let Some('~') = iter.next()
+        && let Some('/') = iter.next()
+    {
+        #[allow(deprecated)] // Only problematic on unsupported platforms.
+        let home = std::env::home_dir().expect("must resolve home path to expand tilde");
+        let home = Utf8PathBuf::try_from(home)?;
+        let rest = iter.collect::<String>();
+        return Ok(home.join(rest));
     }
     Ok(orig)
 }
