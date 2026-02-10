@@ -13,8 +13,8 @@ use tokio::try_join;
 use vstorage::{
     base::{Item, ItemVersion, Property},
     sync::{
+        analysis::{ItemWithData, ResolvedMapping},
         operation::{ItemOp, Operation, PropertyOp},
-        plan::{ItemWithData, ResolvedMapping},
     },
 };
 
