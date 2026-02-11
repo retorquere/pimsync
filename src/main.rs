@@ -247,7 +247,6 @@ impl NamedPair {
         }
     }
 
-    /// Common code between `daemon` and `sync` commands.
     async fn sync_once(&self, dry_run: bool) -> anyhow::Result<()> {
         let plan = self.create_plan().await.context("Creating plan")?;
         let plan = self.apply_conflict_resolution_to_plan(plan);
