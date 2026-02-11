@@ -103,10 +103,15 @@ Manually resolve conflicts between storages.
 .Pp
 Execute an external program, specified in the configuration file, which
 performs conflict resolution program for each conflicting item.
-.It Ic sync Op Ar pair…
-Synchronise storages once and exit. Appending
+.It Ic sync Op Fl n Op Fl i Op Ar pair…
+Synchronise storages once and exit.
+The
 .Fl n
-performs a dry run and won't perform any write operations.
+flag performs a dry run and won't perform any write operations.
+The
+.Fl i
+flag enables interactive mode, prompting to confirm the plan before proceeding
+with the synchronisation.
 .It Ic repair Op Ar storage…
 Repair invalid items. Currently, this adds missing
 .Va UID

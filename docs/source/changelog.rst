@@ -9,6 +9,13 @@ changes will be avoided unless absolutely necessary.
 See the dedicated page for details on :ref:`monitoring for new releases
 <new-releases>`.
 
+v0.5.7
+------
+
+- Print a human-friendly plan when using  ``sync``.
+- Implement interactive sync (``sync -i``), prompting for for confirmation
+  before executing a plan.
+
 v0.5.6
 ------
 

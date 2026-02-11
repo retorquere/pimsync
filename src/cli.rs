@@ -6,7 +6,7 @@ use std::{collections::HashSet, fs::File};
 pub(crate) enum Command {
     Check,
     Daemon { ready_fd: Option<File> },
-    Sync { dry_run: bool },
+    Sync { dry_run: bool, interactive: bool },
     ResolveConflicts { dry_run: bool },
     Discover,
     List { target: ListTarget },
@@ -131,14 +131,19 @@ fn parse_daemon(parser: &mut Parser, names: &mut FilterNames) -> Result<Command,
 
 fn parse_sync(parser: &mut Parser, names: &mut FilterNames) -> Result<Command, lexopt::Error> {
     let mut dry_run = false;
+    let mut interactive = false;
     while let Some(arg) = parser.next()? {
         match arg {
             Arg::Short('n') => dry_run = true,
+            Arg::Short('i') => interactive = true,
             Arg::Value(pair_name) => names.push(pair_name.string()?),
             _ => return Err(arg.unexpected()),
         }
     }
-    Ok(Command::Sync { dry_run })
+    Ok(Command::Sync {
+        dry_run,
+        interactive,
+    })
 }
 
 fn parse_resolve_conflicts(

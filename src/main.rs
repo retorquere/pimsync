@@ -38,6 +38,7 @@ use vstorage::sync::{
 };
 
 use crate::cli::{Cli, Command, ListTarget};
+use crate::conflict::{YesNoQuit, continue_skip_or_quit};
 
 mod cli;
 mod config;
@@ -257,10 +258,26 @@ impl NamedPair {
         }
     }
 
-    async fn sync_once(&self, dry_run: bool) -> anyhow::Result<()> {
+    /// Returns true if the operation shall continue.
+    async fn sync_once(&self, dry_run: bool, interactive: bool) -> anyhow::Result<bool> {
         let plan = self.create_plan().await.context("Creating plan")?;
         let plan = self.apply_conflict_resolution_to_plan(plan);
         let operations = self.print_and_collect_plan(plan).await;
+
+        if interactive {
+            match continue_skip_or_quit("Execute plan?")? {
+                YesNoQuit::Yes => {}
+                YesNoQuit::No => {
+                    println!("Sync skipped for pair '{}'.", self.name);
+                    return Ok(true);
+                }
+                YesNoQuit::Quit => {
+                    println!("Sync cancelled.");
+                    return Ok(false);
+                }
+            }
+        }
+
         if !dry_run {
             let status_rw = StatusDatabase::open_or_create(&self.status_path)
                 .with_context(|| format!("open_or_create status db for {}", self.name))?;
@@ -276,7 +293,7 @@ impl NamedPair {
                 .context("executing plan")?;
             result.context("execution failed")?;
         }
-        Ok(())
+        Ok(true)
     }
 
     async fn create_plan(&self) -> anyhow::Result<Plan> {
@@ -316,7 +333,7 @@ async fn main() -> anyhow::Result<()> {
         eprintln!("Commands:");
         eprintln!("\tcheck [PAIR…]\t\t\tcheck configuration and exit");
         eprintln!("\tdaemon -[r READY_FD] [PAIR…]\tkeep storages in sync");
-        eprintln!("\tsync [-n] [PAIR…]\t\tsync storages once");
+        eprintln!("\tsync [-n] [-i] [PAIR…]\t\tsync storages once");
         eprintln!("\tresolve-conflicts [-n] [PAIR…]\tmanually resolve conflicts");
         eprintln!("\tdiscover [PAIR…]\t\tprint discovered collections");
         eprintln!("\tlist [pairs|storages]\t\tlist configured pairs or storages");
@@ -386,7 +403,10 @@ async fn main() -> anyhow::Result<()> {
             }
             Err(daemon(pairs).await)
         }
-        Command::Sync { dry_run } => sync(pairs, dry_run).await,
+        Command::Sync {
+            dry_run,
+            interactive,
+        } => sync(pairs, dry_run, interactive).await,
         Command::ResolveConflicts { dry_run } => resolve_conflicts(pairs, dry_run).await,
         Command::Discover => discover(pairs).await,
         Command::List { .. } | Command::Repair | Command::Version => unreachable!("Handled above"),
@@ -421,15 +441,17 @@ async fn daemon(pairs: Vec<NamedPair>) -> anyhow::Error {
 }
 
 /// Synchronise all pairs once.
-async fn sync(pairs: Vec<NamedPair>, dry_run: bool) -> anyhow::Result<()> {
+async fn sync(pairs: Vec<NamedPair>, dry_run: bool, interactive: bool) -> anyhow::Result<()> {
     // Run sequentially, so rendered plans don't get intermixed.
     for pair in pairs {
         let result = pair
-            .sync_once(dry_run)
+            .sync_once(dry_run, interactive)
             .await
             .with_context(|| format!("Synchronising pair {}", pair.name));
-        if let Err(err) = result {
-            error!("{err}");
+        match result {
+            Ok(true) => {}      // Continue to next pair
+            Ok(false) => break, // User quit, exit sync
+            Err(err) => error!("{err}"),
         }
     }
 

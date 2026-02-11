@@ -87,7 +87,7 @@ async fn resolve_item_conflicts(
             i + 1,
             info.a.state.uid
         );
-        match continue_skip_or_quit()? {
+        match continue_skip_or_quit("Resolve it manually?")? {
             YesNoQuit::Yes => {}
             YesNoQuit::No => continue,
             YesNoQuit::Quit => {
@@ -167,7 +167,7 @@ async fn resolve_property_conflicts(
     Ok(())
 }
 
-enum YesNoQuit {
+pub enum YesNoQuit {
     Yes,
     No,
     Quit,
@@ -181,9 +181,9 @@ enum PropertyChoice {
     Quit,
 }
 
-fn continue_skip_or_quit() -> anyhow::Result<YesNoQuit> {
+pub fn continue_skip_or_quit(msg: &str) -> anyhow::Result<YesNoQuit> {
     loop {
-        print!("Resolve it manually? (Y)es, (N)o, or (Q)uit? ");
+        print!("{msg} (Y)es, (N)o, or (Q)uit? ");
         stdout().flush()?;
         // Need to read entire lines because the stdlib implicitly buffers stdin.
         let mut response = String::new();
