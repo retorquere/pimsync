@@ -19,8 +19,11 @@ use config::{
     list_pair_names, list_storage_names, open_default_path, parse_config, parse_storages,
 };
 use conflict::interactive_resolution;
-use futures_util::future::{Either, select};
-use futures_util::stream::{self, Stream, StreamExt};
+use futures_util::stream::{self, Stream};
+use futures_util::{
+    StreamExt as _,
+    future::{Either, select},
+};
 use log::{debug, error, info, trace, warn};
 use repair::repair_storages;
 use tokio::task::JoinSet;
@@ -143,30 +146,39 @@ impl NamedPair {
         let mut property_count = 0;
         let mut conflict_count = 0;
         let mut stale_count = 0;
-
+        println!(">> Storage: {}", self.name);
         while let Some(result) = plan.next().await {
             match &result {
                 Ok(operation) => match operation {
                     Operation::FlushStaleMappings { stale_uids } => {
+                        debug!("stale uids: {stale_uids:?}");
                         stale_count += stale_uids.len();
                     }
                     Operation::Collection(collection_op) => {
+                        debug!("collection: {collection_op:?}");
                         collection_count += 1;
-                        info!("collection: {collection_op:?}");
+                        println!("-> Collection {collection_op}");
                     }
                     Operation::Item(item_op) => {
+                        debug!("item: {item_op:?}");
                         item_count += 1;
                         if operation.is_conflict() {
                             conflict_count += 1;
                         }
-                        info!("item: {item_op:?}");
+                        if let Some(uid) = item_op.uid() {
+                            println!("-> Item {uid}: {item_op}");
+                        } else {
+                            println!("-> Item: {item_op}");
+                        }
                     }
                     Operation::Property(prop_op) => {
+                        debug!("property: {prop_op:?}");
                         property_count += 1;
                         if operation.is_conflict() {
                             conflict_count += 1;
                         }
-                        info!("property: {prop_op:?}");
+                        let prop = prop_op.property();
+                        println!("-> Property {prop}: {prop_op}");
                     }
                 },
                 Err(err) => {
@@ -175,14 +187,12 @@ impl NamedPair {
             }
             operations.push(result);
         }
-
-        println!(">>> Plan for storage pair '{}'", self.name);
         println!(
             "{collection_count} collection operations, {item_count} item operations, {property_count} property operations"
         );
         println!("{conflict_count} conflicts detected");
         println!("{stale_count} stale mappings to flush");
-
+        println!();
         operations
     }
 
@@ -412,22 +422,17 @@ async fn daemon(pairs: Vec<NamedPair>) -> anyhow::Error {
 
 /// Synchronise all pairs once.
 async fn sync(pairs: Vec<NamedPair>, dry_run: bool) -> anyhow::Result<()> {
-    let mut set = JoinSet::new();
+    // Run sequentially, so rendered plans don't get intermixed.
     for pair in pairs {
-        set.spawn(async move {
-            pair.sync_once(dry_run)
-                .await
-                .with_context(|| format!("Synchronising pair {}", pair.name))
-        });
-    }
-
-    while let Some(res) = set.join_next().await {
-        match res {
-            Ok(Ok(())) => {}
-            Ok(Err(err)) => error!("Error in sync task: {err:?}."),
-            Err(joinerr) => error!("Sync task aborted: {joinerr:?}."),
+        let result = pair
+            .sync_once(dry_run)
+            .await
+            .with_context(|| format!("Synchronising pair {}", pair.name));
+        if let Err(err) = result {
+            error!("{err}");
         }
     }
+
     Ok(())
 }
 
