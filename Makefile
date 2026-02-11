@@ -52,7 +52,7 @@ clean:
 check:
 	cargo check
 	cargo fmt --check
-	cargo clippy --all-targets
+	cargo clippy --all-targets --all
 	cargo test  # includes examples and doctests
 	cargo doc  # fails on broken links
 	cargo-deny check
