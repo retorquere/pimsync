@@ -19,6 +19,9 @@ Source code is available at the `project repository`_.
 
 .. _project repository: https://git.sr.ht/~whynothugo/pimsync
 
+Builds during development cycles track arbitrary commits of some dependencies.
+Use ``git submodule update --init`` before building.
+
 Unit tests and other basic checks can be run with `make check`. This will also
 ensure that documentation has no broken links, examples build, etc.
 
