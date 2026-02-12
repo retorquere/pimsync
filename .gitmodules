@@ -1,0 +1,3 @@
+[submodule "vstorage"]
+	path = vstorage
+	url = https://git.sr.ht/~whynothugo/vstorage

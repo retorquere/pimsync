@@ -7,4 +7,4 @@ rustdocflags = ["--deny=warnings", "--allow=incomplete-features"]
 
 # Uncomment these when developing all crates locally.
 #[patch.crates-io]
-#vstorage = { path = "../vstorage" }
+#vstorage = { path = "./vstorage" }
