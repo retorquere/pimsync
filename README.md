@@ -62,7 +62,7 @@ cargo build --features jmap
 
 ## Contributing
 
-See [HACKING.md].
+See <https://pimsync.whynothugo.nl/contributing.html>.
 
 ## Thanks
 
