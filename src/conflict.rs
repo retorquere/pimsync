@@ -11,10 +11,11 @@ use rustix::fs::sync;
 use tempfile::NamedTempFile;
 use tokio::try_join;
 use vstorage::{
-    base::{Item, ItemVersion, Property},
+    base::{Item, ItemVersion},
+    property::Property,
     sync::{
         analysis::{ItemWithData, ResolvedMapping},
-        operation::{ItemOp, Operation, PropertyOp},
+        operation::{ItemOp, Operation, PropertyOp, PropertyOpKind},
     },
 };
 
@@ -43,7 +44,12 @@ pub async fn interactive_resolution(pair: NamedPair) -> anyhow::Result<()> {
             Ok(Operation::Item(ItemOp::Conflict { info, .. })) => {
                 item_conflicts.push(info);
             }
-            Ok(Operation::Property(op @ PropertyOp::PropertyConflict { .. })) => {
+            Ok(Operation::Property(
+                op @ PropertyOp {
+                    kind: PropertyOpKind::Conflict { .. },
+                    ..
+                },
+            )) => {
                 property_conflicts.push(op);
             }
             Ok(_) => {} // Skip non-conflict operations
@@ -126,16 +132,11 @@ async fn resolve_property_conflicts(
 ) -> anyhow::Result<()> {
     let total = conflicts.len();
     for (i, op) in conflicts.into_iter().enumerate() {
-        let PropertyOp::PropertyConflict {
-            property,
-            value_a,
-            value_b,
-            mapping,
-            ..
-        } = op
-        else {
+        let PropertyOpKind::Conflict { value_a, value_b } = op.kind else {
             unreachable!()
         };
+        let property = op.property;
+        let mapping = op.mapping;
 
         println!(
             "Property {}/{total}: \"{}\" on collection \"{}\":",

@@ -178,7 +178,7 @@ impl NamedPair {
                         if operation.is_conflict() {
                             conflict_count += 1;
                         }
-                        let prop = prop_op.property();
+                        let prop = prop_op.property;
                         println!("-> Property {prop}: {prop_op}");
                     }
                 },
