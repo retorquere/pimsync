@@ -73,6 +73,7 @@ _pimsync() {
                 sync|resolve-conflicts)
                     _arguments \
                         '-n[dry run]' \
+                        '-i[interactive]' \
                         '*:pair:_pimsync_pairs'
                     ;;
                 list)
