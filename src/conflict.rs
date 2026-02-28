@@ -6,15 +6,15 @@ use std::io::{Seek as _, Write as _, read_to_string, stdin, stdout};
 
 use anyhow::{Context as _, bail};
 use futures_util::StreamExt;
-use log::{debug, error, info};
+use futures_util::future::OptionFuture;
+use log::{error, info};
 use rustix::fs::sync;
 use tempfile::NamedTempFile;
-use tokio::try_join;
 use vstorage::{
     base::{Item, ItemVersion},
     property::Property,
     sync::{
-        analysis::{ItemWithData, ResolvedMapping},
+        analysis::ResolvedMapping,
         operation::{ItemOp, Operation, PropertyOp, PropertyOpKind},
     },
 };
@@ -106,10 +106,14 @@ async fn resolve_item_conflicts(
         }
         info!("Running conflict resolution for item {}", info.a.state.uid);
 
-        let (temp_a, ref_a) = write_to_temp(&info.a).context("writing item A to temp file")?;
-        let (temp_b, ref_b) = write_to_temp(&info.b).context("writing item B to temp file")?;
+        let temp_a = write_to_temp_file(info.a.data.as_str().as_bytes())
+            .context("writing item A to temp file")?;
+        let temp_b = write_to_temp_file(info.b.data.as_str().as_bytes())
+            .context("writing item B to temp file")?;
+        let ref_a = info.a.state.version.clone();
+        let ref_b = info.b.state.version.clone();
 
-        let new = match resolve_individual_item_conflict(raw_cmd, temp_a, temp_b) {
+        let new = match run_merge_command(raw_cmd, temp_a, temp_b) {
             Ok(data) => Item::from(data),
             Err(err) => {
                 error!("Error resolving conflict: {err}");
@@ -220,7 +224,9 @@ fn choose_property_value(
             "a" => return Ok(PropertyChoice::A),
             "b" => return Ok(PropertyChoice::B),
             "e" => {
-                match edit_property_value(value_a, value_b, raw_cmd) {
+                let temp_a = write_to_temp_file(value_a.as_bytes())?;
+                let temp_b = write_to_temp_file(value_b.as_bytes())?;
+                match run_merge_command(raw_cmd, temp_a, temp_b).map(|s| s.trim().to_string()) {
                     Ok(value) => return Ok(PropertyChoice::Custom(value)),
                     Err(err) => {
                         error!("Error editing property: {err}");
@@ -235,71 +241,11 @@ fn choose_property_value(
     }
 }
 
-/// Open property values in editor for manual editing.
-fn edit_property_value(
-    value_a: &str,
-    value_b: &str,
-    raw_cmd: &RawCommand,
-) -> anyhow::Result<String> {
-    let mut temp_a = NamedTempFile::new().context("Creating temporary file for A")?;
-    let mut temp_b = NamedTempFile::new().context("Creating temporary file for B")?;
-
-    temp_a
-        .write_all(value_a.as_bytes())
-        .context("writing value A to temp file")?;
-    temp_b
-        .write_all(value_b.as_bytes())
-        .context("writing value B to temp file")?;
-
-    let exit_status = raw_cmd
-        .command()
-        .arg(temp_a.path())
-        .arg(temp_b.path())
-        .spawn()
-        .context("executing conflict resolution command")?
-        .wait()
-        .context("waiting for conflict resolution command")?;
-
-    if !exit_status.success() {
-        bail!("Conflict resolution command failed: {exit_status}");
-    }
-
-    sync();
-    temp_a.rewind().context("seeking in temporary file for A")?;
-    temp_b.rewind().context("seeking in temporary file for B")?;
-
-    let new_a = read_to_string(temp_a).context("reading resolved value A")?;
-    let new_b = read_to_string(temp_b).context("reading resolved value B")?;
-
-    let new_a = new_a.trim();
-    let new_b = new_b.trim();
-
-    if new_a.is_empty() {
-        bail!("Resolved value A is empty.");
-    }
-    if new_b.is_empty() {
-        bail!("Resolved value B is empty.");
-    }
-    if new_a != new_b {
-        println!("Values are not identical. Please make both files the same.");
-        bail!("Edited values don't match.");
-    }
-
-    Ok(new_a.to_string())
-}
-
-/// Write item data to a temporary file and return the file and version info.
-fn write_to_temp(item: &ItemWithData) -> anyhow::Result<(NamedTempFile, ItemVersion)> {
-    let mut temp = NamedTempFile::new().context("Creating temporary file.")?;
-    temp.write_all(item.data.as_str().as_bytes())
-        .context("writing item into temporary file")?;
-
-    let item_ver = item.state.version.clone();
-    Ok((temp, item_ver))
-}
-
-/// Returns `None` if resolution failed.
-fn resolve_individual_item_conflict(
+/// Run a merge command on two temporary files and validate the result.
+///
+/// Execute the command with both file paths as arguments. After the command exits,
+/// read both files back and validate that they are non-empty and identical.
+fn run_merge_command(
     raw_cmd: &RawCommand,
     mut temp_a: NamedTempFile,
     mut temp_b: NamedTempFile,
@@ -317,25 +263,33 @@ fn resolve_individual_item_conflict(
         bail!("Conflict resolution command failed: {exit_status}");
     }
 
-    // Ensure that files are committed; otherwise we sometimes read empty data.
+    // Ensure that files are committed to disk; otherwise we sometimes read empty data.
     sync();
     temp_a.rewind().context("seeking in temporary file for A")?;
     temp_b.rewind().context("seeking in temporary file for B")?;
 
-    let new_a = read_to_string(temp_a).context("reading resolved item A")?;
-    let new_b = read_to_string(temp_b).context("reading resolved item B")?;
+    let new_a = read_to_string(temp_a).context("reading resolved value A")?;
+    let new_b = read_to_string(temp_b).context("reading resolved value B")?;
 
-    if new_a.is_empty() {
-        bail!("Resolved item A is empty.");
+    if new_a.trim().is_empty() {
+        bail!("Resolved value A is empty.");
     }
-    if new_b.is_empty() {
-        bail!("Resolved item B is empty.");
+    if new_b.trim().is_empty() {
+        bail!("Resolved value B is empty.");
     }
     if new_a.trim() != new_b.trim() {
-        println!("Resulting item is not identical on both sides. Conflict not resolved.");
-        bail!("Conflict resolution yielded mismatching items.");
+        println!("Resulting values are not identical on both sides.");
+        bail!("Conflict resolution yielded mismatching values.");
     }
     Ok(new_a)
+}
+
+/// Write data to a new temporary file.
+fn write_to_temp_file(data: &[u8]) -> anyhow::Result<NamedTempFile> {
+    let mut temp = NamedTempFile::new().context("Creating temporary file")?;
+    temp.write_all(data)
+        .context("writing into temporary file")?;
+    Ok(temp)
 }
 
 async fn upload_resolved_item(
@@ -346,48 +300,27 @@ async fn upload_resolved_item(
     orig_b: &Item,
     new: &Item,
 ) -> anyhow::Result<()> {
-    let mut task_a = None;
-    let mut task_b = None;
-
-    if new.hash() == orig_a.hash() {
-        debug!("Item is unchanged in A.");
-    } else {
-        task_a = Some(async {
+    let task_a: OptionFuture<_> = (new.hash() != orig_a.hash())
+        .then_some(async {
             pair.inner
                 .storage_a()
                 .update_item(&ref_a.href, &ref_a.etag, new)
                 .await
                 .context("uploading resolved item into A")
-        });
-    }
-
-    if new.hash() == orig_b.hash() {
-        debug!("Item is unchanged in B.");
-    } else {
-        task_b = Some(async {
+        })
+        .into();
+    let task_b: OptionFuture<_> = (new.hash() != orig_b.hash())
+        .then_some(async {
             pair.inner
                 .storage_b()
                 .update_item(&ref_b.href, &ref_b.etag, new)
                 .await
                 .context("uploading resolved item into B")
-        });
-    }
-
-    match (task_a, task_b) {
-        (None, None) => {}
-        (None, Some(b)) => {
-            b.await?;
-            debug!("Uploaded resolved item to B.");
-        }
-        (Some(a), None) => {
-            a.await?;
-            debug!("Uploaded resolved item to A.");
-        }
-        (Some(a), Some(b)) => {
-            try_join!(a, b)?;
-            debug!("Uploaded resolved items.");
-        }
-    }
+        })
+        .into();
+    let (result_a, result_b) = tokio::join!(task_a, task_b);
+    result_a.transpose()?;
+    result_b.transpose()?;
     Ok(())
 }
 
@@ -399,47 +332,26 @@ async fn upload_resolved_property(
     orig_b: &str,
     new_value: &str,
 ) -> anyhow::Result<()> {
-    let mut task_a = None;
-    let mut task_b = None;
-
-    if new_value == orig_a {
-        debug!("Property is unchanged in A.");
-    } else {
-        task_a = Some(async {
+    let task_a: OptionFuture<_> = (new_value != orig_a)
+        .then_some(async {
             pair.inner
                 .storage_a()
                 .set_property(mapping.a().href(), *property, new_value)
                 .await
                 .context("setting resolved property on A")
-        });
-    }
-
-    if new_value == orig_b {
-        debug!("Property is unchanged in B.");
-    } else {
-        task_b = Some(async {
+        })
+        .into();
+    let task_b: OptionFuture<_> = (new_value != orig_b)
+        .then_some(async {
             pair.inner
                 .storage_b()
                 .set_property(mapping.b().href(), *property, new_value)
                 .await
                 .context("setting resolved property on B")
-        });
-    }
-
-    match (task_a, task_b) {
-        (None, None) => {}
-        (None, Some(b)) => {
-            b.await?;
-            debug!("Set resolved property on B.");
-        }
-        (Some(a), None) => {
-            a.await?;
-            debug!("Set resolved property on A.");
-        }
-        (Some(a), Some(b)) => {
-            try_join!(a, b)?;
-            debug!("Set resolved property on both storages.");
-        }
-    }
+        })
+        .into();
+    let (result_a, result_b) = tokio::join!(task_a, task_b);
+    result_a.transpose()?;
+    result_b.transpose()?;
     Ok(())
 }
