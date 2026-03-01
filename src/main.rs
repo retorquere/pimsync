@@ -9,7 +9,10 @@ use std::{
     io::{Write, read_to_string},
     path::PathBuf,
     pin::Pin,
-    sync::Arc,
+    sync::{
+        Arc,
+        atomic::{AtomicU32, Ordering},
+    },
     time::Duration,
 };
 
@@ -259,7 +262,12 @@ impl NamedPair {
     }
 
     /// Returns true if the operation shall continue.
-    async fn sync_once(&self, dry_run: bool, interactive: bool) -> anyhow::Result<bool> {
+    async fn sync_once(
+        &self,
+        dry_run: bool,
+        interactive: bool,
+        error_count: &Arc<AtomicU32>,
+    ) -> anyhow::Result<bool> {
         let plan = self.create_plan().await.context("Creating plan")?;
         let plan = self.apply_conflict_resolution_to_plan(plan);
         let operations = self.print_and_collect_plan(plan).await;
@@ -282,15 +290,19 @@ impl NamedPair {
             let status_rw = StatusDatabase::open_or_create(&self.status_path)
                 .with_context(|| format!("open_or_create status db for {}", self.name))?;
             let operations_stream = stream::iter(operations);
-            let result = Executor::new(log_error)
-                .execute_stream(
-                    Arc::clone(self.inner.storage_a()),
-                    Arc::clone(self.inner.storage_b()),
-                    operations_stream,
-                    &status_rw,
-                )
-                .await
-                .context("executing plan")?;
+            let error_count = Arc::clone(error_count);
+            let result = Executor::new(move |error: SyncError| {
+                error_count.fetch_add(1, Ordering::Relaxed);
+                error!("{error:?}");
+            })
+            .execute_stream(
+                Arc::clone(self.inner.storage_a()),
+                Arc::clone(self.inner.storage_b()),
+                operations_stream,
+                &status_rw,
+            )
+            .await
+            .context("executing plan")?;
             result.context("execution failed")?;
         }
         Ok(true)
@@ -442,17 +454,27 @@ async fn daemon(pairs: Vec<NamedPair>) -> anyhow::Error {
 
 /// Synchronise all pairs once.
 async fn sync(pairs: Vec<NamedPair>, dry_run: bool, interactive: bool) -> anyhow::Result<()> {
+    let error_count = Arc::new(AtomicU32::new(0));
+
     // Run sequentially, so rendered plans don't get intermixed.
     for pair in pairs {
         let result = pair
-            .sync_once(dry_run, interactive)
+            .sync_once(dry_run, interactive, &error_count)
             .await
             .with_context(|| format!("Synchronising pair {}", pair.name));
         match result {
             Ok(true) => {}      // Continue to next pair
             Ok(false) => break, // User quit, exit sync
-            Err(err) => error!("{err}"),
+            Err(err) => {
+                error_count.fetch_add(1, Ordering::Relaxed);
+                error!("{err}");
+            }
         }
+    }
+
+    let total_errors = error_count.load(Ordering::Relaxed);
+    if total_errors > 0 {
+        bail!("{total_errors} sync operations failed");
     }
 
     Ok(())

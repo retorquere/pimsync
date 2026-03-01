@@ -15,6 +15,8 @@ v0.5.7
 - Print a human-friendly plan when using  ``sync``.
 - Implement interactive sync (``sync -i``), prompting for for confirmation
   before executing a plan.
+- Exit non-zero in case of errors when using `pimsync sync`. Also display
+  the total amount of errors encountered.
 
 v0.5.6
 ------
