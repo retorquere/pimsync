@@ -29,12 +29,12 @@ use repair::repair_storages;
 use tokio::task::JoinSet;
 use vstorage::sync::{
     SyncError,
-    conflict::{KeepAResolver, KeepBResolver, resolve_conflicts as apply_conflict_resolution},
+    conflict::{KeepSideResolver, resolve_conflicts as apply_conflict_resolution},
     declare::StoragePair,
     execute::Executor,
     operation::Operation,
     plan::{Plan, PlanError},
-    status::{StatusDatabase, StatusError},
+    status::{Side, StatusDatabase, StatusError},
 };
 
 use crate::cli::{Cli, Command, ListTarget};
@@ -125,11 +125,11 @@ impl NamedPair {
         match self.conflict_resolution {
             Some(ConflictResolution::KeepA) => {
                 info!("Auto-resolving conflicts by keeping version from storage A");
-                Box::pin(apply_conflict_resolution(plan, KeepAResolver))
+                Box::pin(apply_conflict_resolution(plan, KeepSideResolver(Side::A)))
             }
             Some(ConflictResolution::KeepB) => {
                 info!("Auto-resolving conflicts by keeping version from storage B");
-                Box::pin(apply_conflict_resolution(plan, KeepBResolver))
+                Box::pin(apply_conflict_resolution(plan, KeepSideResolver(Side::B)))
             }
             // TODO: RawCmd variant.
             _ => Box::pin(plan),
