@@ -1,4 +1,4 @@
-# Copyright 2023-2025 Hugo Osvaldo Barrera
+# Copyright 2023-2026 Hugo Osvaldo Barrera
 #
 # SPDX-License-Identifier: EUPL-1.2
 
@@ -14,6 +14,7 @@ packages:
   - rust-clippy
   - rustfmt
   - scdoc
+  - xandikos
 environment:
   ANCHOR_PUB_KEY: AAAAC3NzaC1lZDI1NTE5AAAAIE2WacYpYEP5vvevx4NXQn3Ktd53pBkZR/bpPoS3Wkyg
   CARGO_TERM_COLOR: always

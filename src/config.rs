@@ -1,4 +1,4 @@
-// Copyright 2023-2025 Hugo Osvaldo Barrera
+// Copyright 2023-2026 Hugo Osvaldo Barrera
 //
 // SPDX-License-Identifier: EUPL-1.2
 
@@ -61,6 +61,7 @@ use vstorage::{
 use crate::{
     ConflictResolution, NamedPair, RawCommand, VERSION,
     cli::FilterNames,
+    proxy::UnixConnector,
     repair::NamedStorage,
     scfg_util::{
         flatten_single_vec, resolve_cmd_inplace, take_single_directive, take_single_param,
@@ -512,29 +513,32 @@ fn parse_vdir(mut config: Scfg, item_kind: ItemKind, ro: bool) -> anyhow::Result
 }
 
 type RawHttpsClient = HyperClient<HttpsConnector<HttpConnector>, String>;
-type RawUnixClient = HyperClient<hyperlocal::UnixConnector, String>;
+type RawUnixClient = HyperClient<UnixConnector, String>;
 
 type HttpClient =
     SetRequestHeader<Either<AddAuthorization<RawHttpsClient>, RawHttpsClient>, HeaderValue>;
+type UnixHttpClient =
+    SetRequestHeader<Either<AddAuthorization<RawUnixClient>, RawUnixClient>, HeaderValue>;
 
 type NetworkWebDav = WebDavClient<HttpClient>;
-
-type UnixSocketWebDav = WebDavClient<
-    SetRequestHeader<Either<AddAuthorization<RawUnixClient>, RawUnixClient>, HeaderValue>,
->;
+type UnixSocketWebDav = WebDavClient<UnixHttpClient>;
 
 async fn parse_carddav(mut config: Scfg, ro: bool) -> anyhow::Result<Arc<dyn Storage>> {
-    let url = take_single_param_from_directive(&mut config, "url")?;
+    let url: Uri = take_single_param_from_directive(&mut config, "url")?
+        .parse()
+        .context("Parsing carddav url")?;
     let collection_id_segment = parse_collection_id_segment(&mut config)?;
+    let socket = take_single_directive(&mut config, "socket")?;
 
-    if let Some(socket) = url.strip_prefix("unix://") {
-        let webdav = parse_socket_webdav_client(config, socket)?;
+    if let Some(mut socket_directive) = socket {
+        let socket_path =
+            take_single_param(&mut socket_directive).context("Parsing socket directive")?;
+        let webdav = parse_socket_webdav_client(config, &socket_path, url)?;
         let client = CardDavClient::new(webdav);
         let mut builder = CardDavStorage::builder(client);
         builder = builder.with_collection_id_segment(collection_id_segment);
         Ok(into_arc(builder.build().await?, ro))
     } else {
-        let url = url.parse().context("Parsing carddav url")?;
         let webdav = parse_webdav_client(config, url)?;
         let client = CardDavClient::bootstrap_via_service_discovery(webdav).await?;
         let mut builder = CardDavStorage::builder(client);
@@ -544,17 +548,21 @@ async fn parse_carddav(mut config: Scfg, ro: bool) -> anyhow::Result<Arc<dyn Sto
 }
 
 async fn parse_caldav(mut config: Scfg, ro: bool) -> anyhow::Result<Arc<dyn Storage>> {
-    let url = take_single_param_from_directive(&mut config, "url")?;
+    let url: Uri = take_single_param_from_directive(&mut config, "url")?
+        .parse()
+        .context("Parsing caldav url")?;
     let collection_id_segment = parse_collection_id_segment(&mut config)?;
+    let socket = take_single_directive(&mut config, "socket")?;
 
-    if let Some(socket) = url.strip_prefix("unix://") {
-        let webdav = parse_socket_webdav_client(config, socket)?;
+    if let Some(mut socket_directive) = socket {
+        let socket_path =
+            take_single_param(&mut socket_directive).context("Parsing socket directive")?;
+        let webdav = parse_socket_webdav_client(config, &socket_path, url)?;
         let client = CalDavClient::new(webdav);
         let mut builder = CalDavStorage::builder(client);
         builder = builder.with_collection_id_segment(collection_id_segment);
         Ok(into_arc(builder.build().await?, ro))
     } else {
-        let url = url.parse().context("Parsing caldav url")?;
         let webdav = parse_webdav_client(config, url)?;
         let client = CalDavClient::bootstrap_via_service_discovery(webdav).await?;
         let mut builder = CalDavStorage::builder(client);
@@ -592,15 +600,16 @@ fn parse_http_client(mut config: Scfg) -> anyhow::Result<HttpClient> {
     Ok(client)
 }
 
-fn parse_socket_webdav_client(mut config: Scfg, socket: &str) -> anyhow::Result<UnixSocketWebDav> {
-    let host = hex::encode(socket.as_bytes());
-    let url = (format!("unix://{host}:0/"))
-        .parse()
-        .context("Building pseudo-url for socket connection")?;
-    let auth = parse_auth(&mut config).context("Parsing carddav storage auth")?;
+fn parse_socket_webdav_client(
+    mut config: Scfg,
+    socket_path: &str,
+    url: Uri,
+) -> anyhow::Result<UnixSocketWebDav> {
+    let auth = parse_auth(&mut config).context("Parsing storage auth")?;
     let user_agent = parse_user_agent(&mut config)?;
 
-    let raw_client = HyperClient::builder(TokioExecutor::new()).build(hyperlocal::UnixConnector);
+    let connector = crate::proxy::UnixConnector::new(socket_path);
+    let raw_client = HyperClient::builder(TokioExecutor::new()).build(connector);
 
     let auth_client = match auth {
         Some((username, password)) => {

@@ -1,4 +1,4 @@
-# Copyright 2023-2025 Hugo Osvaldo Barrera
+# Copyright 2023-2026 Hugo Osvaldo Barrera
 #
 # SPDX-License-Identifier: EUPL-1.2
 
@@ -28,7 +28,6 @@ hex = "0.4.3"
 hyper = { version = "1", features = ["http1", "client"] }
 hyper-rustls = { version = "0.27.0", default-features = false, features = ["ring", "http1", "native-tokio", "tls12", "rustls-native-certs"] }
 hyper-util = { version = "0.1.20", features = ["client", "client-legacy", "http1"] }
-hyperlocal = "0.9.1"
 lexopt = "0.3.0"
 log = "0.4.20"
 rustix = { version = "1", features = ["fs"] }
@@ -38,10 +37,14 @@ sha2 = "0.10.2"
 simple_logger = { version = "5", default-features = false, features = ["colors", "stderr"] }
 tempfile = "3.3.0"
 thiserror = "2"
-tokio = { version = "1.33.0", features = ["rt-multi-thread", "macros", "rt"] }
+tokio = { version = "1.33.0", features = ["rt-multi-thread", "macros", "rt", "net", "io-util"] }
 tower = { version = "0.5", features = ["util"] }
 tower-http = { version = "0.6.6", default-features = false, features = ["auth", "set-header"] }
+tower-service = "0.3.3"
 vstorage = { version = "0.7.0", default-features = false, path = "./vstorage" }
+
+[dev-dependencies]
+rand = "0.9"
 
 [patch.crates-io]
 hashify = { git = "https://github.com/WhyNotHugo/hashify/", branch = "reproducible-builds" }

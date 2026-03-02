@@ -1,4 +1,4 @@
-# Copyright 2024-2025 Hugo Osvaldo Barrera
+# Copyright 2024-2026 Hugo Osvaldo Barrera
 #
 # SPDX-License-Identifier: EUPL-1.2
 
@@ -22,6 +22,10 @@ tasks:
   - no-cargo-deny: |
       # cargo-deny is not packaged on OpenBSD
       sed -i /cargo-deny/d pimsync/Makefile
+  - no-xandikos: |
+      # xandikos is not packaged on OpenBSD
+      cd pimsync
+      sed -i 's/cargo test/cargo test -- --skip xandikos/' Makefile
   - check: |
       cd pimsync
       make check

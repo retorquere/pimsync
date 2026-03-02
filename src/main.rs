@@ -46,6 +46,7 @@ use crate::conflict::{YesNoQuit, continue_skip_or_quit};
 mod cli;
 mod config;
 mod conflict;
+mod proxy;
 mod repair;
 mod scfg_util;
 mod tls;
