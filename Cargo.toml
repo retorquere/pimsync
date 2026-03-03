@@ -16,7 +16,7 @@ rust-version = "1.88.0"
 lto = true
 
 [features]
-default = ["jmap"]
+default = []
 jmap = ["vstorage/jmap"]
 
 [dependencies]

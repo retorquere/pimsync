@@ -54,10 +54,10 @@ The following libraries were also developed as part of this project:
 
 # JMAP support
 
-JMAP support is currently experimental. It can be disabled at compile time via:
+JMAP support is currently experimental and must be enabled at build time via:
 
 ```sh
-cargo build --no-default-features
+cargo build --features jmap
 ```
 
 ## Contributing

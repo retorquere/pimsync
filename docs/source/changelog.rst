@@ -17,6 +17,9 @@ v0.5.7
   before executing a plan.
 - Exit non-zero in case of errors when using `pimsync sync`. Also display
   the total amount of errors encountered.
+- The experimental JMAP backend is no longer automatically compiled by default
+  and needs to be opted into explicitly.
+- Builds are now reproducible.
 
 v0.5.6
 ------

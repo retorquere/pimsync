@@ -324,6 +324,8 @@ async fn init_storage(
         "jmap/icalendar" => parse_jmap(config, ItemKind::Calendar, ro).await?,
         #[cfg(feature = "jmap")]
         "jmap/vcard" => parse_jmap(config, ItemKind::AddressBook, ro).await?,
+        #[cfg(not(feature = "jmap"))]
+        "jmap/icalendar" | "jmap/vcard" => bail!("pimsync compiled with JMAP support disabled."),
         _ => bail!("Unknown storage type: {type_}"),
     };
 
