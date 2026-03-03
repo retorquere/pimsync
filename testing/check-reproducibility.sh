@@ -6,7 +6,7 @@
 #
 # Usage:
 #   ./check-reproducibility.sh
-#   ./check-reproducibility.sh --no-default-features
+#   ./check-reproducibility.sh --features jmap
 
 set -eu
 
