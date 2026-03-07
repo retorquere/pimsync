@@ -104,11 +104,17 @@ pub(crate) fn resolve_cmd_inplace(storage: &mut Scfg, name: &str) -> anyhow::Res
             .stdout(Stdio::piped())
             .output()
             .with_context(|| format!("Error executing command for {name} directive"))?;
-        match output.status.code() {
+        let value = match output.status.code() {
             Some(0) => std::str::from_utf8(&output.stdout)?.trim().to_owned(),
             Some(code) => bail!("Command exited with status {code}."),
             None => bail!("Command exited unexpectedly."),
+        };
+
+        if name == "password" && value.is_empty() {
+            bail!("Password command returned an empty string.")
         }
+
+        value
     };
 
     let url_directive = storage.add(name);

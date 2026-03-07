@@ -1108,4 +1108,12 @@ mod test {
         let got = take_single_param_from_directive(&mut parser, "username").unwrap();
         assert_eq!(got, "alice@example.com",);
     }
+
+    #[test]
+    fn test_empty_password_command_fails() {
+        let mut parser = "password {\n cmd echo -n ''\n}".parse::<Scfg>().unwrap();
+        let result = resolve_cmd_inplace(&mut parser, "password");
+        let expected = "Password command returned an empty string.";
+        assert!(result.unwrap_err().to_string().contains(expected));
+    }
 }
