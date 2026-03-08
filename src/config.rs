@@ -84,7 +84,7 @@ pub(crate) struct Config {
 impl Config {
     /// Convert this configuration into an `App` instance.
     ///
-    /// This consumes the configuration to avoid copying any data needlessly and freeing up any
+    /// Consumes the configuration to avoid copying any data needlessly and frees any
     /// unnecessary data.
     pub(crate) async fn into_named_pairs(self) -> anyhow::Result<Vec<NamedPair>> {
         let status_dir =
@@ -216,8 +216,8 @@ impl StorageBuilder {
 
     /// Returns a storage with a matching name.
     ///
-    /// This function ensures that each storage is initialised only once. If two concurrent calls
-    /// would return the same storage, one of them will wait until the other resolves the storage.
+    /// Ensures that each storage is initialised only once. If two concurrent calls would return
+    /// the same storage, one of them will wait until the other resolves the storage.
     ///
     /// # Errors
     ///
