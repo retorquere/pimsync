@@ -41,7 +41,7 @@ thiserror = "2"
 tokio = { version = "1.33.0", features = ["rt-multi-thread", "macros", "rt"] }
 tower = { version = "0.5", features = ["util"] }
 tower-http = { version = "0.6.6", default-features = false, features = ["auth", "set-header"] }
-vstorage = { version = "0.7.0", default-features = false }
+vstorage = { version = "0.7.0", default-features = false, path = "./vstorage" }
 
 [patch.crates-io]
 hashify = { git = "https://github.com/WhyNotHugo/hashify/", branch = "reproducible-builds" }
