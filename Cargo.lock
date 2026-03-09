@@ -207,7 +207,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "117725a109d387c937a1533ce01b450cbde6b88abceea8473c4d7a85853cda3c"
 dependencies = [
  "lazy_static",
- "windows-sys 0.48.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -727,7 +727,9 @@ checksum = "58f929b4d672ea937a23a1ab494143d968337a5f47e56d0815df1e0890ddf174"
 
 [[package]]
 name = "libdav"
-version = "0.10.2"
+version = "0.10.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9992f07580da9541219ae9b94ac67de3b832953a8ca63855b4be5f44c5076ba8"
 dependencies = [
  "domain",
  "http",
@@ -743,6 +745,8 @@ dependencies = [
 [[package]]
 name = "libjmap"
 version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c488355ef87bb6e5377bab0556af02ee6b5c9b3101ab2f0085802425844b1679"
 dependencies = [
  "http",
  "http-body-util",
@@ -1643,7 +1647,9 @@ checksum = "f915d8bc667c4be975163b1df13df548e047c2384d67abf96862855776e018d1"
 
 [[package]]
 name = "vstorage"
-version = "0.6.0"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5fcdec1cc80371bcfe702d09f2b086ffb0eb9e0ba5ccdedd7dacdbf357419cc0"
 dependencies = [
  "async-trait",
  "calcard",
