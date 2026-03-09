@@ -20,6 +20,7 @@ v0.5.7
 - The experimental JMAP backend is no longer automatically compiled by default
   and needs to be opted into explicitly.
 - Builds are now reproducible.
+- Log requests (at level TRACE) before sending them.
 
 v0.5.6
 ------
