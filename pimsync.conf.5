@@ -354,7 +354,7 @@ when the command exits and the command exits with exit code zero.
 .It Ic conflict_resolution Cm keep a
 In case of conflict, keep the version for storage a.
 .It Ic conflict_resolution Cm keep b
-In case of conflict, keep the version for storage a.
+In case of conflict, keep the version for storage b.
 .El
 .Sh COLLECTION SECTIONS
 A collections block defines a mapping between two collections that are to be
@@ -504,7 +504,7 @@ storage calendars_remote {
 .Ed
 .Pp
 The following example synchronises two storages with calendar data. The first is
-a local directory named "italki" with o calendar files, the second is an http
+a local directory named "italki" with iCalendar files, the second is an http
 server publishing an iCalendar file.
 .Pp
 Note that the first storage is the same as the one above, and should be
