@@ -9,6 +9,11 @@ changes will be avoided unless absolutely necessary.
 See the dedicated page for details on :ref:`monitoring for new releases
 <new-releases>`.
 
+v0.5.8
+------
+
+- Implement proxy support via the `http_proxy` environment variable.
+
 v0.5.7
 ------
 

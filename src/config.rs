@@ -19,7 +19,7 @@ use hyper::{
 };
 use hyper_rustls::{ConfigBuilderExt, HttpsConnector, HttpsConnectorBuilder};
 use hyper_util::{
-    client::legacy::{Client as HyperClient, connect::HttpConnector},
+    client::legacy::{Client as HyperClient, connect::HttpConnector, connect::proxy::Tunnel},
     rt::TokioExecutor,
 };
 use log::{debug, error, info, warn};
@@ -512,11 +512,13 @@ fn parse_vdir(mut config: Scfg, item_kind: ItemKind, ro: bool) -> anyhow::Result
     Ok(into_arc(builder.build(item_kind), ro))
 }
 
-type RawHttpsClient = HyperClient<HttpsConnector<HttpConnector>, String>;
+type RawDirectClient = HyperClient<HttpsConnector<HttpConnector>, String>;
+type RawProxyClient = HyperClient<HttpsConnector<Tunnel<HttpConnector>>, String>;
+type RawNetworkClient = Either<RawDirectClient, RawProxyClient>;
 type RawUnixClient = HyperClient<UnixConnector, String>;
 
 type HttpClient =
-    SetRequestHeader<Either<AddAuthorization<RawHttpsClient>, RawHttpsClient>, HeaderValue>;
+    SetRequestHeader<Either<AddAuthorization<RawNetworkClient>, RawNetworkClient>, HeaderValue>;
 type UnixHttpClient =
     SetRequestHeader<Either<AddAuthorization<RawUnixClient>, RawUnixClient>, HeaderValue>;
 
@@ -580,10 +582,10 @@ fn parse_webdav_client(config: Scfg, url: Uri) -> anyhow::Result<NetworkWebDav> 
 /// Parse options common to all HTTP clients.
 fn parse_http_client(mut config: Scfg) -> anyhow::Result<HttpClient> {
     let auth = parse_auth(&mut config).context("Parsing carddav storage auth")?;
-    let connector = parse_tls_config(&mut config)?;
+    let tls_config = parse_tls_config(&mut config)?;
     let user_agent = parse_user_agent(&mut config)?;
 
-    let raw_client = HyperClient::builder(TokioExecutor::new()).build(connector);
+    let raw_client = build_raw_network_client(tls_config)?;
 
     let auth_client = match auth {
         Some((username, password)) => {
@@ -658,7 +660,7 @@ fn parse_webcal(mut config: Scfg, ro: bool) -> anyhow::Result<Arc<dyn Storage>> 
     let url = take_single_param_from_directive(&mut config, "url")
         .context("Webcal storage must define a url")?
         .parse()?;
-    let connector = parse_tls_config(&mut config)?;
+    let tls_config = parse_tls_config(&mut config)?;
     let auth = parse_auth(&mut config).context("Parsing carddav storage auth")?;
     let user_agent = parse_user_agent(&mut config)?;
 
@@ -666,7 +668,7 @@ fn parse_webcal(mut config: Scfg, ro: bool) -> anyhow::Result<Arc<dyn Storage>> 
         .parse()
         .context("Parsing webcal url")?;
 
-    let raw_client = HyperClient::builder(TokioExecutor::new()).build(connector);
+    let raw_client = build_raw_network_client(tls_config)?;
 
     let auth_client = match auth {
         Some((username, password)) => {
@@ -700,8 +702,36 @@ fn parse_auth(directive: &mut Scfg) -> anyhow::Result<Option<(String, String)>> 
     Ok(Some((username, password)))
 }
 
-/// Parse TLS configuration directives, if any, or return the default.
-fn parse_tls_config(config: &mut Scfg) -> anyhow::Result<HttpsConnector<HttpConnector>> {
+/// Build a raw network client, using an HTTP proxy if `http_proxy` is set.
+fn build_raw_network_client(tls_config: ClientConfig) -> anyhow::Result<RawNetworkClient> {
+    if let Ok(proxy_url) = std::env::var("http_proxy") {
+        let proxy_uri: Uri = proxy_url
+            .parse()
+            .context("parsing http_proxy environment variable")?;
+        info!("Using HTTP proxy {proxy_uri}");
+        let tunnel = Tunnel::new(proxy_uri, HttpConnector::new());
+        let connector = HttpsConnectorBuilder::new()
+            .with_tls_config(tls_config)
+            .https_or_http()
+            .enable_http1()
+            .wrap_connector(tunnel);
+        Ok(Either::Right(
+            HyperClient::builder(TokioExecutor::new()).build(connector),
+        ))
+    } else {
+        let connector = HttpsConnectorBuilder::new()
+            .with_tls_config(tls_config)
+            .https_or_http()
+            .enable_http1()
+            .build();
+        Ok(Either::Left(
+            HyperClient::builder(TokioExecutor::new()).build(connector),
+        ))
+    }
+}
+
+/// Parse TLS configuration directives and return a rustls [`ClientConfig`].
+fn parse_tls_config(config: &mut Scfg) -> anyhow::Result<ClientConfig> {
     let mut root_store = None;
     let mut fp_verifier = None;
     let mut client_auth = None;
@@ -772,12 +802,7 @@ fn parse_tls_config(config: &mut Scfg) -> anyhow::Result<HttpsConnector<HttpConn
         Some((certs, key)) => tls_config.with_client_auth_cert(certs, key)?,
     };
 
-    let connector = HttpsConnectorBuilder::new()
-        .with_tls_config(tls_config)
-        .https_or_http()
-        .enable_http1()
-        .build();
-    Ok(connector)
+    Ok(tls_config)
 }
 
 #[cfg(feature = "jmap")]
