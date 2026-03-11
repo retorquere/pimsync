@@ -12,14 +12,19 @@ use std::{
 };
 
 use anyhow::{Context, bail};
+use base64::Engine as _;
 use camino::Utf8PathBuf;
 use hyper::{
-    Uri,
-    header::{HeaderValue, USER_AGENT},
+    Request, Response, Uri,
+    body::Incoming,
+    header::{AUTHORIZATION, HeaderValue, USER_AGENT},
 };
-use hyper_rustls::{ConfigBuilderExt, HttpsConnector, HttpsConnectorBuilder};
+use hyper_rustls::{ConfigBuilderExt, HttpsConnectorBuilder};
 use hyper_util::{
-    client::legacy::{Client as HyperClient, connect::HttpConnector, connect::proxy::Tunnel},
+    client::legacy::{
+        Client as HyperClient,
+        connect::{Connect, HttpConnector, proxy::Tunnel},
+    },
     rt::TokioExecutor,
 };
 use log::{debug, error, info, warn};
@@ -33,12 +38,9 @@ use tokio::{
     sync::{Mutex, Notify},
     task::JoinSet,
 };
-use tower::{Layer, ServiceBuilder, util::Either};
-use tower_http::set_header::SetRequestHeaderLayer;
-use tower_http::{
-    auth::{AddAuthorization, AddAuthorizationLayer},
-    set_header::SetRequestHeader,
-};
+use tower::Layer;
+use tower_http::set_header::{SetRequestHeader, SetRequestHeaderLayer};
+use tower_service::Service;
 #[cfg(feature = "jmap")]
 use vstorage::jmap::JmapStorage;
 use vstorage::libdav::{CalDavClient, CardDavClient, dav::WebDavClient};
@@ -61,7 +63,6 @@ use vstorage::{
 use crate::{
     ConflictResolution, NamedPair, RawCommand, VERSION,
     cli::FilterNames,
-    proxy::UnixConnector,
     repair::NamedStorage,
     scfg_util::{
         flatten_single_vec, resolve_cmd_inplace, take_single_directive, take_single_param,
@@ -512,18 +513,69 @@ fn parse_vdir(mut config: Scfg, item_kind: ItemKind, ro: bool) -> anyhow::Result
     Ok(into_arc(builder.build(item_kind), ro))
 }
 
-type RawDirectClient = HyperClient<HttpsConnector<HttpConnector>, String>;
-type RawProxyClient = HyperClient<HttpsConnector<Tunnel<HttpConnector>>, String>;
-type RawNetworkClient = Either<RawDirectClient, RawProxyClient>;
-type RawUnixClient = HyperClient<UnixConnector, String>;
+/// Hyper client wrapped with optional-auth and user-agent layers.
+///
+/// All type parameters are monomorphised: there is no runtime indirection beyond the
+/// final `Arc<dyn Storage>` that the caller produces from the resulting client.
+type HttpClient<C> =
+    SetRequestHeader<SetRequestHeader<HyperClient<C, String>, Option<HeaderValue>>, HeaderValue>;
 
-type HttpClient =
-    SetRequestHeader<Either<AddAuthorization<RawNetworkClient>, RawNetworkClient>, HeaderValue>;
-type UnixHttpClient =
-    SetRequestHeader<Either<AddAuthorization<RawUnixClient>, RawUnixClient>, HeaderValue>;
+/// Build an HTTP client from a connector, applying optional auth and user-agent layers.
+fn build_http_client<C: Connect + Clone>(
+    connector: C,
+    auth: Option<HeaderValue>,
+    user_agent: HeaderValue,
+) -> HttpClient<C> {
+    let raw = HyperClient::builder(TokioExecutor::new()).build(connector);
+    let with_auth = SetRequestHeaderLayer::overriding(AUTHORIZATION, auth).layer(raw);
+    SetRequestHeaderLayer::overriding(USER_AGENT, user_agent).layer(with_auth)
+}
 
-type NetworkWebDav = WebDavClient<HttpClient>;
-type UnixSocketWebDav = WebDavClient<UnixHttpClient>;
+async fn finish_carddav<S>(
+    client: S,
+    url: Uri,
+    collection_id_segment: CollectionIdSegment,
+    ro: bool,
+    discover: bool,
+) -> anyhow::Result<Arc<dyn Storage>>
+where
+    S: Service<Request<String>, Response = Response<Incoming>> + Send + Sync + 'static,
+    S::Error: std::error::Error + Send + Sync,
+    S::Future: Send + Sync,
+{
+    let webdav = WebDavClient::new(url, client);
+    let dav = if discover {
+        CardDavClient::bootstrap_via_service_discovery(webdav).await?
+    } else {
+        CardDavClient::new(webdav)
+    };
+    let mut builder = CardDavStorage::builder(dav);
+    builder = builder.with_collection_id_segment(collection_id_segment);
+    Ok(into_arc(builder.build().await?, ro))
+}
+
+async fn finish_caldav<S>(
+    client: S,
+    url: Uri,
+    collection_id_segment: CollectionIdSegment,
+    ro: bool,
+    discover: bool,
+) -> anyhow::Result<Arc<dyn Storage>>
+where
+    S: Service<Request<String>, Response = Response<Incoming>> + Send + Sync + 'static,
+    S::Error: std::error::Error + Send + Sync,
+    S::Future: Send + Sync,
+{
+    let webdav = WebDavClient::new(url, client);
+    let dav = if discover {
+        CalDavClient::bootstrap_via_service_discovery(webdav).await?
+    } else {
+        CalDavClient::new(webdav)
+    };
+    let mut builder = CalDavStorage::builder(dav);
+    builder = builder.with_collection_id_segment(collection_id_segment);
+    Ok(into_arc(builder.build().await?, ro))
+}
 
 async fn parse_carddav(mut config: Scfg, ro: bool) -> anyhow::Result<Arc<dyn Storage>> {
     let url: Uri = take_single_param_from_directive(&mut config, "url")?
@@ -531,21 +583,42 @@ async fn parse_carddav(mut config: Scfg, ro: bool) -> anyhow::Result<Arc<dyn Sto
         .context("Parsing carddav url")?;
     let collection_id_segment = parse_collection_id_segment(&mut config)?;
     let socket = take_single_directive(&mut config, "socket")?;
+    let auth = parse_auth(&mut config).context("Parsing carddav storage auth")?;
 
     if let Some(mut socket_directive) = socket {
         let socket_path =
             take_single_param(&mut socket_directive).context("Parsing socket directive")?;
-        let webdav = parse_socket_webdav_client(config, &socket_path, url)?;
-        let client = CardDavClient::new(webdav);
-        let mut builder = CardDavStorage::builder(client);
-        builder = builder.with_collection_id_segment(collection_id_segment);
-        Ok(into_arc(builder.build().await?, ro))
+        let user_agent = parse_user_agent(&mut config)?;
+        let client = build_http_client(
+            crate::proxy::UnixConnector::new(socket_path),
+            auth,
+            user_agent,
+        );
+        finish_carddav(client, url, collection_id_segment, ro, false).await
     } else {
-        let webdav = parse_webdav_client(config, url)?;
-        let client = CardDavClient::bootstrap_via_service_discovery(webdav).await?;
-        let mut builder = CardDavStorage::builder(client);
-        builder = builder.with_collection_id_segment(collection_id_segment);
-        Ok(into_arc(builder.build().await?, ro))
+        let tls_config = parse_tls_config(&mut config)?;
+        let user_agent = parse_user_agent(&mut config)?;
+        if let Ok(proxy_url) = std::env::var("http_proxy") {
+            let proxy_uri: Uri = proxy_url
+                .parse()
+                .context("parsing http_proxy environment variable")?;
+            info!("using HTTP proxy {proxy_uri}");
+            let connector = HttpsConnectorBuilder::new()
+                .with_tls_config(tls_config)
+                .https_or_http()
+                .enable_http1()
+                .wrap_connector(Tunnel::new(proxy_uri, HttpConnector::new()));
+            let client = build_http_client(connector, auth, user_agent);
+            finish_carddav(client, url, collection_id_segment, ro, true).await
+        } else {
+            let connector = HttpsConnectorBuilder::new()
+                .with_tls_config(tls_config)
+                .https_or_http()
+                .enable_http1()
+                .build();
+            let client = build_http_client(connector, auth, user_agent);
+            finish_carddav(client, url, collection_id_segment, ro, true).await
+        }
     }
 }
 
@@ -555,77 +628,43 @@ async fn parse_caldav(mut config: Scfg, ro: bool) -> anyhow::Result<Arc<dyn Stor
         .context("Parsing caldav url")?;
     let collection_id_segment = parse_collection_id_segment(&mut config)?;
     let socket = take_single_directive(&mut config, "socket")?;
+    let auth = parse_auth(&mut config).context("Parsing caldav storage auth")?;
 
     if let Some(mut socket_directive) = socket {
         let socket_path =
             take_single_param(&mut socket_directive).context("Parsing socket directive")?;
-        let webdav = parse_socket_webdav_client(config, &socket_path, url)?;
-        let client = CalDavClient::new(webdav);
-        let mut builder = CalDavStorage::builder(client);
-        builder = builder.with_collection_id_segment(collection_id_segment);
-        Ok(into_arc(builder.build().await?, ro))
+        let user_agent = parse_user_agent(&mut config)?;
+        let client = build_http_client(
+            crate::proxy::UnixConnector::new(socket_path),
+            auth,
+            user_agent,
+        );
+        finish_caldav(client, url, collection_id_segment, ro, false).await
     } else {
-        let webdav = parse_webdav_client(config, url)?;
-        let client = CalDavClient::bootstrap_via_service_discovery(webdav).await?;
-        let mut builder = CalDavStorage::builder(client);
-        builder = builder.with_collection_id_segment(collection_id_segment);
-        Ok(into_arc(builder.build().await?, ro))
+        let tls_config = parse_tls_config(&mut config)?;
+        let user_agent = parse_user_agent(&mut config)?;
+        if let Ok(proxy_url) = std::env::var("http_proxy") {
+            let proxy_uri: Uri = proxy_url
+                .parse()
+                .context("parsing http_proxy environment variable")?;
+            info!("using HTTP proxy {proxy_uri}");
+            let connector = HttpsConnectorBuilder::new()
+                .with_tls_config(tls_config)
+                .https_or_http()
+                .enable_http1()
+                .wrap_connector(Tunnel::new(proxy_uri, HttpConnector::new()));
+            let client = build_http_client(connector, auth, user_agent);
+            finish_caldav(client, url, collection_id_segment, ro, true).await
+        } else {
+            let connector = HttpsConnectorBuilder::new()
+                .with_tls_config(tls_config)
+                .https_or_http()
+                .enable_http1()
+                .build();
+            let client = build_http_client(connector, auth, user_agent);
+            finish_caldav(client, url, collection_id_segment, ro, true).await
+        }
     }
-}
-
-/// Parse options common to CalDAV and CardDAV and build the inner `WebDavClient`.
-fn parse_webdav_client(config: Scfg, url: Uri) -> anyhow::Result<NetworkWebDav> {
-    let http_client = parse_http_client(config)?;
-    Ok(WebDavClient::new(url, http_client))
-}
-
-/// Parse options common to all HTTP clients.
-fn parse_http_client(mut config: Scfg) -> anyhow::Result<HttpClient> {
-    let auth = parse_auth(&mut config).context("Parsing carddav storage auth")?;
-    let tls_config = parse_tls_config(&mut config)?;
-    let user_agent = parse_user_agent(&mut config)?;
-
-    let raw_client = build_raw_network_client(tls_config)?;
-
-    let auth_client = match auth {
-        Some((username, password)) => {
-            let auth_layer = AddAuthorizationLayer::basic(&username, &password).as_sensitive(true);
-            Either::Left(auth_layer.layer(raw_client))
-        }
-        None => Either::Right(raw_client),
-    };
-
-    let client = ServiceBuilder::new()
-        .layer(SetRequestHeaderLayer::overriding(USER_AGENT, user_agent))
-        .service(auth_client);
-
-    Ok(client)
-}
-
-fn parse_socket_webdav_client(
-    mut config: Scfg,
-    socket_path: &str,
-    url: Uri,
-) -> anyhow::Result<UnixSocketWebDav> {
-    let auth = parse_auth(&mut config).context("Parsing storage auth")?;
-    let user_agent = parse_user_agent(&mut config)?;
-
-    let connector = crate::proxy::UnixConnector::new(socket_path);
-    let raw_client = HyperClient::builder(TokioExecutor::new()).build(connector);
-
-    let auth_client = match auth {
-        Some((username, password)) => {
-            let auth_layer = AddAuthorizationLayer::basic(&username, &password).as_sensitive(true);
-            Either::Left(auth_layer.layer(raw_client))
-        }
-        None => Either::Right(raw_client),
-    };
-
-    let client = ServiceBuilder::new()
-        .layer(SetRequestHeaderLayer::overriding(USER_AGENT, user_agent))
-        .service(auth_client);
-
-    Ok(WebDavClient::new(url, client))
 }
 
 /// Parses a `user_agent` config directive, or returns the default if absent.
@@ -660,37 +699,46 @@ fn parse_webcal(mut config: Scfg, ro: bool) -> anyhow::Result<Arc<dyn Storage>> 
     let url = take_single_param_from_directive(&mut config, "url")
         .context("Webcal storage must define a url")?
         .parse()?;
+    let auth = parse_auth(&mut config).context("Parsing webcal storage auth")?;
     let tls_config = parse_tls_config(&mut config)?;
-    let auth = parse_auth(&mut config).context("Parsing carddav storage auth")?;
     let user_agent = parse_user_agent(&mut config)?;
 
     let collection_id = take_single_param_from_directive(&mut config, "collection_id")?
         .parse()
         .context("Parsing webcal url")?;
 
-    let raw_client = build_raw_network_client(tls_config)?;
-
-    let auth_client = match auth {
-        Some((username, password)) => {
-            let auth_layer = AddAuthorizationLayer::basic(&username, &password).as_sensitive(true);
-            Either::Left(auth_layer.layer(raw_client))
-        }
-        None => Either::Right(raw_client),
-    };
-
-    let client = ServiceBuilder::new()
-        .layer(SetRequestHeaderLayer::overriding(USER_AGENT, user_agent))
-        .service(auth_client);
-
-    let builder = WebCalStorage::builder(client, url, collection_id);
-    Ok(Arc::new(builder.build()))
+    if let Ok(proxy_url) = std::env::var("http_proxy") {
+        let proxy_uri: Uri = proxy_url
+            .parse()
+            .context("parsing http_proxy environment variable")?;
+        info!("using HTTP proxy {proxy_uri}");
+        let connector = HttpsConnectorBuilder::new()
+            .with_tls_config(tls_config)
+            .https_or_http()
+            .enable_http1()
+            .wrap_connector(Tunnel::new(proxy_uri, HttpConnector::new()));
+        let client = build_http_client(connector, auth, user_agent);
+        Ok(Arc::new(
+            WebCalStorage::builder(client, url, collection_id).build(),
+        ))
+    } else {
+        let connector = HttpsConnectorBuilder::new()
+            .with_tls_config(tls_config)
+            .https_or_http()
+            .enable_http1()
+            .build();
+        let client = build_http_client(connector, auth, user_agent);
+        Ok(Arc::new(
+            WebCalStorage::builder(client, url, collection_id).build(),
+        ))
+    }
 }
 
-/// Returns a `username` and `password` tuple.
+/// Returns a Basic auth header value, or `None` if no credentials are configured.
 ///
 /// A `cmd` block is not supported here; such commands should be resolved before calling this
 /// function.
-fn parse_auth(directive: &mut Scfg) -> anyhow::Result<Option<(String, String)>> {
+fn parse_auth(directive: &mut Scfg) -> anyhow::Result<Option<HeaderValue>> {
     let username = match take_single_directive(directive, "username")? {
         Some(mut u) => take_single_param(&mut u)?,
         None => return Ok(None),
@@ -699,35 +747,13 @@ fn parse_auth(directive: &mut Scfg) -> anyhow::Result<Option<(String, String)>> 
         Some(mut p) => take_single_param(&mut p)?,
         None => String::new(),
     };
-    Ok(Some((username, password)))
-}
-
-/// Build a raw network client, using an HTTP proxy if `http_proxy` is set.
-fn build_raw_network_client(tls_config: ClientConfig) -> anyhow::Result<RawNetworkClient> {
-    if let Ok(proxy_url) = std::env::var("http_proxy") {
-        let proxy_uri: Uri = proxy_url
-            .parse()
-            .context("parsing http_proxy environment variable")?;
-        info!("Using HTTP proxy {proxy_uri}");
-        let tunnel = Tunnel::new(proxy_uri, HttpConnector::new());
-        let connector = HttpsConnectorBuilder::new()
-            .with_tls_config(tls_config)
-            .https_or_http()
-            .enable_http1()
-            .wrap_connector(tunnel);
-        Ok(Either::Right(
-            HyperClient::builder(TokioExecutor::new()).build(connector),
-        ))
-    } else {
-        let connector = HttpsConnectorBuilder::new()
-            .with_tls_config(tls_config)
-            .https_or_http()
-            .enable_http1()
-            .build();
-        Ok(Either::Left(
-            HyperClient::builder(TokioExecutor::new()).build(connector),
-        ))
-    }
+    let credentials =
+        base64::engine::general_purpose::STANDARD.encode(format!("{username}:{password}"));
+    let mut value: HeaderValue = format!("Basic {credentials}")
+        .try_into()
+        .context("encoding auth header")?;
+    value.set_sensitive(true);
+    Ok(Some(value))
 }
 
 /// Parse TLS configuration directives and return a rustls [`ClientConfig`].
@@ -806,6 +832,30 @@ fn parse_tls_config(config: &mut Scfg) -> anyhow::Result<ClientConfig> {
 }
 
 #[cfg(feature = "jmap")]
+async fn finish_jmap<S>(
+    mut client: S,
+    url: String,
+    item_kind: ItemKind,
+    ro: bool,
+) -> anyhow::Result<Arc<dyn Storage>>
+where
+    S: Service<Request<String>, Response = Response<Incoming>> + Send + Sync + Clone + 'static,
+    S::Error: std::error::Error + Send + Sync,
+    S::Future: Send + Sync,
+{
+    let url = url.parse().context("Parsing JMAP url")?;
+    let (session_url, session_resource) = discover_session_resource(&mut client, &url).await?;
+    let api_url = session_resource
+        .api_url()
+        .context("JMAP server returned no api_url")?
+        .parse()
+        .context("JMAP server returned an invalid api_url")?;
+    let client = JmapClient::new(client, session_url, api_url);
+    let builder = JmapStorage::builder(client);
+    Ok(into_arc(builder.build(item_kind), ro))
+}
+
+#[cfg(feature = "jmap")]
 async fn parse_jmap(
     mut config: Scfg,
     item_kind: ItemKind,
@@ -815,18 +865,31 @@ async fn parse_jmap(
         "THE JMAP IMPLEMENTATION IS EXPERIMENTAL ANY MAY HAVE BUGS WHICH COULD LEAD TO DATA LOSS!",
     );
     let url = take_single_param_from_directive(&mut config, "url")?;
-    let mut http_client = parse_http_client(config)?;
+    let auth = parse_auth(&mut config).context("Parsing JMAP storage auth")?;
+    let tls_config = parse_tls_config(&mut config)?;
+    let user_agent = parse_user_agent(&mut config)?;
 
-    let url = url.parse().context("Parsing JMAP url")?;
-    let (session_url, session_resource) = discover_session_resource(&mut http_client, &url).await?;
-    let api_url = session_resource
-        .api_url()
-        .context("JMAP server returned no api_url")?
-        .parse()
-        .context("JMAP server returned an invalid api_url")?;
-    let client = JmapClient::new(http_client, session_url, api_url);
-    let builder = JmapStorage::builder(client);
-    Ok(into_arc(builder.build(item_kind), ro))
+    if let Ok(proxy_url) = std::env::var("http_proxy") {
+        let proxy_uri: Uri = proxy_url
+            .parse()
+            .context("parsing http_proxy environment variable")?;
+        info!("Using HTTP proxy {proxy_uri}");
+        let connector = HttpsConnectorBuilder::new()
+            .with_tls_config(tls_config)
+            .https_or_http()
+            .enable_http1()
+            .wrap_connector(Tunnel::new(proxy_uri, HttpConnector::new()));
+        let client = build_http_client(connector, auth, user_agent);
+        finish_jmap(client, url, item_kind, ro).await
+    } else {
+        let connector = HttpsConnectorBuilder::new()
+            .with_tls_config(tls_config)
+            .https_or_http()
+            .enable_http1()
+            .build();
+        let client = build_http_client(connector, auth, user_agent);
+        finish_jmap(client, url, item_kind, ro).await
+    }
 }
 
 /// Parse a given file as a configuration file.
