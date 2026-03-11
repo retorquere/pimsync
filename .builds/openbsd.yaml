@@ -25,7 +25,7 @@ tasks:
   - no-xandikos: |
       # xandikos is not packaged on OpenBSD
       cd pimsync
-      sed -i 's/cargo test/cargo test -- --skip xandikos/' Makefile
+      sed -E -i '/cargo test/s/([[:space:]]+#|$)/ -- --skip xandikos\1/' Makefile
   - check: |
       cd pimsync
       make check
