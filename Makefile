@@ -54,7 +54,7 @@ check:
 	cargo fmt --check
 	cargo clippy --all-targets --all
 	cargo test  # includes examples and doctests
-	cargo doc  # fails on broken links
+	cargo doc --no-deps  # fails on broken links
 	cargo-deny check
 	mandoc -W error < pimsync.1 > /dev/null
 	mandoc -W error < pimsync.conf.5 > /dev/null
