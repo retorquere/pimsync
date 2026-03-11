@@ -64,7 +64,7 @@ check:
 	cargo check --features jmap
 	cargo clippy --all-targets --features jmap
 	cargo test --workspace --features jmap
-	cargo doc --features jmap
+	cargo doc --no-deps --features jmap
 
 # Rebuild docs as changes occur.
 watch-docs: html
