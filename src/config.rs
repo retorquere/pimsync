@@ -514,9 +514,6 @@ fn parse_vdir(mut config: Scfg, item_kind: ItemKind, ro: bool) -> anyhow::Result
 }
 
 /// Hyper client wrapped with optional-auth and user-agent layers.
-///
-/// All type parameters are monomorphised: there is no runtime indirection beyond the
-/// final `Arc<dyn Storage>` that the caller produces from the resulting client.
 type HttpClient<C> =
     SetRequestHeader<SetRequestHeader<HyperClient<C, String>, Option<HeaderValue>>, HeaderValue>;
 
