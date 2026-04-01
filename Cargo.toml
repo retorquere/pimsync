@@ -45,6 +45,3 @@ vstorage = { version = "0.7.0", default-features = false, path = "./vstorage" }
 
 [dev-dependencies]
 rand = "0.9"
-
-[patch.crates-io]
-hashify = { git = "https://github.com/WhyNotHugo/hashify/", branch = "reproducible-builds" }

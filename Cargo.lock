@@ -307,7 +307,7 @@ dependencies = [
  "bytes",
  "domain-macros",
  "futures-util",
- "hashbrown",
+ "hashbrown 0.14.5",
  "log",
  "moka",
  "octseq",
@@ -488,10 +488,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "hashbrown"
+version = "0.16.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "841d1cc9bed7f9236f321df977030373f4a4163ae1a7dbfe1a51a2c1a51d9100"
+
+[[package]]
 name = "hashify"
-version = "0.2.7"
-source = "git+https://github.com/WhyNotHugo/hashify/?branch=reproducible-builds#b7876499e196073236ac32ae58c9e23cd0d7f22f"
+version = "0.2.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9aef90ca205eea9394af4f58f4db837082ab1499e9866fec8ddd929999784dfa"
 dependencies = [
+ "indexmap",
  "proc-macro2",
  "quote",
  "syn",
@@ -623,6 +631,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f31827a206f56af32e590ba56d5d2d085f558508192593743f16b2306495269f"
 dependencies = [
  "cc",
+]
+
+[[package]]
+name = "indexmap"
+version = "2.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7714e70437a7dc3ac8eb7e6f8df75fd8eb422675fc7678aff7364301092b1017"
+dependencies = [
+ "equivalent",
+ "hashbrown 0.16.1",
 ]
 
 [[package]]
