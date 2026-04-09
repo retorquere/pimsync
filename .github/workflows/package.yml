@@ -10,7 +10,7 @@ jobs:
   build-and-pkg:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           submodules: recursive
           fetch-depth: 0
@@ -28,13 +28,15 @@ jobs:
           sudo apt install nfpm
 
       - name: Generate .deb
+        id: package
         run: |
           VERSION="0.0.1-$(git rev-parse --short HEAD)"
+          echo "PKG_VERSION=$VERSION" >> $GITHUB_OUTPUT
           export VERSION
           nfpm package --config nfpm.yaml --target ./pimsync.deb
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: pimsync-debian-pkg
+          name: "pimsync-${{ steps.package.outputs.PKG_VERSION }}"
           path: ./pimsync.deb
