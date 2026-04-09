@@ -24,6 +24,11 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: "pimsync-build"
+
       - name: Build Binary
         run: cargo build --release -p pimsync
 
