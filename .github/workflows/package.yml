@@ -1,0 +1,35 @@
+name: Build Debian Package
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build-and-pkg:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build Binary
+        run: cargo build --release -p pimsync
+
+      - name: Setup nFPM
+        uses: goreleaser/nfpm-action@v2
+
+      - name: Generate .deb
+        run: |
+          VERSION="0.0.1-$(git rev-parse --short HEAD)"
+          export VERSION
+          nfpm package --config nfpm.yaml --target ./pimsync.deb
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pimsync-debian-pkg
+          path: ./pimsync.deb
