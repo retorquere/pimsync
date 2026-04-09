@@ -1,0 +1,38 @@
+image: debian/stable
+packages:
+  - curl
+  - git
+  - make
+  - gcc
+  - pkg-config
+  - libssl-dev
+  - golang-go
+  - scdoc
+  - mandoc
+sources:
+  - https://git.sr.ht/~whynothugo/pimsync
+tasks:
+  - prepare: |
+      go install github.com/goreleaser/nfpm/v2/cmd/nfpm@latest
+      curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+      echo 'export PATH="$PATH:$HOME/.cargo/bin:$HOME/go/bin"' >> ~/.buildenv
+  - build: |
+      cd pimsync
+      git submodule update --init --recursive
+      source ~/.buildenv
+      cargo fetch --locked
+      cargo build --release -p pimsync
+  - check: |
+      cd pimsync
+      source ~/.buildenv
+      make check
+  - package: |
+      cd pimsync
+      source ~/.buildenv
+      VERSION=$(git describe --tags --always | sed 's/^v//')
+      export VERSION
+      nfpm package --config nfpm.yaml --target "./pimsync-${VERSION}.deb"
+  - verify: |
+      cd pimsync
+      file ./target/release/pimsync
+      ls -lh *.deb
