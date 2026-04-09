@@ -20,8 +20,11 @@ jobs:
       - name: Build Binary
         run: cargo build --release -p pimsync
 
-      - name: Setup nFPM
-        uses: goreleaser/nfpm-action@v2
+      - name: install nfpm
+        run: |
+          echo 'deb [trusted=yes] https://repo.goreleaser.com/apt/ /' | sudo tee /etc/apt/sources.list.d/goreleaser.list
+          sudo apt update
+          sudo apt install nfpm
 
       - name: Generate .deb
         run: |
