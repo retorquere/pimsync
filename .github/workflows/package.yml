@@ -10,7 +10,7 @@ jobs:
   build-and-pkg:
     runs-on: ubuntu-latest
     steps:
-6666  - uses: actions/checkout@v7
+      - uses: actions/checkout@v6
         with:
           submodules: recursive
           fetch-depth: 0
