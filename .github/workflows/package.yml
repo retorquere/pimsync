@@ -30,7 +30,7 @@ jobs:
       - name: Generate .deb
         id: package
         run: |
-          VERSION="0.0.1-$(git rev-parse --short HEAD)"
+          VERSION=$(git describe --tags --always | sed 's/^v//')
           echo "PKG_VERSION=$VERSION" >> $GITHUB_OUTPUT
           export VERSION
           nfpm package --config nfpm.yaml --target ./pimsync.deb
@@ -38,5 +38,5 @@ jobs:
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: "pimsync-${{ steps.package.outputs.PKG_VERSION }}"
+          name: "pimsync-${{ steps.package.outputs.PKG_VERSION }}.deb"
           path: ./pimsync.deb
