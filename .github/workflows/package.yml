@@ -10,7 +10,7 @@ jobs:
   build-and-pkg:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+6666  - uses: actions/checkout@v7
         with:
           submodules: recursive
           fetch-depth: 0
@@ -36,7 +36,7 @@ jobs:
           nfpm package --config nfpm.yaml --target ./pimsync.deb
 
       - name: Upload Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: "pimsync-${{ steps.package.outputs.PKG_VERSION }}.deb"
           path: ./pimsync.deb
