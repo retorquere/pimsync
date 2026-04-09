@@ -5,6 +5,12 @@ on:
       - '**'
       - '!main'
       - '!master'
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: 'Push the deb to Gemfury?'
+        type: boolean
+        default: false
 
 jobs:
   build-and-pkg:
@@ -33,10 +39,17 @@ jobs:
           VERSION=$(git describe --tags --always | sed 's/^v//')
           echo "PKG_VERSION=$VERSION" >> $GITHUB_OUTPUT
           export VERSION
-          nfpm package --config nfpm.yaml --target ./pimsync.deb
+          nfpm package --config nfpm.yaml --target ./pimsync-$VERSION.deb
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v7
         with:
           name: "pimsync-${{ steps.package.outputs.PKG_VERSION }}.deb"
-          path: ./pimsync.deb
+          path: "./pimsync-${{ steps.package.outputs.PKG_VERSION }}.deb"
+
+      - name: Push to Gemfury
+        if: github.event.inputs.publish == 'true'
+        env:
+          FURY_TOKEN: ${{ secrets.FURY_TOKEN }}
+        run: |
+          curl -F package=@./pimsync-${{ steps.package.outputs.PKG_VERSION }}.deb https://$FURY_TOKEN@push.fury.io/retorquere/
